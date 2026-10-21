@@ -1,0 +1,267 @@
+[
+  {
+    "id": "u_ink_scribble",
+    "name": "Ink & Scribble",
+    "tagline": "handwriting wipes in, key words get a hand-drawn underline",
+    "wordsPerLine": 3,
+    "colors": [
+      "#FFFFFF",
+      "#FFD23B"
+    ]
+  },
+  {
+    "id": "u_letter_wave",
+    "name": "Rainbow Wave",
+    "tagline": "every letter bobs on a wave and cycles through colours",
+    "wordsPerLine": 3,
+    "colors": [
+      "#FF5E9C",
+      "#FFD23B",
+      "#3BD6FF"
+    ]
+  },
+  {
+    "id": "u_ransom_cutout",
+    "name": "Ransom Cut-outs",
+    "tagline": "every word is a paper cut-out tile with its own font, colour and tilt",
+    "wordsPerLine": 3,
+    "colors": [
+      "#FFFFFF",
+      "#FF6B9A",
+      "#59D6FF"
+    ]
+  },
+  {
+    "id": "u_news_bar",
+    "name": "Breaking News Bar",
+    "tagline": "TV news lower-third with a red LIVE tag that slides in",
+    "wordsPerLine": 6,
+    "colors": [
+      "#D90429",
+      "#FFFFFF"
+    ]
+  },
+  {
+    "id": "u_neon_sign",
+    "name": "Flickering Neon Sign",
+    "tagline": "glowing sign in a dark box that flickers like real neon",
+    "wordsPerLine": 3,
+    "colors": [
+      "#FF63D8",
+      "#7A2BFF"
+    ]
+  },
+  {
+    "id": "u_glitch_rgb",
+    "name": "RGB Glitch",
+    "tagline": "one huge word with red/cyan split that tears when it appears",
+    "wordsPerLine": 1,
+    "colors": [
+      "#FF0A45",
+      "#00F0FF"
+    ]
+  },
+  {
+    "id": "u_comic_burst",
+    "name": "Comic Burst",
+    "tagline": "each word explodes inside a pop-art starburst with halftone dots",
+    "wordsPerLine": 1,
+    "colors": [
+      "#FFE14D",
+      "#E4002B"
+    ]
+  },
+  {
+    "id": "u_typewriter",
+    "name": "Terminal Typewriter",
+    "tagline": "dark terminal bar, text types letter by letter with a blinking cursor",
+    "wordsPerLine": 5,
+    "colors": [
+      "#7CFFB2",
+      "#0B0E12"
+    ]
+  },
+  {
+    "id": "u_karaoke_fill",
+    "name": "Karaoke Sweep",
+    "tagline": "colour sweeps across each word as it is spoken, music note + progress bar",
+    "wordsPerLine": 5,
+    "colors": [
+      "#FF5E9C",
+      "#FFB84D"
+    ]
+  },
+  {
+    "id": "u_highlighter_box",
+    "name": "Pop Highlight Box",
+    "tagline": "the spoken word jumps into a bright rounded box",
+    "wordsPerLine": 4,
+    "colors": [
+      "#FFE14D",
+      "#111111"
+    ]
+  },
+  {
+    "id": "u_rubber_squash",
+    "name": "Rubber Squash",
+    "tagline": "one word at a time that squashes and stretches like rubber",
+    "wordsPerLine": 1,
+    "colors": [
+      "#FFE600",
+      "#111111"
+    ]
+  },
+  {
+    "id": "u_film_serif",
+    "name": "Cinema Serif",
+    "tagline": "letterbox bars, italic serif that fades from blur to sharp",
+    "wordsPerLine": 6,
+    "colors": [
+      "#F3E9DC",
+      "#000000"
+    ]
+  },
+  {
+    "id": "u_sticker_peel",
+    "name": "Sticker Words",
+    "tagline": "thick white sticker outlines, random tilt, slap-on entrance",
+    "wordsPerLine": 3,
+    "colors": [
+      "#FF4D6D",
+      "#3BD6FF",
+      "#FFD23B"
+    ]
+  },
+  {
+    "id": "u_chalkboard",
+    "name": "Chalkboard",
+    "tagline": "wooden-frame blackboard, rough chalk letters, yellow chalk key words",
+    "wordsPerLine": 4,
+    "colors": [
+      "#1F3A2E",
+      "#F4F7F2"
+    ]
+  },
+  {
+    "id": "u_arcade",
+    "name": "Retro Arcade",
+    "tagline": "pixel font, stepped 8-bit shadow, letters appear in chunky steps",
+    "wordsPerLine": 3,
+    "colors": [
+      "#FFE600",
+      "#FF2E88"
+    ]
+  },
+  {
+    "id": "u_mirror_floor",
+    "name": "Mirror Floor",
+    "tagline": "big word rises and reflects on a glossy floor",
+    "wordsPerLine": 2,
+    "colors": [
+      "#FFFFFF",
+      "#8E98B4"
+    ]
+  },
+  {
+    "id": "u_liquid_goo",
+    "name": "Gooey Liquid",
+    "tagline": "letters rise like blobs of liquid and melt together",
+    "wordsPerLine": 3,
+    "colors": [
+      "#FF3D81"
+    ]
+  },
+  {
+    "id": "u_spotlight",
+    "name": "Spotlight",
+    "tagline": "the video darkens and a spotlight reveals the words",
+    "wordsPerLine": 3,
+    "colors": [
+      "#FFF6DC",
+      "#000000"
+    ]
+  },
+  {
+    "id": "u_marker_swipe",
+    "name": "Highlighter Swipe",
+    "tagline": "a rough yellow marker swipes behind the key words",
+    "wordsPerLine": 4,
+    "colors": [
+      "#FFE14D",
+      "#111111"
+    ]
+  },
+  {
+    "id": "u_chat_bubble",
+    "name": "Chat Bubble",
+    "tagline": "typing dots, then the words appear inside a message bubble",
+    "wordsPerLine": 5,
+    "colors": [
+      "#0A84FF",
+      "#FFFFFF"
+    ]
+  },
+  {
+    "id": "u_fill_up",
+    "name": "Fill-Up Outline",
+    "tagline": "outlined word that fills with colour from the bottom as it is spoken",
+    "wordsPerLine": 2,
+    "colors": [
+      "#00E0FF",
+      "#7A5CFF"
+    ]
+  },
+  {
+    "id": "u_anaglyph_3d",
+    "name": "3D Anaglyph",
+    "tagline": "red/cyan 3D glasses effect with a slow perspective swing",
+    "wordsPerLine": 2,
+    "colors": [
+      "#FF2A2A",
+      "#2AF0FF"
+    ]
+  },
+  {
+    "id": "u_ribbon",
+    "name": "Unfurling Ribbon",
+    "tagline": "a red banner unrolls and the words appear in gold",
+    "wordsPerLine": 3,
+    "colors": [
+      "#B3122B",
+      "#FFE9A8"
+    ]
+  },
+  {
+    "id": "u_emoji_pop",
+    "name": "Emoji Reactor",
+    "tagline": "understands key words (money, home, fire\u2026) and pops a matching emoji",
+    "wordsPerLine": 4,
+    "colors": [
+      "#FFFFFF",
+      "#FFD23B"
+    ]
+  },
+  {
+    "id": "u_poster_cascade",
+    "name": "Poster Cascade",
+    "tagline": "words stack like a poster, each line a different colour sized to fill the width",
+    "wordsPerLine": 3,
+    "colors": [
+      "#FF4D6D",
+      "#FFD23B",
+      "#3BD6FF",
+      "#7CFF6B"
+    ]
+  },
+  {
+    "id": "u_glass_aurora",
+    "name": "Aurora Glass Pill",
+    "tagline": "frosted-glass pill with a rotating rainbow border",
+    "wordsPerLine": 4,
+    "colors": [
+      "#FF5EA8",
+      "#4DC8FF",
+      "#B65EFF"
+    ]
+  }
+]

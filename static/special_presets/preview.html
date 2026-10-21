@@ -1,0 +1,50 @@
+<!doctype html><meta charset="utf-8"><title>Special Presets preview</title>
+<style>
+body{margin:0;background:#12151c;color:#e8ecf4;font:13px Inter,Arial,sans-serif;padding:12px}
+h1{font-size:17px;margin:0 0 4px}p{margin:0 0 10px;color:#8b97ad}#g{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.c{background:#1b212d;border:1px solid #2b3446;border-radius:10px;overflow:hidden}
+.s{position:relative;aspect-ratio:9/14;overflow:hidden}
+.l{position:absolute;inset:0}.b{position:absolute;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;width:max-content;white-space:pre}
+.p{position:absolute;left:50%;top:6%;width:84%;transform:translateX(-50%)}.p svg{width:100%;display:block}
+.n{padding:6px 8px 7px;font-weight:700;font-size:12px}.t{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}.t i{font-style:normal;font-weight:600;font-size:10.5px;background:#252d3d;border-radius:99px;padding:1px 7px;color:#22d3c5}
+@keyframes sl{from{opacity:0;transform:translate(var(--x),var(--y))}to{opacity:1;transform:none}}
+.e{animation:sl .5s cubic-bezier(.2,.9,.25,1) both}
+</style><h1>Special Presets - live preview</h1><p>Each card loops caption 1 → caption 2. The grey head shows what is BEHIND the head and what stays IN FRONT. (Fonts load from Google Fonts when you are online.)</p><div id="g"></div>
+<script type="module">
+import {fxBackground} from './fx.js';
+const PERSON='<svg viewBox="0 0 200 300"><path d="M0 300 C2 230 40 205 100 200 C160 205 198 230 200 300Z" fill="#d9c7b0"/><rect x="82" y="150" width="36" height="55" rx="14" fill="#e3b48f"/><ellipse cx="100" cy="102" rx="46" ry="58" fill="#c9a36a"/><ellipse cx="100" cy="112" rx="37" ry="48" fill="#ecc3a1"/><path d="M60 98 C62 50 138 50 140 98 C128 78 72 78 60 98Z" fill="#c9a36a"/></svg>';
+const BGS=['radial-gradient(circle at 30% 25%,#ffcf8a 0,transparent 45%),radial-gradient(circle at 75% 70%,#4a8dff 0,transparent 50%),linear-gradient(160deg,#6b4a3a,#243a52)','linear-gradient(180deg,#2b1055,#7597de 60%,#f6a56b)','linear-gradient(160deg,#2f6b3a,#9ed39a 55%,#d8e8c8)','linear-gradient(120deg,#e8e2d8,#bdb3a3 50%,#6f6657)'];
+const DIR={'slide-left':['-1.3em','0'],'slide-right':['1.3em','0'],'slide-up':['0','1em'],'slide-down':['0','-1em']};
+function css(r,sc){const c={fontFamily:`"${r.font}",sans-serif`,fontSize:r.size*sc+'px',fontWeight:r.weight,fontStyle:r.italic?'italic':'normal',letterSpacing:r.track+'em',lineHeight:'1',display:'inline-block',whiteSpace:'pre'};
+ const f=r.fill,t=f&&f.type; if(t&&!['solid','gradient'].includes(t)){let s=(f.colors.length?f.colors:[r.color]).slice();if(t==='chrome')while(s.length<4)s.push(s[s.length-1]);Object.assign(c,fxBackground({kind:t,stops:s,hi:f.hi,lo:f.lo,speed:f.speed},30));}
+ else if(t==='gradient'&&f.colors.length>1)Object.assign(c,{backgroundImage:`linear-gradient(${f.angle}deg,${f.colors.join(',')})`,WebkitBackgroundClip:'text',backgroundClip:'text',color:'transparent',WebkitTextFillColor:'transparent'});else c.color=r.color;
+ const sh=[];if(r.glow>0)sh.push(`drop-shadow(0 0 ${r.glow*sc*.8}px ${r.glowColor})`,`drop-shadow(0 0 ${r.glow*sc*1.8}px ${r.glowColor})`);if(r.shadow>0)sh.push(`drop-shadow(0 ${r.shadow*sc}px 0 ${r.shadowColor})`);
+ if(r.outline>0){const o=r.outline*sc;for(const[x,y]of[[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]])sh.push(`drop-shadow(${x*o}px ${y*o}px 0 ${r.outlineColor})`)}if(sh.length)c.filter=sh.join(' ');
+ c.translate=`${r.dx}% ${r.dy}%`;c.rotate=r.rotate+'deg';c.opacity=r.opacity;return c}
+const list=await (await fetch('./special_presets.json')).json();
+const fonts=[...new Set(list.flatMap(p=>Object.values(p.roles).map(r=>r.font)))];
+const l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?'+fonts.map(f=>`family=${f.replace(/ /g,'+')}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700`).join('&')+'&display=swap';document.head.appendChild(l);
+const CAPS=[{small:['Some','homes','get'],big:'seen'},{small:['A','few','get'],big:'remembered'}];
+list.forEach((p,pi)=>{
+ const c=document.createElement('div');c.className='c';const s=document.createElement('div');s.className='s';s.style.background=BGS[pi%BGS.length];
+ const lb=document.createElement('div'),lf=document.createElement('div');lb.className=lf.className='l';const person=document.createElement('div');person.className='p';person.innerHTML=PERSON;s.append(lb,person,lf);c.appendChild(s);
+ const beh=Object.values(p.roles).some(r=>r.layer==='behind'),alt=!!p.roles.accent2,slides=[...new Set(Object.values(p.roles).map(r=>r.enter).filter(e=>e&&e!=='none'))];
+ c.insertAdjacentHTML('beforeend',`<div class="n">${p.name.replace('Duo · ','')}<div class="t">${beh?'<i>behind head</i>':'<i>in front</i>'}${alt?'<i>2 looks</i>':''}${slides.map(x=>`<i>${x}</i>`).join('')}</div></div>`);
+ document.getElementById('g').appendChild(c);
+ let n=0;
+ function draw(){
+  lb.innerHTML=lf.innerHTML='';const sc=s.clientWidth/1080,cap=CAPS[n%2],up=t=>p.uppercase?t.toUpperCase():t;
+  const posY=p.posCycle&&p.posCycle.length?p.posCycle[n%p.posCycle.length]:p.posY;
+  for(const [lay,host] of [['behind',lb],['front',lf]]){
+   const blk=document.createElement('div');blk.className='b';blk.style.left=p.posX*100+'%';blk.style.top=posY*100+'%';blk.style.mixBlendMode=p.blend;
+   const mk=(txt,r,delay)=>{const sp=document.createElement('span');sp.textContent=up(txt);Object.assign(sp.style,css(r,sc));if(r.layer!==lay)sp.style.visibility='hidden';
+     else if(r.enter&&r.enter!=='none'){const d=DIR[r.enter];sp.classList.add('e');sp.style.setProperty('--x',d[0]);sp.style.setProperty('--y',d[1]);sp.style.animationDelay=delay+'s'}return sp};
+   if(p.mode==='emphasis'){const bigRole=(p.roles.accent2&&n%2)?p.roles.accent2:p.roles.accent;
+     const a=document.createElement('div');cap.small.forEach((w,i)=>{const sp=mk(w,p.roles.base,i*.12);a.appendChild(sp);a.appendChild(document.createTextNode(' '))});
+     const b=document.createElement('div');b.style.marginTop=(-(1-p.lineGap)*bigRole.size*sc*.9)+'px';b.appendChild(mk(cap.big,bigRole,.55));blk.append(a,b);}
+   else{const a=document.createElement('div');[['Make',p.roles.base],['it',p.roles.base],['pop',p.roles.active]].forEach(([w,r],i)=>{const sp=document.createElement('span');sp.textContent=up(w);Object.assign(sp.style,css(r,sc));if(p.roles.base.layer!==lay)sp.style.visibility='hidden';else if(r.enter&&r.enter!=='none'){const d=DIR[r.enter];sp.classList.add('e');sp.style.setProperty('--x',d[0]);sp.style.setProperty('--y',d[1]);sp.style.animationDelay=i*.14+'s'}a.appendChild(sp);a.appendChild(document.createTextNode(' '))});blk.appendChild(a)}
+   host.appendChild(blk)}
+  n++;}
+ draw();setInterval(draw,3800);
+});
+</script>

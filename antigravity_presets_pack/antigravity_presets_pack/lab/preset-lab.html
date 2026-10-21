@@ -1,0 +1,30 @@
+<!doctype html><meta charset="utf-8"><title>Preset lab (no Remotion needed)</title>
+<style>
+@font-face{font-family:Poppins;font-weight:800;src:url(Poppins-Bold.ttf)}
+@font-face{font-family:Poppins;font-weight:500;src:url(Poppins-Medium.ttf)}
+@font-face{font-family:Poppins;font-weight:300;font-style:italic;src:url(Poppins-LightItalic.ttf)}
+body{margin:0;background:#777;padding:16px;font-family:Poppins}#root{display:flex;gap:16px}
+.f{position:relative;width:360px;height:640px;background:linear-gradient(160deg,#cfc7bd,#6b625a);overflow:hidden;flex:none}
+.f small{position:absolute;left:6px;top:4px;color:#fff;font:11px sans-serif;z-index:9}
+.cap{position:absolute;left:0;right:0;text-align:center;transform:translateY(-50%)}
+</style>
+<div id="root"></div>
+<script type="module">
+import {fxBackground, FX} from './js/fx.js';
+const root=document.getElementById('root');
+const W=360, frame=+(new URLSearchParams(location.search).get('f')||20);
+function frameBox(title){const d=document.createElement('div');d.className='f';d.innerHTML=`<small>${title}</small>`;root.appendChild(d);return d}
+function word(txt,css,box,top){const c=document.createElement('div');c.className='cap';c.style.top=top;const s=document.createElement('span');s.textContent=txt;Object.assign(s.style,{display:'inline-block',whiteSpace:'nowrap',lineHeight:1.05},css);c.appendChild(s);box.appendChild(c);return s}
+// 1 teal
+let b=frameBox('teal_gloss');
+word('this',{fontFamily:'Poppins',fontStyle:'italic',fontWeight:300,fontSize:'26px',color:'#fff'},b,'30%');
+word('Gorgeous',{fontFamily:'Poppins',fontWeight:800,fontSize:'66px',letterSpacing:'-0.02em',filter:'drop-shadow(0 3px 0 #04323d)',...fxBackground(FX.teal,frame)},b,'38%');
+// 2 magenta
+b=frameBox('neon_duo');
+word('SoTonightIs',{fontFamily:'Poppins',fontWeight:800,fontSize:'44px',letterSpacing:'-0.04em',backgroundImage:'linear-gradient(90deg,#C21E9E,#7A1FB0)',WebkitBackgroundClip:'text',color:'transparent',WebkitTextFillColor:'transparent',filter:'drop-shadow(0 0 8px #FF6EC7) drop-shadow(0 0 18px #FF6EC7)'},b,'40%');
+word('Going To',{fontFamily:'cursive',fontSize:'54px',color:'#fff',filter:'drop-shadow(0 0 8px #FF9BE0) drop-shadow(0 0 16px #FF9BE0)'},b,'52%');
+// 3 orange
+b=frameBox('orange_pop');
+word('Real',{fontFamily:'Poppins',fontWeight:800,fontSize:'84px',letterSpacing:'-0.02em',filter:'drop-shadow(0 4px 0 #7a0a0a)',...fxBackground(FX.orange,frame)},b,'34%');
+word('Captions',{fontFamily:'Poppins',fontWeight:800,fontSize:'72px',letterSpacing:'-0.02em',filter:'drop-shadow(0 4px 0 #7a0a0a)',...fxBackground(FX.orange,frame)},b,'62%');
+</script>

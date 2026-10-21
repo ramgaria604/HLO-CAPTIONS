@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>Preset gallery (lab, no Remotion)</title>
+<style>
+@font-face{font-family:Poppins;font-weight:800;src:url(Poppins-Bold.ttf)}
+@font-face{font-family:Poppins;font-weight:500;src:url(Poppins-Medium.ttf)}
+@font-face{font-family:Poppins;font-weight:300;font-style:italic;src:url(Poppins-LightItalic.ttf)}
+body{margin:0;background:#222;padding:10px;font-family:Poppins,sans-serif;color:#ccc}
+#g{display:grid;grid-template-columns:repeat(9,1fr);gap:8px}
+.c{position:relative;aspect-ratio:9/13;overflow:hidden;border-radius:6px;
+ background:radial-gradient(circle at 30% 25%,#ffcf8a 0,transparent 45%),radial-gradient(circle at 75% 70%,#4a8dff 0,transparent 50%),linear-gradient(160deg,#6b4a3a,#243a52)}
+.c small{position:absolute;left:4px;bottom:2px;font:9px sans-serif;color:#fff;background:#0009;padding:0 3px;border-radius:3px;z-index:5}
+.cap{position:absolute;left:0;right:0;text-align:center;transform:translateY(-50%);white-space:nowrap}
+</style><div id="g"></div>
+<script type="module">
+import {fxBackground} from './js/fx.js';
+import {EXTRA} from './js/PresetsExtra.js';
+const frame=+(new URLSearchParams(location.search).get('f')||25), BASE=190, g=document.getElementById('g');
+function css(r,em){const c={display:'inline-block',lineHeight:1.05,fontSize:em+'px',fontFamily:`"${r.font}",sans-serif`,fontWeight:r.weight,fontStyle:r.italic?'italic':'normal',letterSpacing:(r.track??0)+'em',textTransform:r.upper?'uppercase':r.lower?'lowercase':'none'};
+ const solid=r.fill.colors.length===1&&!r.fx;
+ if(solid)c.color=r.fill.colors[0]; else if(r.fx)Object.assign(c,fxBackground(r.fx,frame)); else {c.backgroundImage=`linear-gradient(${r.fill.angle??90}deg,${r.fill.colors.join(',')})`;c.WebkitBackgroundClip='text';c.color='transparent';c.WebkitTextFillColor='transparent';}
+ const f=[];if(r.glow)f.push(`drop-shadow(0 0 ${r.glow.blur*em}px ${r.glow.color})`,`drop-shadow(0 0 ${r.glow.blur*em*2}px ${r.glow.color})`);
+ if(r.shadow)f.push(`drop-shadow(${(r.shadow.dx??0)*em}px ${r.shadow.dy*em}px ${(r.shadow.blur??0)*em}px ${r.shadow.color})`);
+ if(r.extrude)for(let i=0;i<r.extrude.n;i++)f.push(`drop-shadow(${r.extrude.dx*em/r.extrude.n*2}px ${r.extrude.dy*em/r.extrude.n*2}px 0 ${r.extrude.color})`);
+ if(f.length)c.filter=f.join(' ');return c}
+function line(txt,r,top,p){const d=document.createElement('div');d.className='cap';d.style.top=top;const s=document.createElement('span');s.textContent=txt;const em=Math.min(r.size*BASE*1.0,(BASE*.92)/(txt.length*(r.upper?.7:.58)));Object.assign(s.style,css(r,em));d.appendChild(s);return d}
+for(const p of Object.values(EXTRA)){const c=document.createElement('div');c.className='c';c.insertAdjacentHTML('beforeend',`<small>${p.name}</small>`);
+ const wrap=document.createElement('div');wrap.style.cssText=`position:absolute;inset:0;mix-blend-mode:${p.blend||'normal'}`;
+ const two=p.small!==p.big&&p.keyWords>0&&p.layout!=='line';
+ if(two){wrap.appendChild(line('make it',p.small,'38%',p));wrap.appendChild(line('POP',p.big,'50%',p));}
+ else wrap.appendChild(line('make it pop',p.big,'45%',p));
+ if(p.pill){wrap.firstChild.firstChild.style.background=p.pill;wrap.firstChild.firstChild.style.padding='4px 8px'}
+ c.appendChild(wrap);g.appendChild(c)}
+</script>

@@ -1,0 +1,32 @@
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.fonts_cache.json
+
+# Windows binaries (Render uses Linux)
+*.exe
+ffmpeg.exe
+ffprobe.exe
+cloudflared.exe
+
+# Video & large temp files
+work/
+ref_video.mp4
+test_out.png
+test_ref.wav
+*.log
+startup_err.log
+cloudflared.log
+tunnel_url.txt
+
+# Node modules & vendor bundles
+node_modules/
+static/vendor/
+src_tscaps/
+

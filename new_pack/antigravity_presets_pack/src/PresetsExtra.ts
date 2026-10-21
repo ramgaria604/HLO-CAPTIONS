@@ -1,0 +1,59 @@
+/**
+ * PresetsExtra.ts - 34 more presets (multi-colour fills, animated gradients, chrome, holographic,
+ * and presets that BLEND into the video with mix-blend-mode). They are merged into PRESETS automatically.
+ * Add your own: copy any block, change id/name/colours. Sizes are fractions of min(width,height).
+ */
+import type {Preset, Role} from './CaptionPresets';
+import type {Fx} from './fx';
+
+const W = {colors: ['#FFFFFF']};
+const R = (o: Partial<Role> & {font: string}): Role => ({weight: 800, size: 0.1, fill: W, ...o} as Role);
+const P = (id: string, name: string, o: Partial<Preset> & {big: Role; small?: Role}): Preset =>
+  ({id, name, layout: 'line', anim: 'pop', reveal: 'cumulative', pos: 0.66, wordsPerCaption: 3, keyWords: 0, small: o.big, ...o} as Preset);
+const flow = (stops: string[], hi = '#FFFFFF', speed = 1): Fx => ({kind: 'flow', stops, hi, lo: '#000000', speed});
+const chrome = (stops: string[], hi = '#FFFFFF'): Fx => ({kind: 'chrome', stops, hi, lo: '#000000', speed: 1});
+const holo = (): Fx => ({kind: 'holo', stops: [], hi: '#FFFFFF', lo: '#000000', speed: 1});
+const sh = (c: string, dy = 0.03, blur = 0) => ({dy, blur, color: c});
+const ex = (c: string, n = 6, dx = 0.01, dy = 0.014) => ({n, dx, dy, color: c});
+const upperSmall = (o: Partial<Role> = {}) => R({font: 'Inter', weight: 500, size: 0.04, upper: true, track: 0.3, shadow: sh('rgba(0,0,0,.6)', 0.05, 0.1), ...o} as any);
+
+export const EXTRA: Record<string, Preset> = Object.fromEntries([
+  // ---------- animated multi-colour gradients
+  P('aurora_flow', 'Aurora Flow', {anim: 'rise', pos: 0.68, big: R({font: 'Poppins', size: 0.085, fill: {colors: ['#00F5A0', '#7B61FF']}, fx: flow(['#00F5A0', '#00D9F5', '#7B61FF', '#FF4ECD']), glow: {color: '#00D9F5', blur: 0.025}, shadow: sh('rgba(0,0,0,.35)', 0.03, 0.05)})}),
+  P('sunset_blaze', 'Sunset Blaze', {layout: 'stack', anim: 'bounce', pos: 0.55, keyWords: 1, big: R({font: 'Archivo Black', weight: 400, size: 0.14, fill: {colors: ['#FFD452', '#FF8A3D', '#FF3D7F', '#7A2BFF'], angle: 180}, shadow: sh('#2A0B4D', 0.03)}), small: upperSmall()}),
+  P('holo_chrome', 'Holo Chrome', {anim: 'flip', big: R({font: 'Montserrat', size: 0.08, fill: {colors: ['#FF5EDF', '#5EC8FF']}, fx: holo(), shadow: sh('rgba(0,0,0,.45)', 0.035, 0.06)})}),
+  P('liquid_gold', 'Liquid Gold', {layout: 'stack', anim: 'slide', pos: 0.6, keyWords: 1, big: R({font: 'Playfair Display', weight: 700, italic: true, size: 0.13, fill: {colors: ['#F6D77A', '#9A6A12']}, fx: chrome(['#FFF3B0', '#E8B93C', '#9A6A12', '#F6D77A']), shadow: sh('rgba(0,0,0,.55)', 0.03, 0.05)}), small: upperSmall()}),
+  P('candy_pop', 'Candy Pop', {layout: 'stack', anim: 'bounce', pos: 0.55, keyWords: 1, big: R({font: 'Bungee', weight: 400, size: 0.12, fill: {colors: ['#FF5FA2', '#4DE3FF']}, fx: flow(['#FF5FA2', '#FFD93D', '#4DE3FF', '#B26BFF']), extrude: ex('#3A1470')}), small: R({font: 'Bungee', weight: 400, size: 0.05, shadow: sh('#3A1470', 0.06)})}),
+  P('ocean_deep', 'Ocean Deep', {layout: 'stack', pos: 0.45, keyWords: 1, big: R({font: 'Poppins', size: 0.15, fill: {colors: ['#4FD1FF', '#0B3C8C']}, fx: {kind: 'liquid', stops: ['#4FD1FF', '#1E7FD8', '#0B3C8C', '#1E7FD8', '#4FD1FF'], hi: '#9BEAFF', lo: '#06255E', speed: 1, seed: 11}, shadow: sh('#041B45')}), small: R({font: 'Inter', weight: 300, italic: true, size: 0.06})}),
+  P('lava_grunge', 'Lava Grunge', {layout: 'stack', anim: 'bounce', pos: 0.55, keyWords: 1, big: R({font: 'Anton', weight: 400, size: 0.17, upper: true, fill: {colors: ['#FFE259', '#E01E1E']}, fx: {kind: 'grunge', stops: ['#FFE259', '#FF8A00', '#E01E1E', '#7A0A0A'], hi: '#FFF0A0', lo: '#4A0505', speed: 1, seed: 6}, shadow: sh('#3A0606')}), small: R({font: 'Anton', weight: 400, size: 0.07, upper: true, shadow: sh('rgba(0,0,0,.7)', 0.05, 0.08)})}),
+  P('cyber_neon', 'Cyber Neon', {anim: 'glitch', big: R({font: 'Rubik', weight: 900, size: 0.08, upper: true, fill: {colors: ['#00F0FF', '#FF2DAA']}, fx: flow(['#00F0FF', '#7A5CFF', '#FF2DAA'], '#FFFFFF', 1.4), glow: {color: '#00F0FF', blur: 0.045}})}),
+  P('vapor_wave', 'Vaporwave', {big: R({font: 'Righteous', weight: 400, size: 0.09, fill: {colors: ['#FF71CE', '#01CDFE']}, fx: flow(['#FF71CE', '#B967FF', '#01CDFE', '#05FFA1']), extrude: ex('#2B1055', 5)})}),
+  // ---------- blend into the video (mix-blend-mode)
+  P('forest_mist', 'Forest Mist (screen)', {layout: 'stack', anim: 'fade', pos: 0.6, keyWords: 1, blend: 'screen', big: R({font: 'Playfair Display', weight: 700, italic: true, size: 0.12, fill: {colors: ['#D9F99D', '#4ADE80', '#0F766E'], angle: 160}}), small: upperSmall()}),
+  P('overlay_white', 'Overlay White', {anim: 'fade', pos: 0.7, blend: 'overlay', big: R({font: 'Montserrat', size: 0.1, upper: true, fill: {colors: ['#FFFFFF', '#FFD6F6']}})}),
+  P('difference_invert', 'Invert (difference)', {pos: 0.5, blend: 'difference', big: R({font: 'Anton', weight: 400, size: 0.13, upper: true})}),
+  P('hardlight_duo', 'Hard-light Duo', {layout: 'stack', pos: 0.55, keyWords: 1, blend: 'hard-light', big: R({font: 'Poppins', weight: 900, size: 0.15, fill: {colors: ['#FF3CAC', '#784BA0', '#2B86C5'], angle: 120}}), small: R({font: 'Inter', weight: 500, size: 0.05, lower: true})}),
+  P('screen_glow', 'Screen Glow', {anim: 'rise', pos: 0.68, blend: 'screen', big: R({font: 'Poppins', size: 0.085, fill: {colors: ['#FFFFFF', '#B5F5FF', '#FFB5F0'], angle: 100}, glow: {color: '#FFFFFF', blur: 0.05}})}),
+  P('multiply_ink', 'Ink (multiply, light videos)', {blend: 'multiply', big: R({font: 'Permanent Marker', weight: 400, size: 0.09, fill: {colors: ['#1B1464', '#6A1B9A', '#B71C1C'], angle: 100}})}),
+  P('glass_frost', 'Frosted Glass', {anim: 'fade', pos: 0.7, big: R({font: 'Inter', weight: 900, size: 0.09, fill: {colors: ['rgba(255,255,255,.96)', 'rgba(255,255,255,.3)'], angle: 180}, shadow: sh('rgba(0,0,0,.35)', 0.03, 0.07)})}),
+  // ---------- colourful & styled
+  P('pastel_dream', 'Pastel Dream', {layout: 'stack', anim: 'slide', pos: 0.6, keyWords: 1, big: R({font: 'Pacifico', weight: 400, size: 0.12, fill: {colors: ['#FFB6E1', '#C9B6FF', '#B6F5E0'], angle: 100}, shadow: sh('rgba(80,40,120,.35)', 0.03, 0.05)}), small: R({font: 'Inter', weight: 500, size: 0.045, shadow: sh('rgba(80,40,120,.45)', 0.04, 0.08)})}),
+  P('sticker_pop', 'Sticker Pop', {anim: 'bounce', big: R({font: 'Poppins', weight: 900, size: 0.085, upper: true, fill: {colors: ['#FFE600', '#FF9100'], angle: 180}, extrude: ex('#111111', 6, 0.012, 0.016)})}),
+  P('rainbow_3d', 'Rainbow 3D', {anim: 'bounce', big: R({font: 'Bungee', weight: 400, size: 0.09, fill: {colors: ['#FF4D4D', '#4DB8FF']}, fx: flow(['#FF4D4D', '#FFB84D', '#FFF04D', '#4DFF88', '#4DB8FF', '#B84DFF'], '#FFFFFF', 1.2), extrude: ex('#1A1030')})}),
+  P('emerald_gold', 'Emerald & Gold', {layout: 'stack', anim: 'slide', pos: 0.6, keyWords: 1, big: R({font: 'Playfair Display', weight: 700, italic: true, size: 0.13, fill: {colors: ['#6EE7B7', '#10B981', '#D4AF37', '#F9E79F'], angle: 100}, shadow: sh('rgba(0,0,0,.5)', 0.03, 0.05)}), small: upperSmall()}),
+  P('rose_gold', 'Rose Gold Script', {layout: 'stack', pos: 0.58, keyWords: 1, big: R({font: 'Great Vibes', weight: 400, size: 0.2, fill: {colors: ['#F4B6A6', '#B76E79']}, fx: chrome(['#FFE3D8', '#F4B6A6', '#B76E79', '#E8A598']), glow: {color: '#FFC2B0', blur: 0.03}}), small: upperSmall({size: 0.045})}),
+  P('fire_ice', 'Fire & Ice', {big: R({font: 'Anton', weight: 400, size: 0.11, upper: true, fill: {colors: ['#FF3D00', '#FFB300', '#FFFFFF', '#00B0FF', '#2979FF'], angle: 90}, shadow: sh('rgba(0,0,0,.55)', 0.04, 0.06)})}),
+  P('neon_tube', 'Neon Tube', {anim: 'fade', big: R({font: 'Bebas Neue', weight: 400, size: 0.11, upper: true, fill: {colors: ['#FFFFFF', '#BFE3FF'], angle: 180}, glow: {color: '#2D7BFF', blur: 0.06}})}),
+  P('graffiti', 'Graffiti', {layout: 'scatter', anim: 'bounce', pos: 0.52, keyWords: 1, big: R({font: 'Permanent Marker', weight: 400, size: 0.13, fill: {colors: ['#FF3B6B', '#3B8DFF']}, fx: flow(['#FF3B6B', '#FFD23B', '#3BFFB0', '#3B8DFF']), shadow: sh('#111111', 0.04)}), small: R({font: 'Caveat', weight: 700, size: 0.08})}),
+  P('retro_tv', 'Retro TV', {anim: 'type', pos: 0.78, wordsPerCaption: 4, pill: 'rgba(0,0,0,.72)', big: R({font: 'Space Mono', weight: 700, size: 0.05, fill: {colors: ['#3CFF7A', '#00E5FF'], angle: 90}, glow: {color: '#3CFF7A', blur: 0.03}})}),
+  P('sports_fire', 'Sports Fire', {anim: 'bounce', big: R({font: 'Oswald', weight: 700, size: 0.095, upper: true, fill: {colors: ['#FFF200', '#FF1E1E']}, fx: flow(['#FFF200', '#FF8A00', '#FF1E1E'], '#FFFFFF', 1.3), extrude: ex('#4A0A0A', 4)})}),
+  P('golden_hour', 'Golden Hour', {layout: 'stack', anim: 'slide', pos: 0.6, keyWords: 1, big: R({font: 'Lobster', weight: 400, size: 0.13, fill: {colors: ['#FFF1C1', '#FFC875', '#FF8F6B', '#E85D9F'], angle: 160}, glow: {color: '#FF9E6B', blur: 0.04}}), small: R({font: 'Inter', weight: 300, italic: true, size: 0.055, shadow: sh('rgba(0,0,0,.6)', 0.05, 0.08)})}),
+  P('galaxy', 'Galaxy', {layout: 'scatter', pos: 0.5, keyWords: 1, big: R({font: 'Poppins', size: 0.14, fill: {colors: ['#7F00FF', '#00C6FF']}, fx: flow(['#7F00FF', '#E100FF', '#00C6FF', '#7F00FF'], '#FFFFFF', 0.8), glow: {color: '#B35CFF', blur: 0.05}}), small: R({font: 'Inter', weight: 500, size: 0.05, lower: true})}),
+  P('mint_fresh', 'Mint Fresh', {anim: 'rise', big: R({font: 'Rubik', weight: 900, size: 0.085, fill: {colors: ['#5CFFC8', '#6E8BFF']}, fx: flow(['#5CFFC8', '#4DD0FF', '#6E8BFF']), shadow: sh('#0B2A4A', 0.04)})}),
+  P('blood_moon', 'Blood Moon', {layout: 'stack', anim: 'bounce', pos: 0.52, keyWords: 1, big: R({font: 'Bebas Neue', weight: 400, size: 0.19, upper: true, fill: {colors: ['#FF9A8B', '#E5262F', '#7A0B1B'], angle: 180}, glow: {color: '#FF2A3A', blur: 0.05}}), small: R({font: 'Bebas Neue', weight: 400, size: 0.07, upper: true, track: 0.1})}),
+  P('rainbow_wipe', 'Rainbow Wipe', {reveal: 'all', anim: 'fade', highlight: {mode: 'wipe', color: '#FF4ECD', wipe: ['#FFFFFF', '#FF4ECD']}, big: R({font: 'Poppins', size: 0.08, fill: {colors: ['#FFFFFF']}, shadow: sh('rgba(0,0,0,.5)', 0.04, 0.08)})}),
+  P('echo_color', 'Echo Colour', {layout: 'echo', pos: 0.3, wordsPerCaption: 2, keyWords: 1, echoOffsetEm: -0.9, big: R({font: 'Inter', weight: 900, italic: true, size: 0.13, fill: {colors: ['#FF5EA8', '#FFB45E']}, fx: flow(['#FF5EA8', '#FFB45E', '#FF5EA8'])}), small: R({font: 'Inter', weight: 300, size: 0.09, shadow: sh('rgba(0,0,0,.4)', 0.03, 0.08)})}),
+  P('script_duo', 'Script + Chrome', {layout: 'stack', pos: 0.55, keyWords: 1, big: R({font: 'Poppins', size: 0.13, fill: {colors: ['#FFFFFF', '#7C8AA3']}, fx: chrome(['#FFFFFF', '#C9D3E3', '#7C8AA3', '#E6ECF7']), shadow: sh('rgba(0,0,0,.5)', 0.03, 0.05)}), small: R({font: 'Great Vibes', weight: 400, size: 0.13, glow: {color: '#FFD98A', blur: 0.045}})}),
+  P('minimal_sub', 'Minimal Pro', {anim: 'fade', pos: 0.82, wordsPerCaption: 5, big: R({font: 'Inter', weight: 800, size: 0.06, fill: {colors: ['#FFFFFF', '#E6DCFF'], angle: 180}, shadow: sh('rgba(0,0,0,.55)', 0.035, 0.08)})}),
+  P('twilight_blend', 'Twilight (soft-light)', {layout: 'stack', pos: 0.55, keyWords: 1, blend: 'soft-light', big: R({font: 'Poppins', weight: 900, size: 0.16, fill: {colors: ['#FFB75E', '#FF5E9C', '#6A5CFF'], angle: 120}}), small: R({font: 'Inter', weight: 500, size: 0.05, lower: true})}),
+].map((p) => [p.id, p]));

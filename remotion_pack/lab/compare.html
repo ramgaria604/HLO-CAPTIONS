@@ -1,0 +1,30 @@
+<!doctype html><meta charset="utf-8">
+<style>
+@font-face{font-family:Poppins;font-weight:800;src:url(Poppins-Bold.ttf)}
+@font-face{font-family:Poppins;font-weight:500;src:url(Poppins-Medium.ttf)}
+@font-face{font-family:Poppins;font-weight:300;font-style:italic;src:url(Poppins-LightItalic.ttf)}
+body{margin:0;background:#fff}
+.s{position:relative;width:1080px;overflow:hidden}
+.w{position:absolute;white-space:nowrap;line-height:1}
+.w span{display:inline-block;-webkit-text-stroke:var(--st,0) currentColor}
+</style>
+<div id="r"></div>
+<script type="module">
+import {fxBackground,FX} from './js/fx.js';
+const q=new URLSearchParams(location.search), which=q.get('s'), frame=+(q.get('f')||30);
+const r=document.getElementById('r');
+function scene(h,bg){const d=document.createElement('div');d.className='s';d.style.height=h+'px';d.style.background=bg;r.appendChild(d);return d}
+function W(d,txt,x,y,css,anchor='center'){const w=document.createElement('div');w.className='w';w.style.top=y+'px';if(anchor==='center'){w.style.left='0';w.style.width='1080px';w.style.textAlign='center';w.style.transform=`translateX(${x-540}px)`}else{w.style.left=x+'px'}const s=document.createElement('span');s.textContent=txt;Object.assign(s.style,css);w.appendChild(s);d.appendChild(w);return w}
+if(which==='teal'){const d=scene(220,'#d9d6cf');
+ W(d,'this',62,28,{fontFamily:'Poppins',fontStyle:'italic',fontWeight:300,fontSize:'56px',color:'#fff'},'left');
+ W(d,'Gorgeous',548,52,{fontFamily:'Poppins',fontWeight:800,fontSize:'168px',transform:'scaleX(1.12)',letterSpacing:'-0.02em','--st':'0.018em',filter:'drop-shadow(0 2px 0 #04323D)',...fxBackground(FX.teal,frame)});}
+if(which==='neon'){const d=scene(380,'#d8cdc6');
+ W(d,'SoTonightIs',540,30,{fontFamily:'Poppins',fontWeight:800,fontSize:'120px',letterSpacing:'-0.045em','--st':'0.012em',backgroundImage:'linear-gradient(90deg,#B81E9C,#7A1FB0)',WebkitBackgroundClip:'text',color:'transparent',WebkitTextFillColor:'transparent',filter:'drop-shadow(0 0 10px #FF6EC7) drop-shadow(0 0 24px #FF8AD8)'});
+ W(d,'Going To',540,190,{fontFamily:'cursive',fontStyle:'italic',fontSize:'150px',color:'#fff',filter:'drop-shadow(0 0 10px #FF9BE0) drop-shadow(0 0 22px #FF9BE0)'});}
+if(which==='orange'){const d=scene(830,'#8a8f84');
+ W(d,'you can',245,28,{fontFamily:'Poppins',fontWeight:500,fontSize:'72px',color:'#fff'},'left');
+ W(d,'add',625,5,{fontFamily:'Poppins',fontWeight:500,fontSize:'96px',color:'#fff'},'left');
+ W(d,'Real',550,70,{fontFamily:'Poppins',fontWeight:800,fontSize:'205px',letterSpacing:'-0.02em','--st':'0.018em',filter:'drop-shadow(0 3px 0 #9A1408)',...fxBackground(FX.orange,frame)});
+ W(d,'Captions',548,655,{fontFamily:'Poppins',fontWeight:800,fontSize:'185px',letterSpacing:'-0.02em','--st':'0.018em',filter:'drop-shadow(0 3px 0 #9A1408)',...fxBackground(FX.orange,frame)});
+ W(d,'estate',548,722,{fontFamily:'Poppins',fontWeight:500,fontSize:'66px',color:'#fff'});}
+</script>

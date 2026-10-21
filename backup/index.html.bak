@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CaptionStudio Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/fonts.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all'">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo">CS</span>
+    <div><b>CaptionStudio</b> <span class="pro">PRO</span></div>
+  </div>
+  <div class="chips">
+    <span class="chip" id="chipFfmpeg">FFmpeg</span>
+    <span class="chip" id="chipWhisper">Speech</span>
+    <button class="chip btnchip" id="chipPexels" type="button">Pexels</button>
+  </div>
+</header>
+
+<div id="notice" class="notice" role="status">Checking your setup...</div>
+
+<main class="app">
+  <section class="stage-col">
+    <div class="stagewrap">
+      <div class="stage" id="stage">
+        <video id="vid" playsinline></video>
+        <div id="capbox" class="capbox"></div>
+        <div id="safeZoneGuides" class="safe-zone-guides" hidden>
+          <div class="sz-top-bar"><span>Header &amp; Audio (12%)</span></div>
+          <div class="sz-side-bar"><span>Actions (Like / Share)</span></div>
+          <div class="sz-bottom-bar"><span>Bio &amp; Captions (20%)</span></div>
+          <div class="sz-safe-box"><span class="sz-tag">9:16 SAFE ZONE</span></div>
+        </div>
+        <div id="stageEmpty" class="stage-empty">
+          <div class="drop-icon">&#x1F3AC;</div>
+          <b>Your video appears here</b>
+          <span>Choose a video in step 1</span>
+        </div>
+      </div>
+    </div>
+    <div class="transport">
+      <div class="transport-left">
+        <button class="icon" id="playBtn" type="button" disabled aria-label="Play or pause" title="Play / Pause (Space)">&#9654;</button>
+        <button class="icon tiny-icon" id="stepBackBtn" type="button" disabled title="Step Back 1s (Arrow Left)">&#x23EE;</button>
+        <button class="icon tiny-icon" id="stepFwdBtn" type="button" disabled title="Step Forward 1s (Arrow Right)">&#x23ED;</button>
+        <span id="timeLbl" class="mono">0:00 / 0:00</span>
+      </div>
+      <div class="transport-right">
+        <button class="tool-btn" id="safeZoneBtn" type="button" title="Toggle Reels / TikTok / Shorts Safe Zones">&#x1F4D0; Safe Zones</button>
+        <label class="tog"><input type="checkbox" id="prevCuts"> Preview cuts</label>
+      </div>
+    </div>
+
+    <!-- ADVANCED TIMELINE TOOLBAR -->
+    <div class="tl-toolbar">
+      <div class="tl-tools">
+        <button class="tl-btn" id="splitCapBtn" type="button" disabled title="Split caption at playhead (S)">&#x2702;&#xFE0F; Split (S)</button>
+        <button class="tl-btn" id="addCapTlBtn" type="button" disabled title="Add caption at current time">+ Add Caption</button>
+        <button class="tl-btn danger" id="delCapBtn" type="button" disabled title="Delete selected caption (Del)">&#x1F5D1;&#xFE0F; Delete</button>
+        <label class="tog snap-tog" title="Magnetic snapping to adjacent captions"><input type="checkbox" id="snapToggle" checked> &#x1F9F2; Snap</label>
+      </div>
+      <div class="tl-zoom">
+        <span class="zoom-label">Zoom</span>
+        <button class="icon-tiny" id="zoomOutBtn" type="button" title="Zoom Out (-)">&#x2212;</button>
+        <input type="range" id="tlZoom" min="1" max="5" step="0.25" value="1" title="Timeline Zoom">
+        <button class="icon-tiny" id="zoomInBtn" type="button" title="Zoom In (+)">+</button>
+        <button class="btn-micro" id="zoomFitBtn" type="button" title="Fit to width">Fit</button>
+      </div>
+    </div>
+
+    <!-- ADVANCED MULTI-TRACK TIMELINE -->
+    <div class="timeline" id="tl" aria-label="Timeline">
+      <div class="tl-track-labels">
+        <div class="tl-label-item">Ruler</div>
+        <div class="tl-label-item">Waveform</div>
+        <div class="tl-label-item">Captions</div>
+        <div class="tl-label-item">Cuts</div>
+        <div class="tl-label-item">B-roll</div>
+      </div>
+      <div class="tl-viewport" id="tlViewport">
+        <div class="tl-scrollable" id="tlScrollable">
+          <div class="tl-ruler" id="tlRuler"></div>
+          <div class="track tr-wave"><div class="lane" id="laneWaveform"><canvas id="waveformCanvas"></canvas></div></div>
+          <div class="track tr-caps"><div class="lane" id="laneCaps"></div></div>
+          <div class="track tr-cuts"><div class="lane" id="laneCuts"></div></div>
+          <div class="track tr-broll"><div class="lane" id="laneBroll"></div></div>
+          <div class="playhead" id="playhead"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel-col">
+    <nav class="tabs" id="tabs">
+      <button data-tab="video" class="on" type="button">&#x1F4F9; Video</button>
+      <button data-tab="captions" type="button">&#x1F4AC; Captions</button>
+      <button data-tab="style" type="button">&#x1F3A8; Style</button>
+      <button data-tab="cuts" type="button">&#x2702; Auto-cut</button>
+      <button data-tab="effects" type="button">&#x2728; Effects</button>
+      <button data-tab="broll" type="button">&#x1F3AC; B-roll</button>
+      <button data-tab="export" type="button">&#x1F680; Export</button>
+    </nav>
+
+    <!-- 1 VIDEO -->
+    <div class="pane on" id="pane-video">
+      <label class="drop" for="file"><span class="up">&#8593;</span><b id="fileName">Choose a video</b><span>MP4, MOV, MKV, WebM, M4V or AVI &bull; up to 1.5 GB</span></label>
+      <input type="file" id="file" accept="video/*" hidden>
+      <div class="row2">
+        <label>Language
+          <select id="lang">
+            <option value="">Auto detect</option><option value="en">English</option><option value="hi">Hindi</option>
+            <option value="ur">Urdu</option><option value="ar">Arabic</option><option value="es">Spanish</option>
+            <option value="fr">French</option><option value="pt">Portuguese</option><option value="de">German</option>
+            <option value="ja">Japanese</option><option value="ko">Korean</option><option value="zh">Chinese</option>
+            <option value="ru">Russian</option><option value="it">Italian</option><option value="nl">Dutch</option>
+            <option value="tr">Turkish</option><option value="pl">Polish</option><option value="sv">Swedish</option>
+          </select></label>
+        <label>Accuracy
+          <select id="model">
+            <option value="tiny">Fast (tiny)</option><option value="base" selected>Balanced (base)</option>
+            <option value="small">Best (small, slower)</option><option value="medium">Premium (medium, slow)</option>
+          </select></label>
+      </div>
+      <div class="row2">
+        <label>Words per caption <output id="wpcOut">3</output>
+          <input type="range" id="wpc" min="1" max="6" value="3"></label>
+        <label>Big words per caption <output id="mkOut">1</output>
+          <input type="range" id="maxKeys" min="0" max="3" value="1"></label>
+      </div>
+      <button class="btn primary glow-border" id="transcribeBtn" type="button" disabled>&#10024; Generate captions</button>
+      <div class="sub-actions-row" style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn ghost small" id="browserSpeechBtn" type="button" disabled>&#x1F399;&#xFE0F; Browser Speech AI</button>
+        <label class="btn ghost small" style="cursor:pointer" id="srtUploadLabel">&#x1F4C4; Import SRT / Subtitles<input type="file" id="srtFile" accept=".srt,.vtt,.txt" hidden></label>
+      </div>
+      <p class="hint">Speech is turned into text automatically. You can also import existing SRT subtitles or use browser speech.</p>
+    </div>
+
+    <!-- 2 CAPTIONS -->
+    <div class="pane" id="pane-captions">
+      <div class="bar">
+        <button class="btn small" id="addCap" type="button" disabled>+ Add caption</button>
+        <button class="btn small ghost" id="regroup" type="button" disabled>Regroup words</button>
+      </div>
+      <p class="hint">Put <b>*stars*</b> around a word to make it a <b>big word</b>, like <b>So *Tonight* is</b>. Remove the stars to make it small.</p>
+      <div id="capList" class="caplist"><div class="empty">No captions yet. Generate them in step 1.</div></div>
+    </div>
+
+    <!-- 3 STYLE -->
+    <div class="pane" id="pane-style">
+      <div class="preset-header-bar">
+        <div style="display:flex;align-items:center;gap:8px">
+          <h3>&#x1F3A8; Presets</h3>
+          <span class="badge-count" id="presetCountBadge">107 styles</span>
+        </div>
+        <input type="text" id="presetSearch" class="preset-search" placeholder="&#x1F50D; Search 100+ Moonshot styles...">
+      </div>
+      <div class="cat-pills" id="catPills">
+        <button type="button" class="cat-pill on" data-cat="all">All (100+)</button>
+        <button type="button" class="cat-pill" data-cat="moonshot">&#x1F680; Moonshot</button>
+        <button type="button" class="cat-pill" data-cat="badges">&#x1F3F7;&#xFE0F; Badges &amp; Pills</button>
+        <button type="button" class="cat-pill" data-cat="multicolor">&#x1F308; Multi-Color</button>
+        <button type="button" class="cat-pill" data-cat="viral">&#x1F525; Viral Creators</button>
+        <button type="button" class="cat-pill" data-cat="desi">&#x1F1EE;&#x1F1F3; Desi &amp; Bollywood</button>
+        <button type="button" class="cat-pill" data-cat="luxury">&#x1F451; 24K Luxury</button>
+        <button type="button" class="cat-pill" data-cat="comic">&#x1F4A5; Comic &amp; 3D</button>
+        <button type="button" class="cat-pill" data-cat="neon">&#x26A1; Neon Cyber</button>
+        <button type="button" class="cat-pill" data-cat="editorial">&#x1F4F0; Editorial</button>
+      </div>
+      <div class="presets" id="presets"></div>
+      <div class="bar" style="margin-top:10px"><button class="btn small ghost" id="savePreset" type="button">&#x1F4BE; Save my style</button></div>
+
+      <div class="section-divider"></div>
+
+      <h3>&#x2699; Layout</h3>
+      <div class="row2">
+        <label>Layout
+          <select id="s_layout"><option value="stack">Stacked (big + small words)</option><option value="line">One line</option></select></label>
+        <label>Animation
+          <select id="s_animation"><option value="pop">Pop in word by word</option><option value="highlight">Highlight spoken word</option><option value="none">None</option></select></label>
+      </div>
+      <div class="row2">
+        <label>Height on screen <output id="s_positionOut"></output><input type="range" id="s_position" min="0.1" max="0.92" step="0.01"></label>
+        <label>Highlight colour <input type="color" id="s_highlightColor"></label>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <div id="roles"></div>
+    </div>
+
+    <!-- 4 CUTS -->
+    <div class="pane" id="pane-cuts">
+      <p class="hint">Finds silent gaps and removes them. Nothing is changed until you export.</p>
+      <div class="row2">
+        <label>Sensitivity <output id="c_noiseOut">-30 dB</output><input type="range" id="c_noise" min="-50" max="-20" value="-30"></label>
+        <label>Shortest gap to cut <output id="c_gapOut">0.5 s</output><input type="range" id="c_gap" min="0.2" max="1.5" step="0.1" value="0.5"></label>
+      </div>
+      <label>Breathing room <output id="c_padOut">0.12 s</output><input type="range" id="c_pad" min="0" max="0.3" step="0.02" value="0.12"></label>
+      <button class="btn primary" id="detectBtn" type="button" disabled>&#x1F50D; Find silent gaps</button>
+      <div id="cutSummary" class="summary"></div>
+      <label class="tog block"><input type="checkbox" id="zoom"> Subtle zoom on every second clip (hides jump cuts)</label>
+      <div id="cutList" class="cutlist"></div>
+    </div>
+
+    <!-- 5 EFFECTS (NEW) -->
+    <div class="pane" id="pane-effects">
+      <h3>&#x1F4D0; Aspect Ratio</h3>
+      <div class="aspect-bar" id="aspectBar">
+        <button class="aspect-btn on" data-aspect="original" type="button">Original</button>
+        <button class="aspect-btn" data-aspect="9:16" type="button">9:16<small>Reels/TikTok</small></button>
+        <button class="aspect-btn" data-aspect="16:9" type="button">16:9<small>YouTube</small></button>
+        <button class="aspect-btn" data-aspect="1:1" type="button">1:1<small>Instagram</small></button>
+        <button class="aspect-btn" data-aspect="4:5" type="button">4:5<small>Feed Post</small></button>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <h3>&#x23E9; Speed Ramp</h3>
+      <div class="speed-controls">
+        <div class="row2">
+          <label>Playback Speed <output id="speedOut">1.0x</output>
+            <input type="range" id="speedVal" min="0.5" max="3.0" step="0.1" value="1.0"></label>
+          <label>Apply to
+            <select id="speedScope">
+              <option value="all">Entire video</option>
+              <option value="silence">Silent parts only (fast-forward)</option>
+            </select></label>
+        </div>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <h3>&#x1F50A; Background Music</h3>
+      <div class="audio-controls">
+        <label class="drop" for="bgMusic"><span class="up">&#x266B;</span><b id="bgMusicName">Add background music (optional)</b><span>MP3, WAV, M4A, OGG</span></label>
+        <input type="file" id="bgMusic" accept="audio/*" hidden>
+        <div class="row2" id="musicControls" style="display:none">
+          <label>Music volume <output id="musicVolOut">30%</output>
+            <input type="range" id="musicVol" min="0" max="100" value="30"></label>
+          <label>Voice volume <output id="voiceVolOut">100%</output>
+            <input type="range" id="voiceVol" min="50" max="150" value="100"></label>
+        </div>
+        <label class="tog" id="musicFadeLabel" style="display:none"><input type="checkbox" id="musicFade" checked> Fade music during speech</label>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <h3>&#x1F4A5; Video Effects</h3>
+      <div class="row2">
+        <label class="tog block"><input type="checkbox" id="effectKenBurns"> Ken Burns (slow zoom + pan)</label>
+        <label class="tog block"><input type="checkbox" id="effectVignette"> Vignette (dark edges)</label>
+      </div>
+      <div class="row2">
+        <label class="tog block"><input type="checkbox" id="effectSharpen"> Sharpen</label>
+        <label class="tog block"><input type="checkbox" id="effectCinemaBar"> Cinema bars (letterbox)</label>
+      </div>
+    </div>
+
+    <!-- 6 BROLL -->
+    <div class="pane" id="pane-broll">
+      <div id="keyBox" class="keybox" hidden>
+        <b>Add your free Pexels key</b>
+        <p class="hint">1) Go to <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">pexels.com/api</a> and sign up. 2) Copy your key. 3) Paste it here.</p>
+        <div class="bar"><input type="text" id="keyIn" placeholder="Paste Pexels API key" autocomplete="off"><button class="btn small" id="keySave" type="button">Save</button></div>
+      </div>
+      <div class="bar">
+        <button class="btn small" id="suggestBtn" type="button" disabled>&#10024; Suggest b-roll spots</button>
+        <button class="btn small ghost" id="addSlot" type="button" disabled>+ Add spot here</button>
+      </div>
+      <p class="hint">Each spot covers the speaker for a couple of seconds with stock footage. Your voice and captions keep going.</p>
+      <div id="slots"></div>
+      <p class="hint credit">Videos provided by <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a>.</p>
+    </div>
+
+    <!-- 7 EXPORT -->
+    <div class="pane" id="pane-export">
+      <div id="expSummary" class="summary"></div>
+      <div class="row2" style="margin-bottom:12px">
+        <label>Quality
+          <select id="exportQuality">
+            <option value="high">High (CRF 18, slower)</option>
+            <option value="balanced" selected>Balanced (CRF 22)</option>
+            <option value="fast">Fast (CRF 26, smaller file)</option>
+          </select></label>
+        <label>Format
+          <select id="exportFormat">
+            <option value="mp4" selected>MP4 (H.264)</option>
+            <option value="webm">WebM (VP9)</option>
+          </select></label>
+      </div>
+      <button class="btn primary big glow-border" id="exportBtn" type="button" disabled>&#x1F680; Export Video</button>
+      <div class="progress" id="prog" hidden><div class="pbar"><i id="pfill"></i></div><span id="pmsg" class="hint"></span></div>
+      <div id="result" hidden>
+        <video id="resVid" controls playsinline></video>
+        <a class="btn primary" id="dl" download="captioned_video.mp4">&#x2B07; Download video</a>
+      </div>
+      <p class="hint">Keep this tab open while it renders. Finished files are in the <b>work</b> folder.</p>
+    </div>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

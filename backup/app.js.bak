@@ -1,0 +1,1073 @@
+'use strict';
+const $ = id => document.getElementById(id);
+const S = {
+  filename: null, meta: null, captions: [], rawWords: [], style: null, presets: [], custom: [], presetId: null,
+  cuts: [], zoom: false, previewCuts: false, slots: [], selected: null, fonts: [], status: {}, styleVer: 0,
+  edited: false, busy: false,
+  // New state
+  aspect: 'original', speed: 1.0, speedScope: 'all',
+  bgMusic: null, musicVol: 30, voiceVol: 100, musicFade: true,
+  effects: { kenBurns: false, vignette: false, sharpen: false, cinemaBar: false },
+  exportQuality: 'balanced', exportFormat: 'mp4',
+  selectedCat: 'all', presetSearch: ''
+};
+const vid = $('vid'), stage = $('stage'), capbox = $('capbox');
+
+// ------------------------------------------------------------------ helpers
+function el(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (props || {})) {
+    const v = props[k];
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v === true) e.setAttribute(k, '');
+    else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) { if (c == null) continue; e.append(c.nodeType ? c : document.createTextNode(c)); }
+  return e;
+}
+function notice(msg, kind) { const n = $('notice'); n.textContent = msg; n.className = 'notice ' + (kind || ''); }
+async function api(url, body) {
+  let r, d = {};
+  try {
+    r = await fetch(url, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    d = await r.json();
+  } catch (e) { throw new Error('Could not reach the app. Is the PowerShell window still running?'); }
+  if (!r.ok || d.error) throw new Error(d.error || ('Request failed (' + r.status + ')'));
+  return d;
+}
+const clone = o => JSON.parse(JSON.stringify(o));
+const fmtT = s => { s = Math.max(0, s || 0); const m = Math.floor(s / 60); return m + ':' + String(Math.floor(s % 60)).padStart(2, '0'); };
+const dur = () => (S.meta && S.meta.duration) || vid.duration || 0;
+const num = (v, d) => { const n = parseFloat(v); return isFinite(n) ? n : d; };
+function setBusy(btn, on, label) { btn.disabled = on; if (!btn.dataset.l) btn.dataset.l = btn.textContent; btn.textContent = on ? label : btn.dataset.l; }
+
+// ------------------------------------------------------------------ words (same rules as the server)
+function tokenize(text) {
+  const out = []; let inKey = false;
+  for (const tok of String(text).split(/\s+/).filter(Boolean)) {
+    const starts = tok.startsWith('*'), ends = tok.endsWith('*') && tok.length > 1;
+    if (starts) inKey = true;
+    const clean = tok.replace(/^\*+|\*+$/g, '');
+    if (clean) out.push({ t: clean, key: inKey });
+    if (ends) inKey = false;
+  }
+  return out;
+}
+function capWords(c) {
+  const toks = tokenize(c.text); if (!toks.length) return [];
+  const s = +c.start, e = +c.end;
+  if (c.wt && c.wt.length === toks.length) toks.forEach((t, i) => { t.s = c.wt[i][0]; t.e = c.wt[i][1]; });
+  else {
+    const w = toks.map(t => t.t.length + 1), tot = w.reduce((a, b) => a + b, 0); let pos = s;
+    toks.forEach((t, i) => { const d = (e - s) * w[i] / tot; t.s = pos; t.e = pos + d; pos += d; });
+  }
+  return toks;
+}
+function capEnd(c, words) { return Math.max(+c.end, words.length ? words[words.length - 1].e : 0); }
+function linesOf(words, layout) {
+  if (layout === 'line') return [words];
+  const lines = []; let cur = [];
+  for (const w of words) { if (cur.length && cur[cur.length - 1].key !== w.key) { lines.push(cur); cur = []; } cur.push(w); }
+  if (cur.length) lines.push(cur);
+  return lines;
+}
+
+// ------------------------------------------------------------------ caption preview
+let capSig = '', capEls = [];
+function wordCss(r, em, customColor, preset, isKey) {
+  const sh = [];
+  const color = customColor || r.color;
+  const st = preset || S.style;
+
+  if (st && st.shadow3D) {
+    const sc = r.shadowColor || '#000000';
+    sh.push(`2px 2px 0 ${sc}`, `4px 4px 0 ${sc}`, `6px 6px 0 ${sc}`);
+  } else if (r.shadow > 0) {
+    const d = r.shadow * em;
+    sh.push(`${d}px ${d}px 0 ${r.shadowColor}`);
+  }
+
+  if (r.glowSize > 0) {
+    const g = r.glowSize * em;
+    sh.push(`0 0 ${g}px ${r.glow}`, `0 0 ${g * 2}px ${r.glow}`);
+  }
+
+  let extra = '';
+  if (st && st.badge && isKey) {
+    const bg = st.badge;
+    const tc = st.badgeTextColor || '#000000';
+    extra += `background:${bg};color:${tc} !important;padding:2px 10px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.5);display:inline-block;`;
+  }
+  if (st && st.rotation) {
+    extra += `transform:rotate(${st.rotation}deg);display:inline-block;`;
+  }
+  if (st && st.glowBloom && r.glow) {
+    extra += `filter:drop-shadow(0 0 12px ${r.glow});`;
+  }
+
+  return `font-family:"${r.font}","${r.fallback}",sans-serif;font-size:${em}px;color:${color};` +
+    `font-weight:${r.bold ? 800 : 400};font-style:${r.italic ? 'italic' : 'normal'};text-transform:${r.upper ? 'uppercase' : 'none'};` +
+    (r.outline > 0 ? `-webkit-text-stroke:${r.outline * em * 2}px ${r.outlineColor};paint-order:stroke fill;` : '') +
+    (sh.length ? `text-shadow:${sh.join(',')};` : '') + extra;
+}
+function activeCaption(t) {
+  let best = null;
+  for (const c of S.captions) {
+    const ws = capWords(c); const end = capEnd(c, ws);
+    if (t >= +c.start - 0.001 && t < end) { if (!best || +c.start >= +best.start) best = c; }
+  }
+  return best;
+}
+function renderCaption(t) {
+  let cap = activeCaption(t), showAll = false;
+  if (!cap && vid.paused && S.selected != null) { cap = S.captions.find(c => c.id === S.selected); showAll = !!cap; }
+  if (!cap) { if (capSig) { capbox.textContent = ''; capSig = ''; capEls = []; } return; }
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const sig = [cap.id, cap.text, S.styleVer, W, H].join('|');
+  if (sig !== capSig) {
+    capSig = sig; capEls = []; capbox.textContent = '';
+    const st = S.style, base = Math.min(W, H), words = capWords(cap);
+    capbox.style.top = (st.position * 100) + '%';
+    let wordIdx = 0;
+    for (const line of linesOf(words, st.layout)) {
+      let est = 0;
+      for (const w of line) { const r = st[w.key ? 'key' : 'filler']; est += w.t.length * r.size * base * (r.upper ? .68 : .56) + r.size * base * .3; }
+      const scale = est ? Math.max(.45, Math.min(1, .9 * W / est)) : 1;
+      const row = el('div', { class: 'cline' });
+      for (const w of line) {
+        const r = st[w.key ? 'key' : 'filler'];
+        let col = r.color;
+        if (st.palette && st.palette.length && !w.key) {
+          col = st.palette[wordIdx % st.palette.length];
+        }
+        wordIdx++;
+        const sp = el('span', { class: 'cw', text: w.t });
+        sp.style.cssText = wordCss(r, r.size * base * scale, col, st, w.key);
+        row.append(sp); capEls.push({ el: sp, s: w.s, e: w.e, key: w.key, color: col, on: false });
+      }
+      capbox.append(row);
+    }
+  }
+  const st = S.style;
+  for (const w of capEls) {
+    const r = st[w.key ? 'key' : 'filler'];
+    let on = showAll || st.animation !== 'pop' || t >= w.s - 0.001;
+    if (on !== w.on) {
+      w.el.classList.toggle('on', on);
+      if (on && st.animation === 'pop' && !vid.paused) { w.el.classList.remove('pop'); void w.el.offsetWidth; w.el.classList.add('pop'); }
+      w.on = on;
+    }
+    const isActive = (!showAll && t >= w.s && t < w.e);
+    if (st.karaokeDim) {
+      w.el.style.opacity = (showAll || isActive) ? '1' : '0.35';
+    }
+    if (st.animation === 'highlight') {
+      if (isActive) {
+        w.el.style.color = st.highlightColor;
+        if (st.badge) {
+          w.el.style.background = st.badge;
+          w.el.style.color = st.badgeTextColor || '#000000';
+          w.el.style.padding = '2px 8px';
+          w.el.style.borderRadius = '6px';
+        }
+      } else {
+        w.el.style.color = w.color;
+        if (st.badge && !w.key) {
+          w.el.style.background = 'transparent';
+          w.el.style.padding = '0';
+        }
+      }
+    }
+  }
+}
+
+// ------------------------------------------------------------------ main loop, transport, timeline
+const activeCuts = () => S.cuts.filter(c => c.on);
+S.tlZoom = 1;
+
+function tick() {
+  const t = vid.currentTime || 0;
+  if (S.previewCuts && !vid.paused) {
+    for (const c of activeCuts()) {
+      if (t >= c.a && t < c.b - 0.03) { vid.currentTime = c.b; break; }
+    }
+  }
+  renderCaption(vid.currentTime || 0);
+  $('timeLbl').textContent = fmtT(vid.currentTime) + ' / ' + fmtT(dur());
+  const D = dur();
+  if (D && D > 0) {
+    const pct = Math.min(100, Math.max(0, (vid.currentTime / D) * 100));
+    $('playhead').style.left = pct + '%';
+    // Auto-scroll viewport while playing if zoomed
+    if (!vid.paused && S.tlZoom > 1) {
+      const vp = $('tlViewport');
+      const sc = $('tlScrollable');
+      if (vp && sc) {
+        const phPx = (pct / 100) * sc.scrollWidth;
+        if (phPx > vp.scrollLeft + vp.clientWidth - 50 || phPx < vp.scrollLeft + 50) {
+          vp.scrollLeft = phPx - vp.clientWidth / 2;
+        }
+      }
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+function renderRuler(D) {
+  const ruler = $('tlRuler');
+  if (!ruler) return;
+  ruler.textContent = '';
+  if (!D || D <= 0) return;
+  const step = D > 120 ? 10 : (D > 60 ? 5 : (D > 20 ? 2 : 1));
+  for (let sec = 0; sec <= D; sec += step) {
+    const pct = (sec / D) * 100;
+    const tick = el('div', { class: 'tl-ruler-tick major' });
+    tick.style.left = pct + '%';
+    const time = el('span', { class: 'tl-ruler-time', text: fmtT(sec) });
+    time.style.left = pct + '%';
+    ruler.append(tick, time);
+  }
+}
+
+function drawWaveform() {
+  const canvas = $('waveformCanvas');
+  if (!canvas) return;
+  const w = canvas.offsetWidth || 800;
+  const h = canvas.offsetHeight || 32;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  const D = dur();
+  if (!D || D <= 0) return;
+
+  const bars = Math.floor(w / 3);
+  ctx.fillStyle = '#38bdf8';
+  for (let i = 0; i < bars; i++) {
+    const t = (i / bars) * D;
+    // Check if within active speech/caption
+    const isSpeech = S.captions.some(c => t >= c.start && t <= c.end);
+    let amp = isSpeech ? 0.35 + 0.55 * Math.abs(Math.sin(i * 0.4) * Math.cos(i * 0.2)) : 0.08 + 0.06 * Math.sin(i);
+    const bh = Math.max(3, amp * (h - 6));
+    const bx = i * 3;
+    const by = (h - bh) / 2;
+    ctx.globalAlpha = isSpeech ? 0.75 : 0.2;
+    ctx.fillRect(bx, by, 2, bh);
+  }
+  ctx.globalAlpha = 1.0;
+}
+
+let tlDrag = null; // { type: 'left'|'right'|'move', cap, startX, origStart, origEnd, width }
+
+function renderTimeline() {
+  const D = dur();
+  const lanes = { c: $('laneCaps'), x: $('laneCuts'), b: $('laneBroll') };
+  Object.values(lanes).forEach(l => { if (l) l.textContent = ''; });
+  if (!D || D <= 0) return;
+
+  renderRuler(D);
+  drawWaveform();
+
+  // Update enable states of timeline buttons
+  if ($('splitCapBtn')) $('splitCapBtn').disabled = !S.captions.length;
+  if ($('addCapTlBtn')) $('addCapTlBtn').disabled = !S.filename;
+  if ($('delCapBtn')) $('delCapBtn').disabled = !S.selected;
+
+  // Render Captions Track with draggable trim handles
+  for (const c of S.captions) {
+    const isSel = (c.id === S.selected);
+    const leftPct = (c.start / D) * 100;
+    const widthPct = Math.max(0.4, ((c.end - c.start) / D) * 100);
+
+    const b = el('div', { class: 'blk cap' + (isSel ? ' sel' : ''), title: c.text });
+    b.style.left = leftPct + '%';
+    b.style.width = widthPct + '%';
+
+    const hLeft = el('div', { class: 'handle left', title: 'Drag to trim start' });
+    const txt = el('span', { class: 'blk-text', text: c.text.replace(/\*/g, '') });
+    const hRight = el('div', { class: 'handle right', title: 'Drag to trim end' });
+
+    // Handle left drag (trim start)
+    hLeft.addEventListener('mousedown', ev => {
+      ev.stopPropagation();
+      tlDrag = { type: 'left', cap: c, startX: ev.clientX, origStart: c.start, origEnd: c.end, D };
+    });
+
+    // Handle right drag (trim end)
+    hRight.addEventListener('mousedown', ev => {
+      ev.stopPropagation();
+      tlDrag = { type: 'right', cap: c, startX: ev.clientX, origStart: c.start, origEnd: c.end, D };
+    });
+
+    // Body drag / select
+    b.addEventListener('mousedown', ev => {
+      if (ev.target.classList.contains('handle')) return;
+      S.selected = c.id;
+      vid.currentTime = c.start;
+      capSig = '';
+      renderCapList();
+      renderTimeline();
+      tlDrag = { type: 'move', cap: c, startX: ev.clientX, origStart: c.start, origEnd: c.end, D };
+    });
+
+    b.append(hLeft, txt, hRight);
+    lanes.c.append(b);
+  }
+
+  // Render Cuts Track
+  for (const c of S.cuts) {
+    const blk = el('div', { class: 'blk cut' + (c.on ? '' : ' off'), title: 'Cut ' + (c.b - c.a).toFixed(1) + 's' });
+    blk.style.left = (c.a / D * 100) + '%';
+    blk.style.width = Math.max(0.3, (c.b - c.a) / D * 100) + '%';
+    blk.append(el('span', { class: 'blk-text', text: 'Cut' }));
+    lanes.x.append(blk);
+  }
+
+  // Render B-roll Track
+  for (const s of S.slots) {
+    if (s.chosen) {
+      const blk = el('div', { class: 'blk br', title: s.query });
+      blk.style.left = (s.start / D * 100) + '%';
+      blk.style.width = Math.max(0.3, (s.end - s.start) / D * 100) + '%';
+      blk.append(el('span', { class: 'blk-text', text: s.query }));
+      lanes.b.append(blk);
+    }
+  }
+}
+
+// Window mousemove / mouseup for timeline dragging
+window.addEventListener('mousemove', ev => {
+  if (!tlDrag) return;
+  const sc = $('tlScrollable');
+  if (!sc) return;
+  const totalW = sc.clientWidth;
+  const dx = ev.clientX - tlDrag.startX;
+  const dt = (dx / totalW) * tlDrag.D;
+  const snap = $('snapToggle') && $('snapToggle').checked;
+
+  if (tlDrag.type === 'left') {
+    let nStart = Math.max(0, Math.min(tlDrag.origEnd - 0.2, tlDrag.origStart + dt));
+    if (snap) {
+      // Snap to nearby caption ends
+      for (const other of S.captions) {
+        if (other.id !== tlDrag.cap.id && Math.abs(other.end - nStart) < 0.25) { nStart = other.end; break; }
+      }
+    }
+    tlDrag.cap.start = +nStart.toFixed(2);
+  } else if (tlDrag.type === 'right') {
+    let nEnd = Math.min(tlDrag.D, Math.max(tlDrag.origStart + 0.2, tlDrag.origEnd + dt));
+    if (snap) {
+      // Snap to nearby caption starts
+      for (const other of S.captions) {
+        if (other.id !== tlDrag.cap.id && Math.abs(other.start - nEnd) < 0.25) { nEnd = other.start; break; }
+      }
+    }
+    tlDrag.cap.end = +nEnd.toFixed(2);
+  } else if (tlDrag.type === 'move') {
+    const dur = tlDrag.origEnd - tlDrag.origStart;
+    let nStart = Math.max(0, Math.min(tlDrag.D - dur, tlDrag.origStart + dt));
+    if (snap) {
+      for (const other of S.captions) {
+        if (other.id !== tlDrag.cap.id) {
+          if (Math.abs(other.end - nStart) < 0.25) { nStart = other.end; break; }
+          if (Math.abs(other.start - (nStart + dur)) < 0.25) { nStart = other.start - dur; break; }
+        }
+      }
+    }
+    tlDrag.cap.start = +nStart.toFixed(2);
+    tlDrag.cap.end = +(nStart + dur).toFixed(2);
+  }
+  delete tlDrag.cap.wt;
+  S.edited = true;
+  capSig = '';
+  renderCapList();
+  renderTimeline();
+});
+
+window.addEventListener('mouseup', () => {
+  if (tlDrag) { tlDrag = null; }
+});
+
+// Scrubbing on Timeline lanes or ruler click
+function handleTlScrub(e) {
+  const sc = $('tlScrollable');
+  if (!sc || !dur()) return;
+  const r = sc.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  vid.currentTime = pct * dur();
+}
+
+['tlRuler', 'laneWaveform', 'laneCaps', 'laneCuts', 'laneBroll'].forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener('click', handleTlScrub);
+});
+
+// Transport buttons
+$('playBtn').addEventListener('click', () => { if (vid.paused) vid.play(); else vid.pause(); });
+if ($('stepBackBtn')) $('stepBackBtn').addEventListener('click', () => { vid.currentTime = Math.max(0, vid.currentTime - 1); });
+if ($('stepFwdBtn')) $('stepFwdBtn').addEventListener('click', () => { vid.currentTime = Math.min(dur(), vid.currentTime + 1); });
+if ($('safeZoneBtn')) $('safeZoneBtn').addEventListener('click', () => {
+  const sz = $('safeZoneGuides');
+  if (sz) {
+    sz.hidden = !sz.hidden;
+    $('safeZoneBtn').classList.toggle('on', !sz.hidden);
+  }
+});
+
+vid.addEventListener('play', () => $('playBtn').innerHTML = '&#10074;&#10074;');
+vid.addEventListener('pause', () => $('playBtn').innerHTML = '&#9654;');
+vid.addEventListener('ended', () => $('playBtn').innerHTML = '&#9654;');
+vid.addEventListener('click', () => $('playBtn').click());
+$('prevCuts').addEventListener('change', e => { S.previewCuts = e.target.checked; });
+
+// Split caption at current playhead position
+function splitCaptionAtPlayhead() {
+  const t = vid.currentTime || 0;
+  let target = S.captions.find(c => c.id === S.selected);
+  if (!target || t < target.start || t > target.end) {
+    target = S.captions.find(c => t >= c.start && t <= c.end);
+  }
+  if (!target) { notice('Position playhead over a caption to split it.', ''); return; }
+  if (t - target.start < 0.2 || target.end - t < 0.2) { notice('Cannot split too close to caption boundary.', ''); return; }
+
+  const words = target.text.split(' ');
+  const splitIdx = Math.max(1, Math.floor(words.length * ((t - target.start) / (target.end - target.start))));
+  const w1 = words.slice(0, splitIdx).join(' ');
+  const w2 = words.slice(splitIdx).join(' ') || '...';
+
+  const origEnd = target.end;
+  target.end = +t.toFixed(2);
+  target.text = w1;
+  delete target.wt;
+
+  const newId = Math.max(0, ...S.captions.map(c => c.id)) + 1;
+  const newCap = { id: newId, start: +t.toFixed(2), end: origEnd, text: w2 };
+  S.captions.push(newCap);
+  S.selected = newId;
+  S.edited = true;
+  capSig = '';
+  renderCapList();
+  renderTimeline();
+  notice('\u2702 Caption split cleanly into 2 at ' + fmtT(t), 'ok');
+}
+if ($('splitCapBtn')) $('splitCapBtn').addEventListener('click', splitCaptionAtPlayhead);
+
+// Delete selected caption
+function deleteSelectedCaption() {
+  if (!S.selected) return;
+  S.captions = S.captions.filter(c => c.id !== S.selected);
+  S.selected = S.captions[0] ? S.captions[0].id : null;
+  S.edited = true;
+  capSig = '';
+  renderCapList();
+  renderTimeline();
+  notice('Caption deleted.', 'ok');
+}
+if ($('delCapBtn')) $('delCapBtn').addEventListener('click', deleteSelectedCaption);
+
+// Add caption at playhead
+if ($('addCapTlBtn')) $('addCapTlBtn').addEventListener('click', () => {
+  const t = vid.currentTime || 0;
+  const newId = Math.max(0, ...S.captions.map(c => c.id)) + 1;
+  S.captions.push({ id: newId, start: +t.toFixed(2), end: +(t + 2).toFixed(2), text: 'New *Caption*' });
+  S.selected = newId;
+  S.edited = true;
+  capSig = '';
+  renderCapList();
+  renderTimeline();
+});
+
+// Zoom Controls
+function setTimelineZoom(z) {
+  S.tlZoom = Math.max(1, Math.min(5, z));
+  if ($('tlZoom')) $('tlZoom').value = S.tlZoom;
+  const sc = $('tlScrollable');
+  if (sc) sc.style.width = (S.tlZoom * 100) + '%';
+  renderTimeline();
+}
+if ($('tlZoom')) $('tlZoom').addEventListener('input', e => setTimelineZoom(+e.target.value));
+if ($('zoomInBtn')) $('zoomInBtn').addEventListener('click', () => setTimelineZoom(S.tlZoom + 0.5));
+if ($('zoomOutBtn')) $('zoomOutBtn').addEventListener('click', () => setTimelineZoom(S.tlZoom - 0.5));
+if ($('zoomFitBtn')) $('zoomFitBtn').addEventListener('click', () => setTimelineZoom(1));
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  const isInput = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if (!isInput && S.filename) {
+    if (e.code === 'Space') { e.preventDefault(); $('playBtn').click(); }
+    if (e.code === 'KeyS') { e.preventDefault(); splitCaptionAtPlayhead(); }
+    if (e.code === 'Delete' || e.code === 'Backspace') { e.preventDefault(); deleteSelectedCaption(); }
+    if (e.code === 'ArrowLeft') { e.preventDefault(); vid.currentTime = Math.max(0, vid.currentTime - (e.shiftKey ? 5 : 1)); }
+    if (e.code === 'ArrowRight') { e.preventDefault(); vid.currentTime = Math.min(dur(), vid.currentTime + (e.shiftKey ? 5 : 1)); }
+  }
+});
+
+// ------------------------------------------------------------------ tabs
+function switchTab(name) {
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + name));
+  if (name === 'export') updateExportSummary();
+}
+$('tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) switchTab(b.dataset.tab); });
+
+// ------------------------------------------------------------------ 1 video
+$('wpc').addEventListener('input', e => $('wpcOut').textContent = e.target.value);
+$('maxKeys').addEventListener('input', e => $('mkOut').textContent = e.target.value);
+function upload(file) {
+  return new Promise((res, rej) => {
+    const fd = new FormData(); fd.append('video', file);
+    const x = new XMLHttpRequest(); x.open('POST', '/api/upload');
+    x.upload.onprogress = e => { if (e.lengthComputable) notice('Uploading ' + Math.round(e.loaded / e.total * 100) + '%...', 'busy'); };
+    x.onload = () => { let d = {}; try { d = JSON.parse(x.responseText); } catch (_) {} if (x.status === 200) res(d); else rej(new Error(d.error || 'Upload failed')); };
+    x.onerror = () => rej(new Error('Upload failed. Is the app still running?'));
+    x.send(fd);
+  });
+}
+
+// Drag and drop support
+const dropZone = document.querySelector('.drop');
+if (dropZone) {
+  ['dragenter', 'dragover'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+  ['dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+  dropZone.addEventListener('drop', e => {
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) { $('file').files = e.dataTransfer.files; $('file').dispatchEvent(new Event('change')); }
+  });
+}
+
+$('file').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  S.filename = null; S.captions = []; S.rawWords = []; S.cuts = []; S.slots = []; S.selected = null; S.edited = false;
+  $('fileName').textContent = f.name;
+  vid.src = URL.createObjectURL(f); $('stageEmpty').hidden = true; capSig = '';
+  renderCapList(); renderCuts(); renderSlots(); renderTimeline();
+  try {
+    const m = await upload(f); S.filename = m.filename; S.meta = m;
+    stage.style.setProperty('--ar', m.width / m.height);
+    ['transcribeBtn', 'browserSpeechBtn', 'addCap', 'detectBtn', 'playBtn', 'exportBtn', 'addSlot'].forEach(id => {
+      const el = $(id); if (el) el.disabled = false;
+    });
+    $('regroup').disabled = true; $('suggestBtn').disabled = true;
+    notice('\u2705 Video ready! Press "Generate captions" to start, or jump to any step.', 'ok'); renderTimeline();
+  } catch (err) { notice(err.message, 'bad'); }
+});
+vid.addEventListener('loadedmetadata', () => { if (!S.meta) stage.style.setProperty('--ar', vid.videoWidth / vid.videoHeight); renderTimeline(); });
+$('transcribeBtn').addEventListener('click', async () => {
+  if (!S.filename) return;
+  const btn = $('transcribeBtn'); setBusy(btn, true, '\u23F3 Listening to your video...');
+  notice('Turning speech into text on your computer. Please wait...', 'busy');
+  try {
+    const d = await api('/api/transcribe', { filename: S.filename, model: $('model').value, language: $('lang').value,
+      wordsPerCaption: +$('wpc').value, maxKeys: +$('maxKeys').value });
+    S.captions = d.captions; S.rawWords = d.words; S.edited = false; S.selected = S.captions[0] ? S.captions[0].id : null;
+    capSig = ''; renderCapList(); renderTimeline(); $('regroup').disabled = false; $('suggestBtn').disabled = false;
+    notice('\u2705 Made ' + d.captions.length + ' captions' + (d.language ? ' (language: ' + d.language + ')' : '') + '. Check the words, then pick a style!', 'ok');
+    switchTab('captions');
+  } catch (err) {
+    notice(err.message + ' You can also use "Browser Speech AI" or "Import SRT".', 'bad');
+  }
+  finally { setBusy(btn, false); }
+});
+
+// SRT / VTT Subtitle Parser
+function parseSrtTime(tStr) {
+  tStr = tStr.trim().replace(',', '.');
+  const parts = tStr.split(':');
+  if (parts.length === 3) return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
+  if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+  return 0;
+}
+function parseSrt(text) {
+  const blocks = text.trim().replace(/\r\n/g, '\n').split(/\n\s*\n/);
+  const captions = [], rawWords = [];
+  let id = 1;
+  for (const block of blocks) {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    let timeLineIdx = lines.findIndex(l => l.includes('-->'));
+    if (timeLineIdx === -1) continue;
+    const timeMatch = lines[timeLineIdx].split('-->');
+    const start = parseSrtTime(timeMatch[0]);
+    const end = parseSrtTime(timeMatch[1].split(' ')[0]);
+    const capText = lines.slice(timeLineIdx + 1).join(' ').replace(/<[^>]+>/g, '').trim();
+    if (!capText) continue;
+    captions.push({ id: id++, start: +start.toFixed(2), end: +end.toFixed(2), text: capText });
+    const toks = capText.split(/\s+/).filter(Boolean);
+    const span = Math.max(0.1, end - start) / Math.max(1, toks.length);
+    toks.forEach((w, i) => {
+      rawWords.push([+(start + i * span).toFixed(3), +(start + (i + 1) * span).toFixed(3), w]);
+    });
+  }
+  return { captions, rawWords };
+}
+const srtIn = $('srtFile');
+if (srtIn) {
+  srtIn.addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const { captions, rawWords } = parseSrt(ev.target.result);
+        if (!captions.length) throw new Error('No subtitle cues found in file.');
+        S.captions = captions; S.rawWords = rawWords; S.edited = false;
+        S.selected = captions[0] ? captions[0].id : null;
+        capSig = ''; renderCapList(); renderTimeline();
+        $('regroup').disabled = false;
+        notice('\u2705 Imported ' + captions.length + ' captions from ' + f.name + '! Pick your favorite Moonshot preset in Style.', 'ok');
+        switchTab('captions');
+      } catch (err) { notice('Failed to parse subtitles: ' + err.message, 'bad'); }
+    };
+    reader.readAsText(f);
+  });
+}
+
+// Browser Web Speech AI
+let speechRec = null;
+const bSpeechBtn = $('browserSpeechBtn');
+if (bSpeechBtn) {
+  bSpeechBtn.addEventListener('click', () => {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+      alert('Browser Speech Recognition is supported natively in Google Chrome and Microsoft Edge.');
+      return;
+    }
+    if (!S.filename) { notice('Please choose a video in step 1 first.', 'bad'); return; }
+    if (speechRec) {
+      try { speechRec.stop(); } catch (_) {}
+      speechRec = null;
+      bSpeechBtn.textContent = '\u{1F399}\u{FE0F} Browser Speech AI';
+      notice('Finished browser speech capture.', 'ok');
+      return;
+    }
+    const rec = new SpeechRec();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = $('lang').value || 'en-US';
+    bSpeechBtn.textContent = '\u23F9 Stop Listening';
+    notice('\u{1F399}\u{FE0F} Listening to speech... Video is playing. Press "Stop Listening" when done.', 'busy');
+    speechRec = rec;
+    vid.currentTime = 0;
+    vid.play();
+    rec.onresult = e => {
+      const t = vid.currentTime || 0;
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          const phrase = e.results[i][0].transcript.trim();
+          if (phrase) {
+            const toks = phrase.split(/\s+/);
+            const dur = Math.max(0.5, toks.length * 0.4);
+            const start = Math.max(0, t - dur);
+            const end = t;
+            const id = S.captions.length + 1;
+            S.captions.push({ id, start: +start.toFixed(2), end: +end.toFixed(2), text: phrase });
+            const span = dur / toks.length;
+            toks.forEach((w, idx) => {
+              S.rawWords.push([+(start + idx * span).toFixed(3), +(start + (idx + 1) * span).toFixed(3), w]);
+            });
+            renderCapList(); renderTimeline();
+          }
+        }
+      }
+    };
+    rec.onerror = () => { bSpeechBtn.textContent = '\u{1F399}\u{FE0F} Browser Speech AI'; speechRec = null; };
+    rec.onend = () => {
+      bSpeechBtn.textContent = '\u{1F399}\u{FE0F} Browser Speech AI';
+      speechRec = null;
+      if (S.captions.length) {
+        notice('\u2705 Created ' + S.captions.length + ' captions via browser speech! Pick your Moonshot preset in Style.', 'ok');
+        $('regroup').disabled = false;
+        switchTab('captions');
+      }
+    };
+    try { rec.start(); } catch (err) { notice('Could not start speech recognition: ' + err.message, 'bad'); }
+  });
+}
+
+// ------------------------------------------------------------------ 2 captions list
+function renderCapList() {
+  const box = $('capList'); box.textContent = '';
+  if (!S.captions.length) { box.append(el('div', { class: 'empty', text: 'No captions yet. Generate them in step 1.' })); return; }
+  S.captions.sort((a, b) => a.start - b.start);
+  for (const c of S.captions) {
+    const mk = (key, label) => el('label', {}, label, el('input', { type: 'number', step: '0.1', min: '0', value: (+c[key]).toFixed(2),
+      oninput: ev => { c[key] = num(ev.target.value, c[key]); delete c.wt; S.edited = true; capSig = ''; renderTimeline(); } }));
+    const ta = el('textarea', { rows: '2', 'aria-label': 'Caption text',
+      oninput: ev => { c.text = ev.target.value; S.edited = true; capSig = ''; },
+      onfocus: () => { S.selected = c.id; capSig = ''; if (vid.paused) vid.currentTime = +c.start + 0.01; document.querySelectorAll('.caprow').forEach(r => r.classList.toggle('sel', r.dataset.id == c.id)); } });
+    ta.value = c.text;
+    box.append(el('div', { class: 'caprow' + (c.id === S.selected ? ' sel' : ''), 'data-id': c.id },
+      mk('start', 'Start'), mk('end', 'End'), el('label', { class: 'txt' }, 'Text', ta),
+      el('button', { class: 'x', type: 'button', title: 'Delete', text: '\u00d7', onclick: () => { S.captions = S.captions.filter(x => x.id !== c.id); S.edited = true; capSig = ''; renderCapList(); renderTimeline(); } })));
+  }
+}
+$('addCap').addEventListener('click', () => {
+  const t = vid.currentTime || 0, id = Math.max(0, ...S.captions.map(c => c.id)) + 1;
+  S.captions.push({ id, start: +t.toFixed(2), end: +(t + 2).toFixed(2), text: 'Type *your* caption' });
+  S.selected = id; S.edited = true; capSig = ''; renderCapList(); renderTimeline();
+});
+$('regroup').addEventListener('click', regroup);
+async function regroup(silent) {
+  if (!S.rawWords.length) return;
+  try {
+    const d = await api('/api/regroup', { words: S.rawWords, per: +$('wpc').value, maxKeys: +$('maxKeys').value });
+    S.captions = d.captions; S.edited = false; capSig = ''; renderCapList(); renderTimeline();
+    if (silent !== true) notice('Captions regrouped.', 'ok');
+  } catch (err) { notice(err.message, 'bad'); }
+}
+
+// ------------------------------------------------------------------ 3 style
+const ROLE_FIELDS = [
+  { k: 'font', type: 'font', label: 'Font' },
+  { k: 'size', type: 'range', min: .03, max: .22, step: .005, label: 'Size' },
+  { k: 'color', type: 'color', label: 'Colour' },
+  { k: 'outline', type: 'range', min: 0, max: .15, step: .005, label: 'Outline' },
+  { k: 'outlineColor', type: 'color', label: 'Outline colour' },
+  { k: 'glowSize', type: 'range', min: 0, max: .15, step: .005, label: 'Glow' },
+  { k: 'glow', type: 'color', label: 'Glow colour' },
+  { k: 'shadow', type: 'range', min: 0, max: .1, step: .005, label: 'Depth shadow' },
+  { k: 'shadowColor', type: 'color', label: 'Shadow colour' }
+];
+const roleInputs = { key: {}, filler: {} };
+const touchStyle = () => { S.styleVer++; capSig = ''; };
+function buildRoles() {
+  const box = $('roles'); box.textContent = '';
+  for (const role of ['key', 'filler']) {
+    const wrap = el('div', { class: 'role' }, el('h4', { text: role === 'key' ? '\u2B50 Big words' : '\u270D Small words' }));
+    const grid = el('div', { class: 'row2' });
+    for (const f of ROLE_FIELDS) {
+      let input, out = null;
+      if (f.type === 'font') {
+        input = el('select', { onchange: e => { S.style[role].font = e.target.value; S.style[role].fallback = e.target.value; touchStyle(); } });
+      } else if (f.type === 'range') {
+        out = el('output', { text: '' });
+        input = el('input', { type: 'range', min: f.min, max: f.max, step: f.step, oninput: e => { S.style[role][f.k] = +e.target.value; out.textContent = Math.round(e.target.value * 100) + '%'; touchStyle(); } });
+      } else {
+        input = el('input', { type: 'color', oninput: e => { S.style[role][f.k] = e.target.value; touchStyle(); } });
+      }
+      roleInputs[role][f.k] = { input, out };
+      grid.append(el('label', {}, f.label, out, input));
+    }
+    wrap.append(grid);
+    const checks = el('div', { class: 'checks' });
+    for (const [k, label] of [['italic', 'Italic'], ['bold', 'Bold'], ['upper', 'UPPERCASE']]) {
+      const cb = el('input', { type: 'checkbox', onchange: e => { S.style[role][k] = e.target.checked; touchStyle(); } });
+      roleInputs[role][k] = { input: cb };
+      checks.append(el('label', {}, cb, label));
+    }
+    wrap.append(checks); box.append(wrap);
+  }
+}
+function fillFontOptions() {
+  for (const role of ['key', 'filler']) {
+    const sel = roleInputs[role].font.input; const cur = S.style ? S.style[role].font : '';
+    const names = Array.from(new Set([...S.fonts, cur].filter(Boolean))).sort();
+    sel.textContent = ''; names.forEach(n => sel.append(el('option', { value: n, text: n })));
+    sel.value = cur;
+  }
+}
+function syncStyleControls() {
+  const st = S.style;
+  $('s_layout').value = st.layout; $('s_animation').value = st.animation;
+  $('s_position').value = st.position; $('s_positionOut').textContent = Math.round(st.position * 100) + '%';
+  $('s_highlightColor').value = st.highlightColor;
+  fillFontOptions();
+  for (const role of ['key', 'filler']) for (const f of ROLE_FIELDS) {
+    const r = roleInputs[role][f.k]; const v = st[role][f.k];
+    if (f.type === 'font') continue;
+    r.input.value = v; if (r.out) r.out.textContent = Math.round(v * 100) + '%';
+  }
+  for (const role of ['key', 'filler']) for (const k of ['italic', 'bold', 'upper']) roleInputs[role][k].input.checked = !!st[role][k];
+}
+$('s_layout').addEventListener('change', e => { S.style.layout = e.target.value; touchStyle(); });
+$('s_animation').addEventListener('change', e => { S.style.animation = e.target.value; touchStyle(); });
+$('s_position').addEventListener('input', e => { S.style.position = +e.target.value; $('s_positionOut').textContent = Math.round(e.target.value * 100) + '%'; touchStyle(); });
+$('s_highlightColor').addEventListener('input', e => { S.style.highlightColor = e.target.value; touchStyle(); });
+
+function loadCustom() { try { S.custom = JSON.parse(localStorage.getItem('cs_presets_v2') || '[]'); } catch (_) { S.custom = []; } }
+function saveCustom() { try { localStorage.setItem('cs_presets_v2', JSON.stringify(S.custom)); } catch (_) {} }
+function renderPresets() {
+  const box = $('presets'); box.textContent = '';
+  let all = [...S.presets, ...S.custom];
+  if (S.selectedCat && S.selectedCat !== 'all') {
+    all = all.filter(p => p.category === S.selectedCat);
+  }
+  if (S.presetSearch) {
+    const q = S.presetSearch.toLowerCase();
+    all = all.filter(p => (p.name || '').toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q));
+  }
+  if (!all.length) {
+    box.append(el('div', { class: 'empty', style: 'grid-column: 1 / -1;', text: 'No presets matched your search.' }));
+    return;
+  }
+  for (const p of all) {
+    const isCustom = !!p.custom;
+    const k = p.key, f = p.filler;
+    const pv = el('div', { class: 'pv' });
+
+    if (p.badge) {
+      const sp1 = el('span', { text: 'YOU CAN ' });
+      sp1.style.cssText = wordCss(f, 13, null, p, false) + ';margin-right:6px;';
+      const badgePill = el('span', { text: 'VIRAL' });
+      badgePill.style.cssText = `background:${p.badge};color:${p.badgeTextColor || '#000'} !important;padding:3px 10px;border-radius:6px;font-family:"${k.font}","${k.fallback}",sans-serif;font-weight:900;font-size:14px;box-shadow:0 2px 10px rgba(0,0,0,0.5);display:inline-block;` + (p.rotation ? `transform:rotate(${p.rotation}deg);` : '');
+      pv.append(sp1, badgePill);
+    } else if (p.palette && p.palette.length >= 2) {
+      const sp1 = el('span', { text: 'YOU ' });
+      sp1.style.cssText = wordCss(f, 13, p.palette[0], p, false);
+      const sp2 = el('span', { text: 'CAN ' });
+      sp2.style.cssText = wordCss(f, 13, p.palette[1], p, false);
+      const sp3 = el('span', { text: 'POP' });
+      sp3.style.cssText = wordCss(k, 16, p.palette[2] || k.color, p, true);
+      pv.append(sp1, sp2, sp3);
+    } else {
+      const sp1 = el('span', { text: 'YOU CAN ' });
+      sp1.style.cssText = wordCss(f, 13, null, p, false);
+      const sp2 = el('span', { text: 'REAL' });
+      sp2.style.cssText = wordCss(k, 17, null, p, true);
+      pv.append(sp1, sp2);
+    }
+
+    const card = el('button', { type: 'button', class: 'pcard' + (p.id === S.presetId ? ' on' : ''), onclick: () => applyPreset(p) },
+      pv, el('b', { text: p.name }),
+      p.category ? el('small', { text: p.category.toUpperCase() }) : null,
+      isCustom ? el('span', { class: 'del', text: '\u00d7', title: 'Delete', onclick: ev => { ev.stopPropagation(); S.custom = S.custom.filter(c => c.id !== p.id); saveCustom(); renderPresets(); } }) : null);
+    box.append(card);
+  }
+  if ($('presetCountBadge')) {
+    $('presetCountBadge').textContent = `${all.length} styles`;
+  }
+}
+function applyPreset(p) {
+  S.style = clone(p); S.presetId = p.id;
+  $('wpc').value = S.style.wordsPerCaption; $('wpcOut').textContent = S.style.wordsPerCaption;
+  $('maxKeys').value = S.style.maxKeys; $('mkOut').textContent = S.style.maxKeys;
+  syncStyleControls(); renderPresets(); touchStyle();
+  if (S.rawWords.length) {
+    if (!S.edited) regroup(true);
+    else notice('Style applied. Press "Regroup words" in step 2 to use this style\u2019s word grouping (this resets your text edits).', '');
+  }
+}
+$('savePreset').addEventListener('click', () => {
+  const name = (window.prompt('Name your style:', 'My style') || '').trim().slice(0, 30); if (!name) return;
+  const p = clone(S.style); p.name = name; p.id = 'c' + Date.now(); p.custom = true;
+  S.custom.push(p); S.presetId = p.id; saveCustom(); renderPresets(); notice('\u2705 Style saved on this computer.', 'ok');
+});
+
+// Category Filter Pills & Search
+if ($('catPills')) {
+  $('catPills').addEventListener('click', e => {
+    const btn = e.target.closest('.cat-pill');
+    if (!btn) return;
+    document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    S.selectedCat = btn.dataset.cat;
+    renderPresets();
+  });
+}
+if ($('presetSearch')) {
+  $('presetSearch').addEventListener('input', e => {
+    S.presetSearch = e.target.value.trim();
+    renderPresets();
+  });
+}
+
+// ------------------------------------------------------------------ 4 auto-cut
+[['c_noise', 'c_noiseOut', v => v + ' dB'], ['c_gap', 'c_gapOut', v => v + ' s'], ['c_pad', 'c_padOut', v => v + ' s']]
+  .forEach(([i, o, f]) => $(i).addEventListener('input', e => $(o).textContent = f(e.target.value)));
+$('detectBtn').addEventListener('click', async () => {
+  const btn = $('detectBtn'); setBusy(btn, true, '\u23F3 Listening for gaps...');
+  try {
+    const d = await api('/api/silence', { filename: S.filename, noiseDb: +$('c_noise').value, minSilence: +$('c_gap').value, pad: +$('c_pad').value });
+    S.cuts = d.cuts.map(c => ({ a: c[0], b: c[1], on: true }));
+    renderCuts(); renderTimeline();
+    notice(S.cuts.length ? '\u2702 Found ' + S.cuts.length + ' gaps. Tick "Preview cuts" under the video to watch the result.' : 'No gaps found. Try a higher sensitivity (closer to -20 dB) or a shorter gap.', S.cuts.length ? 'ok' : '');
+  } catch (err) { notice(err.message, 'bad'); }
+  finally { setBusy(btn, false); }
+});
+$('zoom').addEventListener('change', e => S.zoom = e.target.checked);
+function renderCuts() {
+  const box = $('cutList'); box.textContent = '';
+  const on = activeCuts(); const saved = on.reduce((s, c) => s + c.b - c.a, 0), D = dur();
+  const sm = $('cutSummary'); sm.textContent = '';
+  if (S.cuts.length) sm.append(el('span', {}, 'Removing ', el('b', { text: on.length + ' gaps' }), ' \u00b7 saves ', el('b', { text: saved.toFixed(1) + ' s' }),
+    D ? ' (' + Math.round(saved / D * 100) + '% shorter)' : ''));
+  else sm.textContent = 'No silent gaps analysed yet.';
+  S.cuts.forEach(c => {
+    const cb = el('input', { type: 'checkbox', checked: c.on, onchange: e => { c.on = e.target.checked; renderCuts(); renderTimeline(); } });
+    box.append(el('div', { class: 'cutrow' }, cb, el('span', { text: fmtT(c.a) + '.' + String(Math.floor((c.a % 1) * 10)) + ' \u2192 ' + fmtT(c.b) + '.' + String(Math.floor((c.b % 1) * 10)) + '  (' + (c.b - c.a).toFixed(1) + ' s)' }),
+      el('button', { class: 'btn small ghost', type: 'button', text: '\u25B6 Play', onclick: () => { vid.currentTime = Math.max(0, c.a - 1); vid.play(); } })));
+  });
+}
+
+// ------------------------------------------------------------------ 5 effects (NEW)
+// Aspect ratio
+$('aspectBar').addEventListener('click', e => {
+  const btn = e.target.closest('.aspect-btn'); if (!btn) return;
+  S.aspect = btn.dataset.aspect;
+  document.querySelectorAll('.aspect-btn').forEach(b => b.classList.toggle('on', b === btn));
+  // Update stage aspect ratio preview
+  if (S.aspect !== 'original' && S.meta) {
+    const [w, h] = S.aspect.split(':').map(Number);
+    stage.style.setProperty('--ar', w / h);
+  } else if (S.meta) {
+    stage.style.setProperty('--ar', S.meta.width / S.meta.height);
+  }
+});
+
+// Speed
+$('speedVal').addEventListener('input', e => {
+  S.speed = +e.target.value;
+  $('speedOut').textContent = S.speed.toFixed(1) + 'x';
+});
+$('speedScope').addEventListener('change', e => { S.speedScope = e.target.value; });
+
+// Background music
+$('bgMusic').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  S.bgMusic = f;
+  $('bgMusicName').textContent = f.name;
+  $('musicControls').style.display = '';
+  $('musicFadeLabel').style.display = '';
+  // Upload music
+  try {
+    const fd = new FormData(); fd.append('audio', f);
+    const r = await fetch('/api/upload-audio', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    S.bgMusicFile = d.filename;
+    notice('\u266B Background music added: ' + f.name, 'ok');
+  } catch (err) {
+    notice('Music upload: ' + err.message, 'bad');
+  }
+});
+$('musicVol').addEventListener('input', e => { S.musicVol = +e.target.value; $('musicVolOut').textContent = e.target.value + '%'; });
+$('voiceVol').addEventListener('input', e => { S.voiceVol = +e.target.value; $('voiceVolOut').textContent = e.target.value + '%'; });
+$('musicFade').addEventListener('change', e => { S.musicFade = e.target.checked; });
+
+// Video effects
+$('effectKenBurns').addEventListener('change', e => { S.effects.kenBurns = e.target.checked; });
+$('effectVignette').addEventListener('change', e => { S.effects.vignette = e.target.checked; });
+$('effectSharpen').addEventListener('change', e => { S.effects.sharpen = e.target.checked; });
+$('effectCinemaBar').addEventListener('change', e => { S.effects.cinemaBar = e.target.checked; });
+
+// ------------------------------------------------------------------ 6 b-roll
+$('chipPexels').addEventListener('click', () => { switchTab('broll'); $('keyBox').hidden = false; });
+$('keySave').addEventListener('click', async () => {
+  try { await api('/api/broll/config', { key: $('keyIn').value }); await loadStatus(); notice('\u2705 Pexels key saved.', 'ok'); }
+  catch (err) { notice(err.message, 'bad'); }
+});
+$('suggestBtn').addEventListener('click', async () => {
+  try {
+    const d = await api('/api/broll/suggest', { captions: S.captions, duration: dur() });
+    S.slots = d.slots.map(s => ({ ...s, results: [], chosen: null, loading: false }));
+    renderSlots(); renderTimeline();
+    notice(S.slots.length ? '\u2728 Found ' + S.slots.length + ' places for b-roll. Press Search on each one.' : 'No good spots found. Use "+ Add spot here".', S.slots.length ? 'ok' : '');
+  } catch (err) { notice(err.message, 'bad'); }
+});
+$('addSlot').addEventListener('click', () => {
+  const t = vid.currentTime || 0, id = Math.max(0, ...S.slots.map(s => s.id)) + 1;
+  S.slots.push({ id, start: +t.toFixed(1), end: +Math.min(dur(), t + 2.5).toFixed(1), query: '', text: 'Added by you', results: [], chosen: null });
+  renderSlots();
+});
+async function searchSlot(s) {
+  if (!s.query.trim()) { notice('Type what you want to see, for example "coffee shop".', 'bad'); return; }
+  s.loading = true; renderSlots();
+  try {
+    const d = await api('/api/broll/search', { query: s.query, orientation: S.meta && S.meta.width >= S.meta.height ? 'landscape' : 'portrait' });
+    s.results = d.results; if (!d.results.length) notice('No clips found for "' + s.query + '". Try other words.', '');
+  } catch (err) { notice(err.message, 'bad'); }
+  s.loading = false; renderSlots();
+}
+function renderSlots() {
+  const box = $('slots'); box.textContent = '';
+  for (const s of S.slots) {
+    const mk = (k, label) => el('label', {}, label, el('input', { type: 'number', step: '0.1', min: '0', value: s[k], oninput: e => { s[k] = num(e.target.value, s[k]); renderTimeline(); } }));
+    const q = el('input', { type: 'text', value: s.query, placeholder: 'e.g. luxury kitchen', oninput: e => s.query = e.target.value, onkeydown: e => { if (e.key === 'Enter') searchSlot(s); } });
+    const card = el('div', { class: 'slot' },
+      el('div', { class: 'head' }, el('b', { text: 'Spot ' + s.id }),
+        el('button', { class: 'x', type: 'button', text: '\u00d7', title: 'Remove spot', onclick: () => { S.slots = S.slots.filter(x => x !== s); renderSlots(); renderTimeline(); } })),
+      el('div', { class: 'why', text: s.text ? '\u201c' + s.text + '\u201d' : '' }),
+      el('div', { class: 'controls' }, mk('start', 'Start'), mk('end', 'End'), el('label', {}, 'Search', q),
+        el('button', { class: 'btn small', type: 'button', text: s.loading ? '\u23F3 Searching...' : '\u{1F50D} Search', disabled: !!s.loading, onclick: () => searchSlot(s) })));
+    if (s.chosen) card.append(el('div', { class: 'chosen' }, el('img', { src: s.chosen.thumb, alt: '' }),
+      el('span', { text: '\u2705 Using clip by ' + (s.chosen.credit || 'Pexels') }),
+      el('button', { class: 'btn small ghost', type: 'button', text: 'Remove', onclick: () => { s.chosen = null; renderSlots(); renderTimeline(); } })));
+    if (s.results.length) {
+      const grid = el('div', { class: 'results' });
+      for (const r of s.results) grid.append(el('button', { type: 'button', class: 'thumb' + (s.chosen && s.chosen.id === r.id ? ' on' : ''), title: 'Use this clip',
+        onclick: () => { s.chosen = r; renderSlots(); renderTimeline(); } }, el('img', { src: r.thumb, alt: '', loading: 'lazy' }), el('span', { text: Math.round(r.duration || 0) + 's' })));
+      card.append(grid);
+    }
+    box.append(card);
+  }
+}
+
+// ------------------------------------------------------------------ 7 export
+function updateExportSummary() {
+  const sm = $('expSummary'); sm.textContent = '';
+  const chosen = S.slots.filter(s => s.chosen).length;
+  const effectCount = Object.values(S.effects).filter(Boolean).length;
+  sm.append(
+    el('div', { class: 'stat-pills' },
+      el('span', { class: 'stat-pill', text: '\u{1F4AC} ' + S.captions.length + ' captions' }),
+      el('span', { class: 'stat-pill', text: '\u2702 ' + activeCuts().length + ' cuts' }),
+      el('span', { class: 'stat-pill', text: '\u{1F3AC} ' + chosen + ' b-roll' }),
+      effectCount ? el('span', { class: 'stat-pill', text: '\u2728 ' + effectCount + ' effects' }) : null,
+      S.speed !== 1.0 ? el('span', { class: 'stat-pill', text: '\u23E9 ' + S.speed.toFixed(1) + 'x speed' }) : null,
+      S.bgMusicFile ? el('span', { class: 'stat-pill', text: '\u266B Music' }) : null
+    )
+  );
+  sm.append(el('div', { class: 'hint', text: 'Style: ' + (S.style ? S.style.name : '') + ' \u00b7 Aspect: ' + S.aspect + ' \u00b7 Quality: ' + $('exportQuality').value }));
+}
+$('exportQuality').addEventListener('change', e => { S.exportQuality = e.target.value; });
+$('exportFormat').addEventListener('change', e => { S.exportFormat = e.target.value; });
+$('exportBtn').addEventListener('click', async () => {
+  if (!S.filename) return;
+  const body = { filename: S.filename, captions: S.captions, style: S.style, cuts: activeCuts().map(c => [c.a, c.b]),
+    zoom: S.zoom && activeCuts().length > 0,
+    broll: S.slots.filter(s => s.chosen).map(s => ({ start: s.start, end: s.end, url: s.chosen.url, id: s.chosen.id })),
+    // New features
+    aspect: S.aspect, speed: S.speed, speedScope: S.speedScope,
+    bgMusic: S.bgMusicFile || null, musicVol: S.musicVol, voiceVol: S.voiceVol, musicFade: S.musicFade,
+    effects: S.effects, quality: S.exportQuality, format: S.exportFormat
+  };
+  $('result').hidden = true; $('prog').hidden = false; $('pfill').style.width = '2%'; $('pmsg').textContent = 'Starting...';
+  setBusy($('exportBtn'), true, '\u23F3 Rendering...');
+  try {
+    const { job } = await api('/api/export', body);
+    for (;;) {
+      await new Promise(r => setTimeout(r, 1000));
+      const j = await api('/api/jobs/' + job);
+      $('pfill').style.width = Math.max(2, j.progress || 0) + '%'; $('pmsg').textContent = j.message + ' ' + Math.round(j.progress || 0) + '%';
+      if (j.status === 'done') { $('resVid').src = j.download; $('dl').href = j.download; $('result').hidden = false; $('prog').hidden = true; notice('\u2705 Done! Press Download video.', 'ok'); break; }
+      if (j.status === 'error') throw new Error(j.message);
+    }
+  } catch (err) { $('prog').hidden = true; notice(err.message, 'bad'); }
+  finally { setBusy($('exportBtn'), false); }
+});
+
+// ------------------------------------------------------------------ start
+async function loadStatus() {
+  const s = await api('/api/status'); S.status = s;
+  const set = (id, ok) => { $(id).className = 'chip' + (id === 'chipPexels' ? ' btnchip ' : ' ') + (ok ? 'ok' : 'bad'); };
+  set('chipFfmpeg', s.ffmpeg && s.ass); set('chipWhisper', s.whisper); set('chipPexels', s.pexels);
+  $('chipFfmpeg').textContent = 'FFmpeg ' + (s.ffmpeg && s.ass ? '\u2713' : '\u2717');
+  $('chipWhisper').textContent = 'Speech ' + (s.whisper ? '\u2713' : '\u2717');
+  $('chipPexels').textContent = 'Pexels ' + (s.pexels ? '\u2713' : '\u2717 add key');
+  $('keyBox').hidden = !!s.pexels;
+  return s;
+}
+(async function init() {
+  buildRoles(); loadCustom();
+  try {
+    const [p, f] = await Promise.all([api('/api/presets'), api('/api/fontlist')]);
+    S.presets = p.presets; S.fonts = f.fonts;
+    S.style = clone(p.presets[0]); S.presetId = p.presets[0].id; syncStyleControls(); renderPresets();
+    const s = await loadStatus();
+    if (!s.ffmpeg) notice('FFmpeg is missing. Follow SETUP.md (step 2), then restart the app.', 'bad');
+    else if (!s.ass) notice('Your FFmpeg cannot draw captions (no "ass" filter). Install the full build from SETUP.md.', 'bad');
+    else if (!s.whisper) notice('Speech package missing. Run: pip install -r requirements.txt', 'bad');
+    else notice('\u{1F3AC} Ready! Step 1: choose a video to get started.', 'ok');
+  } catch (err) { notice(err.message, 'bad'); }
+  requestAnimationFrame(tick);
+})();

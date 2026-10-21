@@ -1,0 +1,7 @@
+{
+  "videoSrc": "input.mp4", "words": [{"t": "So", "s": 0.3, "e": 0.55}, {"t": "tonight", "s": 0.55, "e": 1.1}, {"t": "is", "s": 1.1, "e": 1.3}, {"t": "going", "s": 1.3, "e": 1.6}],
+  "presetId": "neon_duo", "autoColor": false,
+  "palette": {"c1": "#FF5A00", "c2": "#D81E0A", "text": "#FFFFFF"},
+  "graphics": [{"start": 1.0, "end": 2.5, "type": "kinetic_text", "text": "Tonight", "position": "top"}],
+  "durationSec": 10, "width": 1080, "height": 1920, "fps": 30
+}

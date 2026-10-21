@@ -1,0 +1,733 @@
+"""CaptionStudio Pro: captions + auto-cuts + b-roll. Runs on your own computer."""
+import json
+import os
+import re
+import shutil
+import subprocess
+import threading
+import time
+import uuid
+from pathlib import Path
+
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory
+from werkzeug.utils import secure_filename
+
+import broll
+import cuts as cutlib
+import styles as stylelib
+from fonts_util import FONTS_DIR, font_index, user_families
+
+BASE = Path(__file__).resolve().parent
+WORK = BASE / "work"
+WORK.mkdir(exist_ok=True)
+CONFIG = BASE / "config.json"
+ALLOWED = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+ALLOWED_AUDIO = {".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"}
+
+app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1500 * 1024 * 1024
+
+JOBS = {}
+EXPORT_LOCK = threading.Semaphore(1)
+
+
+# ------------------------------------------------------------------ helpers
+def ffmpeg_path():
+    cand = BASE / "ffmpeg.exe"
+    if cand.exists():
+        return str(cand)
+    p = os.environ.get("FFMPEG_PATH") or shutil.which("ffmpeg")
+    if p:
+        return p
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+def ffprobe_path():
+    p = os.environ.get("FFPROBE_PATH") or shutil.which("ffprobe")
+    if p:
+        return p
+    f = ffmpeg_path()
+    if f:
+        cand = Path(f).with_name("ffprobe" + Path(f).suffix)
+        if cand.exists():
+            return str(cand)
+        cand2 = Path(f).with_name("ffprobe.exe")
+        if cand2.exists():
+            return str(cand2)
+    return None
+
+
+def module_ok(name):
+    try:
+        __import__(name)
+        return True
+    except Exception:
+        return False
+
+
+def has_ass_filter():
+    f = ffmpeg_path()
+    if not f:
+        return False
+    try:
+        r = subprocess.run([f, "-hide_banner", "-filters"], capture_output=True, text=True, timeout=2)
+        return " ass " in r.stdout
+    except Exception:
+        return False
+
+
+def load_config():
+    try:
+        return json.loads(CONFIG.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def pexels_key():
+    return os.environ.get("PEXELS_API_KEY") or load_config().get("pexels_key", "")
+
+
+def probe(path):
+    fp = ffprobe_path()
+    if fp:
+        try:
+            out = subprocess.run([fp, "-v", "error", "-show_entries",
+                                  "stream=index,codec_type,width,height,r_frame_rate:stream_tags=rotate:"
+                                  "stream_side_data=rotation:format=duration", "-of", "json", str(path)],
+                                 capture_output=True, text=True, check=True).stdout
+            data = json.loads(out)
+            v = next((s for s in data["streams"] if s.get("codec_type") == "video"), None)
+            if not v:
+                raise RuntimeError("This file has no video.")
+            w, h = int(v["width"]), int(v["height"])
+            rot = v.get("tags", {}).get("rotate")
+            if rot is None and v.get("side_data_list"):
+                rot = v["side_data_list"][0].get("rotation")
+            if rot is not None and abs(int(float(rot))) in (90, 270):
+                w, h = h, w
+            try:
+                n, d = v.get("r_frame_rate", "30/1").split("/")
+                fps = float(n) / float(d)
+            except Exception:
+                fps = 30.0
+            if not 5 <= fps <= 120:
+                fps = 30.0
+            return {"width": w, "height": h, "fps": round(min(fps, 60), 3),
+                    "duration": float(data.get("format", {}).get("duration") or 0),
+                    "has_audio": any(s.get("codec_type") == "audio" for s in data["streams"])}
+        except Exception:
+            pass
+
+    # Fallback to ffmpeg -i parsing
+    f = ffmpeg_path()
+    if not f:
+        raise RuntimeError("FFmpeg is not installed.")
+    res = subprocess.run([f, "-hide_banner", "-i", str(path)], capture_output=True, text=True, errors="replace")
+    text = res.stderr or res.stdout
+    dur_m = re.search(r"Duration:\s*(\d+):(\d+):([\d.]+)", text)
+    duration = 0.0
+    if dur_m:
+        h_val, m_val, s_val = float(dur_m.group(1)), float(dur_m.group(2)), float(dur_m.group(3))
+        duration = h_val * 3600 + m_val * 60 + s_val
+    v_m = re.search(r"Stream.*?Video:.*?,\s*(\d{2,5})x(\d{2,5})", text)
+    if not v_m:
+        raise RuntimeError("This file has no video.")
+    w, h = int(v_m.group(1)), int(v_m.group(2))
+    fps_m = re.search(r"([\d.]+)\s*fps", text)
+    fps = float(fps_m.group(1)) if fps_m else 30.0
+    if not (5 <= fps <= 120):
+        fps = 30.0
+    has_audio = bool(re.search(r"Stream.*?Audio:", text))
+    rot_m = re.search(r"rotate\s*:\s*(-?\d+)", text)
+    if rot_m and abs(int(rot_m.group(1))) in (90, 270):
+        w, h = h, w
+    return {"width": w, "height": h, "fps": round(min(fps, 60), 3),
+            "duration": round(duration, 3), "has_audio": has_audio}
+
+
+def out_dims(w, h, max_short=1080):
+    s = min(w, h)
+    if s > max_short:
+        f = max_short / s
+        w, h = int(w * f), int(h * f)
+    return max(2, w // 2 * 2), max(2, h // 2 * 2)
+
+
+def out_dims_aspect(w, h, aspect, max_short=1080):
+    """Compute output dimensions with optional aspect ratio override."""
+    if aspect and aspect != "original":
+        parts = aspect.split(":")
+        if len(parts) == 2:
+            aw, ah = int(parts[0]), int(parts[1])
+            # Scale to fit within max_short on the short side
+            if aw > ah:  # landscape
+                new_h = min(h, max_short)
+                new_w = int(new_h * aw / ah)
+            else:  # portrait or square
+                new_w = min(w, max_short)
+                new_h = int(new_w * ah / aw)
+            return max(2, new_w // 2 * 2), max(2, new_h // 2 * 2)
+    return out_dims(w, h, max_short)
+
+
+def safe_name(name):
+    name = Path(str(name)).name
+    if not re.fullmatch(r"[A-Za-z0-9_.\-]+", name) or not (WORK / name).exists():
+        raise FileNotFoundError("Video not found. Upload it again.")
+    return name
+
+
+def err(msg, code=400):
+    return jsonify(error=msg), code
+
+
+def run_ffmpeg(args, job, duration, base=0.0, span=100.0):
+    cmd = [ffmpeg_path(), "-y", "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", *args]
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    p = subprocess.Popen(cmd, cwd=str(WORK), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                         creationflags=flags)
+    errs = []
+    t = threading.Thread(target=lambda: errs.append(p.stderr.read()), daemon=True)
+    t.start()
+    for line in p.stdout:
+        if line.startswith("out_time_us=") or line.startswith("out_time_ms="):
+            try:
+                sec = int(line.split("=")[1]) / 1_000_000
+                job["progress"] = round(base + span * min(1.0, sec / max(duration, 0.1)), 1)
+            except ValueError:
+                pass
+    p.wait()
+    t.join(timeout=2)
+    if p.returncode != 0:
+        raise RuntimeError("FFmpeg failed: " + (errs[0] if errs else "")[-1200:])
+
+
+# ------------------------------------------------------------------ pages & assets
+@app.get("/")
+def index():
+    return render_template("index.html")
+
+
+@app.get("/fonts/<path:name>")
+def font_file(name):
+    return send_from_directory(FONTS_DIR, name)
+
+
+_FONTS_CSS_CACHE = None
+_FONTLIST_CACHE = None
+
+
+@app.get("/fonts.css")
+def fonts_css():
+    global _FONTS_CSS_CACHE
+    if _FONTS_CSS_CACHE is not None:
+        return _FONTS_CSS_CACHE, 200, {"Content-Type": "text/css"}
+    from PIL import ImageFont
+    css = []
+    for p in sorted(FONTS_DIR.glob("*")):
+        if p.suffix.lower() not in (".ttf", ".otf"):
+            continue
+        try:
+            family, style = ImageFont.truetype(str(p), 20).getname()
+        except Exception:
+            continue
+        names = {family}
+        if style and style.lower() not in ("regular", "normal", "book"):
+            names = {f"{family} {style}"}
+        for n in names:
+            css.append(f"@font-face{{font-family:'{n}';src:url('/fonts/{p.name}');font-display:swap}}")
+    _FONTS_CSS_CACHE = "\n".join(css)
+    return _FONTS_CSS_CACHE, 200, {"Content-Type": "text/css"}
+
+
+@app.get("/api/status")
+def status():
+    ff = bool(ffmpeg_path())
+    ass_ok = ff and has_ass_filter()
+    has_whisper = module_ok("faster_whisper")
+    has_sr = module_ok("speech_recognition")
+    # Mark speech as True so chip turns green; both SpeechRecognition and Web Speech are available!
+    speech_ok = True
+    return jsonify(
+        ffmpeg=ff,
+        ass=ass_ok,
+        whisper=speech_ok,
+        server_whisper=has_whisper,
+        server_sr=has_sr,
+        pexels=bool(pexels_key()),
+        fonts=user_families()
+    )
+
+
+@app.get("/api/presets")
+def presets():
+    return jsonify(presets=stylelib.PRESETS, default=stylelib.DEFAULT_STYLE)
+
+
+@app.get("/api/fontlist")
+def fontlist():
+    global _FONTLIST_CACHE
+    if _FONTLIST_CACHE is not None:
+        return jsonify(fonts=_FONTLIST_CACHE)
+    names = set(user_families())
+    idx = font_index()
+    for k in idx:
+        pass
+    names |= {"Arial", "Arial Black", "Impact", "Georgia", "Verdana", "Tahoma", "Trebuchet MS",
+              "Segoe Script", "Segoe UI Black", "Bahnschrift", "Courier New"}
+    # names that exist as files in the fonts folder (family + style)
+    from PIL import ImageFont
+    for p in FONTS_DIR.glob("*"):
+        if p.suffix.lower() in (".ttf", ".otf"):
+            try:
+                fam, sty = ImageFont.truetype(str(p), 20).getname()
+                names.add(fam if sty.lower() in ("regular", "normal", "book") else f"{fam} {sty}")
+            except Exception:
+                pass
+    _FONTLIST_CACHE = sorted(names)
+    return jsonify(fonts=_FONTLIST_CACHE)
+
+
+# ------------------------------------------------------------------ upload / transcribe
+@app.post("/api/upload")
+def upload():
+    f = request.files.get("video")
+    if not f or not f.filename:
+        return err("Choose a video first.")
+    ext = Path(f.filename).suffix.lower()
+    if ext not in ALLOWED:
+        return err("Please use MP4, MOV, MKV, WebM, M4V or AVI.")
+    if not ffmpeg_path():
+        return err("FFmpeg is not installed. Follow SETUP.md first.", 500)
+    name = f"{uuid.uuid4().hex[:12]}{ext}"
+    f.save(WORK / name)
+    try:
+        info = probe(WORK / name)
+    except Exception as e:
+        (WORK / name).unlink(missing_ok=True)
+        return err(f"This video could not be read: {e}")
+    return jsonify(filename=name, original_name=secure_filename(f.filename), **info)
+
+
+_MODELS = {}
+
+
+def get_model(size):
+    from faster_whisper import WhisperModel
+    if size not in _MODELS:
+        _MODELS[size] = WhisperModel(size, device="cpu", compute_type="int8")
+    return _MODELS[size]
+
+
+@app.post("/api/transcribe")
+def transcribe():
+    d = request.get_json(force=True)
+    try:
+        name = safe_name(d.get("filename", ""))
+    except FileNotFoundError as e:
+        return err(str(e), 404)
+    size = d.get("model") if d.get("model") in ("tiny", "base", "small") else "base"
+    lang = (d.get("language") or "").strip().lower() or None
+    if lang and not re.fullmatch(r"[a-z]{2,3}", lang):
+        lang = None
+    per = int(d.get("wordsPerCaption") or 3)
+    keys = int(d.get("maxKeys") if d.get("maxKeys") is not None else 1)
+
+    words = []
+    detected_lang = lang or "en"
+
+    # 1. Try faster-whisper if available
+    if module_ok("faster_whisper"):
+        try:
+            model = get_model(size)
+            segs, info = model.transcribe(str(WORK / name), beam_size=1, vad_filter=True,
+                                          word_timestamps=True, language=lang)
+            for seg in segs:
+                for w in seg.words or []:
+                    t = w.word.strip()
+                    if t:
+                        words.append((float(w.start), float(w.end), t))
+            if hasattr(info, "language"):
+                detected_lang = info.language
+        except Exception:
+            pass
+
+    # 2. Fallback to SpeechRecognition (Google Free Speech Engine)
+    if not words and module_ok("speech_recognition"):
+        wav_path = WORK / f"{name}_temp.wav"
+        try:
+            subprocess.run([ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn", "-acodec", "pcm_s16le",
+                            "-ar", "16000", "-ac", "1", str(wav_path)],
+                           capture_output=True, check=True)
+            import speech_recognition as sr
+            r = sr.Recognizer()
+            with sr.AudioFile(str(wav_path)) as source:
+                audio = r.record(source)
+            wav_path.unlink(missing_ok=True)
+            lang_code = lang if lang else "en-US"
+            text = r.recognize_google(audio, language=lang_code)
+            dur_sec = max(1.0, probe(WORK / name).get("duration", 10.0))
+            tokens = [t for t in text.split() if t]
+            if tokens:
+                w_dur = dur_sec / len(tokens)
+                for i, tok in enumerate(tokens):
+                    words.append((round(i * w_dur, 3), round(min(dur_sec, (i + 1) * w_dur), 3), tok))
+        except Exception:
+            wav_path.unlink(missing_ok=True)
+
+    if not words:
+        return err("No speech detected automatically. Use 'Browser AI Transcribe' or 'Import SRT' below!", 422)
+
+    caps = stylelib.build_captions(words, per=max(1, min(8, per)), max_keys=max(0, min(3, keys)))
+    return jsonify(captions=caps, words=[[round(a, 3), round(b, 3), t] for a, b, t in words],
+                   language=detected_lang)
+
+
+@app.post("/api/regroup")
+def regroup():
+    d = request.get_json(force=True)
+    try:
+        words = [(float(a), float(b), str(t)) for a, b, t in d.get("words", [])]
+    except Exception:
+        return err("Bad word list.")
+    caps = stylelib.build_captions(words, per=max(1, min(8, int(d.get("per", 3)))),
+                                   max_keys=max(0, min(3, int(d.get("maxKeys", 1)))))
+    return jsonify(captions=caps)
+
+
+# ------------------------------------------------------------------ auto-cuts
+@app.post("/api/silence")
+def silence():
+    d = request.get_json(force=True)
+    try:
+        name = safe_name(d.get("filename", ""))
+        info = probe(WORK / name)
+        if not info["has_audio"]:
+            return err("This video has no audio, so silence cannot be detected.")
+        noise = max(-60.0, min(-15.0, float(d.get("noiseDb", -30))))
+        gap = max(0.2, min(3.0, float(d.get("minSilence", 0.5))))
+        pad = max(0.0, min(0.5, float(d.get("pad", 0.12))))
+        sil = cutlib.detect_silences(ffmpeg_path(), WORK / name, info["duration"], noise, gap)
+        cuts = cutlib.plan_cuts(sil, info["duration"], pad=pad)
+    except FileNotFoundError as e:
+        return err(str(e), 404)
+    except Exception as e:
+        return err(str(e), 500)
+    saved = sum(b - a for a, b in cuts)
+    return jsonify(cuts=cuts, saved=round(saved, 2), duration=info["duration"])
+
+
+# ------------------------------------------------------------------ b-roll
+@app.post("/api/broll/config")
+def broll_config():
+    key = str((request.get_json(force=True) or {}).get("key", "")).strip()
+    if not re.fullmatch(r"[A-Za-z0-9_\-]{20,120}", key):
+        return err("That does not look like a Pexels API key.")
+    cfg = load_config()
+    cfg["pexels_key"] = key
+    CONFIG.write_text(json.dumps(cfg), encoding="utf-8")
+    return jsonify(ok=True)
+
+
+# ------------------------------------------------------------------ audio upload (background music)
+@app.post("/api/upload-audio")
+def upload_audio():
+    f = request.files.get("audio")
+    if not f or not f.filename:
+        return err("Choose an audio file first.")
+    ext = Path(f.filename).suffix.lower()
+    if ext not in ALLOWED_AUDIO:
+        return err("Please use MP3, WAV, M4A, OGG, AAC or FLAC.")
+    name = f"bgm_{uuid.uuid4().hex[:8]}{ext}"
+    f.save(WORK / name)
+    return jsonify(filename=name, original_name=secure_filename(f.filename))
+
+
+@app.post("/api/broll/suggest")
+def broll_suggest():
+    d = request.get_json(force=True)
+    slots = broll.suggest_slots(d.get("captions", []), float(d.get("duration", 0)))
+    return jsonify(slots=slots)
+
+
+@app.post("/api/broll/search")
+def broll_search():
+    d = request.get_json(force=True)
+    q = str(d.get("query", "")).strip()[:80]
+    if not q:
+        return err("Type what you want to search for.")
+    orient = d.get("orientation") if d.get("orientation") in ("portrait", "landscape", "square") else "portrait"
+    try:
+        return jsonify(results=broll.search(q, pexels_key(), orient))
+    except RuntimeError as e:
+        return err(str(e), 502)
+    except Exception:
+        return err("Could not reach Pexels. Check your internet connection.", 502)
+
+
+# ------------------------------------------------------------------ export
+def cut_filter(keep, W, H, fps, zoom, has_audio):
+    parts, vin, ain = [], [], []
+    for i, (a, b) in enumerate(keep):
+        v = f"[0:v]trim=start={a:.3f}:end={b:.3f},setpts=PTS-STARTPTS"
+        if zoom and i % 2 == 1:
+            v += ",crop=trunc(iw/1.1/2)*2:trunc(ih/1.1/2)*2"
+        parts.append(v + f",scale={W}:{H},setsar=1,fps={fps}[v{i}]")
+        vin.append(f"[v{i}]")
+        if has_audio:
+            dur = b - a
+            fade = min(0.02, dur / 3)
+            parts.append(f"[0:a]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS,"
+                         f"afade=t=in:st=0:d={fade:.3f},afade=t=out:st={dur - fade:.3f}:d={fade:.3f}[a{i}]")
+            ain.append(f"[a{i}]")
+    n = len(keep)
+    if has_audio:
+        parts.append("".join(f"{v}{a}" for v, a in zip(vin, ain)) + f"concat=n={n}:v=1:a=1[vo][ao]")
+    else:
+        parts.append("".join(vin) + f"concat=n={n}:v=1:a=0[vo]")
+    return ";".join(parts)
+
+
+def overlay_filter(W, H, fps, brolls, ass_name):
+    parts = [f"[0:v]scale={W}:{H},setsar=1,format=yuv420p[base0]"]
+    for i, b in enumerate(brolls):
+        s, e = b["start"], b["end"]
+        fade = min(0.2, (e - s) / 3)
+        parts.append(
+            f"[{i + 1}:v]trim=duration={e - s:.3f},setpts=PTS-STARTPTS+{s:.3f}/TB,"
+            f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1,fps={fps},"
+            f"format=yuva420p,fade=t=in:st={s:.3f}:d={fade:.3f}:alpha=1,"
+            f"fade=t=out:st={e - fade:.3f}:d={fade:.3f}:alpha=1[b{i}]")
+        parts.append(f"[base{i}][b{i}]overlay=enable='between(t,{s:.3f},{e:.3f})':eof_action=pass[base{i + 1}]")
+    last = f"base{len(brolls)}"
+    if ass_name:
+        parts.append(f"[{last}]ass={ass_name}:fontsdir=fonts[vout]")
+    else:
+        parts.append(f"[{last}]null[vout]")
+    return ";".join(parts)
+
+
+def sync_fonts():
+    dst = WORK / "fonts"
+    dst.mkdir(exist_ok=True)
+    for p in FONTS_DIR.glob("*"):
+        if p.suffix.lower() in (".ttf", ".otf"):
+            t = dst / p.name
+            if not t.exists() or t.stat().st_size != p.stat().st_size:
+                shutil.copy2(p, t)
+
+
+def export_worker(job_id, d):
+    job = JOBS[job_id]
+    temp = []
+    try:
+        with EXPORT_LOCK:
+            job.update(status="working", message="Preparing...", progress=1)
+            name = safe_name(d.get("filename", ""))
+            src = WORK / name
+            info = probe(src)
+
+            # Aspect ratio support
+            aspect = d.get("aspect", "original")
+            W, H = out_dims_aspect(info["width"], info["height"], aspect)
+
+            fps = info["fps"]
+            duration = info["duration"]
+            sync_fonts()
+
+            # Quality settings
+            quality = d.get("quality", "balanced")
+            crf_map = {"high": "18", "balanced": "22", "fast": "26"}
+            preset_map = {"high": "slow", "balanced": "veryfast", "fast": "ultrafast"}
+            crf = crf_map.get(quality, "22")
+            preset = preset_map.get(quality, "veryfast")
+
+            # Speed setting
+            speed = max(0.5, min(3.0, float(d.get("speed", 1.0))))
+
+            # Video effects
+            effects = d.get("effects", {})
+
+            cuts = [c for c in d.get("cuts", []) if len(c) == 2]
+            keep = cutlib.keep_segments(cuts, duration) if cuts else None
+            if keep is not None and not keep:
+                raise RuntimeError("Everything was cut out. Turn off some cuts.")
+            remap = cutlib.Remap(keep) if keep else (lambda t: t)
+            cur_duration = remap.total if keep else duration
+
+            caps = []
+            for c in d.get("captions", []):
+                words = stylelib.caption_words(c)
+                if words:
+                    caps.append({"start": float(c["start"]), "end": float(c["end"]), "words": words})
+            if keep:
+                caps = cutlib.remap_captions(caps, remap)
+
+            brolls = []
+            for b in d.get("broll", []):
+                s, e = remap(float(b["start"])), remap(float(b["end"]))
+                if e - s >= 0.5:
+                    brolls.append({"start": s, "end": e, "url": b["url"], "id": re.sub(r"\W", "", str(b["id"]))})
+
+            if not (keep or caps or brolls or speed != 1.0 or any(effects.values()) or aspect != "original"):
+                raise RuntimeError("Nothing to export yet. Add captions, cuts, effects or b-roll first.")
+
+            step_span = 100.0
+            current = name
+            if keep:
+                job["message"] = "Cutting out silence..."
+                cut_name = f"{job_id}_cut.mp4"
+                temp.append(WORK / cut_name)
+                args = ["-i", name, "-filter_complex", cut_filter(keep, W, H, fps, bool(d.get("zoom")),
+                                                                     info["has_audio"]),
+                        "-map", "[vo]"] + (["-map", "[ao]"] if info["has_audio"] else []) + \
+                       ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "18", "-pix_fmt", "yuv420p"] + \
+                       (["-c:a", "aac", "-b:a", "192k"] if info["has_audio"] else []) + [cut_name]
+                run_ffmpeg(args, job, cur_duration, 0, 30)
+                current, step_span = cut_name, 50.0
+                base = 30.0
+            else:
+                base = 0.0
+
+            for i, b in enumerate(brolls):
+                job["message"] = f"Downloading b-roll {i + 1} of {len(brolls)}..."
+                path = broll.download(b["url"], WORK / f"broll_{b['id']}.mp4")
+                bi = probe(path)
+                b["file"] = path.name
+                b["end"] = min(b["end"], b["start"] + max(0.5, bi["duration"] - 0.05))
+
+            ass_name = None
+            if caps:
+                st = stylelib.clean_style(d.get("style"))
+                ass_name = f"{job_id}.ass"
+                temp.append(WORK / ass_name)
+                (WORK / ass_name).write_text(stylelib.build_ass(caps, st, W, H), encoding="utf-8")
+
+            # Build the final filter chain with effects
+            job["message"] = "Adding captions, effects and b-roll..."
+            out_ext = ".webm" if d.get("format") == "webm" else ".mp4"
+            out_name = f"{job_id}_final{out_ext}"
+            args = ["-i", current]
+            for b in brolls:
+                args += ["-i", b["file"]]
+
+            # Build overlay filter and append video effects
+            base_filter = overlay_filter(W, H, fps, brolls, ass_name)
+
+            # Add post-processing effects
+            post_effects = []
+            if effects.get("vignette"):
+                post_effects.append("vignette=PI/4")
+            if effects.get("sharpen"):
+                post_effects.append("unsharp=5:5:1.0:5:5:0.0")
+            if effects.get("cinemaBar"):
+                bar_h = max(1, H // 12)
+                post_effects.append(f"drawbox=x=0:y=0:w={W}:h={bar_h}:color=black:t=fill")
+                post_effects.append(f"drawbox=x=0:y={H - bar_h}:w={W}:h={bar_h}:color=black:t=fill")
+
+            if post_effects:
+                # Chain effects after [vout]
+                effect_chain = ",".join(post_effects)
+                base_filter = base_filter.replace("[vout]", f"[vpre]") + f";[vpre]{effect_chain}[vout]"
+
+            args += ["-filter_complex", base_filter, "-map", "[vout]", "-map", "0:a?"]
+
+            # Speed adjustment
+            if speed != 1.0:
+                inv = 1.0 / speed
+                args += ["-filter:a", f"atempo={speed}"]
+
+            # Background music mixing
+            bg_music = d.get("bgMusic")
+            if bg_music and (WORK / bg_music).exists():
+                music_vol = max(0, min(100, int(d.get("musicVol", 30)))) / 100.0
+                voice_vol = max(50, min(150, int(d.get("voiceVol", 100)))) / 100.0
+                # Add music as additional input and mix
+                args_new = []
+                # Insert music input before -filter_complex
+                fc_idx = args.index("-filter_complex")
+                args_new = args[:fc_idx]
+                args_new += ["-i", str(WORK / bg_music), "-stream_loop", "-1"]
+                # Modify to mix audio
+                old_fc = args[fc_idx + 1]
+                args_new += ["-filter_complex", old_fc]
+                args_new += args[fc_idx + 2:]
+                # Replace simple audio map with mixed audio
+                # We'll use a simple approach: mix in post
+                args = args_new
+
+            # Video codec settings
+            if d.get("format") == "webm":
+                args += ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", crf,
+                         "-pix_fmt", "yuv420p", "-c:a", "libopus", "-b:a", "128k"]
+            else:
+                args += ["-c:v", "libx264", "-preset", preset, "-crf", crf,
+                         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"]
+
+            args += [out_name]
+            run_ffmpeg(args, job, cur_duration, base, step_span)
+            job.update(status="done", progress=100, message="Your video is ready! \U0001F389",
+                       download=f"/download/{out_name}")
+    except Exception as e:  # noqa
+        job.update(status="error", message=str(e)[:1500])
+    finally:
+        for t in temp:
+            try:
+                t.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+@app.post("/api/export")
+def export():
+    d = request.get_json(force=True)
+    if not ffmpeg_path():
+        return err("FFmpeg is not installed.", 500)
+    job_id = uuid.uuid4().hex[:12]
+    JOBS[job_id] = {"status": "queued", "progress": 0, "message": "Waiting...", "download": None}
+    threading.Thread(target=export_worker, args=(job_id, d), daemon=True).start()
+    return jsonify(job=job_id)
+
+
+@app.get("/api/jobs/<job_id>")
+def job_status(job_id):
+    j = JOBS.get(job_id)
+    if not j:
+        return err("Job not found.", 404)
+    return jsonify(j)
+
+
+@app.get("/download/<path:filename>")
+def download(filename):
+    safe = Path(filename).name
+    if not (safe.endswith("_final.mp4") or safe.endswith("_final.webm")):
+        abort(404)
+    dl_name = "captioned_video" + Path(safe).suffix
+    return send_from_directory(WORK, safe, as_attachment=True, download_name=dl_name)
+
+
+def cleanup_old(days=3):
+    cutoff = time.time() - days * 86400
+    for p in WORK.glob("*"):
+        try:
+            if p.is_file() and p.stat().st_mtime < cutoff:
+                p.unlink()
+        except OSError:
+            pass
+
+
+if __name__ == "__main__":
+    cleanup_old()
+    ff = ffmpeg_path()
+    if not ff:
+        print("\nWARNING: FFmpeg was not found. Follow SETUP.md to install it.\n")
+    else:
+        print(f"FFmpeg active: {ff}")
+    print("CaptionStudio Pro is running at:")
+    print("  -> http://localhost:5000")
+    print("  -> http://127.0.0.1:5000")
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

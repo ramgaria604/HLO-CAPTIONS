@@ -1,0 +1,10 @@
+{
+  "name": "captionstudio-remotion",
+  "private": true,
+  "scripts": { "studio": "remotion studio src/index.ts", "render": "remotion render src/index.ts Captioned out.mp4 --props=props.example.json" },
+  "dependencies": {
+    "remotion": "latest", "@remotion/cli": "latest", "@remotion/google-fonts": "latest",
+    "react": "^18.3.1", "react-dom": "^18.3.1"
+  },
+  "devDependencies": { "typescript": "^5.4.0", "@types/react": "^18.3.0" }
+}

@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hlocaptions - Viral Captions Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/static/style.css?v=2.11">
+<link rel="stylesheet" href="/fonts.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Poppins:wght@500;700;800;900&family=Space+Mono:wght@700&display=swap">
+<script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- ============================================================ MOONSHOT LANDING & PRESET SHOWCASE -->
+<div id="landingView" class="moonshot-landing">
+  <!-- Top Nav -->
+  <header class="moonshot-nav">
+    <div class="nav-left">
+      <button class="menu-icon-btn" type="button" aria-label="Menu" id="landingMenuBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+    </div>
+    <div class="nav-center">
+      <div class="moonshot-logo">
+        <span class="moonshot-orb"></span>
+        <span class="moonshot-brand">hlocaptions</span>
+      </div>
+    </div>
+    <div class="nav-right">
+      <button class="nav-editor-link" id="btnGoToEditor" type="button" style="display:none">
+        Open Editor &rarr;
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero Headline -->
+  <div class="moonshot-hero-wrap">
+    <h1 class="moonshot-title">
+      make your videos <span class="viral-text">viral.</span>
+    </h1>
+
+    <!-- Upload Card -->
+    <div class="moonshot-upload-card" id="heroDropZone">
+      <div class="hero-card-icons">
+        <div class="icon-slate">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 3v2h2V7H6zm4 0v2h2V7h-2zm4 0v2h2V7h-2zm4 0v2h2V7h-2zM4 11v7h16v-7H4z"/>
+          </svg>
+        </div>
+        <div class="icon-wave">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="3" y="10" width="2.5" height="4" rx="1"/>
+            <rect x="7" y="6" width="2.5" height="12" rx="1"/>
+            <rect x="11" y="2" width="2.5" height="20" rx="1"/>
+            <rect x="15" y="7" width="2.5" height="10" rx="1"/>
+            <rect x="19" y="9" width="2.5" height="6" rx="1"/>
+          </svg>
+        </div>
+      </div>
+
+      <h2 class="hero-drop-title">Drop your video or audio</h2>
+
+      <label class="hero-choose-btn" for="file">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span>Choose file</span>
+      </label>
+
+      <p class="hero-formats">MP4, MOV, WebM, MP3, WAV, M4A</p>
+
+      <!-- Upload Progress Bar with Live Percentage -->
+      <div id="uploadProgressContainer" style="display:none; width:100%; margin: 12px 0; padding: 10px 14px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom: 6px;">
+          <span id="uploadLabelText" style="color: #cbd5e1; font-weight: 500;">Uploading video...</span>
+          <span id="uploadPercentBadge" style="color: #00F0FF; font-weight: 700; font-size: 13px;">0%</span>
+        </div>
+        <div style="width:100%; height:8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden; position: relative;">
+          <div id="uploadProgressBarFill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1 0%, #00F0FF 100%); border-radius: 4px; transition: width 0.12s ease-out;"></div>
+        </div>
+      </div>
+
+      <!-- Selected Style & Action Row -->
+      <div class="hero-style-row">
+        <div class="hero-style-selector" id="heroStylePickerTrigger" title="Click to view all styles below">
+          <div class="hero-style-thumb" id="heroStyleThumb">
+            <div id="heroStyleMiniPreview" class="hero-style-mini-text">Aa</div>
+          </div>
+          <div class="hero-style-info">
+            <div class="pick-style-label">
+              <span>Pick a style</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="hero-style-lang">
+              Captions in <u>English letters</u> <span style="font-size:10px;">&#9662;</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-type-toggle">
+          <button class="toggle-btn on" data-type="video" type="button">Video</button>
+          <button class="toggle-btn" data-type="srt" type="button">SRT</button>
+        </div>
+      </div>
+
+      <button class="hero-create-btn" id="heroCreateBtn" type="button">
+        Create video
+      </button>
+
+      <p class="hero-terms">By uploading you agree to our Terms.</p>
+    </div>
+  </div>
+
+  <!-- Presets Gallery Section (Below Upload Card) -->
+  <section class="moonshot-gallery-section" id="moonshotGallerySection">
+    <!-- Category Tabs -->
+    <div class="gallery-category-bar">
+      <div class="gallery-cat-pills" id="galleryCatPills">
+        <button class="gallery-pill on" data-cat="all" type="button">🔥 All Presets <span class="pill-sparkle">130+</span></button>
+        <button class="gallery-pill" data-cat="special" type="button">✨ Special Presets <span class="pill-sparkle">31 STYLES</span></button>
+        <button class="gallery-pill" data-cat="reference" type="button">⭐ Original Reference <span class="pill-sparkle">FLAGSHIP</span></button>
+        <button class="gallery-pill" data-cat="unique" type="button">✨ Unique Pack <span class="pill-sparkle">26</span></button>
+        <button class="gallery-pill" data-cat="classic" type="button">⚡ Classic Viral</button>
+        <button class="gallery-pill" data-cat="colourful" type="button">🎨 Gradients &amp; Colors</button>
+        <button class="gallery-pill" data-cat="real-estate" type="button">🏡 Real Estate Depth</button>
+      </div>
+    </div>
+
+    <!-- Category Header -->
+    <div class="gallery-header">
+      <h3 class="gallery-title" id="galleryHeading">Original Flagship Presets <span class="pill-sparkle">100+ STYLES</span></h3>
+      <p class="gallery-desc">Preview our complete collection of viral caption presets, 2-line layouts, and high-impact kinetic animations.</p>
+    </div>
+
+    <!-- 9:16 Vertical Preset Cards Grid -->
+    <div class="moonshot-cards-grid" id="moonshotCardsGrid">
+      <!-- Injected by JS with 9:16 portrait video/photo backdrops and matching typography -->
+    </div>
+  </section>
+</div>
+
+<!-- ============================================================ EDITOR WORKSPACE (SHOWN AFTER VIDEO UPLOAD) -->
+<div id="editorWorkspace" class="editor-workspace" style="display:none">
+
+<!-- ============================================================ TOP TOOLBAR -->
+<header class="toolbar" id="toolbar">
+  <div class="toolbar-left">
+    <button class="tb-btn" id="btnBackToLanding" type="button" title="Back to Styles Showcase" style="background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc; font-weight: 600; margin-right: 6px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      <span>&larr; Styles &amp; Upload</span>
+    </button>
+    <div class="brand">
+      <span class="logo">HL</span>
+      <span class="brand-name">hlocaptions <em>PRO</em></span>
+    </div>
+    <div class="toolbar-divider"></div>
+    <span class="project-name" id="projectName" title="Click to rename">My Video Project</span>
+  </div>
+  <div class="toolbar-center">
+    <button class="tb-btn" id="btnNewProj" type="button" title="New Project">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>New</span>
+    </button>
+    <button class="tb-btn" id="btnLoadProj" type="button" title="Open Project">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h5l1.5-2H14v10H2V4z" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      <span>Open</span>
+    </button>
+    <button class="tb-btn" id="btnSaveProj" type="button" title="Save Project (Ctrl+S)">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h8l3 3v9H2V2h1z" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="5" y="8" width="6" height="4" rx="0.5" stroke="currentColor" stroke-width="1" fill="none"/></svg>
+      <span>Save</span>
+    </button>
+    <div class="toolbar-divider"></div>
+    <button class="tb-btn" id="btnUndo" type="button" title="Undo (Ctrl+Z)" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+      <span>Undo</span>
+    </button>
+    <button class="tb-btn" id="btnRedo" type="button" title="Redo (Ctrl+Y)" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/></svg>
+      <span>Redo</span>
+    </button>
+    <div class="aspect-group" id="aspectBar">
+      <button class="aspect-btn on" data-aspect="original" type="button" title="Original aspect ratio">Auto</button>
+      <button class="aspect-btn" data-aspect="9:16" type="button" title="9:16 Vertical">9:16</button>
+      <button class="aspect-btn" data-aspect="16:9" type="button" title="16:9 Horizontal">16:9</button>
+      <button class="aspect-btn" data-aspect="1:1" type="button" title="1:1 Square">1:1</button>
+    </div>
+  </div>
+  <div class="toolbar-right">
+    <span class="status-chip" id="chipFfmpeg">FFmpeg</span>
+    <span class="status-chip" id="chipWhisper">Speech</span>
+    <div class="toolbar-divider"></div>
+    <button class="tb-btn primary" id="exportBtn" type="button" disabled title="Export Video" style="font-weight:700; background: linear-gradient(135deg, #00F0FF, #0072FF); color:#0c0d14; border:none; padding: 0 16px;">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4M2 12v2h12v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Export Video</span>
+    </button>
+  </div>
+</header>
+
+<!-- ============================================================ NOTICE BAR -->
+<div id="notice" class="notice" role="status">Checking your setup...</div>
+
+<!-- ============================================================ MAIN EDITOR -->
+<main class="editor" id="editorMain">
+
+  <!-- ========== LEFT PANEL ========== -->
+  <aside class="left-panel" id="leftPanel">
+    <nav class="panel-tabs" id="panelTabs">
+      <button class="ptab on" data-panel="style" type="button" title="Caption Style">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 14l2-5h8l2 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9L9 3l4 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Style</span>
+      </button>
+      <button class="ptab" data-panel="captions" type="button" title="Captions & Text">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 9h3M7 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <span>Captions</span>
+      </button>
+      <button class="ptab" data-panel="media" type="button" title="Media & Upload">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 11l3-3 2 2 3-4 3 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Media</span>
+      </button>
+      <button class="ptab" data-panel="graphics" type="button" title="Motion Graphics">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="10" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="10" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><circle cx="12.5" cy="12.5" r="2.5" stroke="currentColor" stroke-width="1.3"/></svg>
+        <span>Graphics</span>
+      </button>
+      <!-- Unnecessary tabs hidden for clean, focused interface -->
+      <button class="ptab" data-panel="ai" type="button" title="AI Director" style="display:none">
+        <span>AI Edit</span>
+      </button>
+      <button class="ptab" data-panel="cuts" type="button" title="Auto-cut Silence" style="display:none">
+        <span>Cuts</span>
+      </button>
+      <button class="ptab" data-panel="effects" type="button" title="Effects & Audio" style="display:none">
+        <span>Effects</span>
+      </button>
+      <button class="ptab" data-panel="broll" type="button" title="B-roll Stock Footage" style="display:none">
+        <span>B-roll</span>
+      </button>
+    </nav>
+
+    <div class="panel-content" id="panelContent">
+      <!-- MEDIA PANEL -->
+      <div class="ppane" id="ppane-media">
+        <label class="upload-zone" for="file">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect x="4" y="6" width="32" height="28" rx="4" stroke="currentColor" stroke-width="1.8" opacity="0.5"/>
+            <path d="M20 14v12M14 20h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <b id="fileName">Import Video</b>
+          <span>Drop video here or click to browse</span>
+          <small>MP4, MOV, MKV, WebM, AVI &bull; up to 1.5 GB</small>
+        </label>
+        <div id="mediaUploadProgress" style="display:none; width:100%; margin: 8px 0; padding: 8px 12px; background: rgba(255,255,255,0.04); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom: 4px;">
+            <span id="mediaUploadLabel" style="color: #cbd5e1;">Uploading...</span>
+            <span id="mediaUploadPercent" style="color: #00F0FF; font-weight: 700;">0%</span>
+          </div>
+          <div style="width:100%; height:6px; background: rgba(0,0,0,0.5); border-radius: 3px; overflow: hidden;">
+            <div id="mediaUploadBarFill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1 0%, #00F0FF 100%); transition: width 0.12s ease-out;"></div>
+          </div>
+        </div>
+        <input type="file" id="file" accept="video/*" hidden>
+        <div class="field-group">
+          <div class="field-row">
+            <label class="field">Language
+              <select id="lang">
+                <option value="hinglish" selected>🇮🇳 Hinglish (English Alphabet)</option>
+                <option value="hi-IN">🇮🇳 Hindi (हिंदी Devanagari)</option>
+                <option value="en-IN">🇮🇳 Indian English (English Words)</option>
+                <option value="en-US">🇺🇸 English (US)</option>
+                <option value="en-GB">🇬🇧 English (UK)</option>
+                <option value="ur">🇵🇰 Urdu</option>
+                <option value="ar">🇦🇪 Arabic</option>
+                <option value="es">🇪🇸 Spanish</option>
+                <option value="fr">🇫🇷 French</option>
+                <option value="de">🇩🇪 German</option>
+                <option value="auto">🌐 Auto detect</option>
+              </select></label>
+            <label class="field">Accuracy
+              <select id="model">
+                <option value="tiny">Fast (tiny)</option><option value="base" selected>Balanced (base)</option>
+                <option value="small">Best (small)</option><option value="medium">Premium (medium)</option>
+              </select></label>
+          </div>
+          <div class="field-row">
+            <label class="field">Words/caption <output id="wpcOut">3</output>
+              <input type="range" id="wpc" min="1" max="6" value="3"></label>
+            <label class="field">Big words <output id="mkOut">1</output>
+              <input type="range" id="maxKeys" min="0" max="3" value="1"></label>
+          </div>
+        </div>
+        <button class="action-btn primary" id="transcribeBtn" type="button" disabled>&#10024; Generate Captions</button>
+        <div class="sub-actions">
+          <button class="action-btn ghost small" id="browserSpeechBtn" type="button" disabled>&#x1F399;&#xFE0F; Browser Speech</button>
+          <label class="action-btn ghost small" style="cursor:pointer" id="srtUploadLabel">&#x1F4C4; Import SRT<input type="file" id="srtFile" accept=".srt,.vtt,.txt" hidden></label>
+        </div>
+      </div>
+
+      <!-- AI DIRECTOR PANEL -->
+      <div class="ppane" id="ppane-ai">
+        <div class="panel-card" style="margin-bottom:12px; border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.08);">
+          <div class="card-header">
+            <span class="card-icon">⚡</span>
+            <div><b>1-Click AI Auto-Edit</b><br><small>Auto-transcribe, insert contextual motion graphics &amp; apply Moonshot preset</small></div>
+          </div>
+          <button class="action-btn big primary" id="btnAiMagicPanel" type="button" disabled style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); font-weight:700; width:100%;">⚡ 1-Click AI Magic</button>
+        </div>
+        <div class="panel-card">
+          <div class="card-header">
+            <span class="card-icon">&#x1F916;</span>
+            <div><b>AI Content Understanding</b><br><small>Analyze speech, detect key topics, review edit plan</small></div>
+          </div>
+          <button class="action-btn" id="aiAnalyzeBtn" type="button" disabled>&#x1F680; Analyze &amp; Review Plan</button>
+        </div>
+        <div id="aiPlanContainer" style="display:none">
+          <div class="stat-row">
+            <div class="stat"><small>Format</small><b id="aiGenreVal">—</b></div>
+            <div class="stat"><small>Aspect</small><b id="aiAspectVal">—</b></div>
+            <div class="stat"><small>Confidence</small><b id="aiConfVal">—</b></div>
+          </div>
+          <div class="bar"><h4>Proposed Graphics (<span id="aiPlanCount">0</span>)</h4>
+            <button class="action-btn small primary" id="applyPlanBtn" type="button">&#x2714; Apply</button></div>
+          <div id="aiPlanList" class="ai-plan-list"></div>
+        </div>
+      </div>
+
+      <!-- MOTION GRAPHICS PANEL -->
+      <div class="ppane" id="ppane-graphics">
+        <!-- Remotion AI Director Events -->
+        <div class="panel-card" style="margin-bottom:12px; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.06);">
+          <div class="bar">
+            <label class="check" style="font-weight:600; color:#34d399"><input type="checkbox" id="directorEnabled" checked> AI Scene Director</label>
+            <span class="badge" id="directorCountBadge" style="background: rgba(16, 185, 129, 0.25); color: #34d399">0 events</span>
+          </div>
+          <p class="hint" style="margin:4px 0 8px 0">Context-aware motion graphics (kinetic text, lower thirds, counters, arrows, stickers, b-roll) planned from speech.</p>
+          <div style="display:flex; gap:6px; margin-bottom:8px">
+            <button class="action-btn small primary" id="btnPlanDirector" type="button" style="flex:1" disabled>✨ Auto-Plan Graphics</button>
+            <button class="action-btn small ghost" id="btnAddDirectorEvent" type="button">+ Add Event</button>
+          </div>
+          <div id="directorEventsList" class="ai-plan-list" style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:6px">
+            <div class="empty" style="padding:12px">Transcribe speech to auto-plan motion graphics, or click + Add Event.</div>
+          </div>
+        </div>
+
+        <div class="bar">
+          <h4>Graphics Library</h4>
+          <button class="action-btn small ghost" id="addGraphicBtn" type="button" disabled>+ Add at Playhead</button>
+        </div>
+        <div class="mg-templates-grid" id="mgTemplatesGrid"></div>
+      </div>
+
+      <!-- CAPTIONS PANEL -->
+      <div class="ppane" id="ppane-captions">
+        <div class="bar">
+          <button class="action-btn small" id="addCap" type="button" disabled>+ Add Caption</button>
+          <button class="action-btn small ghost" id="regroup" type="button" disabled>Regroup</button>
+        </div>
+        <p class="hint">Wrap words in <b>*stars*</b> to make them <b>big words</b>.</p>
+        <div id="capList" class="caplist"><div class="empty">No captions yet.</div></div>
+      </div>
+
+      <!-- STYLE PANEL -->
+      <div class="ppane on" id="ppane-style">
+        <!-- Video Palette Auto-Match Section -->
+        <div class="panel-card" style="margin-bottom:12px; border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.06);">
+          <div class="bar">
+            <b>🎨 Video Color Match</b>
+            <label class="check" style="font-size:11px"><input type="checkbox" id="autoColorToggle"> Auto match colours</label>
+          </div>
+          <p class="hint" style="margin:4px 0 6px 0">Colors extracted automatically from video frames:</p>
+          <div id="paletteSwatches" style="display:flex; gap:6px; margin-bottom:8px">
+            <div style="flex:1; text-align:center; padding:6px; font-size:10px; color:#94a3b8">Load video to extract palette</div>
+          </div>
+          <button class="action-btn small ghost" id="btnExtractPalette" type="button" style="width:100%" disabled>⚡ Extract Colors from Video</button>
+        </div>
+
+        <div class="bar">
+          <h4>Presets <span class="badge" id="presetCountBadge">0</span></h4>
+          <input type="text" id="presetSearch" class="search-input" placeholder="Search styles...">
+        </div>
+        <div class="cat-pills" id="catPills">
+          <button type="button" class="cat-pill on" data-cat="all">All (133)</button>
+          <button type="button" class="cat-pill" data-cat="special" style="background: rgba(255, 98, 0, 0.15); color: #FF7A18; border-color: rgba(255, 98, 0, 0.4); font-weight:700;">✨ Special Presets (31)</button>
+          <button type="button" class="cat-pill" data-cat="unique" style="background: rgba(0,240,255,0.15); color: #00F0FF; border-color: rgba(0,240,255,0.3); font-weight:700;">✨ Unique (26)</button>
+          <button type="button" class="cat-pill" data-cat="favs">⭐ Favourites</button>
+          <button type="button" class="cat-pill" data-cat="reference">✨ Reference Styles (4)</button>
+          <button type="button" class="cat-pill" data-cat="real-estate">🏡 Real Estate (8)</button>
+          <button type="button" class="cat-pill" data-cat="colourful">🌈 Colourful Gradients (38)</button>
+          <button type="button" class="cat-pill" data-cat="blend">🎬 Blend with Video (13)</button>
+          <button type="button" class="cat-pill" data-cat="classic">⚡ Classic (13)</button>
+        </div>
+        <div class="presets" id="presets"></div>
+        <button class="action-btn small ghost" id="savePreset" type="button">&#x1F4BE; Save Style</button>
+        <div class="separator"></div>
+        <h4>Layout</h4>
+        <div class="field-row">
+          <label class="field">Layout
+            <select id="s_layout"><option value="stack">Stacked</option><option value="line">One line</option></select></label>
+          <label class="field">Animation
+            <select id="s_animation"><option value="pop">Pop in</option><option value="highlight">Highlight</option><option value="none">None</option></select></label>
+        </div>
+        <div class="field-row">
+          <label class="field">Position <output id="s_positionOut">78%</output><input type="range" id="s_position" min="0.1" max="0.95" step="0.01" value="0.78"></label>
+          <label class="field">Transparency <output id="s_opacityOut">90%</output><input type="range" id="s_opacity" min="0.4" max="1.0" step="0.02" value="0.90"></label>
+        </div>
+        <div class="field-row" style="margin-top:4px">
+          <label class="field">Highlight color <input type="color" id="s_highlightColor"></label>
+        </div>
+        <div class="field-row" style="margin-top:6px">
+          <label class="check" style="font-weight:600"><input type="checkbox" id="s_behindPerson"> 👤 Text behind person (Depth mask)</label>
+        </div>
+        <div class="separator"></div>
+        <div id="roles"></div>
+      </div>
+
+      <!-- CUTS PANEL -->
+      <div class="ppane" id="ppane-cuts">
+        <p class="hint">Detect silent gaps and remove them on export.</p>
+        <div class="field-row">
+          <label class="field">Sensitivity <output id="c_noiseOut">-30 dB</output><input type="range" id="c_noise" min="-50" max="-20" value="-30"></label>
+          <label class="field">Min gap <output id="c_gapOut">0.5s</output><input type="range" id="c_gap" min="0.2" max="1.5" step="0.1" value="0.5"></label>
+        </div>
+        <label class="field">Padding <output id="c_padOut">0.12s</output><input type="range" id="c_pad" min="0" max="0.3" step="0.02" value="0.12"></label>
+        <button class="action-btn primary" id="detectBtn" type="button" disabled>&#x1F50D; Find Silent Gaps</button>
+        <div id="cutSummary" class="summary"></div>
+        <label class="check"><input type="checkbox" id="zoom"> Subtle zoom on alternating clips</label>
+        <div id="cutList" class="cutlist"></div>
+      </div>
+
+      <!-- EFFECTS PANEL -->
+      <div class="ppane" id="ppane-effects">
+        <h4>Speed</h4>
+        <div class="field-row">
+          <label class="field">Playback <output id="speedOut">1.0x</output>
+            <input type="range" id="speedVal" min="0.5" max="3.0" step="0.1" value="1.0"></label>
+          <label class="field">Apply to
+            <select id="speedScope"><option value="all">Entire video</option><option value="silence">Silent parts</option></select></label>
+        </div>
+        <div class="separator"></div>
+        <h4>Background Music</h4>
+        <label class="upload-zone small" for="bgMusic">
+          <b id="bgMusicName">Add music (optional)</b><span>MP3, WAV, M4A, OGG</span>
+        </label>
+        <input type="file" id="bgMusic" accept="audio/*" hidden>
+        <div class="field-row" id="musicControls" style="display:none">
+          <label class="field">Music vol <output id="musicVolOut">30%</output><input type="range" id="musicVol" min="0" max="100" value="30"></label>
+          <label class="field">Voice vol <output id="voiceVolOut">100%</output><input type="range" id="voiceVol" min="50" max="150" value="100"></label>
+        </div>
+        <label class="check" id="musicFadeLabel" style="display:none"><input type="checkbox" id="musicFade" checked> Fade music during speech</label>
+        <div class="separator"></div>
+        <h4>Video Effects</h4>
+        <div class="checks-row">
+          <label class="check"><input type="checkbox" id="effectKenBurns"> Ken Burns</label>
+          <label class="check"><input type="checkbox" id="effectVignette"> Vignette</label>
+          <label class="check"><input type="checkbox" id="effectSharpen"> Sharpen</label>
+          <label class="check"><input type="checkbox" id="effectCinemaBar"> Cinema bars</label>
+        </div>
+      </div>
+
+      <!-- BROLL PANEL -->
+      <div class="ppane" id="ppane-broll">
+        <div id="keyBox" class="panel-card" hidden>
+          <b>Add your free Pexels key</b>
+          <p class="hint">Go to <a href="https://www.pexels.com/api/" target="_blank">pexels.com/api</a>, sign up, copy key.</p>
+          <div class="bar"><input type="text" id="keyIn" placeholder="Paste API key" autocomplete="off"><button class="action-btn small" id="keySave" type="button">Save</button></div>
+        </div>
+        <div class="bar">
+          <button class="action-btn small" id="suggestBtn" type="button" disabled>&#10024; Suggest Spots</button>
+          <button class="action-btn small ghost" id="addSlot" type="button" disabled>+ Add Spot</button>
+        </div>
+        <p class="hint">B-roll covers the speaker with stock footage. Your voice keeps going.</p>
+        <div id="slots"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========== CENTER PANEL — VIDEO PREVIEW ========== -->
+  <section class="center-panel" id="centerPanel">
+    <div class="canvas-wrap" id="canvasWrap">
+      <div class="stage" id="stage">
+        <video id="vid" playsinline></video>
+        <!-- Real Behind-the-Person Canvas & HTML Overlays (z-index: 15) -->
+        <canvas id="captionCanvasBehind" class="caption-canvas caption-canvas-behind"></canvas>
+        <div id="capboxBehind" class="capbox capbox-behind"></div>
+        <!-- Live Segmented Person Cutout Canvas (z-index: 18) -->
+        <canvas id="personCanvas" class="person-canvas"></canvas>
+        <!-- Motion Graphics Canvas Overlay (z-index: 20) -->
+        <div id="mgStage" class="mg-stage"></div>
+        <!-- SVG Graphics Overlay (real composable elements) -->
+        <svg id="svgOverlay" class="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+        <!-- Foreground Multi-Pass Kinetic Typography Canvas (z-index: 25) -->
+        <canvas id="captionCanvas" class="caption-canvas caption-canvas-foreground"></canvas>
+        <div id="capbox" class="capbox capbox-foreground"></div>
+        <!-- Safe zone guides -->
+        <div id="safeZoneGuides" class="safe-zone-guides" hidden>
+          <div class="sz-top-bar"><span>Header (12%)</span></div>
+          <div class="sz-side-bar"><span>Actions</span></div>
+          <div class="sz-bottom-bar"><span>Bio &amp; Captions (20%)</span></div>
+          <div class="sz-safe-box"><span class="sz-tag">SAFE ZONE</span></div>
+        </div>
+        <!-- Empty state / Style Showcase Launchpad — shown before video upload -->
+        <div id="stageEmpty" class="stage-empty">
+          <div class="stage-launchpad">
+            <div class="stage-launch-icon" style="margin-bottom: 8px;">
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                <rect x="6" y="8" width="36" height="32" rx="8" stroke="#6366f1" stroke-width="2" fill="rgba(99,102,241,0.12)"/>
+                <path d="M24 16v16M16 24h16" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <h2 style="margin: 6px 0 6px; font-size: 20px; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em;">Choose a Caption Style First</h2>
+            <p style="margin: 0 0 16px; font-size: 13px; color: #94a3b8; max-width: 360px; line-height: 1.4;">Browse the 51 styles on the left. Click any style to preview it, then drop or upload your video to enter the editor.</p>
+            
+            <label class="action-btn big primary" for="file" style="cursor:pointer; display:inline-flex; align-items:center; gap:8px; padding:0 24px; font-weight:700; box-shadow: 0 4px 20px rgba(99,102,241,0.45); border-radius: 8px;">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3v8M5 7l4-4 4 4M2 14v1h14v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Upload Video to Open Editor</span>
+            </label>
+            <div style="margin-top: 14px; font-size: 12px; color: #64748b;">
+              Selected Style: <b id="emptyStageSelectedStyle" style="color: #38bdf8;">Teal Liquid (Reference 🌊)</b>
+            </div>
+            <small style="margin-top: 6px; display:block; font-size: 11px; color: #475569;">Supports MP4, MOV, WebM, MKV up to 1.5GB &bull; Drag &amp; drop anywhere</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transport / Playback controls -->
+    <div class="transport" id="transport">
+      <button class="transport-btn" id="stepBackBtn" type="button" disabled title="Back 1s (←)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="play-btn" id="playBtn" type="button" disabled title="Play/Pause (Space)">
+        <svg id="playIcon" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 3l12 7-12 7V3z" fill="currentColor"/></svg>
+      </button>
+      <button class="transport-btn" id="stepFwdBtn" type="button" disabled title="Forward 1s (→)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span id="timeLbl" class="time-display">0:00 / 0:00</span>
+      <div class="transport-spacer"></div>
+      <button class="tool-btn" id="safeZoneBtn" type="button" title="Toggle Safe Zones">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 1.5"/></svg>
+      </button>
+      <button class="tool-btn" id="captionAdjustBtn" type="button" aria-pressed="false" title="Drag captions to move; use the mouse wheel to resize">↕ Move captions</button>
+      <label class="check small caption-scale-control" title="Caption size"><span>Size</span><input id="captionScale" type="range" min="60" max="150" value="100" step="1"><output id="captionScaleOut">100%</output></label>
+      <label class="check small"><input type="checkbox" id="prevCuts"> Preview cuts</label>
+      <label class="check small"><input type="checkbox" id="snapToggle" checked> Snap</label>
+    </div>
+  </section>
+
+  <!-- ========== RIGHT PANEL — PROPERTY INSPECTOR ========== -->
+  <aside class="right-panel" id="rightPanel">
+    <div class="inspector-header">
+      <h4 id="inspectorTitle">Properties</h4>
+    </div>
+
+    <!-- Empty state -->
+    <div id="inspectorEmpty" class="inspector-empty">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" opacity="0.3"><rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" stroke-width="1.5"/><path d="M12 16h8M16 12v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>Select an element on the canvas or timeline to edit its properties</span>
+    </div>
+
+    <!-- Fields shown when graphic is selected -->
+    <div id="inspectorFields" class="inspector-fields" style="display:none">
+      <div class="field-row">
+        <label class="field">Title <input type="text" id="inspTitle"></label>
+        <label class="field">Subtitle <input type="text" id="inspSubtitle"></label>
+      </div>
+      <div class="field-row">
+        <label class="field">Value <input type="text" id="inspValue"></label>
+        <label class="field">Label <input type="text" id="inspTag"></label>
+      </div>
+      <div class="field-row">
+        <label class="field">Position
+          <select id="inspPosition">
+            <option value="top_left">Top Left</option><option value="top_center">Top Center</option>
+            <option value="top_right">Top Right</option><option value="center">Center</option>
+            <option value="bottom_left">Bottom Left</option><option value="bottom_center">Bottom Center</option>
+            <option value="bottom_right">Bottom Right</option>
+          </select></label>
+        <label class="field">Enter Anim
+          <select id="inspEnterAnim">
+            <option value="fade_slide_down">Fade Slide ↓</option><option value="slide_right">Slide →</option>
+            <option value="scale_pop">Scale Pop</option><option value="slide_up">Slide ↑</option>
+          </select></label>
+      </div>
+      <div class="field-row">
+        <label class="field">Accent <input type="color" id="inspAccentColor"></label>
+        <label class="field">Bg Color <input type="color" id="inspBgColor" value="#0f172a"></label>
+      </div>
+      <div class="field-row">
+        <label class="field">Start (s) <input type="number" step="0.1" id="inspStartTime"></label>
+        <label class="field">End (s) <input type="number" step="0.1" id="inspEndTime"></label>
+      </div>
+      <button class="action-btn small danger" id="delGraphicBtn" type="button" disabled>Remove Element</button>
+    </div>
+  </aside>
+</main>
+
+<!-- ============================================================ BOTTOM — TIMELINE -->
+<div class="timeline-panel" id="timelinePanel">
+  <div class="tl-toolbar">
+    <div class="tl-tools">
+      <button class="tl-btn" id="tlUndoBtn" type="button" disabled title="Undo (Ctrl+Z)">↩ Undo</button>
+      <button class="tl-btn" id="tlRedoBtn" type="button" disabled title="Redo (Ctrl+Y)">↪ Redo</button>
+      <button class="tl-btn" id="splitCapBtn" type="button" disabled title="Split (S)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M3 5l4 2-4 2M11 5l-4 2 4 2" stroke="currentColor" stroke-width="1.2"/></svg>
+        Split
+      </button>
+      <button class="tl-btn" id="addCapTlBtn" type="button" disabled>+ Caption</button>
+      <button class="tl-btn danger" id="delCapBtn" type="button" disabled>Delete</button>
+    </div>
+    <div class="tl-zoom">
+      <button class="zoom-btn" id="zoomOutBtn" type="button">−</button>
+      <input type="range" id="tlZoom" min="1" max="5" step="0.25" value="1" title="Timeline Zoom">
+      <button class="zoom-btn" id="zoomInBtn" type="button">+</button>
+      <button class="zoom-btn" id="zoomFitBtn" type="button" title="Fit">Fit</button>
+    </div>
+  </div>
+  <div class="timeline" id="tl">
+    <div class="tl-track-labels">
+      <div class="tl-label">Ruler</div>
+      <div class="tl-label">Audio</div>
+      <div class="tl-label">Captions</div>
+      <div class="tl-label">Graphics</div>
+      <div class="tl-label">Cuts</div>
+      <div class="tl-label">B-roll</div>
+    </div>
+    <div class="tl-viewport" id="tlViewport">
+      <div class="tl-scrollable" id="tlScrollable">
+        <div class="tl-ruler" id="tlRuler"></div>
+        <div class="track tr-wave"><div class="lane" id="laneWaveform"><canvas id="waveformCanvas"></canvas></div></div>
+        <div class="track tr-caps"><div class="lane" id="laneCaps"></div></div>
+        <div class="track tr-graphics"><div class="lane" id="laneGraphics"></div></div>
+        <div class="track tr-cuts"><div class="lane" id="laneCuts"></div></div>
+        <div class="track tr-broll"><div class="lane" id="laneBroll"></div></div>
+        <div class="playhead" id="playhead"></div>
+      </div>
+    </div>
+</div>
+</div> <!-- /editorWorkspace -->
+
+<!-- ============================================================ EXPORT MODAL -->
+<dialog id="exportDialog" class="export-dialog">
+  <div class="dialog-header">
+    <h3>Export Video</h3>
+    <button class="close-btn" id="closeExportDialog" type="button">&times;</button>
+  </div>
+  <div id="expSummary" class="summary"></div>
+  <div class="field-row">
+    <label class="field">Export Engine
+      <select id="exportEngine">
+        <option value="ffmpeg" selected>⚡ Fast FFmpeg (recommended)</option>
+        <option value="remotion">✨ Remotion Premium (supported presets)</option>
+      </select></label>
+    <label class="field">Quality
+      <select id="exportQuality">
+        <option value="high">High quality</option>
+        <option value="balanced" selected>Balanced (recommended)</option>
+        <option value="fast">Fast</option>
+      </select></label>
+  </div>
+  <div class="field-row" id="formatRow">
+    <label class="field">Format
+      <select id="exportFormat">
+        <option value="mp4" selected>MP4 (H.264)</option><option value="webm">WebM (VP9)</option>
+      </select></label>
+  </div>
+  <button class="action-btn primary big" id="startExportBtn" type="button">&#x1F680; Start Export</button>
+  <div class="progress" id="prog" hidden><div class="pbar"><i id="pfill"></i></div><span id="pmsg" class="hint"></span></div>
+  <div id="result" hidden>
+    <video id="resVid" controls playsinline></video>
+    <a class="action-btn primary" id="dl" download="captioned_video.mp4">&#x2B07; Download</a>
+  </div>
+</dialog>
+
+<script src="/static/fx.js"></script>
+<script src="/static/app.js?v=2.11"></script>
+</body>
+</html>

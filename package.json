@@ -1,0 +1,16 @@
+{
+  "name": "captionstudio",
+  "version": "1.0.0",
+  "description": "Local web app: AI captions (faster-whisper), styled big/small word captions, auto-cut silence, Pexels b-roll, MP4 export. See SETUP.md.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tscaps/engine": "^0.7.0",
+    "esbuild": "^0.28.2"
+  }
+}

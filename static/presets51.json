@@ -1,0 +1,4163 @@
+{
+  "estate_signature": {
+    "id": "estate_signature",
+    "name": "Estate Signature",
+    "colors": [
+      "#FFF9ED",
+      "#F4CE83",
+      "#D8A84D"
+    ],
+    "key": 0,
+    "shadow": "#4A3820",
+    "blend": "screen",
+    "layout": "stack",
+    "pos": 0.76,
+    "category": "real-estate",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.03,
+    "opacity": 0.94,
+    "highlightColor": "#FFF9ED",
+    "tagline": "Oversized Montserrat keyword behind the speaker, with a clean colorful subtitle in front below.",
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.018,
+      "fill": {
+        "colors": [
+          "#FFF9ED",
+          "#F4CE83",
+          "#D8A84D"
+        ],
+        "angle": 90
+      },
+      "stroke": {
+        "w": 0.026,
+        "color": "#101820"
+      },
+      "shadow": {
+        "dy": 0.017,
+        "color": "#4A3820"
+      },
+      "glow": {
+        "color": "#FFF9ED",
+        "blur": 0.014
+      },
+      "fallback": "Poppins"
+    },
+    "small": {
+      "font": "Montserrat",
+      "weight": 700,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.65)"
+      },
+      "fallback": "Poppins"
+    },
+    "badge": "ESTATE SIGNATURE",
+    "badgeTextColor": "#101820",
+    "depthAccent": true,
+    "depthAccentSize": 0.22,
+    "depthAccentY": 0.41,
+    "subtitlePosition": 0.76,
+    "subtitleSize": 0.058,
+    "previewWord": "LUXURY LIVING"
+  },
+  "electric_blue_blend": {
+    "id": "electric_blue_blend",
+    "name": "Electric Blue Blend (Reference 🌊)",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.04,
+    "category": "reference",
+    "badge": "VIRAL BLUE",
+    "fx": "teal",
+    "blend": "screen",
+    "opacity": 0.75,
+    "highlightColor": "#00F0FF",
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.095,
+      "track": -0.02,
+      "fill": {
+        "colors": [
+          "#00F0FF",
+          "#0072FF"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.025,
+        "color": "#001D4A"
+      }
+    },
+    "small": {
+      "font": "Inter",
+      "weight": 300,
+      "italic": true,
+      "size": 0.038,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "lower": true
+    }
+  },
+  "teal_gloss": {
+    "id": "teal_gloss",
+    "name": "Teal Liquid (Reference 🌊)",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.04,
+    "category": "reference",
+    "badge": "REFERENCE 🌊",
+    "fx": "teal",
+    "blend": "screen",
+    "opacity": 0.75,
+    "highlightColor": "#22D3C8",
+    "big": {
+      "font": "Montserrat",
+      "weight": 800,
+      "size": 0.09,
+      "track": -0.02,
+      "fill": {
+        "colors": [
+          "#22D3C8",
+          "#0B5E6B"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.028,
+        "color": "#04323D"
+      }
+    },
+    "small": {
+      "font": "Inter",
+      "weight": 300,
+      "italic": true,
+      "size": 0.035,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "lower": true
+    }
+  },
+  "neon_duo": {
+    "id": "neon_duo",
+    "name": "Neon Duo (Reference 🪩)",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 4,
+    "keyWords": 2,
+    "gap": 0.03,
+    "behind": "none",
+    "category": "reference",
+    "highlightColor": "#FF6EC7",
+    "big": {
+      "font": "Montserrat",
+      "weight": 800,
+      "size": 0.059,
+      "track": -0.04,
+      "fill": {
+        "colors": [
+          "#C21E9E",
+          "#7A1FB0"
+        ],
+        "angle": 90
+      },
+      "glow": {
+        "color": "#FF6EC7",
+        "blur": 0.07
+      }
+    },
+    "small": {
+      "font": "Great Vibes",
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#FFD3F3"
+        ],
+        "angle": 90
+      },
+      "glow": {
+        "color": "#FF9BE0",
+        "blur": 0.06
+      }
+    },
+    "opacity": 0.9
+  },
+  "orange_pop": {
+    "id": "orange_pop",
+    "name": "Orange Grunge (Reference 🍊)",
+    "layout": "scatter",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 2,
+    "behind": "first",
+    "gap": 0.05,
+    "category": "reference",
+    "fx": "orange",
+    "highlightColor": "#FF6A00",
+    "big": {
+      "font": "Montserrat",
+      "weight": 800,
+      "size": 0.09,
+      "track": -0.02,
+      "fill": {
+        "colors": [
+          "#FF6A00",
+          "#CC240A"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.03,
+        "color": "#7A0A0A"
+      }
+    },
+    "small": {
+      "font": "Poppins",
+      "weight": 500,
+      "size": 0.034,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "lower": true
+    },
+    "opacity": 0.9
+  },
+  "mono_echo": {
+    "id": "mono_echo",
+    "name": "Mono Echo 🖤",
+    "layout": "echo",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 2,
+    "keyWords": 1,
+    "echoOffsetEm": -0.9,
+    "category": "classic",
+    "highlightColor": "#FFFFFF",
+    "big": {
+      "font": "Inter",
+      "weight": 900,
+      "italic": true,
+      "size": 0.078,
+      "fill": {
+        "colors": [
+          "#0A0A0A"
+        ]
+      }
+    },
+    "small": {
+      "font": "Inter",
+      "weight": 300,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.35)"
+      }
+    },
+    "opacity": 0.9
+  },
+  "wipe_italic": {
+    "id": "wipe_italic",
+    "name": "Wipe Italic ⚡",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "all",
+    "pos": 0.78,
+    "wordsPerCaption": 2,
+    "keyWords": 0,
+    "category": "classic",
+    "highlightColor": "#4DA3FF",
+    "highlight": {
+      "mode": "wipe",
+      "color": "#4DA3FF",
+      "wipe": [
+        "#FFFFFF",
+        "#4DA3FF"
+      ]
+    },
+    "big": {
+      "font": "Inter",
+      "weight": 900,
+      "italic": true,
+      "size": 0.085,
+      "fill": {
+        "colors": [
+          "#111111"
+        ]
+      }
+    },
+    "small": {
+      "font": "Inter",
+      "weight": 900,
+      "italic": true,
+      "size": 0.049,
+      "fill": {
+        "colors": [
+          "#111111"
+        ]
+      }
+    },
+    "opacity": 0.9
+  },
+  "hype_yellow": {
+    "id": "hype_yellow",
+    "name": "Hype Yellow ⚡",
+    "layout": "line",
+    "anim": "pop",
+    "reveal": "all",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "category": "classic",
+    "highlightColor": "#FFE600",
+    "highlight": {
+      "mode": "color",
+      "color": "#FFE600"
+    },
+    "big": {
+      "font": "Anton",
+      "weight": 400,
+      "size": 0.06,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "upper": true,
+      "stroke": {
+        "w": 0.08,
+        "color": "#000000"
+      }
+    },
+    "small": {
+      "font": "Anton",
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "upper": true,
+      "stroke": {
+        "w": 0.08,
+        "color": "#000000"
+      }
+    },
+    "opacity": 0.9
+  },
+  "box_pop": {
+    "id": "box_pop",
+    "name": "Box Pop ⭐",
+    "layout": "line",
+    "anim": "pop",
+    "reveal": "all",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "category": "classic",
+    "highlightColor": "#FFE600",
+    "badge": "#FFE600",
+    "badgeTextColor": "#111111",
+    "highlight": {
+      "mode": "box",
+      "color": "#FFE600",
+      "textColor": "#111111"
+    },
+    "big": {
+      "font": "Poppins",
+      "weight": 800,
+      "size": 0.075,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "upper": true,
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.55)"
+      }
+    },
+    "small": {
+      "font": "Poppins",
+      "weight": 800,
+      "size": 0.043,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "upper": true,
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.55)"
+      }
+    },
+    "opacity": 0.9
+  },
+  "clean_cyan": {
+    "id": "clean_cyan",
+    "name": "Clean Cyan 💎",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "all",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "category": "classic",
+    "highlightColor": "#19E3FF",
+    "highlight": {
+      "mode": "color",
+      "color": "#19E3FF"
+    },
+    "big": {
+      "font": "Poppins",
+      "weight": 800,
+      "size": 0.07,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.6)"
+      }
+    },
+    "small": {
+      "font": "Poppins",
+      "weight": 800,
+      "size": 0.041,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.6)"
+      }
+    },
+    "opacity": 0.9
+  },
+  "gold_luxury": {
+    "id": "gold_luxury",
+    "name": "Gold Luxury 👑",
+    "layout": "stack",
+    "anim": "slide",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "category": "classic",
+    "highlightColor": "#D4A62A",
+    "big": {
+      "font": "Playfair Display",
+      "weight": 700,
+      "italic": true,
+      "size": 0.072,
+      "fill": {
+        "colors": [
+          "#F9EBA8",
+          "#D4A62A",
+          "#8A6A12"
+        ],
+        "angle": 100
+      },
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.06,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "small": {
+      "font": "Inter",
+      "weight": 500,
+      "size": 0.035,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "upper": true,
+      "track": 0.3,
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.6)"
+      }
+    },
+    "opacity": 0.9
+  },
+  "fire_gradient": {
+    "id": "fire_gradient",
+    "name": "Fire 🔥",
+    "layout": "stack",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "category": "colourful",
+    "highlightColor": "#FF7A18",
+    "big": {
+      "font": "Bebas Neue",
+      "weight": 400,
+      "size": 0.09,
+      "fill": {
+        "colors": [
+          "#FFE259",
+          "#FF7A18",
+          "#E01E1E"
+        ],
+        "angle": 90
+      },
+      "upper": true,
+      "glow": {
+        "color": "#FF5A00",
+        "blur": 0.04
+      },
+      "shadow": {
+        "dy": 0.03,
+        "color": "#3A0A0A"
+      }
+    },
+    "small": {
+      "font": "Bebas Neue",
+      "weight": 400,
+      "size": 0.041,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "upper": true,
+      "track": 0.1,
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.7)"
+      }
+    },
+    "opacity": 0.9
+  },
+  "ice_blue": {
+    "id": "ice_blue",
+    "name": "Ice Blue ❄️",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "all",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "category": "colourful",
+    "highlightColor": "#7DE3FF",
+    "highlight": {
+      "mode": "color",
+      "color": "#7DE3FF"
+    },
+    "big": {
+      "font": "Montserrat",
+      "weight": 800,
+      "size": 0.075,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#BFE9FF"
+        ],
+        "angle": 90
+      },
+      "glow": {
+        "color": "#38BDF8",
+        "blur": 0.05
+      }
+    },
+    "small": {
+      "font": "Montserrat",
+      "weight": 800,
+      "size": 0.043,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#BFE9FF"
+        ],
+        "angle": 90
+      },
+      "glow": {
+        "color": "#38BDF8",
+        "blur": 0.05
+      }
+    },
+    "opacity": 0.9
+  },
+  "retro_sunset": {
+    "id": "retro_sunset",
+    "name": "Retro Sunset 🌅",
+    "layout": "stack",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "category": "colourful",
+    "highlightColor": "#FF4FA3",
+    "big": {
+      "font": "Bungee",
+      "weight": 400,
+      "size": 0.072,
+      "fill": {
+        "colors": [
+          "#FF4FA3",
+          "#FF9A3C"
+        ],
+        "angle": 90
+      },
+      "extrude": {
+        "n": 6,
+        "dx": 0.012,
+        "dy": 0.016,
+        "color": "#4B1FA8"
+      }
+    },
+    "small": {
+      "font": "Bungee",
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.06,
+        "color": "#4B1FA8"
+      }
+    },
+    "opacity": 0.9
+  },
+  "comic_pow": {
+    "id": "comic_pow",
+    "name": "Comic Pow 💥",
+    "layout": "stack",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "tilt": 3,
+    "category": "classic",
+    "highlightColor": "#FFD400",
+    "big": {
+      "font": "Bangers",
+      "weight": 400,
+      "size": 0.09,
+      "fill": {
+        "colors": [
+          "#FFD400"
+        ]
+      },
+      "stroke": {
+        "w": 0.09,
+        "color": "#000000"
+      },
+      "shadow": {
+        "dy": 0.04,
+        "color": "#000000"
+      }
+    },
+    "small": {
+      "font": "Bangers",
+      "weight": 400,
+      "size": 0.041,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "stroke": {
+        "w": 0.08,
+        "color": "#000000"
+      }
+    },
+    "opacity": 0.9
+  },
+  "marker_highlight": {
+    "id": "marker_highlight",
+    "name": "Marker 🖊️",
+    "layout": "line",
+    "anim": "pop",
+    "reveal": "all",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "category": "classic",
+    "highlightColor": "#FFE600",
+    "highlight": {
+      "mode": "underline",
+      "color": "#FFE600"
+    },
+    "big": {
+      "font": "Permanent Marker",
+      "weight": 400,
+      "size": 0.075,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.7)"
+      }
+    },
+    "small": {
+      "font": "Permanent Marker",
+      "weight": 400,
+      "size": 0.043,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.7)"
+      }
+    },
+    "opacity": 0.9
+  },
+  "terminal_type": {
+    "id": "terminal_type",
+    "name": "Terminal 💻",
+    "layout": "line",
+    "anim": "type",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 4,
+    "keyWords": 0,
+    "pill": "rgba(0,0,0,.7)",
+    "category": "classic",
+    "highlightColor": "#3CFF7A",
+    "big": {
+      "font": "Space Mono",
+      "weight": 700,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#3CFF7A"
+        ]
+      }
+    },
+    "small": {
+      "font": "Space Mono",
+      "weight": 700,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#3CFF7A"
+        ]
+      }
+    },
+    "opacity": 0.9
+  },
+  "glitch_rgb": {
+    "id": "glitch_rgb",
+    "name": "Glitch RGB 👾",
+    "layout": "line",
+    "anim": "glitch",
+    "reveal": "all",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "category": "classic",
+    "highlightColor": "#FF2D55",
+    "highlight": {
+      "mode": "color",
+      "color": "#FF2D55"
+    },
+    "big": {
+      "font": "Anton",
+      "weight": 400,
+      "size": 0.06,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "upper": true,
+      "chroma": true
+    },
+    "small": {
+      "font": "Anton",
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "upper": true,
+      "chroma": true
+    },
+    "opacity": 0.9
+  },
+  "aurora_flow": {
+    "id": "aurora_flow",
+    "name": "Aurora Flow",
+    "layout": "line",
+    "anim": "rise",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 800,
+      "size": 0.049,
+      "fill": {
+        "colors": [
+          "#00F5A0",
+          "#7B61FF"
+        ]
+      },
+      "font": "Poppins",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#00F5A0",
+          "#00D9F5",
+          "#7B61FF",
+          "#FF4ECD"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "glow": {
+        "color": "#00D9F5",
+        "blur": 0.025
+      },
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.05,
+        "color": "rgba(0,0,0,.35)"
+      }
+    },
+    "big": {
+      "weight": 800,
+      "size": 0.085,
+      "fill": {
+        "colors": [
+          "#00F5A0",
+          "#7B61FF"
+        ]
+      },
+      "font": "Poppins",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#00F5A0",
+          "#00D9F5",
+          "#7B61FF",
+          "#FF4ECD"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "glow": {
+        "color": "#00D9F5",
+        "blur": 0.025
+      },
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.05,
+        "color": "rgba(0,0,0,.35)"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#00F5A0",
+    "opacity": 0.9
+  },
+  "sunset_blaze": {
+    "id": "sunset_blaze",
+    "name": "Sunset Blaze",
+    "layout": "stack",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 500,
+      "size": 0.04,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "upper": true,
+      "track": 0.3,
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.6)"
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.084,
+      "fill": {
+        "colors": [
+          "#FFD452",
+          "#FF8A3D",
+          "#FF3D7F",
+          "#7A2BFF"
+        ],
+        "angle": 180
+      },
+      "font": "Archivo Black",
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0,
+        "color": "#2A0B4D"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FFD452",
+    "opacity": 0.9
+  },
+  "holo_chrome": {
+    "id": "holo_chrome",
+    "name": "Holo Chrome",
+    "layout": "line",
+    "anim": "flip",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 800,
+      "size": 0.046,
+      "fill": {
+        "colors": [
+          "#FF5EDF",
+          "#5EC8FF"
+        ]
+      },
+      "font": "Montserrat",
+      "fx": {
+        "kind": "holo",
+        "stops": [],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "shadow": {
+        "dy": 0.035,
+        "blur": 0.06,
+        "color": "rgba(0,0,0,.45)"
+      }
+    },
+    "big": {
+      "weight": 800,
+      "size": 0.08,
+      "fill": {
+        "colors": [
+          "#FF5EDF",
+          "#5EC8FF"
+        ]
+      },
+      "font": "Montserrat",
+      "fx": {
+        "kind": "holo",
+        "stops": [],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "shadow": {
+        "dy": 0.035,
+        "blur": 0.06,
+        "color": "rgba(0,0,0,.45)"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FF5EDF",
+    "opacity": 0.9
+  },
+  "liquid_gold": {
+    "id": "liquid_gold",
+    "name": "Liquid Gold",
+    "layout": "stack",
+    "anim": "slide",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 500,
+      "size": 0.04,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "upper": true,
+      "track": 0.3,
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.6)"
+      }
+    },
+    "big": {
+      "weight": 700,
+      "size": 0.078,
+      "fill": {
+        "colors": [
+          "#F6D77A",
+          "#9A6A12"
+        ]
+      },
+      "font": "Playfair Display",
+      "italic": true,
+      "fx": {
+        "kind": "chrome",
+        "stops": [
+          "#FFF3B0",
+          "#E8B93C",
+          "#9A6A12",
+          "#F6D77A"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.05,
+        "color": "rgba(0,0,0,.55)"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#F6D77A",
+    "opacity": 0.9
+  },
+  "candy_pop": {
+    "id": "candy_pop",
+    "name": "Candy Pop",
+    "layout": "stack",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Bungee",
+      "shadow": {
+        "dy": 0.06,
+        "blur": 0,
+        "color": "#3A1470"
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.072,
+      "fill": {
+        "colors": [
+          "#FF5FA2",
+          "#4DE3FF"
+        ]
+      },
+      "font": "Bungee",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#FF5FA2",
+          "#FFD93D",
+          "#4DE3FF",
+          "#B26BFF"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "extrude": {
+        "n": 6,
+        "dx": 0.01,
+        "dy": 0.014,
+        "color": "#3A1470"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FF5FA2",
+    "opacity": 0.9
+  },
+  "ocean_deep": {
+    "id": "ocean_deep",
+    "name": "Ocean Deep",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 300,
+      "size": 0.035,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "italic": true
+    },
+    "big": {
+      "weight": 800,
+      "size": 0.09,
+      "fill": {
+        "colors": [
+          "#4FD1FF",
+          "#0B3C8C"
+        ]
+      },
+      "font": "Poppins",
+      "fx": {
+        "kind": "liquid",
+        "stops": [
+          "#4FD1FF",
+          "#1E7FD8",
+          "#0B3C8C",
+          "#1E7FD8",
+          "#4FD1FF"
+        ],
+        "hi": "#9BEAFF",
+        "lo": "#06255E",
+        "speed": 1,
+        "seed": 11
+      },
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0,
+        "color": "#041B45"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#4FD1FF",
+    "opacity": 0.9
+  },
+  "lava_grunge": {
+    "id": "lava_grunge",
+    "name": "Lava Grunge",
+    "layout": "stack",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 400,
+      "size": 0.041,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Anton",
+      "upper": true,
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.7)"
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.09,
+      "fill": {
+        "colors": [
+          "#FFE259",
+          "#E01E1E"
+        ]
+      },
+      "font": "Anton",
+      "upper": true,
+      "fx": {
+        "kind": "grunge",
+        "stops": [
+          "#FFE259",
+          "#FF8A00",
+          "#E01E1E",
+          "#7A0A0A"
+        ],
+        "hi": "#FFF0A0",
+        "lo": "#4A0505",
+        "speed": 1,
+        "seed": 6
+      },
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0,
+        "color": "#3A0606"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FFE259",
+    "opacity": 0.9
+  },
+  "cyber_neon": {
+    "id": "cyber_neon",
+    "name": "Cyber Neon",
+    "layout": "line",
+    "anim": "glitch",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 900,
+      "size": 0.046,
+      "fill": {
+        "colors": [
+          "#00F0FF",
+          "#FF2DAA"
+        ]
+      },
+      "font": "Rubik",
+      "upper": true,
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#00F0FF",
+          "#7A5CFF",
+          "#FF2DAA"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1.4
+      },
+      "glow": {
+        "color": "#00F0FF",
+        "blur": 0.045
+      }
+    },
+    "big": {
+      "weight": 900,
+      "size": 0.08,
+      "fill": {
+        "colors": [
+          "#00F0FF",
+          "#FF2DAA"
+        ]
+      },
+      "font": "Rubik",
+      "upper": true,
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#00F0FF",
+          "#7A5CFF",
+          "#FF2DAA"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1.4
+      },
+      "glow": {
+        "color": "#00F0FF",
+        "blur": 0.045
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#00F0FF",
+    "opacity": 0.9
+  },
+  "vapor_wave": {
+    "id": "vapor_wave",
+    "name": "Vaporwave",
+    "layout": "line",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FF71CE",
+          "#01CDFE"
+        ]
+      },
+      "font": "Righteous",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#FF71CE",
+          "#B967FF",
+          "#01CDFE",
+          "#05FFA1"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "extrude": {
+        "n": 5,
+        "dx": 0.01,
+        "dy": 0.014,
+        "color": "#2B1055"
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.085,
+      "fill": {
+        "colors": [
+          "#FF71CE",
+          "#01CDFE"
+        ]
+      },
+      "font": "Righteous",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#FF71CE",
+          "#B967FF",
+          "#01CDFE",
+          "#05FFA1"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "extrude": {
+        "n": 5,
+        "dx": 0.01,
+        "dy": 0.014,
+        "color": "#2B1055"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FF71CE",
+    "opacity": 0.9
+  },
+  "forest_mist": {
+    "id": "forest_mist",
+    "name": "Forest Mist (screen)",
+    "layout": "stack",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 500,
+      "size": 0.04,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "upper": true,
+      "track": 0.3,
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.6)"
+      }
+    },
+    "blend": "screen",
+    "big": {
+      "weight": 700,
+      "size": 0.072,
+      "fill": {
+        "colors": [
+          "#D9F99D",
+          "#4ADE80",
+          "#0F766E"
+        ],
+        "angle": 160
+      },
+      "font": "Playfair Display",
+      "italic": true
+    },
+    "category": "blend",
+    "highlightColor": "#D9F99D",
+    "opacity": 0.9
+  },
+  "overlay_white": {
+    "id": "overlay_white",
+    "name": "Overlay White",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 800,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#FFD6F6"
+        ]
+      },
+      "font": "Montserrat",
+      "upper": true
+    },
+    "blend": "overlay",
+    "big": {
+      "weight": 800,
+      "size": 0.06,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#FFD6F6"
+        ]
+      },
+      "font": "Montserrat",
+      "upper": true
+    },
+    "category": "blend",
+    "highlightColor": "#FFFFFF",
+    "opacity": 0.9
+  },
+  "difference_invert": {
+    "id": "difference_invert",
+    "name": "Invert (difference)",
+    "layout": "line",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Anton",
+      "upper": true
+    },
+    "blend": "difference",
+    "big": {
+      "weight": 400,
+      "size": 0.078,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Anton",
+      "upper": true
+    },
+    "category": "blend",
+    "highlightColor": "#FFFFFF",
+    "opacity": 0.9
+  },
+  "hardlight_duo": {
+    "id": "hardlight_duo",
+    "name": "Hard-light Duo",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 500,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "lower": true
+    },
+    "blend": "hard-light",
+    "big": {
+      "weight": 900,
+      "size": 0.09,
+      "fill": {
+        "colors": [
+          "#FF3CAC",
+          "#784BA0",
+          "#2B86C5"
+        ],
+        "angle": 120
+      },
+      "font": "Poppins"
+    },
+    "category": "blend",
+    "highlightColor": "#FF3CAC",
+    "opacity": 0.9
+  },
+  "screen_glow": {
+    "id": "screen_glow",
+    "name": "Screen Glow",
+    "layout": "line",
+    "anim": "rise",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 800,
+      "size": 0.049,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#B5F5FF",
+          "#FFB5F0"
+        ],
+        "angle": 100
+      },
+      "font": "Poppins",
+      "glow": {
+        "color": "#FFFFFF",
+        "blur": 0.05
+      }
+    },
+    "blend": "screen",
+    "big": {
+      "weight": 800,
+      "size": 0.085,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#B5F5FF",
+          "#FFB5F0"
+        ],
+        "angle": 100
+      },
+      "font": "Poppins",
+      "glow": {
+        "color": "#FFFFFF",
+        "blur": 0.05
+      }
+    },
+    "category": "blend",
+    "highlightColor": "#FFFFFF",
+    "opacity": 0.9
+  },
+  "multiply_ink": {
+    "id": "multiply_ink",
+    "name": "Ink (multiply, light videos)",
+    "layout": "line",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#1B1464",
+          "#6A1B9A",
+          "#B71C1C"
+        ],
+        "angle": 100
+      },
+      "font": "Permanent Marker"
+    },
+    "blend": "multiply",
+    "big": {
+      "weight": 400,
+      "size": 0.085,
+      "fill": {
+        "colors": [
+          "#1B1464",
+          "#6A1B9A",
+          "#B71C1C"
+        ],
+        "angle": 100
+      },
+      "font": "Permanent Marker"
+    },
+    "category": "blend",
+    "highlightColor": "#1B1464",
+    "opacity": 0.9
+  },
+  "glass_frost": {
+    "id": "glass_frost",
+    "name": "Frosted Glass",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 900,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "rgba(255,255,255,.96)",
+          "rgba(255,255,255,.3)"
+        ],
+        "angle": 180
+      },
+      "font": "Inter",
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.07,
+        "color": "rgba(0,0,0,.35)"
+      }
+    },
+    "big": {
+      "weight": 900,
+      "size": 0.085,
+      "fill": {
+        "colors": [
+          "rgba(255,255,255,.96)",
+          "rgba(255,255,255,.3)"
+        ],
+        "angle": 180
+      },
+      "font": "Inter",
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.07,
+        "color": "rgba(0,0,0,.35)"
+      }
+    },
+    "category": "blend",
+    "highlightColor": "rgba(255,255,255,.96)",
+    "opacity": 0.9
+  },
+  "pastel_dream": {
+    "id": "pastel_dream",
+    "name": "Pastel Dream",
+    "layout": "stack",
+    "anim": "slide",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 500,
+      "size": 0.045,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0.08,
+        "color": "rgba(80,40,120,.45)"
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.072,
+      "fill": {
+        "colors": [
+          "#FFB6E1",
+          "#C9B6FF",
+          "#B6F5E0"
+        ],
+        "angle": 100
+      },
+      "font": "Pacifico",
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.05,
+        "color": "rgba(80,40,120,.35)"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FFB6E1",
+    "opacity": 0.9
+  },
+  "sticker_pop": {
+    "id": "sticker_pop",
+    "name": "Sticker Pop",
+    "layout": "line",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 900,
+      "size": 0.049,
+      "fill": {
+        "colors": [
+          "#FFE600",
+          "#FF9100"
+        ],
+        "angle": 180
+      },
+      "font": "Poppins",
+      "upper": true,
+      "extrude": {
+        "n": 6,
+        "dx": 0.012,
+        "dy": 0.016,
+        "color": "#111111"
+      }
+    },
+    "big": {
+      "weight": 900,
+      "size": 0.085,
+      "fill": {
+        "colors": [
+          "#FFE600",
+          "#FF9100"
+        ],
+        "angle": 180
+      },
+      "font": "Poppins",
+      "upper": true,
+      "extrude": {
+        "n": 6,
+        "dx": 0.012,
+        "dy": 0.016,
+        "color": "#111111"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FFE600",
+    "opacity": 0.9
+  },
+  "rainbow_3d": {
+    "id": "rainbow_3d",
+    "name": "Rainbow 3D",
+    "layout": "line",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FF4D4D",
+          "#4DB8FF"
+        ]
+      },
+      "font": "Bungee",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#FF4D4D",
+          "#FFB84D",
+          "#FFF04D",
+          "#4DFF88",
+          "#4DB8FF",
+          "#B84DFF"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1.2
+      },
+      "extrude": {
+        "n": 6,
+        "dx": 0.01,
+        "dy": 0.014,
+        "color": "#1A1030"
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.085,
+      "fill": {
+        "colors": [
+          "#FF4D4D",
+          "#4DB8FF"
+        ]
+      },
+      "font": "Bungee",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#FF4D4D",
+          "#FFB84D",
+          "#FFF04D",
+          "#4DFF88",
+          "#4DB8FF",
+          "#B84DFF"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1.2
+      },
+      "extrude": {
+        "n": 6,
+        "dx": 0.01,
+        "dy": 0.014,
+        "color": "#1A1030"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FF4D4D",
+    "opacity": 0.9
+  },
+  "emerald_gold": {
+    "id": "emerald_gold",
+    "name": "Emerald & Gold",
+    "layout": "stack",
+    "anim": "slide",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 500,
+      "size": 0.04,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "upper": true,
+      "track": 0.3,
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.6)"
+      }
+    },
+    "big": {
+      "weight": 700,
+      "size": 0.078,
+      "fill": {
+        "colors": [
+          "#6EE7B7",
+          "#10B981",
+          "#D4AF37",
+          "#F9E79F"
+        ],
+        "angle": 100
+      },
+      "font": "Playfair Display",
+      "italic": true,
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.05,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#6EE7B7",
+    "opacity": 0.9
+  },
+  "rose_gold": {
+    "id": "rose_gold",
+    "name": "Rose Gold Script",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 500,
+      "size": 0.045,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "upper": true,
+      "track": 0.3,
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.1,
+        "color": "rgba(0,0,0,.6)"
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.09,
+      "fill": {
+        "colors": [
+          "#F4B6A6",
+          "#B76E79"
+        ]
+      },
+      "font": "Great Vibes",
+      "fx": {
+        "kind": "chrome",
+        "stops": [
+          "#FFE3D8",
+          "#F4B6A6",
+          "#B76E79",
+          "#E8A598"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "glow": {
+        "color": "#FFC2B0",
+        "blur": 0.03
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#F4B6A6",
+    "opacity": 0.9
+  },
+  "fire_ice": {
+    "id": "fire_ice",
+    "name": "Fire & Ice",
+    "layout": "line",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FF3D00",
+          "#FFB300",
+          "#FFFFFF",
+          "#00B0FF",
+          "#2979FF"
+        ],
+        "angle": 90
+      },
+      "font": "Anton",
+      "upper": true,
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0.06,
+        "color": "rgba(0,0,0,.55)"
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.066,
+      "fill": {
+        "colors": [
+          "#FF3D00",
+          "#FFB300",
+          "#FFFFFF",
+          "#00B0FF",
+          "#2979FF"
+        ],
+        "angle": 90
+      },
+      "font": "Anton",
+      "upper": true,
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0.06,
+        "color": "rgba(0,0,0,.55)"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FF3D00",
+    "opacity": 0.9
+  },
+  "neon_tube": {
+    "id": "neon_tube",
+    "name": "Neon Tube",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#BFE3FF"
+        ],
+        "angle": 180
+      },
+      "font": "Bebas Neue",
+      "upper": true,
+      "glow": {
+        "color": "#2D7BFF",
+        "blur": 0.06
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.066,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#BFE3FF"
+        ],
+        "angle": 180
+      },
+      "font": "Bebas Neue",
+      "upper": true,
+      "glow": {
+        "color": "#2D7BFF",
+        "blur": 0.06
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FFFFFF",
+    "opacity": 0.9
+  },
+  "graffiti": {
+    "id": "graffiti",
+    "name": "Graffiti",
+    "layout": "scatter",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 700,
+      "size": 0.046,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Caveat"
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.078,
+      "fill": {
+        "colors": [
+          "#FF3B6B",
+          "#3B8DFF"
+        ]
+      },
+      "font": "Permanent Marker",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#FF3B6B",
+          "#FFD23B",
+          "#3BFFB0",
+          "#3B8DFF"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0,
+        "color": "#111111"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FF3B6B",
+    "opacity": 0.9
+  },
+  "retro_tv": {
+    "id": "retro_tv",
+    "name": "Retro TV",
+    "layout": "line",
+    "anim": "type",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 4,
+    "keyWords": 0,
+    "small": {
+      "weight": 700,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#3CFF7A",
+          "#00E5FF"
+        ],
+        "angle": 90
+      },
+      "font": "Space Mono",
+      "glow": {
+        "color": "#3CFF7A",
+        "blur": 0.03
+      }
+    },
+    "pill": "rgba(0,0,0,.72)",
+    "big": {
+      "weight": 700,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#3CFF7A",
+          "#00E5FF"
+        ],
+        "angle": 90
+      },
+      "font": "Space Mono",
+      "glow": {
+        "color": "#3CFF7A",
+        "blur": 0.03
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#3CFF7A",
+    "opacity": 0.9
+  },
+  "sports_fire": {
+    "id": "sports_fire",
+    "name": "Sports Fire",
+    "layout": "line",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 700,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFF200",
+          "#FF1E1E"
+        ]
+      },
+      "font": "Oswald",
+      "upper": true,
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#FFF200",
+          "#FF8A00",
+          "#FF1E1E"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1.3
+      },
+      "extrude": {
+        "n": 4,
+        "dx": 0.01,
+        "dy": 0.014,
+        "color": "#4A0A0A"
+      }
+    },
+    "big": {
+      "weight": 700,
+      "size": 0.057,
+      "fill": {
+        "colors": [
+          "#FFF200",
+          "#FF1E1E"
+        ]
+      },
+      "font": "Oswald",
+      "upper": true,
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#FFF200",
+          "#FF8A00",
+          "#FF1E1E"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1.3
+      },
+      "extrude": {
+        "n": 4,
+        "dx": 0.01,
+        "dy": 0.014,
+        "color": "#4A0A0A"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FFF200",
+    "opacity": 0.9
+  },
+  "golden_hour": {
+    "id": "golden_hour",
+    "name": "Golden Hour",
+    "layout": "stack",
+    "anim": "slide",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 300,
+      "size": 0.055,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "italic": true,
+      "shadow": {
+        "dy": 0.05,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.6)"
+      }
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.078,
+      "fill": {
+        "colors": [
+          "#FFF1C1",
+          "#FFC875",
+          "#FF8F6B",
+          "#E85D9F"
+        ],
+        "angle": 160
+      },
+      "font": "Lobster",
+      "glow": {
+        "color": "#FF9E6B",
+        "blur": 0.04
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FFF1C1",
+    "opacity": 0.9
+  },
+  "galaxy": {
+    "id": "galaxy",
+    "name": "Galaxy",
+    "layout": "scatter",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 500,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "lower": true
+    },
+    "big": {
+      "weight": 800,
+      "size": 0.084,
+      "fill": {
+        "colors": [
+          "#7F00FF",
+          "#00C6FF"
+        ]
+      },
+      "font": "Poppins",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#7F00FF",
+          "#E100FF",
+          "#00C6FF",
+          "#7F00FF"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 0.8
+      },
+      "glow": {
+        "color": "#B35CFF",
+        "blur": 0.05
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#7F00FF",
+    "opacity": 0.9
+  },
+  "mint_fresh": {
+    "id": "mint_fresh",
+    "name": "Mint Fresh",
+    "layout": "line",
+    "anim": "rise",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 900,
+      "size": 0.049,
+      "fill": {
+        "colors": [
+          "#5CFFC8",
+          "#6E8BFF"
+        ]
+      },
+      "font": "Rubik",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#5CFFC8",
+          "#4DD0FF",
+          "#6E8BFF"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0,
+        "color": "#0B2A4A"
+      }
+    },
+    "big": {
+      "weight": 900,
+      "size": 0.085,
+      "fill": {
+        "colors": [
+          "#5CFFC8",
+          "#6E8BFF"
+        ]
+      },
+      "font": "Rubik",
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#5CFFC8",
+          "#4DD0FF",
+          "#6E8BFF"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0,
+        "color": "#0B2A4A"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#5CFFC8",
+    "opacity": 0.9
+  },
+  "blood_moon": {
+    "id": "blood_moon",
+    "name": "Blood Moon",
+    "layout": "stack",
+    "anim": "bounce",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 400,
+      "size": 0.041,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Bebas Neue",
+      "upper": true,
+      "track": 0.1
+    },
+    "big": {
+      "weight": 400,
+      "size": 0.09,
+      "fill": {
+        "colors": [
+          "#FF9A8B",
+          "#E5262F",
+          "#7A0B1B"
+        ],
+        "angle": 180
+      },
+      "font": "Bebas Neue",
+      "upper": true,
+      "glow": {
+        "color": "#FF2A3A",
+        "blur": 0.05
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FF9A8B",
+    "opacity": 0.9
+  },
+  "rainbow_wipe": {
+    "id": "rainbow_wipe",
+    "name": "Rainbow Wipe",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "all",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 0,
+    "small": {
+      "weight": 800,
+      "size": 0.046,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Poppins",
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "highlight": {
+      "mode": "wipe",
+      "color": "#FF4ECD",
+      "wipe": [
+        "#FFFFFF",
+        "#FF4ECD"
+      ]
+    },
+    "big": {
+      "weight": 800,
+      "size": 0.08,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Poppins",
+      "shadow": {
+        "dy": 0.04,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FF4ECD",
+    "opacity": 0.9
+  },
+  "echo_color": {
+    "id": "echo_color",
+    "name": "Echo Colour",
+    "layout": "echo",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 2,
+    "keyWords": 1,
+    "small": {
+      "weight": 300,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.4)"
+      }
+    },
+    "echoOffsetEm": -0.9,
+    "big": {
+      "weight": 900,
+      "size": 0.078,
+      "fill": {
+        "colors": [
+          "#FF5EA8",
+          "#FFB45E"
+        ]
+      },
+      "font": "Inter",
+      "italic": true,
+      "fx": {
+        "kind": "flow",
+        "stops": [
+          "#FF5EA8",
+          "#FFB45E",
+          "#FF5EA8"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FF5EA8",
+    "opacity": 0.9
+  },
+  "script_duo": {
+    "id": "script_duo",
+    "name": "Script + Chrome",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 400,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Great Vibes",
+      "glow": {
+        "color": "#FFD98A",
+        "blur": 0.045
+      }
+    },
+    "big": {
+      "weight": 800,
+      "size": 0.078,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#7C8AA3"
+        ]
+      },
+      "font": "Poppins",
+      "fx": {
+        "kind": "chrome",
+        "stops": [
+          "#FFFFFF",
+          "#C9D3E3",
+          "#7C8AA3",
+          "#E6ECF7"
+        ],
+        "hi": "#FFFFFF",
+        "lo": "#000000",
+        "speed": 1
+      },
+      "shadow": {
+        "dy": 0.03,
+        "blur": 0.05,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FFFFFF",
+    "opacity": 0.9
+  },
+  "minimal_sub": {
+    "id": "minimal_sub",
+    "name": "Minimal Pro",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 5,
+    "keyWords": 0,
+    "small": {
+      "weight": 800,
+      "size": 0.035,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#E6DCFF"
+        ],
+        "angle": 180
+      },
+      "font": "Inter",
+      "shadow": {
+        "dy": 0.035,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.55)"
+      }
+    },
+    "big": {
+      "weight": 800,
+      "size": 0.06,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#E6DCFF"
+        ],
+        "angle": 180
+      },
+      "font": "Inter",
+      "shadow": {
+        "dy": 0.035,
+        "blur": 0.08,
+        "color": "rgba(0,0,0,.55)"
+      }
+    },
+    "category": "colourful",
+    "highlightColor": "#FFFFFF",
+    "opacity": 0.9
+  },
+  "twilight_blend": {
+    "id": "twilight_blend",
+    "name": "Twilight (soft-light)",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.78,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "small": {
+      "weight": 500,
+      "size": 0.05,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "font": "Inter",
+      "lower": true
+    },
+    "blend": "soft-light",
+    "big": {
+      "weight": 900,
+      "size": 0.09,
+      "fill": {
+        "colors": [
+          "#FFB75E",
+          "#FF5E9C",
+          "#6A5CFF"
+        ],
+        "angle": 120
+      },
+      "font": "Poppins"
+    },
+    "category": "blend",
+    "highlightColor": "#FFB75E",
+    "opacity": 0.9
+  },
+  "aurora_glass": {
+    "id": "aurora_glass",
+    "name": "Aurora Glass",
+    "layout": "stack",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.035,
+    "category": "colourful",
+    "badge": "AURORA GLASS",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#78F4FF",
+    "blend": "screen",
+    "opacity": 0.96,
+    "small": {
+      "font": "Inter",
+      "weight": 500,
+      "size": 0.038,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      },
+      "italic": true
+    },
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.082,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#E8FFFF",
+          "#78F4FF",
+          "#A78BFA"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#78F4FF",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#78F4FF"
+    },
+    "tagline": "Icy cyan-to-violet gradients with fine italic support text and a soft screen glow."
+  },
+  "peach_chrome": {
+    "id": "peach_chrome",
+    "name": "Peach Chrome",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "first",
+    "gap": 0.035,
+    "category": "colourful",
+    "badge": "PEACH CHROME",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#FFB38A",
+    "blend": "screen",
+    "opacity": 0.94,
+    "small": {
+      "font": "Inter",
+      "weight": 500,
+      "size": 0.037,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#FFF1DA",
+          "#FFB38A",
+          "#EF75A8"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#FFB38A",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#FFB38A"
+    },
+    "tagline": "Warm peach chrome with a compact editorial line and delicate depth."
+  },
+  "mint_editorial": {
+    "id": "mint_editorial",
+    "name": "Mint Editorial",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "none",
+    "gap": 0.035,
+    "category": "classic",
+    "badge": "MINT EDITORIAL",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#71E5BE",
+    "blend": "screen",
+    "opacity": 0.96,
+    "small": {
+      "font": "Inter",
+      "weight": 500,
+      "size": 0.036,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Poppins",
+      "weight": 800,
+      "size": 0.074,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#F3FFF8",
+          "#71E5BE",
+          "#2AAE91"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#71E5BE",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#71E5BE"
+    },
+    "tagline": "Clean mint gradient typography, restrained glow, and crisp readable support text."
+  },
+  "violet_prism": {
+    "id": "violet_prism",
+    "name": "Violet Prism",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.035,
+    "category": "colourful",
+    "badge": "VIOLET PRISM",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#C084FC",
+    "blend": "screen",
+    "opacity": 0.95,
+    "small": {
+      "font": "Poppins",
+      "weight": 600,
+      "size": 0.04,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.088,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#F2E8FF",
+          "#C084FC",
+          "#6366F1"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#C084FC",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#C084FC"
+    },
+    "tagline": "High-contrast violet prism lettering with subtle foreground separation."
+  },
+  "citrus_ribbon": {
+    "id": "citrus_ribbon",
+    "name": "Citrus Ribbon",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "first",
+    "gap": 0.035,
+    "category": "colourful",
+    "badge": "CITRUS RIBBON",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#FFB52E",
+    "blend": "screen",
+    "opacity": 0.94,
+    "small": {
+      "font": "Poppins",
+      "weight": 600,
+      "size": 0.037,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Anton",
+      "weight": 400,
+      "size": 0.086,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#FFF77A",
+          "#FFB52E",
+          "#F45D48"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#FFB52E",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#FFB52E"
+    },
+    "tagline": "Punchy citrus gradient headlines with a warm, compact supporting line."
+  },
+  "rosewater": {
+    "id": "rosewater",
+    "name": "Rosewater",
+    "layout": "stack",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "none",
+    "gap": 0.035,
+    "category": "colourful",
+    "badge": "ROSEWATER",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#FDA4AF",
+    "blend": "screen",
+    "opacity": 0.95,
+    "small": {
+      "font": "Inter",
+      "weight": 400,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Playfair Display",
+      "weight": 700,
+      "size": 0.072,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#FFF5FA",
+          "#FDA4AF",
+          "#E879A9"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#FDA4AF",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#FDA4AF"
+    },
+    "tagline": "Soft rose lettering paired with refined serif typography."
+  },
+  "deep_ocean": {
+    "id": "deep_ocean",
+    "name": "Deep Ocean",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.035,
+    "category": "blend",
+    "badge": "DEEP OCEAN",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#31D5D8",
+    "blend": "screen",
+    "opacity": 0.93,
+    "small": {
+      "font": "Inter",
+      "weight": 400,
+      "size": 0.038,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#D6FCFF",
+          "#31D5D8",
+          "#3275D9"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#31D5D8",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#31D5D8"
+    },
+    "tagline": "Oceanic teal-to-blue gradient with behind-subject depth and gentle screen lift."
+  },
+  "soft_lime": {
+    "id": "soft_lime",
+    "name": "Soft Lime",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "none",
+    "gap": 0.035,
+    "category": "blend",
+    "badge": "SOFT LIME",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#C9F36B",
+    "blend": "screen",
+    "opacity": 0.94,
+    "small": {
+      "font": "Inter",
+      "weight": 500,
+      "size": 0.037,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Poppins",
+      "weight": 800,
+      "size": 0.076,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#F7FFE8",
+          "#C9F36B",
+          "#62C98A"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#C9F36B",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#C9F36B"
+    },
+    "tagline": "Fresh lime accent with airy sizing and minimal motion."
+  },
+  "copper_film": {
+    "id": "copper_film",
+    "name": "Copper Film",
+    "layout": "stack",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "first",
+    "gap": 0.035,
+    "category": "blend",
+    "badge": "COPPER FILM",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#E9A35B",
+    "blend": "soft-light",
+    "opacity": 0.9,
+    "small": {
+      "font": "Inter",
+      "weight": 500,
+      "size": 0.036,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Bebas Neue",
+      "weight": 400,
+      "size": 0.08,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#FFF0D4",
+          "#E9A35B",
+          "#A44C39"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#E9A35B",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#E9A35B"
+    },
+    "tagline": "Warm copper film tones with soft-light blending and cinematic serif contrast."
+  },
+  "blue_hour": {
+    "id": "blue_hour",
+    "name": "Blue Hour",
+    "layout": "stack",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.035,
+    "category": "blend",
+    "badge": "BLUE HOUR",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#8FB8FF",
+    "blend": "screen",
+    "opacity": 0.92,
+    "small": {
+      "font": "Inter",
+      "weight": 400,
+      "size": 0.036,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Montserrat",
+      "weight": 800,
+      "size": 0.078,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#E6F1FF",
+          "#8FB8FF",
+          "#6158C9"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#8FB8FF",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#8FB8FF"
+    },
+    "tagline": "Blue-hour indigo and sky gradients with layered subject depth."
+  },
+  "mono_luxe": {
+    "id": "mono_luxe",
+    "name": "Mono Luxe",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "none",
+    "gap": 0.035,
+    "category": "classic",
+    "badge": "MONO LUXE",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#E5E7EB",
+    "blend": null,
+    "opacity": 0.98,
+    "small": {
+      "font": "Inter",
+      "weight": 500,
+      "size": 0.036,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Bebas Neue",
+      "weight": 400,
+      "size": 0.074,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#E5E7EB",
+          "#9CA3AF"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#E5E7EB",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#E5E7EB"
+    },
+    "tagline": "Minimal monochrome editorial captions with controlled silver highlights."
+  },
+  "electric_lime": {
+    "id": "electric_lime",
+    "name": "Electric Lime",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "first",
+    "gap": 0.035,
+    "category": "colourful",
+    "badge": "ELECTRIC LIME",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#D9FF3F",
+    "blend": "screen",
+    "opacity": 0.95,
+    "small": {
+      "font": "Inter",
+      "weight": 500,
+      "size": 0.038,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Anton",
+      "weight": 400,
+      "size": 0.088,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#F4FFC4",
+          "#D9FF3F",
+          "#73E66B"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#D9FF3F",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#D9FF3F"
+    },
+    "tagline": "High-energy lime headline and clean small type with subtle glow."
+  },
+  "magenta_velvet": {
+    "id": "magenta_velvet",
+    "name": "Magenta Velvet",
+    "layout": "stack",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.035,
+    "category": "colourful",
+    "badge": "MAGENTA VELVET",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#F472D0",
+    "blend": "screen",
+    "opacity": 0.92,
+    "small": {
+      "font": "Poppins",
+      "weight": 500,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.086,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#FFE8F7",
+          "#F472D0",
+          "#A855F7"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#F472D0",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#F472D0"
+    },
+    "tagline": "Velvet pink-to-violet gradient with rich but controlled color."
+  },
+  "skyline": {
+    "id": "skyline",
+    "name": "Skyline",
+    "layout": "line",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "none",
+    "gap": 0.035,
+    "category": "blend",
+    "badge": "SKYLINE",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#7CE7F2",
+    "blend": "screen",
+    "opacity": 0.93,
+    "small": {
+      "font": "Inter",
+      "weight": 400,
+      "size": 0.036,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Poppins",
+      "weight": 800,
+      "size": 0.075,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#F0FCFF",
+          "#7CE7F2",
+          "#3E7BE6"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#7CE7F2",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#7CE7F2"
+    },
+    "tagline": "Airy cyan-to-blue type for clean creator and travel edits."
+  },
+  "warm_editorial": {
+    "id": "warm_editorial",
+    "name": "Warm Editorial",
+    "layout": "stack",
+    "anim": "fade",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "first",
+    "gap": 0.035,
+    "category": "classic",
+    "badge": "WARM EDITORIAL",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#FFCB74",
+    "blend": "soft-light",
+    "opacity": 0.92,
+    "small": {
+      "font": "Inter",
+      "weight": 500,
+      "size": 0.037,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Playfair Display",
+      "weight": 700,
+      "size": 0.073,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#FFF8EA",
+          "#FFCB74",
+          "#E7814D"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#FFCB74",
+        "blur": 0.018
+      },
+      "italic": true
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#FFCB74"
+    },
+    "tagline": "Warm serif-led captions with a soft amber glow."
+  },
+  "prism_pop": {
+    "id": "prism_pop",
+    "name": "Prism Pop",
+    "layout": "scatter",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "pos": 0.72,
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.035,
+    "category": "colourful",
+    "badge": "PRISM POP",
+    "badgeTextColor": "#111827",
+    "highlightColor": "#FF70B8",
+    "blend": "screen",
+    "opacity": 0.92,
+    "small": {
+      "font": "Poppins",
+      "weight": 600,
+      "size": 0.04,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.5)"
+      }
+    },
+    "big": {
+      "font": "Bangers",
+      "weight": 400,
+      "size": 0.091,
+      "track": -0.015,
+      "fill": {
+        "colors": [
+          "#FFF4FB",
+          "#FF70B8",
+          "#8B5CF6",
+          "#35D5E8"
+        ],
+        "angle": 90
+      },
+      "shadow": {
+        "dy": 0.018,
+        "color": "#101426"
+      },
+      "glow": {
+        "color": "#FF70B8",
+        "blur": 0.018
+      }
+    },
+    "highlight": {
+      "mode": "color",
+      "color": "#FF70B8"
+    },
+    "tagline": "Playful multi-stop prism color with expressive display lettering."
+  },
+  "estate_modern": {
+    "id": "estate_modern",
+    "name": "Estate Modern",
+    "colors": [
+      "#F5FCFF",
+      "#70DBE7",
+      "#3886D6"
+    ],
+    "key": 1,
+    "shadow": "#133E54",
+    "blend": "screen",
+    "layout": "stack",
+    "pos": 0.76,
+    "category": "real-estate",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.03,
+    "opacity": 0.94,
+    "highlightColor": "#70DBE7",
+    "tagline": "Oversized Montserrat keyword behind the speaker, with a clean colorful subtitle in front below.",
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.018,
+      "fill": {
+        "colors": [
+          "#F5FCFF",
+          "#70DBE7",
+          "#3886D6"
+        ],
+        "angle": 90
+      },
+      "stroke": {
+        "w": 0.026,
+        "color": "#101820"
+      },
+      "shadow": {
+        "dy": 0.017,
+        "color": "#133E54"
+      },
+      "glow": {
+        "color": "#70DBE7",
+        "blur": 0.014
+      },
+      "fallback": "Poppins"
+    },
+    "small": {
+      "font": "Montserrat",
+      "weight": 700,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.65)"
+      },
+      "fallback": "Poppins"
+    },
+    "badge": "ESTATE MODERN",
+    "badgeTextColor": "#101820",
+    "depthAccent": true,
+    "depthAccentSize": 0.22,
+    "depthAccentY": 0.41,
+    "subtitlePosition": 0.76,
+    "subtitleSize": 0.058,
+    "previewWord": "MODERN HOME"
+  },
+  "estate_luxe": {
+    "id": "estate_luxe",
+    "name": "Estate Luxe",
+    "colors": [
+      "#FFF8E8",
+      "#E9D09B",
+      "#A77B3D"
+    ],
+    "key": 1,
+    "shadow": "#30251B",
+    "blend": "soft-light",
+    "layout": "stack",
+    "pos": 0.76,
+    "category": "real-estate",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.03,
+    "opacity": 0.94,
+    "highlightColor": "#E9D09B",
+    "tagline": "Oversized Montserrat keyword behind the speaker, with a clean colorful subtitle in front below.",
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.018,
+      "fill": {
+        "colors": [
+          "#FFF8E8",
+          "#E9D09B",
+          "#A77B3D"
+        ],
+        "angle": 90
+      },
+      "stroke": {
+        "w": 0.026,
+        "color": "#101820"
+      },
+      "shadow": {
+        "dy": 0.017,
+        "color": "#30251B"
+      },
+      "glow": {
+        "color": "#E9D09B",
+        "blur": 0.014
+      },
+      "fallback": "Poppins"
+    },
+    "small": {
+      "font": "Montserrat",
+      "weight": 700,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.65)"
+      },
+      "fallback": "Poppins"
+    },
+    "badge": "ESTATE LUXE",
+    "badgeTextColor": "#101820",
+    "depthAccent": true,
+    "depthAccentSize": 0.22,
+    "depthAccentY": 0.41,
+    "subtitlePosition": 0.76,
+    "subtitleSize": 0.058,
+    "previewWord": "TIMELESS LUXE"
+  },
+  "estate_coastal": {
+    "id": "estate_coastal",
+    "name": "Coastal Listing",
+    "colors": [
+      "#F1FCFF",
+      "#8AE4E8",
+      "#3FAFC2"
+    ],
+    "key": 1,
+    "shadow": "#113F49",
+    "blend": "screen",
+    "layout": "line",
+    "pos": 0.76,
+    "category": "real-estate",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.03,
+    "opacity": 0.94,
+    "highlightColor": "#8AE4E8",
+    "tagline": "Oversized Montserrat keyword behind the speaker, with a clean colorful subtitle in front below.",
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.018,
+      "fill": {
+        "colors": [
+          "#F1FCFF",
+          "#8AE4E8",
+          "#3FAFC2"
+        ],
+        "angle": 90
+      },
+      "stroke": {
+        "w": 0.026,
+        "color": "#101820"
+      },
+      "shadow": {
+        "dy": 0.017,
+        "color": "#113F49"
+      },
+      "glow": {
+        "color": "#8AE4E8",
+        "blur": 0.014
+      },
+      "fallback": "Poppins"
+    },
+    "small": {
+      "font": "Montserrat",
+      "weight": 700,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.65)"
+      },
+      "fallback": "Poppins"
+    },
+    "badge": "COASTAL LISTING",
+    "badgeTextColor": "#101820",
+    "depthAccent": true,
+    "depthAccentSize": 0.22,
+    "depthAccentY": 0.41,
+    "subtitlePosition": 0.76,
+    "subtitleSize": 0.058,
+    "previewWord": "COASTAL LIVING"
+  },
+  "estate_architecture": {
+    "id": "estate_architecture",
+    "name": "Architectural Tour",
+    "colors": [
+      "#FFFFFF",
+      "#DDE7EE",
+      "#8EA8B8"
+    ],
+    "key": 1,
+    "shadow": "#182832",
+    "blend": "screen",
+    "layout": "stack",
+    "pos": 0.76,
+    "category": "real-estate",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.03,
+    "opacity": 0.94,
+    "highlightColor": "#DDE7EE",
+    "tagline": "Oversized Montserrat keyword behind the speaker, with a clean colorful subtitle in front below.",
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.018,
+      "fill": {
+        "colors": [
+          "#FFFFFF",
+          "#DDE7EE",
+          "#8EA8B8"
+        ],
+        "angle": 90
+      },
+      "stroke": {
+        "w": 0.026,
+        "color": "#101820"
+      },
+      "shadow": {
+        "dy": 0.017,
+        "color": "#182832"
+      },
+      "glow": {
+        "color": "#DDE7EE",
+        "blur": 0.014
+      },
+      "fallback": "Poppins"
+    },
+    "small": {
+      "font": "Montserrat",
+      "weight": 700,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.65)"
+      },
+      "fallback": "Poppins"
+    },
+    "badge": "ARCHITECTURAL TOUR",
+    "badgeTextColor": "#101820",
+    "depthAccent": true,
+    "depthAccentSize": 0.22,
+    "depthAccentY": 0.41,
+    "subtitlePosition": 0.76,
+    "subtitleSize": 0.058,
+    "previewWord": "DESIGN DETAILS"
+  },
+  "estate_open_house": {
+    "id": "estate_open_house",
+    "name": "Open House",
+    "colors": [
+      "#FFF8ED",
+      "#FFB46F",
+      "#F06C52"
+    ],
+    "key": 1,
+    "shadow": "#522D28",
+    "blend": "screen",
+    "layout": "stack",
+    "pos": 0.76,
+    "category": "real-estate",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.03,
+    "opacity": 0.94,
+    "highlightColor": "#FFB46F",
+    "tagline": "Oversized Montserrat keyword behind the speaker, with a clean colorful subtitle in front below.",
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.018,
+      "fill": {
+        "colors": [
+          "#FFF8ED",
+          "#FFB46F",
+          "#F06C52"
+        ],
+        "angle": 90
+      },
+      "stroke": {
+        "w": 0.026,
+        "color": "#101820"
+      },
+      "shadow": {
+        "dy": 0.017,
+        "color": "#522D28"
+      },
+      "glow": {
+        "color": "#FFB46F",
+        "blur": 0.014
+      },
+      "fallback": "Poppins"
+    },
+    "small": {
+      "font": "Montserrat",
+      "weight": 700,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.65)"
+      },
+      "fallback": "Poppins"
+    },
+    "badge": "OPEN HOUSE",
+    "badgeTextColor": "#101820",
+    "depthAccent": true,
+    "depthAccentSize": 0.22,
+    "depthAccentY": 0.41,
+    "subtitlePosition": 0.76,
+    "subtitleSize": 0.058,
+    "previewWord": "OPEN HOUSE"
+  },
+  "estate_twilight": {
+    "id": "estate_twilight",
+    "name": "Twilight Property",
+    "colors": [
+      "#F4F1FF",
+      "#B69CFF",
+      "#6178E8"
+    ],
+    "key": 1,
+    "shadow": "#24214B",
+    "blend": "screen",
+    "layout": "stack",
+    "pos": 0.76,
+    "category": "real-estate",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.03,
+    "opacity": 0.94,
+    "highlightColor": "#B69CFF",
+    "tagline": "Oversized Montserrat keyword behind the speaker, with a clean colorful subtitle in front below.",
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.018,
+      "fill": {
+        "colors": [
+          "#F4F1FF",
+          "#B69CFF",
+          "#6178E8"
+        ],
+        "angle": 90
+      },
+      "stroke": {
+        "w": 0.026,
+        "color": "#101820"
+      },
+      "shadow": {
+        "dy": 0.017,
+        "color": "#24214B"
+      },
+      "glow": {
+        "color": "#B69CFF",
+        "blur": 0.014
+      },
+      "fallback": "Poppins"
+    },
+    "small": {
+      "font": "Montserrat",
+      "weight": 700,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.65)"
+      },
+      "fallback": "Poppins"
+    },
+    "badge": "TWILIGHT PROPERTY",
+    "badgeTextColor": "#101820",
+    "depthAccent": true,
+    "depthAccentSize": 0.22,
+    "depthAccentY": 0.41,
+    "subtitlePosition": 0.76,
+    "subtitleSize": 0.058,
+    "previewWord": "TWILIGHT"
+  },
+  "estate_sold": {
+    "id": "estate_sold",
+    "name": "Sold Story",
+    "colors": [
+      "#F7FFD5",
+      "#D9F352",
+      "#7BBF58"
+    ],
+    "key": 1,
+    "shadow": "#234522",
+    "blend": "screen",
+    "layout": "line",
+    "pos": 0.76,
+    "category": "real-estate",
+    "anim": "pop",
+    "reveal": "cumulative",
+    "wordsPerCaption": 3,
+    "keyWords": 1,
+    "behind": "all",
+    "gap": 0.03,
+    "opacity": 0.94,
+    "highlightColor": "#D9F352",
+    "tagline": "Oversized Montserrat keyword behind the speaker, with a clean colorful subtitle in front below.",
+    "big": {
+      "font": "Montserrat",
+      "weight": 900,
+      "size": 0.084,
+      "track": -0.018,
+      "fill": {
+        "colors": [
+          "#F7FFD5",
+          "#D9F352",
+          "#7BBF58"
+        ],
+        "angle": 90
+      },
+      "stroke": {
+        "w": 0.026,
+        "color": "#101820"
+      },
+      "shadow": {
+        "dy": 0.017,
+        "color": "#234522"
+      },
+      "glow": {
+        "color": "#D9F352",
+        "blur": 0.014
+      },
+      "fallback": "Poppins"
+    },
+    "small": {
+      "font": "Montserrat",
+      "weight": 700,
+      "size": 0.039,
+      "fill": {
+        "colors": [
+          "#FFFFFF"
+        ]
+      },
+      "shadow": {
+        "dy": 0.012,
+        "color": "rgba(0,0,0,.65)"
+      },
+      "fallback": "Poppins"
+    },
+    "badge": "SOLD STORY",
+    "badgeTextColor": "#101820",
+    "depthAccent": true,
+    "depthAccentSize": 0.22,
+    "depthAccentY": 0.41,
+    "subtitlePosition": 0.76,
+    "subtitleSize": 0.058,
+    "previewWord": "SOLD STORY"
+  }
+}
