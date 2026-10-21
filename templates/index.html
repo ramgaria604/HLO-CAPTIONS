@@ -24,7 +24,7 @@
 <meta property="twitter:description" content="Create viral animated captions with 31+ Sequence presets for Instagram Reels & YouTube Shorts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="/static/style.css?v=2.14">
+<link rel="stylesheet" href="/static/style.css?v=2.15">
 <link rel="stylesheet" href="/fonts.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Poppins:wght@500;700;800;900&family=Space+Mono:wght@700&display=swap">
 <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -169,42 +169,14 @@
 <!-- ============================================================ EDITOR WORKSPACE (SHOWN AFTER VIDEO UPLOAD) -->
 <div id="editorWorkspace" class="editor-workspace" style="display:none">
 
-<!-- ============================================================ TOP TOOLBAR -->
-<header class="toolbar" id="toolbar">
+<!-- ============================================================ TOP TOOLBAR (MOONSHOT STYLE) -->
+<header class="toolbar moonshot-toolbar" id="toolbar">
   <div class="toolbar-left">
-    <button class="tb-btn" id="btnBackToLanding" type="button" title="Back to Styles Showcase" style="background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.4); color: #a5b4fc; font-weight: 600; margin-right: 6px;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-      <span>&larr; Styles &amp; Upload</span>
+    <button class="moonshot-orb-btn" id="btnBackToLanding" type="button" title="Back to Templates & Upload">
+      <span class="moonshot-orb-icon"></span>
     </button>
-    <div class="brand">
-      <span class="logo">HL</span>
-      <span class="brand-name">hlocaptions <em>PRO</em></span>
-    </div>
-    <div class="toolbar-divider"></div>
-    <span class="project-name" id="projectName" title="Click to rename">My Video Project</span>
   </div>
   <div class="toolbar-center">
-    <button class="tb-btn" id="btnNewProj" type="button" title="New Project">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span>New</span>
-    </button>
-    <button class="tb-btn" id="btnLoadProj" type="button" title="Open Project">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h5l1.5-2H14v10H2V4z" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
-      <span>Open</span>
-    </button>
-    <button class="tb-btn" id="btnSaveProj" type="button" title="Save Project (Ctrl+S)">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h8l3 3v9H2V2h1z" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="5" y="8" width="6" height="4" rx="0.5" stroke="currentColor" stroke-width="1" fill="none"/></svg>
-      <span>Save</span>
-    </button>
-    <div class="toolbar-divider"></div>
-    <button class="tb-btn" id="btnUndo" type="button" title="Undo (Ctrl+Z)" disabled>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
-      <span>Undo</span>
-    </button>
-    <button class="tb-btn" id="btnRedo" type="button" title="Redo (Ctrl+Y)" disabled>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/></svg>
-      <span>Redo</span>
-    </button>
     <div class="aspect-group" id="aspectBar">
       <button class="aspect-btn on" data-aspect="original" type="button" title="Original aspect ratio">Auto</button>
       <button class="aspect-btn" data-aspect="9:16" type="button" title="9:16 Vertical">9:16</button>
@@ -213,53 +185,55 @@
     </div>
   </div>
   <div class="toolbar-right">
-    <span class="status-chip" id="chipFfmpeg">FFmpeg</span>
-    <span class="status-chip" id="chipWhisper">Speech</span>
-    <div class="toolbar-divider"></div>
-    <button class="tb-btn primary" id="exportBtn" type="button" disabled title="Export Video" style="font-weight:700; background: linear-gradient(135deg, #00F0FF, #0072FF); color:#0c0d14; border:none; padding: 0 16px;">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4M2 12v2h12v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>Export Video</span>
+    <div class="moonshot-undo-pill">
+      <button class="tb-btn icon-only" id="btnUndo" type="button" title="Undo (Ctrl+Z)" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+      </button>
+      <button class="tb-btn icon-only" id="btnRedo" type="button" title="Redo (Ctrl+Y)" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/></svg>
+      </button>
+    </div>
+    <button class="tb-btn icon-only magic-sparkle-btn" id="btnAiMagicTop" type="button" title="Auto Edit / AI Magic">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
+    </button>
+    <button class="tb-btn primary export-square-btn" id="exportBtn" type="button" disabled title="Export Video">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>
     </button>
   </div>
 </header>
 
-<!-- ============================================================ NOTICE BAR -->
-<div id="notice" class="notice" role="status">Checking your setup...</div>
+<!-- MOONSHOT SUB-STATUS -->
+<div class="moonshot-subbar">
+  <span class="preview-dot"></span>
+  <span class="preview-text">Low-res preview</span>
+  <span id="notice" class="notice-inline" role="status">Ready</span>
+</div>
 
 <!-- ============================================================ MAIN EDITOR -->
 <main class="editor" id="editorMain">
 
-  <!-- ========== LEFT PANEL ========== -->
+  <!-- ========== LEFT PANEL (MOONSHOT BOTTOM TABS ON MOBILE) ========== -->
   <aside class="left-panel" id="leftPanel">
-    <nav class="panel-tabs" id="panelTabs">
-      <button class="ptab on" data-panel="style" type="button" title="Caption Style">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 14l2-5h8l2 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9L9 3l4 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Style</span>
+    <nav class="panel-tabs moonshot-tabs" id="panelTabs">
+      <button class="ptab" data-panel="ai" type="button" title="Auto edit">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
+        <span>Auto edit</span>
       </button>
-      <button class="ptab" data-panel="captions" type="button" title="Captions & Text">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 9h3M7 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        <span>Captions</span>
+      <button class="ptab" data-panel="captions" type="button" title="Transcript">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h10"/></svg>
+        <span>Transcript</span>
       </button>
-      <button class="ptab" data-panel="media" type="button" title="Media & Upload">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 11l3-3 2 2 3-4 3 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Media</span>
+      <button class="ptab on" data-panel="style" type="button" title="Templates">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Templates</span>
       </button>
-      <button class="ptab" data-panel="graphics" type="button" title="Motion Graphics">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="10" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="10" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><circle cx="12.5" cy="12.5" r="2.5" stroke="currentColor" stroke-width="1.3"/></svg>
-        <span>Graphics</span>
+      <button class="ptab" data-panel="customize" type="button" title="Customize">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span>Customize</span>
       </button>
-      <!-- Unnecessary tabs hidden for clean, focused interface -->
-      <button class="ptab" data-panel="ai" type="button" title="AI Director" style="display:none">
-        <span>AI Edit</span>
-      </button>
-      <button class="ptab" data-panel="cuts" type="button" title="Auto-cut Silence" style="display:none">
-        <span>Cuts</span>
-      </button>
-      <button class="ptab" data-panel="effects" type="button" title="Effects & Audio" style="display:none">
-        <span>Effects</span>
-      </button>
-      <button class="ptab" data-panel="broll" type="button" title="B-roll Stock Footage" style="display:none">
-        <span>B-roll</span>
+      <button class="ptab voice-tab" data-panel="voice" type="button" title="Voice &amp; Audio">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+        <span>Voice</span>
       </button>
     </nav>
 
@@ -416,26 +390,133 @@
         </div>
         <div class="presets" id="presets"></div>
         <button class="action-btn small ghost" id="savePreset" type="button">&#x1F4BE; Save Style</button>
-        <div class="separator"></div>
-        <h4>Layout</h4>
+      </div>
+
+      <!-- CUSTOMIZE PANEL (MOONSHOT TAB 4) -->
+      <div class="ppane" id="ppane-customize">
+        <h4>Caption Layout &amp; Animation</h4>
         <div class="field-row">
           <label class="field">Layout
-            <select id="s_layout"><option value="stack">Stacked</option><option value="line">One line</option></select></label>
+            <select id="s_layout"><option value="stack">Stacked (2-lines)</option><option value="line">One line</option></select></label>
           <label class="field">Animation
             <select id="s_animation"><option value="pop">Pop in</option><option value="highlight">Highlight</option><option value="none">None</option></select></label>
         </div>
         <div class="field-row">
           <label class="field">Position <output id="s_positionOut">78%</output><input type="range" id="s_position" min="0.1" max="0.95" step="0.01" value="0.78"></label>
-          <label class="field">Transparency <output id="s_opacityOut">90%</output><input type="range" id="s_opacity" min="0.4" max="1.0" step="0.02" value="0.90"></label>
+          <label class="field">Caption Size <output id="captionScaleOut">100%</output><input type="range" id="captionScale" min="60" max="150" value="100" step="1"></label>
         </div>
-        <div class="field-row" style="margin-top:4px">
+        <div class="field-row">
+          <label class="field">Transparency <output id="s_opacityOut">90%</output><input type="range" id="s_opacity" min="0.4" max="1.0" step="0.02" value="0.90"></label>
           <label class="field">Highlight color <input type="color" id="s_highlightColor"></label>
         </div>
         <div class="field-row" style="margin-top:6px">
           <label class="check" style="font-weight:600"><input type="checkbox" id="s_behindPerson"> 👤 Text behind person (Depth mask)</label>
         </div>
         <div class="separator"></div>
+        <h4>Word Roles &amp; Colors</h4>
         <div id="roles"></div>
+      </div>
+
+      <!-- VOICE & AUDIO TOOL (MOONSHOT TAB 5 - BETTER VOICE TOOL) -->
+      <div class="ppane" id="ppane-voice">
+        <!-- AI Studio Voice Card -->
+        <div class="panel-card" style="border-color: rgba(99, 102, 241, 0.4); background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%); margin-bottom: 12px;">
+          <div class="card-header" style="margin-bottom: 8px;">
+            <span class="card-icon">🎙️</span>
+            <div style="flex:1">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b>AI Studio Voice</b>
+                <span class="badge" id="studioVoiceBadge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-weight:700;">Studio Active</span>
+              </div>
+              <small style="color: #94a3b8; line-height: 1.3; display:block; margin-top:2px;">
+                One-click professional vocal cleanup, background noise removal &amp; crisp broadcast presence boost.
+              </small>
+            </div>
+          </div>
+          <button class="action-btn big primary" id="btnEnhanceVoice" type="button" style="width:100%; font-weight:700; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);">
+            ✨ Clean &amp; Enhance Voice (Studio Quality)
+          </button>
+        </div>
+
+        <!-- Voice Volume & Clarity -->
+        <h4>Voice Volume &amp; Clarity</h4>
+        <div class="field-row">
+          <label class="field">Voice Volume <output id="voiceVolDisplay">120%</output>
+            <input type="range" id="voiceVolSlider" min="50" max="200" step="5" value="120">
+          </label>
+          <label class="field">Clarity EQ
+            <select id="voiceEqMode">
+              <option value="studio" selected>Studio Presence (+4dB)</option>
+              <option value="warm">Warm &amp; Deep</option>
+              <option value="crisp">Ultra Crisp</option>
+              <option value="flat">Original</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="checks-row" style="margin: 8px 0 12px;">
+          <label class="check" style="font-weight:600;"><input type="checkbox" id="voiceDenoiseCheck" checked> 🔇 AI Denoise (Remove room hiss &amp; fan noise)</label>
+          <label class="check" style="font-weight:600;"><input type="checkbox" id="voiceLoudnormCheck" checked> 🎚️ Auto-leveling (Keep volume even)</label>
+        </div>
+
+        <div class="separator"></div>
+
+        <!-- Transcription Language & Re-transcribe -->
+        <h4>Speech Recognition &amp; Language</h4>
+        <p class="hint">Transcribe speech to natural Hinglish or clean English captions.</p>
+        <div class="field-row">
+          <label class="field">Language
+            <select id="voiceLangSelect">
+              <option value="hinglish" selected>🇮🇳 Hinglish (English Alphabet)</option>
+              <option value="en-IN">🇮🇳 Indian English (Accurate English)</option>
+              <option value="hi-IN">🇮🇳 Hindi (हिंदी Devanagari)</option>
+              <option value="en-US">🇺🇸 English (US)</option>
+            </select>
+          </label>
+          <label class="field">Engine
+            <select id="voiceEngineSelect">
+              <option value="google" selected>⚡ Google Cloud Speech</option>
+              <option value="whisper">🧠 OpenAI Whisper</option>
+            </select>
+          </label>
+        </div>
+        <button class="action-btn primary" id="btnRetranscribeVoice" type="button" style="width:100%; margin-top:4px;">
+          🎙️ Re-Transcribe Speech (High Accuracy)
+        </button>
+
+        <div class="separator"></div>
+
+        <!-- AI Voiceover / Text-to-Speech -->
+        <h4>AI Voiceover (Text to Speech)</h4>
+        <p class="hint">Generate a crystal-clear studio voiceover to narrate your video.</p>
+        <textarea id="ttsTextInput" placeholder="Type text to speak, e.g.: Today we are going to learn how to edit viral videos..." style="width:100%; min-height:50px; font-size:12px; border-radius:6px; background:#0d0d1a; color:#f8fafc; border:1px solid rgba(255,255,255,0.1); padding:8px; resize:vertical;"></textarea>
+        <div class="field-row" style="margin-top:6px;">
+          <label class="field">Speed <output id="ttsSpeedOut">1.0x</output>
+            <input type="range" id="ttsSpeedSlider" min="0.7" max="1.5" step="0.1" value="1.0">
+          </label>
+          <div style="flex:1; display:flex; align-items:flex-end; gap:6px;">
+            <button class="action-btn small" id="btnPreviewTts" type="button" style="flex:1">▶ Preview</button>
+            <button class="action-btn small primary" id="btnAddTts" type="button" style="flex:1">+ Add Voice</button>
+          </div>
+        </div>
+
+        <div class="separator"></div>
+
+        <!-- Background Music & Ducking -->
+        <h4>Background Music &amp; Auto-Duck</h4>
+        <label class="upload-zone small" for="bgMusicVoice">
+          <b id="bgMusicVoiceName">Add background music (optional)</b>
+          <span>MP3, WAV, M4A &bull; Auto-ducks when you speak</span>
+        </label>
+        <input type="file" id="bgMusicVoice" accept="audio/*" hidden>
+        <div class="field-row" id="voiceMusicControls" style="display:none; margin-top:6px;">
+          <label class="field">Music vol <output id="voiceMusicVolOut">25%</output>
+            <input type="range" id="voiceMusicVol" min="0" max="100" value="25">
+          </label>
+        </div>
+        <label class="check" id="voiceMusicDuckLabel" style="display:none; margin-top:6px;">
+          <input type="checkbox" id="voiceMusicDuck" checked> 📉 Auto-duck music (lower volume during speech)
+        </label>
       </div>
 
       <!-- CUTS PANEL -->
@@ -516,6 +597,18 @@
         <!-- Foreground Multi-Pass Kinetic Typography Canvas (z-index: 25) -->
         <canvas id="captionCanvas" class="caption-canvas caption-canvas-foreground"></canvas>
         <div id="capbox" class="capbox capbox-foreground"></div>
+
+        <!-- Floating Stage Gear Settings Button (Top-Right) -->
+        <button class="stage-gear-btn" id="stageSettingsBtn" type="button" title="Settings &amp; Layout">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+
+        <!-- Floating Pro Template Badge (Bottom-Center of Video) -->
+        <div class="stage-pro-template-badge" id="stageProBadge">
+          <span class="pro-crown-icon">👑</span>
+          <span id="stageBadgeText">Pro template</span>
+        </div>
+
         <!-- Safe zone guides -->
         <div id="safeZoneGuides" class="safe-zone-guides" hidden>
           <div class="sz-top-bar"><span>Header (12%)</span></div>
@@ -548,68 +641,67 @@
       </div>
     </div>
 
-    <!-- Transport / Playback controls -->
-    <div class="transport" id="transport">
-      <button class="transport-btn" id="stepBackBtn" type="button" disabled title="Back 1s (←)">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 4L6 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <button class="play-btn" id="playBtn" type="button" disabled title="Play/Pause (Space)">
-        <svg id="playIcon" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 3l12 7-12 7V3z" fill="currentColor"/></svg>
-      </button>
-      <button class="transport-btn" id="stepFwdBtn" type="button" disabled title="Forward 1s (→)">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <span id="timeLbl" class="time-display">0:00 / 0:00</span>
-      <div class="transport-spacer"></div>
-      <button class="tool-btn" id="safeZoneBtn" type="button" title="Toggle Safe Zones">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 1.5"/></svg>
-      </button>
-      <button class="tool-btn" id="captionAdjustBtn" type="button" aria-pressed="false" title="Drag captions to move; use the mouse wheel to resize">↕ Move captions</button>
-      <label class="check small caption-scale-control" title="Caption size"><span>Size</span><input id="captionScale" type="range" min="60" max="150" value="100" step="1"><output id="captionScaleOut">100%</output></label>
-      <label class="check small"><input type="checkbox" id="prevCuts"> Preview cuts</label>
-      <label class="check small"><input type="checkbox" id="snapToggle" checked> Snap</label>
+    <!-- MOONSHOT SUB-BAR & PLAYBACK CONTROLS -->
+    <div class="transport moonshot-transport" id="transport">
+      <div class="transport-drag-handle"></div>
+      <div class="transport-main-row">
+        <div class="transport-left-controls">
+          <button class="moonshot-play-btn" id="playBtn" type="button" disabled title="Play/Pause (Space)">
+            <svg id="playIcon" width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3l12 7-12 7V3z"/></svg>
+          </button>
+          <button class="transport-icon-btn" id="muteBtn" type="button" title="Mute/Unmute">
+            <svg id="muteIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </button>
+          <button class="moonshot-multi-pill on" id="multiToggleBtn" type="button" title="Toggle Multi-word or Single-word mode">
+            <span class="multi-dot"></span>
+            <span>Multi</span>
+          </button>
+        </div>
+        <div class="transport-right-controls">
+          <div class="moonshot-zoom-group">
+            <button class="m-zoom-btn" id="zoomOutBtn" type="button" title="Zoom Out">−</button>
+            <button class="m-zoom-btn" id="zoomInBtn" type="button" title="Zoom In">+</button>
+            <button class="m-zoom-fit-btn" id="zoomFitBtn" type="button" title="Fit to Screen">Fit</button>
+          </div>
+        </div>
+      </div>
+      <div class="transport-sub-row">
+        <button class="section-style-btn" id="sectionStyleBtn" type="button" title="Choose Template / Style">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Section style</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Timeline Track (Directly downside video & transport) -->
-    <div class="timeline-panel" id="timelinePanel">
-      <div class="tl-toolbar">
-        <div class="tl-tools">
-          <button class="tl-btn" id="tlUndoBtn" type="button" disabled title="Undo (Ctrl+Z)">↩ Undo</button>
-          <button class="tl-btn" id="tlRedoBtn" type="button" disabled title="Redo (Ctrl+Y)">↪ Redo</button>
-          <button class="tl-btn" id="splitCapBtn" type="button" disabled title="Split (S)">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M3 5l4 2-4 2M11 5l-4 2 4 2" stroke="currentColor" stroke-width="1.2"/></svg>
-            Split
-          </button>
-          <button class="tl-btn" id="addCapTlBtn" type="button" disabled>+ Caption</button>
-          <button class="tl-btn danger" id="delCapBtn" type="button" disabled>Delete</button>
-        </div>
-        <div class="tl-zoom">
-          <button class="zoom-btn" id="zoomOutBtn" type="button">−</button>
-          <input type="range" id="tlZoom" min="1" max="5" step="0.25" value="1" title="Timeline Zoom">
-          <button class="zoom-btn" id="zoomInBtn" type="button">+</button>
-          <button class="zoom-btn" id="zoomFitBtn" type="button" title="Fit">Fit</button>
-        </div>
+    <!-- MOONSHOT TIMELINE TRACK (DIRECTLY DOWNSIDE VIDEO) -->
+    <div class="timeline-panel moonshot-timeline-panel" id="timelinePanel">
+      <div class="tl-header-strip">
+        <span id="timeLbl" class="moonshot-timecode-pill">0:00.00 / 0:00.00</span>
       </div>
       <div class="timeline" id="tl">
         <div class="tl-track-labels">
-          <div class="tl-label">Ruler</div>
-          <div class="tl-label">Audio</div>
-          <div class="tl-label">Captions</div>
+          <div class="tl-label">Words</div>
+          <div class="tl-label">A-roll</div>
+          <div class="tl-label">Wave</div>
           <div class="tl-label">Graphics</div>
           <div class="tl-label">Cuts</div>
-          <div class="tl-label">B-roll</div>
         </div>
         <div class="tl-viewport" id="tlViewport">
           <div class="tl-scrollable" id="tlScrollable">
-            <div class="tl-ruler" id="tlRuler"></div>
-            <div class="track tr-wave"><div class="lane" id="laneWaveform"><canvas id="waveformCanvas"></canvas></div></div>
             <div class="track tr-caps"><div class="lane" id="laneCaps"></div></div>
+            <div class="track tr-aroll"><div class="lane" id="laneAroll"><div class="aroll-block"><span class="aroll-icon">🎞</span> A-roll</div></div></div>
+            <div class="track tr-wave"><div class="lane" id="laneWaveform"><canvas id="waveformCanvas"></canvas></div></div>
             <div class="track tr-graphics"><div class="lane" id="laneGraphics"></div></div>
             <div class="track tr-cuts"><div class="lane" id="laneCuts"></div></div>
-            <div class="track tr-broll"><div class="lane" id="laneBroll"></div></div>
             <div class="playhead" id="playhead"></div>
           </div>
         </div>
+      </div>
+      <div class="tl-footer-strip">
+        <button class="more-tracks-btn" id="moreTracksBtn" type="button">
+          <span>More tracks</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
       </div>
     </div>
   </section>
@@ -699,6 +791,6 @@
 </dialog>
 
 <script src="/static/fx.js"></script>
-<script src="/static/app.js?v=2.14"></script>
+<script src="/static/app.js?v=2.15"></script>
 </body>
 </html>

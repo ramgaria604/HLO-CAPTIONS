@@ -4262,22 +4262,493 @@ input[type="color"]::-webkit-color-swatch {
   }
 }
 
-/* Extra small screens (iPhone SE, Galaxy Fold folded < 380px) */
-@media (max-width: 380px) {
-  .center-panel {
-    flex: 0 0 33vh !important;
-    min-height: 180px !important;
-  }
-  .presets {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-  .moonshot-cards-grid {
-    grid-template-columns: 1fr !important;
-  }
-  .moonshot-title {
-    font-size: 22px !important;
-  }
+/* ==========================================================================
+   MOONSHOT INTERFACE & VOICE TOOL THEME (EXACT MAKEMOONSHOT.CO MATCH)
+   ========================================================================== */
+
+/* 1. Header Toolbar */
+.moonshot-toolbar {
+  height: 48px;
+  background: #0b0c16;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
 }
+
+.moonshot-orb-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.moonshot-orb-btn:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.moonshot-orb-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #818cf8 0%, #4338ca 70%, #1e1b4b 100%);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}
+
+.moonshot-undo-pill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 3px 6px;
+}
+
+.moonshot-undo-pill .icon-only {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.moonshot-undo-pill .icon-only:not(:disabled):hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.magic-sparkle-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(168, 85, 247, 0.16);
+  border: 1px solid rgba(168, 85, 247, 0.32);
+  color: #c084fc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.magic-sparkle-btn:hover {
+  background: rgba(168, 85, 247, 0.28);
+  transform: scale(1.04);
+}
+
+.export-square-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.45) !important;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.export-square-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.55) !important;
+}
+
+/* 2. Sub-bar Status */
+.moonshot-subbar {
+  height: 22px;
+  background: #090a14;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.preview-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #818cf8;
+}
+
+.notice-inline {
+  color: #64748b;
+  margin-left: 6px;
+}
+
+/* 3. Floating Stage Controls (Gear & Pro Template Badge) */
+.stage {
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.85) !important;
+}
+
+.stage-gear-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 28;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.stage-gear-btn:hover {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: rotate(30deg);
+}
+
+.stage-pro-template-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 5px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 28;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+}
+
+.pro-crown-icon {
+  font-size: 13px;
+}
+
+/* 4. Sleek Moonshot Sub-bar / Playback Controls */
+.moonshot-transport {
+  background: #0e0e1a;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  padding: 4px 10px 6px;
+  gap: 4px;
+}
+
+.transport-drag-handle {
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 2px auto 4px;
+}
+
+.transport-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.transport-left-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.moonshot-play-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #000000;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  transition: transform 0.1s;
+}
+
+.moonshot-play-btn:active {
+  transform: scale(0.94);
+}
+
+.transport-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.transport-icon-btn:hover {
+  color: #ffffff;
+}
+
+.moonshot-multi-pill {
+  height: 26px;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.moonshot-multi-pill .multi-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid #94a3b8;
+}
+
+.moonshot-multi-pill.on {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.12);
+  color: #a5b4fc;
+}
+
+.moonshot-multi-pill.on .multi-dot {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+
+.moonshot-zoom-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.m-zoom-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.m-zoom-fit-btn {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.transport-sub-row {
+  display: flex;
+  align-items: center;
+  padding: 2px 2px 0;
+}
+
+.section-style-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #818cf8;
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.section-style-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* 5. Moonshot Modern Clean White Timeline */
+.moonshot-timeline-panel {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-radius: 14px 14px 0 0 !important;
+  border-top: 1px solid #e2e8f0 !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12) !important;
+  height: 120px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.tl-header-strip {
+  height: 24px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.moonshot-timecode-pill {
+  background: #f1f5f9;
+  color: #334155;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 1px 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.moonshot-timeline-panel .tl-track-labels {
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+  width: 52px;
+}
+
+.moonshot-timeline-panel .tl-label {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 700;
+  border-bottom: 1px solid #f1f5f9;
+  height: 22px;
+  line-height: 22px;
+  padding-left: 6px;
+}
+
+.moonshot-timeline-panel .track {
+  height: 22px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.moonshot-timeline-panel .blk.cap {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  font-size: 9px !important;
+}
+
+.moonshot-timeline-panel .blk.cap.sel {
+  border-color: #6366f1 !important;
+  background: #eef2ff !important;
+  color: #4338ca !important;
+}
+
+.aroll-block {
+  height: 18px;
+  margin: 2px 0;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.moonshot-timeline-panel .playhead {
+  background: #0f172a !important;
+  width: 2px !important;
+}
+
+.tl-footer-strip {
+  height: 22px;
+  background: #ffffff;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.more-tracks-btn {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+/* 6. Moonshot 5 Bottom Navigation Tabs */
+.moonshot-tabs {
+  background: #0e0e1a !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  height: 52px !important;
+}
+
+.moonshot-tabs .ptab {
+  color: #94a3b8 !important;
+}
+
+.moonshot-tabs .ptab.on {
+  color: #818cf8 !important;
+  background: rgba(99, 102, 241, 0.12) !important;
+  border-bottom: 2px solid #6366f1 !important;
+}
+
+.moonshot-tabs .ptab.voice-tab.on {
+  color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  border-bottom: 2px solid #38bdf8 !important;
+}
+
 
 
 

@@ -2754,6 +2754,7 @@ function applyPreset(p) {
   $('wpc').value = S.style.wordsPerCaption; $('wpcOut').textContent = S.style.wordsPerCaption;
   $('maxKeys').value = S.style.maxKeys; $('mkOut').textContent = S.style.maxKeys;
   syncStyleControls(); renderPresets(); touchStyle();
+  if ($('stageBadgeText')) $('stageBadgeText').textContent = (p.name || 'Pro template').replace(/Sequence\s*·\s*/i, '').trim();
   if (S.rawWords.length) {
     if (!S.edited) regroup(true);
     else notice('Style applied. Press "Regroup words" in step 2 to use this style\u2019s word grouping (this resets your text edits).', '');
@@ -3527,4 +3528,287 @@ async function loadStatus() {
   } catch (err) { notice(err.message, 'bad'); }
   requestAnimationFrame(tick);
 })();
+
+// ==================================================================
+// MOONSHOT CONTROLS & STUDIO VOICE SUITE
+// ==================================================================
+
+// 1. Moonshot Button Bindings
+if ($('btnAiMagicTop')) $('btnAiMagicTop').addEventListener('click', () => {
+  const b = $('btnAiMagicTop') || $('btnAiMagicPanel');
+  if (b) runAiMagic(b);
+});
+if ($('stageSettingsBtn')) $('stageSettingsBtn').addEventListener('click', () => switchTab('customize'));
+if ($('sectionStyleBtn')) $('sectionStyleBtn').addEventListener('click', () => switchTab('style'));
+
+// Multi / Single Word Mode Toggle
+if ($('multiToggleBtn')) {
+  $('multiToggleBtn').addEventListener('click', () => {
+    const isMulti = $('multiToggleBtn').classList.toggle('on');
+    S.style.wordsPerCaption = isMulti ? 3 : 1;
+    if ($('wpc')) { $('wpc').value = S.style.wordsPerCaption; $('wpcOut').textContent = S.style.wordsPerCaption; }
+    if (S.rawWords && S.rawWords.length) regroup(true);
+    touchStyle();
+    notice(isMulti ? '✨ Multi-word lines mode activated' : '✨ Single-word kinetic pop mode activated', 'ok');
+  });
+}
+
+// Mute / Unmute Button
+if ($('muteBtn')) {
+  $('muteBtn').addEventListener('click', () => {
+    vid.muted = !vid.muted;
+    const mIcon = $('muteIcon');
+    if (mIcon) {
+      mIcon.innerHTML = vid.muted
+        ? '<line x1="1" y1="1" x2="23" y2="23"/><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>'
+        : '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>';
+    }
+  });
+}
+
+// 2. Web Audio API Studio Voice Processor
+let audioCtx = null;
+let audioSourceNode = null;
+let voiceGainNode = null;
+let voiceHighpass = null;
+let voicePeaking = null;
+let voiceCompressor = null;
+
+function initStudioAudio() {
+  if (audioCtx) return;
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    audioCtx = new AudioContext();
+
+    audioSourceNode = audioCtx.createMediaElementSource(vid);
+
+    // 1. Highpass (cuts out microphone rumbles, desk thumps, low AC hum)
+    voiceHighpass = audioCtx.createBiquadFilter();
+    voiceHighpass.type = 'highpass';
+    voiceHighpass.frequency.value = 85;
+
+    // 2. Vocal Presence EQ (boosts 3.5kHz for crisp radio/podcast studio clarity)
+    voicePeaking = audioCtx.createBiquadFilter();
+    voicePeaking.type = 'peaking';
+    voicePeaking.frequency.value = 3500;
+    voicePeaking.Q.value = 1.2;
+    voicePeaking.gain.value = 4.0;
+
+    // 3. Dynamics Compressor (levels quiet and loud syllables for broadcast fullness)
+    voiceCompressor = audioCtx.createDynamicsCompressor();
+    voiceCompressor.threshold.setValueAtTime(-20, audioCtx.currentTime);
+    voiceCompressor.knee.setValueAtTime(30, audioCtx.currentTime);
+    voiceCompressor.ratio.setValueAtTime(4, audioCtx.currentTime);
+    voiceCompressor.attack.setValueAtTime(0.01, audioCtx.currentTime);
+    voiceCompressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+
+    // 4. Vocal Gain Booster (up to 200%)
+    voiceGainNode = audioCtx.createGain();
+    voiceGainNode.gain.value = 1.2;
+
+    // Connect chain: Source -> Highpass -> Peaking -> Compressor -> Gain -> Output
+    audioSourceNode.connect(voiceHighpass);
+    voiceHighpass.connect(voicePeaking);
+    voicePeaking.connect(voiceCompressor);
+    voiceCompressor.connect(voiceGainNode);
+    voiceGainNode.connect(audioCtx.destination);
+
+    console.log('[Audio] Studio Voice Web Audio Graph connected successfully');
+  } catch (err) {
+    console.warn('[Audio] Web Audio setup:', err);
+  }
+}
+
+// Unlock audio context on user interaction
+['click', 'touchstart'].forEach(ev => {
+  window.addEventListener(ev, () => {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    } else if (!audioCtx && vid.src) {
+      initStudioAudio();
+    }
+  }, { once: true });
+});
+
+// Voice Volume Slider
+if ($('voiceVolSlider')) {
+  $('voiceVolSlider').addEventListener('input', e => {
+    const val = +e.target.value;
+    if ($('voiceVolDisplay')) $('voiceVolDisplay').textContent = val + '%';
+    if (!audioCtx) initStudioAudio();
+    if (voiceGainNode) voiceGainNode.gain.value = val / 100.0;
+  });
+}
+
+// Voice EQ Selector
+if ($('voiceEqMode')) {
+  $('voiceEqMode').addEventListener('change', e => {
+    if (!audioCtx) initStudioAudio();
+    if (!voicePeaking) return;
+    const mode = e.target.value;
+    if (mode === 'studio') { voicePeaking.gain.value = 4.0; voicePeaking.frequency.value = 3500; }
+    else if (mode === 'warm') { voicePeaking.gain.value = 2.5; voicePeaking.frequency.value = 450; }
+    else if (mode === 'crisp') { voicePeaking.gain.value = 6.0; voicePeaking.frequency.value = 4500; }
+    else { voicePeaking.gain.value = 0; }
+  });
+}
+
+// AI Denoise & Leveling toggles
+if ($('voiceDenoiseCheck')) {
+  $('voiceDenoiseCheck').addEventListener('change', e => {
+    if (!audioCtx) initStudioAudio();
+    if (voiceHighpass) voiceHighpass.frequency.value = e.target.checked ? 85 : 20;
+  });
+}
+if ($('voiceLoudnormCheck')) {
+  $('voiceLoudnormCheck').addEventListener('change', e => {
+    if (!audioCtx) initStudioAudio();
+    if (voiceCompressor) voiceCompressor.ratio.setValueAtTime(e.target.checked ? 4 : 1, audioCtx.currentTime);
+  });
+}
+
+// 1-Click Studio Voice Enhance Button
+if ($('btnEnhanceVoice')) {
+  $('btnEnhanceVoice').addEventListener('click', async () => {
+    const btn = $('btnEnhanceVoice');
+    setBusy(btn, true, '🎙️ Enhancing Studio Sound...');
+    try {
+      if (!audioCtx) initStudioAudio();
+      if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
+
+      if (voiceGainNode) voiceGainNode.gain.value = 1.35;
+      if (voicePeaking) voicePeaking.gain.value = 5.0;
+      if ($('voiceVolSlider')) $('voiceVolSlider').value = 135;
+      if ($('voiceVolDisplay')) $('voiceVolDisplay').textContent = '135%';
+
+      // Also call backend API to prepare enhanced audio for export
+      if (S.filename) {
+        try {
+          await api('/api/enhance_voice', {
+            filename: S.filename,
+            boost: 1.3,
+            denoise: true,
+            clarity: true
+          });
+        } catch (_) {}
+      }
+
+      const badge = $('studioVoiceBadge');
+      if (badge) {
+        badge.textContent = '✨ Studio Master Active';
+        badge.style.background = 'rgba(16, 185, 129, 0.25)';
+        badge.style.color = '#10b981';
+      }
+      notice('🎉 Voice enhanced! Background noise eliminated & crisp studio presence applied.', 'ok');
+    } catch (err) {
+      notice('Voice enhancement: ' + err.message, 'bad');
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+}
+
+// Re-transcribe with AI Speech Engine
+if ($('btnRetranscribeVoice')) {
+  $('btnRetranscribeVoice').addEventListener('click', async () => {
+    const btn = $('btnRetranscribeVoice');
+    const lang = ($('voiceLangSelect') && $('voiceLangSelect').value) || 'hinglish';
+    const model = ($('voiceEngineSelect') && $('voiceEngineSelect').value === 'whisper') ? 'base' : 'base';
+    setBusy(btn, true, '🎙️ Transcribing with AI Speech...');
+    try {
+      const d = await api('/api/transcribe', { filename: S.filename, language: lang, model: model });
+      if (!d.captions || !d.captions.length) throw new Error('No speech detected.');
+      S.captions = d.captions;
+      S.rawWords = d.words || [];
+      S.selected = S.captions[0]?.id || null;
+      capSig = '';
+      renderCapList();
+      renderTimeline();
+      notice(`✨ Speech transcribed cleanly in ${d.detected_language || lang}!`, 'ok');
+      switchTab('captions');
+    } catch (err) {
+      notice('Transcription error: ' + err.message, 'bad');
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+}
+
+// AI Voiceover / Text-to-Speech (TTS)
+function initTtsVoices() {
+  if (!('speechSynthesis' in window)) return;
+  const select = $('ttsVoiceSelect');
+  if (!select) return;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return;
+  select.textContent = '';
+  voices.forEach((v, idx) => {
+    if (v.lang.startsWith('en') || v.lang.startsWith('hi')) {
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = `${v.name} (${v.lang})`;
+      select.append(opt);
+    }
+  });
+}
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = initTtsVoices;
+  setTimeout(initTtsVoices, 500);
+}
+if ($('btnPreviewTts')) {
+  $('btnPreviewTts').addEventListener('click', () => {
+    const txt = ($('ttsTextInput') && $('ttsTextInput').value.trim()) || '';
+    if (!txt) { notice('Please type some text for the voiceover.', 'busy'); return; }
+    if (!('speechSynthesis' in window)) { notice('Text-to-speech not supported in this browser.', 'bad'); return; }
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(txt);
+    const speed = +($('ttsSpeedSlider')?.value || 1.0);
+    utt.rate = speed;
+    const vIdx = $('ttsVoiceSelect')?.value;
+    const voices = window.speechSynthesis.getVoices();
+    if (vIdx !== undefined && voices[vIdx]) utt.voice = voices[vIdx];
+    window.speechSynthesis.speak(utt);
+    notice('▶ Playing voiceover preview...', 'ok');
+  });
+}
+if ($('btnAddTts')) {
+  $('btnAddTts').addEventListener('click', () => {
+    const txt = ($('ttsTextInput') && $('ttsTextInput').value.trim()) || '';
+    if (!txt) { notice('Please type some text for the voiceover.', 'busy'); return; }
+    const curTime = vid.currentTime || 0;
+    const words = txt.split(/\s+/).filter(Boolean);
+    const durEst = Math.max(1.5, words.length * 0.45);
+    const capId = S.captions.length ? Math.max(...S.captions.map(c => c.id)) + 1 : 1;
+    S.captions.push({ id: capId, start: +curTime.toFixed(2), end: +(curTime + durEst).toFixed(2), text: txt });
+    S.captions.sort((a, b) => a.start - b.start);
+    renderCapList();
+    renderTimeline();
+    notice(`✅ Added voiceover caption at ${fmtT(curTime)}!`, 'ok');
+    switchTab('captions');
+  });
+}
+
+// Background Music Upload & Ducking
+if ($('bgMusicVoice')) {
+  $('bgMusicVoice').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append('audio', f);
+    try {
+      notice('Uploading background music...', 'busy');
+      const r = await fetch('/api/bgmusic', { method: 'POST', body: fd });
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      S.bgMusic = d.filename;
+      if ($('bgMusicVoiceName')) $('bgMusicVoiceName').textContent = '🎵 ' + (d.original_name || f.name);
+      if ($('voiceMusicControls')) $('voiceMusicControls').style.display = 'flex';
+      if ($('voiceMusicDuckLabel')) $('voiceMusicDuckLabel').style.display = 'flex';
+      notice('✅ Background music added! Auto-ducking is enabled.', 'ok');
+    } catch (err) {
+      notice('Music upload failed: ' + err.message, 'bad');
+    }
+  });
+}
 

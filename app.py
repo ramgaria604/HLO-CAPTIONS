@@ -1246,6 +1246,57 @@ def broll_search():
         return err("Could not reach Pexels. Check your internet connection.", 502)
 
 
+# ------------------------------------------------------------------ studio voice enhancer
+@app.post("/api/enhance_voice")
+def enhance_voice():
+    d = request.get_json(force=True)
+    try:
+        name = safe_name(d.get("filename", ""))
+    except FileNotFoundError as e:
+        return err(str(e), 404)
+
+    in_path = WORK / name
+    if not in_path.exists():
+        return err("Video file not found.", 404)
+
+    boost = float(d.get("boost", 1.25))
+    denoise = bool(d.get("denoise", True))
+    clarity = bool(d.get("clarity", True))
+
+    # Build studio vocal filter chain:
+    # 1. Highpass (80Hz) to cut microphone thumps, lowpass (8000Hz) to cut high hiss
+    # 2. afftdn noise reduction
+    # 3. equalizer clarity boost around 3.5kHz (+3.5dB)
+    # 4. volume boost
+    # 5. loudnorm broadcast loudness normalization
+    filters = []
+    if denoise:
+        filters.append("highpass=f=80,lowpass=f=8000,afftdn=nr=12:nf=-25")
+    else:
+        filters.append("highpass=f=75")
+    if clarity:
+        filters.append("equalizer=f=3500:t=q:w=1.2:g=3.5")
+    filters.append(f"volume={boost:.2f}")
+    filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
+
+    af_chain = ",".join(filters)
+    out_name = f"enhanced_{name}"
+    out_path = WORK / out_name
+
+    cmd = [
+        ffmpeg_path(), "-y", "-i", str(in_path),
+        "-c:v", "copy",
+        "-af", af_chain,
+        "-c:a", "aac", "-b:a", "192k",
+        str(out_path)
+    ]
+    try:
+        subprocess.run(cmd, capture_output=True, check=True)
+        return jsonify(ok=True, enhanced_filename=out_name, message="Voice successfully enhanced with Studio Sound!")
+    except Exception as exc:
+        return err(f"Voice enhancement failed: {str(exc)}", 500)
+
+
 # ------------------------------------------------------------------ export
 def cut_filter(keep, W, H, fps, zoom, has_audio):
     parts, vin, ain = [], [], []
