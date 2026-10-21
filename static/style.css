@@ -4953,8 +4953,10 @@ body {
 }
 
 
+
+
 /* ==========================================================================
-   DEFINITIVE MOBILE LAYOUT: Clean MakeMoonshot Preview + Direct Presets Tab
+   DEFINITIVE MOBILE LAYOUT: Timeline Visible + Drawer Covers Timeline on Click
    ========================================================================== */
 @media (max-width: 860px) {
   html, body {
@@ -4963,6 +4965,7 @@ body {
     overflow: hidden !important;
     background: #ffffff !important;
     color: #0f172a !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   }
 
   /* Top Toolbar */
@@ -4999,26 +5002,28 @@ body {
     width: 100% !important;
     overflow: hidden !important;
     background: #ffffff !important;
+    position: relative !important;
   }
 
-  /* TOP SECTION: Video Preview + Transport Controls */
+  /* Center Panel: holds Video, Transport, and Timeline */
   .center-panel {
     order: 1 !important;
-    flex: 0 0 auto !important;
+    flex: 1 1 auto !important;
     width: 100% !important;
+    height: calc(100% - 52px) !important;
+    min-height: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     background: #ffffff !important;
     position: relative !important;
-    border-bottom: 1px solid #e2e8f0 !important;
+    overflow: hidden !important;
   }
 
-  /* Video Stage Wrapper: ~38vh nicely centered */
+  /* 1. Video Stage Wrapper: ~38vh nicely centered */
   .canvas-wrap {
-    height: 38vh !important;
-    max-height: 40vh !important;
-    min-height: 190px !important;
-    padding: 4px 12px !important;
+    flex: 1 1 auto !important;
+    min-height: 180px !important;
+    padding: 4px 10px !important;
     margin: 0 !important;
     display: flex !important;
     align-items: center !important;
@@ -5049,6 +5054,26 @@ body {
     border-radius: 18px !important;
   }
 
+  /* Fullscreen Button (Top-Left of Video) */
+  .stage-fullscreen-btn {
+    position: absolute !important;
+    top: 10px !important;
+    left: 10px !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 30 !important;
+    cursor: pointer !important;
+  }
+
+  /* Settings Gear Button (Top-Right of Video) */
   .stage-gear-btn {
     position: absolute !important;
     top: 10px !important;
@@ -5056,17 +5081,18 @@ body {
     width: 32px !important;
     height: 32px !important;
     border-radius: 50% !important;
-    background: rgba(0, 0, 0, 0.45) !important;
+    background: rgba(0, 0, 0, 0.5) !important;
     backdrop-filter: blur(8px) !important;
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
     color: #ffffff !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    z-index: 28 !important;
+    z-index: 30 !important;
     cursor: pointer !important;
   }
 
+  /* Pro Template Badge (Bottom-Center of Video) */
   .stage-pro-template-badge {
     position: absolute !important;
     bottom: 10px !important;
@@ -5076,7 +5102,7 @@ body {
     backdrop-filter: blur(8px) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
     border-radius: 999px !important;
-    padding: 4px 14px !important;
+    padding: 3px 12px !important;
     display: flex !important;
     align-items: center !important;
     gap: 6px !important;
@@ -5088,15 +5114,16 @@ body {
     white-space: nowrap !important;
   }
 
-  /* Sleek 44px Transport Bar directly under video */
+  /* 2. Sleek Transport Bar directly under video */
   .transport,
   .moonshot-transport {
-    height: 44px !important;
-    min-height: 44px !important;
-    max-height: 44px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
     padding: 0 12px !important;
     background: #ffffff !important;
     border-top: 1px solid #f8fafc !important;
+    border-bottom: 1px solid #f1f5f9 !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -5123,8 +5150,8 @@ body {
   }
 
   .moonshot-play-btn {
-    width: 36px !important;
-    height: 36px !important;
+    width: 34px !important;
+    height: 34px !important;
     border-radius: 50% !important;
     background: #0f172a !important;
     border: none !important;
@@ -5137,8 +5164,8 @@ body {
   }
 
   .transport-icon-btn {
-    width: 28px !important;
-    height: 28px !important;
+    width: 26px !important;
+    height: 26px !important;
     background: transparent !important;
     border: none !important;
     color: #64748b !important;
@@ -5150,21 +5177,15 @@ body {
   .moonshot-multi-pill {
     height: 26px !important;
     border-radius: 13px !important;
-    padding: 0 10px !important;
+    padding: 0 8px !important;
     font-size: 11px !important;
     font-weight: 600 !important;
     display: flex !important;
     align-items: center !important;
-    gap: 5px !important;
+    gap: 4px !important;
     background: #ffffff !important;
     border: 1.5px solid #cbd5e1 !important;
     color: #0f172a !important;
-  }
-
-  .transport-right-controls {
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
   }
 
   .section-style-btn {
@@ -5176,29 +5197,151 @@ body {
     display: inline-flex !important;
     align-items: center !important;
     gap: 4px !important;
-    padding: 4px 6px !important;
+    padding: 3px 6px !important;
     cursor: pointer !important;
   }
 
-  /* Completely remove the multi-track NLE timeline from mobile */
+  /* 3. TIMELINE: Clean, Visible, Fits directly under transport WITHOUT overlap */
   .timeline-panel,
   .moonshot-timeline-panel {
-    display: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 115px !important;
+    min-height: 115px !important;
+    max-height: 115px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    z-index: 5 !important;
   }
 
-  /* BOTTOM SECTION: Active Tab Workspace (Templates / Transcript / Customize / Voice) */
+  .tl-header-strip {
+    height: 22px !important;
+    background: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-bottom: 1px solid #f8fafc !important;
+    flex-shrink: 0 !important;
+  }
+
+  .moonshot-timecode-pill {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    font-family: ui-monospace, SFMono-Regular, monospace !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    border-radius: 999px !important;
+    padding: 1px 12px !important;
+  }
+
+  .timeline {
+    display: flex !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+  }
+
+  .tl-track-labels {
+    width: 48px !important;
+    background: #ffffff !important;
+    border-right: 1px solid #f1f5f9 !important;
+  }
+
+  .tl-label {
+    height: 24px !important;
+    line-height: 24px !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    color: #94a3b8 !important;
+    padding-left: 6px !important;
+    border-bottom: 1px solid #f8fafc !important;
+  }
+
+  .track {
+    height: 24px !important;
+    border-bottom: 1px solid #f8fafc !important;
+    background: #ffffff !important;
+    position: relative !important;
+  }
+
+  .blk.cap {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    border-radius: 6px !important;
+    font-weight: 700 !important;
+    font-size: 10px !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .blk.cap.sel {
+    border-color: #6366f1 !important;
+    background: #eef2ff !important;
+    color: #4338ca !important;
+  }
+
+  .aroll-block {
+    height: 18px !important;
+    margin: 2px 0 !important;
+    background: #eef2ff !important;
+    border: 1px solid #c7d2fe !important;
+    border-radius: 5px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 0 8px !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    color: #4338ca !important;
+  }
+
+  .playhead {
+    width: 2px !important;
+    background: #0f172a !important;
+  }
+
+  .tl-footer-strip {
+    height: 22px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #f8fafc !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    padding: 0 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .more-tracks-btn {
+    height: 18px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #64748b !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    border-radius: 999px !important;
+    padding: 0 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+
+  /* 4. LOWEST PART: Bottom Navigation Bar (5 clean tabs) */
   .left-panel {
     order: 2 !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
     width: 100% !important;
-    display: flex !important;
-    flex-direction: column-reverse !important; /* Bottom nav bar pinned to bottom */
+    height: 52px !important;
+    flex: 0 0 52px !important;
+    position: static !important;
+    overflow: visible !important;
     background: #ffffff !important;
-    overflow: hidden !important;
   }
 
-  /* Bottom Navigation Bar (5 clean tabs) */
   .panel-tabs,
   .moonshot-tabs {
     width: 100% !important;
@@ -5213,7 +5356,11 @@ body {
     border-top: 1px solid #e2e8f0 !important;
     padding: 0 !important;
     flex-shrink: 0 !important;
-    z-index: 30 !important;
+    z-index: 90 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
   }
 
   .ptab {
@@ -5247,26 +5394,101 @@ body {
     font-weight: inherit !important;
   }
 
-  /* Active Panel Content: scrollable, fills the bottom half */
+  /* 5. DRAWER / SHEET THAT COVERS THE TIMELINE WHEN ANY TAB IS CLICKED */
   .panel-content {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    width: 100% !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    padding: 10px 14px 24px !important;
-    background: #ffffff !important;
-    color: #0f172a !important;
-    display: block !important;
-    border: none !important;
-    position: static !important;
-  }
-
-  .drawer-header {
     display: none !important;
   }
 
-  /* Tab pane visibility */
+  .panel-content.drawer-open {
+    display: flex !important;
+    flex-direction: column !important;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 52px !important;
+    height: 52vh !important;
+    max-height: 54vh !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-top: 1.5px solid #cbd5e1 !important;
+    border-radius: 20px 20px 0 0 !important;
+    box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.22) !important;
+    z-index: 100 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 10px 14px 24px !important;
+    animation: drawerSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  /* Full Preview Option for Template List / Drawer */
+  .panel-content.drawer-open.drawer-full {
+    height: calc(100vh - 54px) !important;
+    max-height: calc(100vh - 54px) !important;
+    border-radius: 0 !important;
+  }
+
+  @keyframes drawerSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  /* Drawer Header */
+  .drawer-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 2px 0 10px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    margin-bottom: 10px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .drawer-header-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .drawer-header-left b {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+  }
+
+  .drawer-header-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .drawer-expand-btn {
+    height: 28px !important;
+    padding: 0 10px !important;
+    border-radius: 14px !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #475569 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+
+  .drawer-close-btn {
+    height: 28px !important;
+    padding: 0 12px !important;
+    border-radius: 14px !important;
+    background: #6366f1 !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+  }
+
+  /* Active Pane inside Drawer */
   .ppane {
     display: none !important;
   }
@@ -5274,7 +5496,7 @@ body {
     display: block !important;
   }
 
-  /* PRESETS TAB: Category Pills & Cards Grid */
+  /* PRESETS LIST & PREVIEWS */
   .cat-pills {
     display: flex !important;
     flex-wrap: nowrap !important;

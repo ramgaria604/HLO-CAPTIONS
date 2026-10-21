@@ -1942,17 +1942,82 @@ document.addEventListener('keydown', e => {
 
 // ------------------------------------------------------------------ tabs & panels
 function switchTab(name) {
+  const pContent = $('panelContent');
+  const isCurrentlyOpen = pContent && pContent.classList.contains('drawer-open') && S.activeTab === name;
+
+  // Toggle behavior: if already open and clicked again, close it to reveal timeline
+  if (isCurrentlyOpen) {
+    closeActiveDrawer();
+    return;
+  }
+
   S.activeTab = name;
+
+  // Update bottom tab buttons
   document.querySelectorAll('#panelTabs button, #tabs button').forEach(b => {
     b.classList.toggle('on', b.dataset.panel === name || b.dataset.tab === name);
   });
+
+  // Update panels
   document.querySelectorAll('.ppane, .pane').forEach(p => {
     p.classList.toggle('on', p.id === 'ppane-' + name || p.id === 'pane-' + name);
   });
+
+  // Open drawer covering the timeline
+  if (pContent) {
+    pContent.classList.add('drawer-open');
+    const titles = {
+      ai: '🪄 Auto edit',
+      captions: '🪟 Transcript',
+      style: '🗂️ Templates & Presets',
+      customize: '🎛️ Customize Style',
+      voice: '🎙️ Voice & Audio'
+    };
+    if ($('drawerTitle')) $('drawerTitle').textContent = titles[name] || 'Editor';
+  }
+
   if (name === 'style') {
     renderPresets();
   }
+  if (name === 'captions') {
+    renderCapList();
+  }
   if (name === 'export') updateExportSummary();
+}
+
+function closeActiveDrawer() {
+  const pContent = $('panelContent');
+  if (pContent) {
+    pContent.classList.remove('drawer-open');
+    pContent.classList.remove('drawer-full');
+  }
+  document.querySelectorAll('#panelTabs button').forEach(b => b.classList.remove('on'));
+  S.activeTab = null;
+  const expText = $('drawerExpandText');
+  if (expText) expText.textContent = 'Full Preview';
+  const expIcon = $('drawerExpandIcon');
+  if (expIcon) expIcon.textContent = '⤢';
+}
+
+if ($('closeDrawerBtn')) {
+  $('closeDrawerBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeActiveDrawer();
+  });
+}
+
+// Full preview expand toggle for template list / drawer
+if ($('drawerExpandBtn')) {
+  $('drawerExpandBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const pContent = $('panelContent');
+    if (!pContent) return;
+    const isFull = pContent.classList.toggle('drawer-full');
+    const expText = $('drawerExpandText');
+    if (expText) expText.textContent = isFull ? 'Half View' : 'Full Preview';
+    const expIcon = $('drawerExpandIcon');
+    if (expIcon) expIcon.textContent = isFull ? '⤡' : '⤢';
+  });
 }
 
 if ($('sectionStyleBtn')) {
@@ -4176,3 +4241,38 @@ if ($('btnAutoTranscribeVoice')) {
     }
   });
 }
+
+// Stage Fullscreen Video Preview Toggle
+function toggleStageFullscreen() {
+  const st = $('stage');
+  const vidEl = $('vid');
+  if (!st) return;
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    if (st.requestFullscreen) {
+      st.requestFullscreen().catch(() => {});
+    } else if (st.webkitRequestFullscreen) {
+      st.webkitRequestFullscreen();
+    } else if (vidEl && vidEl.webkitEnterFullscreen) {
+      vidEl.webkitEnterFullscreen();
+    }
+    st.classList.add('theater-fullscreen');
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+    st.classList.remove('theater-fullscreen');
+  }
+}
+
+if ($('stageFullscreenBtn')) {
+  $('stageFullscreenBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    toggleStageFullscreen();
+  });
+}
+document.addEventListener('fullscreenchange', () => {
+  const st = $('stage');
+  if (st && !document.fullscreenElement) st.classList.remove('theater-fullscreen');
+});
