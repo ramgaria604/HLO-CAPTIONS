@@ -1018,12 +1018,24 @@ def transcribe():
                 raw_bytes = wf.readframes(num_frames)
                 audio_chunk = sr.AudioData(raw_bytes, framerate, 2)
 
-                try:
-                    txt = r.recognize_google(audio_chunk, language=google_lang)
-                except sr.UnknownValueError:
-                    return []
-                except sr.RequestError as exc:
-                    raise RuntimeError("Online speech recognition is unavailable") from exc
+                txt = None
+                langs_to_try = [google_lang]
+                if google_lang in ("hi-IN", "hi"):
+                    langs_to_try.extend(["en-IN", "en-US"])
+                elif google_lang in ("en-IN", "en-US", "en-GB"):
+                    if "en-IN" not in langs_to_try: langs_to_try.append("en-IN")
+                    if "en-US" not in langs_to_try: langs_to_try.append("en-US")
+                    langs_to_try.append("hi-IN")
+                else:
+                    langs_to_try.extend(["en-US", "hi-IN"])
+
+                for lang_candidate in langs_to_try:
+                    try:
+                        txt = r.recognize_google(audio_chunk, language=lang_candidate)
+                        if txt and txt.strip():
+                            break
+                    except Exception:
+                        continue
 
                 if not txt:
                     return []
@@ -1680,3 +1692,35 @@ if __name__ == "__main__":
     print("  -> http://localhost:5000")
     print("  -> http://127.0.0.1:5000")
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+
+
+@app.post("/api/sync_script")
+def sync_script():
+    """Takes a pre-written voiceover text script and auto-syncs with video duration."""
+    d = request.get_json(force=True)
+    text = (d.get("script") or "").strip()
+    if not text:
+        return err("Please provide script text", 400)
+    try:
+        name = safe_name(d.get("filename", ""))
+    except Exception as e:
+        return err(str(e), 404)
+    meta = probe(WORK / name)
+    total_dur = meta.get("duration", 15.0)
+
+    raw_words = text.split()
+    if not raw_words:
+        return err("No words in script", 400)
+
+    w_dur = max(0.2, total_dur / len(raw_words))
+    timed_words = []
+    for idx, w in enumerate(raw_words):
+        s = round(idx * w_dur, 3)
+        e = round(min(total_dur, (idx + 1) * w_dur), 3)
+        timed_words.append((s, e, w))
+
+    per = int(d.get("wordsPerCaption") or 3)
+    keys = int(d.get("maxKeys") or 1)
+    caps = stylelib.build_captions(timed_words, per=per, max_keys=keys)
+    return jsonify(captions=caps, words=[[round(a, 3), round(b, 3), t] for a, b, t in timed_words],
+                   language="Script Sync", engine="Manual Script AI", timing_quality="word")

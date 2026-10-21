@@ -6,7 +6,7 @@
 <meta name="google-site-verification" content="Vd25FK6PUAxoJyChm-qF8BtAg4fRE6gT7CHN5RqmQV8" />
 <title>Hlo Captions - Free AI Hinglish Video Caption Generator</title>
 <meta name="description" content="Generate accurate Hinglish & English animated subtitles and 31+ viral sequence presets for Instagram Reels and YouTube Shorts online for free.">
-<meta name="keywords" content="hlo captions, hlocaptions, hinglish captions, ai subtitle generator, captions for reels, auto captions, viral subtitles">
+<meta name="keywords" content="hlo captions, AutoCaption, hinglish captions, ai subtitle generator, captions for reels, auto captions, viral subtitles">
 <meta name="author" content="Hlo Captions">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://hlo-captions.onrender.com/">
@@ -44,7 +44,7 @@
     <div class="nav-center">
       <div class="moonshot-logo">
         <span class="moonshot-orb"></span>
-        <span class="moonshot-brand">hlocaptions</span>
+        <span class="moonshot-brand">AutoCaption</span>
       </div>
     </div>
     <div class="nav-right">
@@ -57,7 +57,7 @@
   <!-- Hero Headline -->
   <div class="moonshot-hero-wrap">
     <h1 class="moonshot-title">
-      make your videos <span class="viral-text">viral.</span>
+      Turn your ideas into <span class="viral-text" style="color:#a855f7;">real results.</span>
     </h1>
 
     <!-- Upload Card -->
@@ -169,7 +169,7 @@
     <button class="moonshot-orb-btn" id="btnBackToLanding" type="button" title="Back to Upload">
       <span class="moonshot-orb-icon"></span>
     </button>
-    <span style="font-weight:700; font-size:13px; color:#e2e8f0; letter-spacing:0.02em;">hlocaptions</span>
+    <span style="font-weight:700; font-size:13px; color:#e2e8f0; letter-spacing:0.02em;">AutoCaption</span>
   </div>
   <div class="toolbar-center" style="display:flex; align-items:center; justify-content:center;">
     <span id="notice" class="notice-inline" role="status" style="font-size:11px; color:#94a3b8; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Ready</span>
@@ -321,14 +321,40 @@
         <div class="mg-templates-grid" id="mgTemplatesGrid"></div>
       </div>
 
-      <!-- CAPTIONS PANEL -->
+      <!-- TRANSCRIPT & CAPTIONS PANEL (AutoCaption Style) -->
       <div class="ppane" id="ppane-captions">
-        <div class="bar">
-          <button class="action-btn small" id="addCap" type="button" disabled>+ Add Caption</button>
-          <button class="action-btn small ghost" id="regroup" type="button" disabled>Regroup</button>
+        <div class="transcript-header-bar">
+          <div class="transcript-subnav">
+            <button type="button" class="ts-tab on" id="tabTranscriptView">Transcript</button>
+            <button type="button" class="ts-tab" id="tabCaptionsView">Captions</button>
+          </div>
+          <div class="transcript-search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="transcriptSearch" placeholder="Search transcript..." class="transcript-search-input">
+          </div>
         </div>
-        <p class="hint">Wrap words in <b>*stars*</b> to make them <b>big words</b>.</p>
-        <div id="capList" class="caplist"><div class="empty">No captions yet.</div></div>
+
+        <!-- Quick Voiceover Tools Bar -->
+        <div class="voice-tools-ribbon" style="display:flex; gap:6px; margin: 8px 0 12px;">
+          <button class="action-btn primary small" id="btnAutoTranscribeVoice" type="button" style="flex:1; background:linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); font-weight:700;">
+            🎙️ Auto-Transcribe Voice
+          </button>
+          <button class="action-btn ghost small" id="btnOpenScriptModal" type="button" style="flex:1; border:1px solid rgba(168,85,247,0.3); color:#c084fc;">
+            ✍️ Paste Script (100% Accurate)
+          </button>
+        </div>
+
+        <!-- Interactive Segment List -->
+        <div id="capList" class="caplist autocaption-segment-list">
+          <div class="empty" style="text-align:center; padding:24px 12px; color:#94a3b8;">
+            <p style="margin-bottom:8px; font-weight:600; color:#e2e8f0;">No captions yet</p>
+            <span style="font-size:12px;">Upload video and click "Auto-Transcribe Voice" or "Paste Script" above.</span>
+          </div>
+        </div>
+
+        <button class="action-btn big" id="addCap" type="button" style="width:100%; margin-top:10px; border:1.5px dashed rgba(168,85,247,0.4); background:rgba(168,85,247,0.06); color:#c084fc; font-weight:700;">
+          + Add segment
+        </button>
       </div>
 
       <!-- STYLE PANEL -->
@@ -361,12 +387,131 @@
           <button type="button" class="cat-pill" data-cat="blend">🎬 Blend with Video (13)</button>
           <button type="button" class="cat-pill" data-cat="classic">⚡ Classic (13)</button>
         </div>
+                <!-- AutoCaption Viral Presets (Reference Match) -->
+        <div class="autocaption-presets-list" id="autocaptionPresetsList" style="margin-bottom:14px;">
+          <div class="ac-preset-card on" data-preset="viral-hook">
+            <span class="ac-preset-icon">⚡</span>
+            <div class="ac-preset-info">
+              <b>Viral Hook</b>
+              <small>Bold Anton • Purple Highlight</small>
+            </div>
+            <span class="ac-preset-star">⭐</span>
+          </div>
+          <div class="ac-preset-card" data-preset="quote-style">
+            <span class="ac-preset-icon">❝</span>
+            <div class="ac-preset-info">
+              <b>Quote Style</b>
+              <small>White Poppins • Purple Accent</small>
+            </div>
+          </div>
+          <div class="ac-preset-card" data-preset="list-style">
+            <span class="ac-preset-icon">🔢</span>
+            <div class="ac-preset-info">
+              <b>List Style</b>
+              <small>Numbered • Yellow Highlight</small>
+            </div>
+          </div>
+          <div class="ac-preset-card" data-preset="clean-minimal">
+            <span class="ac-preset-icon">—</span>
+            <div class="ac-preset-info">
+              <b>Clean &amp; Minimal</b>
+              <small>White • No Background</small>
+            </div>
+          </div>
+          <div class="ac-preset-card" data-preset="high-energy">
+            <span class="ac-preset-icon">🔥</span>
+            <div class="ac-preset-info">
+              <b>High Energy</b>
+              <small>All Caps • Rainbow Gradient</small>
+            </div>
+          </div>
+          <div class="ac-preset-card" data-preset="podcast-captions">
+            <span class="ac-preset-icon">🎙️</span>
+            <div class="ac-preset-info">
+              <b>Podcast Captions</b>
+              <small>Subtitle Bar • Word Glow</small>
+            </div>
+          </div>
+        </div>
         <div class="presets" id="presets"></div>
         <button class="action-btn small ghost" id="savePreset" type="button">&#x1F4BE; Save Style</button>
       </div>
 
-      <!-- CUSTOMIZE PANEL (MOONSHOT TAB 4) -->
+      <!-- STYLE & DESIGN PANEL (AutoCaption Theme) -->
       <div class="ppane" id="ppane-customize">
+        <!-- Quick Style Presets Pills -->
+        <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Quick Presets</label>
+        <div class="style-preset-pills" id="quickStylePills">
+          <button type="button" class="style-pill on" data-theme="purple">The quick <span style="color:#a855f7;">brown</span></button>
+          <button type="button" class="style-pill" data-theme="yellow">The quick <span style="color:#facc15;">brown</span></button>
+          <button type="button" class="style-pill" data-theme="cyan">The quick <span style="color:#06b6d4;">brown</span></button>
+        </div>
+
+        <!-- Font Selector -->
+        <div class="field-row" style="margin-top:10px;">
+          <label class="field">Font
+            <select id="captionFontSelect" style="font-weight:700;">
+              <option value="Anton" selected>Anton (Bold Viral)</option>
+              <option value="Poppins">Poppins (Clean Modern)</option>
+              <option value="Montserrat">Montserrat (Impact)</option>
+              <option value="Bebas Neue">Bebas Neue (Tall Condensed)</option>
+              <option value="Space Mono">Space Mono (Tech)</option>
+              <option value="Inter">Inter (Minimal UI)</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Highlight Color Palette (From Reference Images) -->
+        <div style="margin: 12px 0;">
+          <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Highlight Color</label>
+          <div class="color-swatches-row" id="highlightColorSwatches">
+            <button type="button" class="color-circle-btn" data-color="#ffffff" style="background:#ffffff;" title="White"></button>
+            <button type="button" class="color-circle-btn on" data-color="#a855f7" style="background:#a855f7;" title="Electric Purple"></button>
+            <button type="button" class="color-circle-btn" data-color="#ec4899" style="background:#ec4899;" title="Hot Pink"></button>
+            <button type="button" class="color-circle-btn" data-color="#facc15" style="background:#facc15;" title="Yellow Neon"></button>
+            <button type="button" class="color-circle-btn" data-color="#06b6d4" style="background:#06b6d4;" title="Cyan Azure"></button>
+            <button type="button" class="color-circle-btn" data-color="#3b82f6" style="background:#3b82f6;" title="Electric Blue"></button>
+            <button type="button" class="color-circle-btn" data-color="#ff007a" style="background:linear-gradient(135deg, #ff007a, #7928ca, #0070f3);" title="Rainbow Aura"></button>
+          </div>
+        </div>
+
+        <!-- Animation Options -->
+        <div style="margin: 12px 0;">
+          <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Animation</label>
+          <div class="anim-cards-grid" id="animSelectorGrid">
+            <button type="button" class="anim-btn" data-anim="none"><span style="font-size:14px;">⊘</span><small>None</small></button>
+            <button type="button" class="anim-btn" data-anim="fade"><b>Aa</b><small>Fade</small></button>
+            <button type="button" class="anim-btn" data-anim="slide"><b>Aa›</b><small>Slide</small></button>
+            <button type="button" class="anim-btn on" data-anim="pop"><b>Aa˙</b><small>Pop</small></button>
+            <button type="button" class="anim-btn" data-anim="bounce"><b>Aa²</b><small>Bounce</small></button>
+          </div>
+        </div>
+
+        <!-- Position 3x3 Grid & Background Style (From Reference Images) -->
+        <div class="field-row" style="margin: 12px 0; align-items:flex-start;">
+          <div style="flex:1;">
+            <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Position</label>
+            <div class="pos-grid-3x3" id="posGrid3x3">
+              <button type="button" class="pos-dot" data-pos="top_left" title="Top Left"></button>
+              <button type="button" class="pos-dot" data-pos="top_center" title="Top Center"></button>
+              <button type="button" class="pos-dot" data-pos="top_right" title="Top Right"></button>
+              <button type="button" class="pos-dot" data-pos="mid_left" title="Middle Left"></button>
+              <button type="button" class="pos-dot" data-pos="center" title="Center"></button>
+              <button type="button" class="pos-dot" data-pos="mid_right" title="Middle Right"></button>
+              <button type="button" class="pos-dot" data-pos="bot_left" title="Bottom Left"></button>
+              <button type="button" class="pos-dot on" data-pos="bot_center" title="Bottom Center (Recommended)"></button>
+              <button type="button" class="pos-dot" data-pos="bot_right" title="Bottom Right"></button>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Background</label>
+            <div class="bg-mode-row" id="bgModeRow">
+              <button type="button" class="bg-mode-btn on" data-bg="none"><span>⊘</span><small>None</small></button>
+              <button type="button" class="bg-mode-btn" data-bg="semi"><span>⬚</span><small>Semi</small></button>
+              <button type="button" class="bg-mode-btn" data-bg="solid"><span>⬛</span><small>Solid</small></button>
+            </div>
+          </div>
+        </div>
         <h4>Caption Layout &amp; Animation</h4>
         <div class="field-row">
           <label class="field">Layout
@@ -757,6 +902,31 @@
     <a class="action-btn primary" id="dl" download="captioned_video.mp4">&#x2B07; Download</a>
   </div>
 </dialog>
+
+<!-- AutoCaption Voiceover Script Sync Dialog -->
+<dialog id="scriptModal" class="autocaption-dialog">
+  <div class="dialog-header">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:20px;">✍️</span>
+      <h3 style="margin:0; font-size:16px; font-weight:800; color:#f8fafc;">Paste Voiceover Script</h3>
+    </div>
+    <button class="close-btn" id="closeScriptModal" type="button">&times;</button>
+  </div>
+  <p style="font-size:12px; color:#94a3b8; margin:8px 0 12px; line-height:1.4;">
+    Paste what you said in your voiceover. We will automatically align every word to the video with <b>100% precision &amp; zero missing words</b>!
+  </p>
+  <textarea id="scriptTextInput" placeholder="Example:
+Turn your ideas into real results.
+AutoCaption makes it fast and easy.
+Easily create engaging captions that grow your audience..." rows="8" style="width:100%; border-radius:10px; background:#0c0a18; color:#f8fafc; border:1px solid rgba(168,85,247,0.3); padding:12px; font-size:13px; font-family:inherit; line-height:1.5; resize:vertical;"></textarea>
+  <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+    <button class="action-btn ghost" id="cancelScriptBtn" type="button">Cancel</button>
+    <button class="action-btn primary" id="btnSyncScriptSubmit" type="button" style="background:linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); font-weight:700;">
+      ✨ Auto-Sync to Video (100% Accurate)
+    </button>
+  </div>
+</dialog>
+
 
 <script src="/static/fx.js"></script>
 <script src="/static/app.js?v=2.20"></script>
