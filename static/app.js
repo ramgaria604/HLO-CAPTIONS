@@ -32,7 +32,16 @@ function el(tag, props, ...kids) {
   for (const c of kids.flat()) { if (c == null) continue; e.append(c.nodeType ? c : document.createTextNode(c)); }
   return e;
 }
-function notice(msg, kind) { const n = $('notice'); n.textContent = msg; n.className = 'notice ' + (kind || ''); }
+function notice(msg, kind) {
+  const n = $('notice');
+  if (n) { n.textContent = msg; n.className = 'notice ' + (kind || ''); }
+  const lBox = $('landingNoticeBox');
+  if (lBox) {
+    lBox.textContent = msg;
+    lBox.style.display = msg ? 'block' : 'none';
+    lBox.style.color = kind === 'bad' ? '#ef4444' : (kind === 'ok' ? '#34d399' : '#cbd5e1');
+  }
+}
 async function api(url, body) {
   let r, d = {};
   try {
@@ -1978,16 +1987,38 @@ if (dropZone) {
 }
 
 
-// --- Video Upload Handling with Live Progress Bar & Percentage ---
+// --- Video Upload Handling with Instant Preview & Live Progress ---
 async function handleVideoUpload(f) {
   if (!f) return;
   S.videoFile = f;
   S.filename = null; S.captions = []; S.rawWords = []; S.cuts = []; S.slots = []; S.selected = null; S.edited = false;
   if ($('fileName')) $('fileName').textContent = f.name;
+
+  const shortName = f.name.length > 22 ? f.name.slice(0, 19) + '...' : f.name;
+  const sizeMb = (f.size / (1024 * 1024)).toFixed(1);
+
+  // 1. Immediately load local video object URL
   vid.src = URL.createObjectURL(f);
+  try { vid.load(); } catch (_) {}
   capSig = '';
+
+  // 2. Immediately transition from Landing View to Editor Workspace
+  if ($('landingView')) $('landingView').style.display = 'none';
+  if ($('editorWorkspace')) $('editorWorkspace').style.display = 'flex';
+  if ($('btnGoToEditor')) $('btnGoToEditor').style.display = 'inline-block';
+  if ($('stageEmpty')) $('stageEmpty').hidden = true;
+
+  // Enable immediate local playback & timeline interaction
+  if ($('playBtn')) $('playBtn').disabled = false;
+  if ($('browserSpeechBtn')) $('browserSpeechBtn').disabled = false;
+  if ($('addCap')) $('addCap').disabled = false;
+
+  switchTab('style');
   renderCapList(); renderCuts(); renderSlots(); renderTimeline();
-  notice('⏳ Uploading 0%...', 'busy');
+  requestAnimationFrame(() => fitStageToVideo());
+  setTimeout(() => fitStageToVideo(), 150);
+
+  notice(`⏳ Uploading ${shortName} (${sizeMb} MB)...`, 'busy');
 
   const progContainer = $('uploadProgressContainer');
   const progFill = $('uploadProgressBarFill');
@@ -2000,17 +2031,6 @@ async function handleVideoUpload(f) {
   const mediaBadge = $('mediaUploadPercent');
   const mediaLabel = $('mediaUploadLabel');
 
-  const shortName = f.name.length > 22 ? f.name.slice(0, 19) + '...' : f.name;
-
-  const heroChooseText = $('heroChooseText');
-  if (heroChooseText) heroChooseText.textContent = shortName;
-  const selBox = $('heroSelectedFileBox');
-  if (selBox) {
-    const sizeMb = (f.size / (1024 * 1024)).toFixed(1);
-    selBox.textContent = `✓ Selected: ${f.name} (${sizeMb} MB) - Uploading...`;
-    selBox.style.display = 'block';
-  }
-
   if (progContainer) progContainer.style.display = 'block';
   if (progFill) progFill.style.width = '0%';
   if (progBadge) progBadge.textContent = '0%';
@@ -2021,22 +2041,15 @@ async function handleVideoUpload(f) {
   if (mediaBadge) mediaBadge.textContent = '0%';
   if (mediaLabel) mediaLabel.textContent = 'Uploading ' + shortName + '...';
 
-  if (heroBtn) {
-    heroBtn.disabled = true;
-    heroBtn.textContent = '⏳ Uploading 0%...';
-  }
-
   const updateProgress = (pct) => {
     if (progFill) progFill.style.width = pct + '%';
     if (progBadge) progBadge.textContent = pct + '%';
     if (mediaFill) mediaFill.style.width = pct + '%';
     if (mediaBadge) mediaBadge.textContent = pct + '%';
-    if (heroBtn) heroBtn.textContent = `⏳ Uploading ${pct}%...`;
     notice(`⏳ Uploading ${pct}% (${shortName})...`, 'busy');
     if (pct >= 100) {
       if (progLabel) progLabel.textContent = 'Processing video on server...';
       if (mediaLabel) mediaLabel.textContent = 'Processing on server...';
-      if (heroBtn) heroBtn.textContent = 'Processing video...';
     }
   };
 
@@ -2054,7 +2067,7 @@ async function handleVideoUpload(f) {
 
     S.filename = m.filename;
     S.meta = m;
-    const ar = m.width / m.height;
+    const ar = (m.width && m.height) ? (m.width / m.height) : (vid.videoWidth && vid.videoHeight ? vid.videoWidth / vid.videoHeight : 9/16);
     stage.style.setProperty('--ar', ar);
 
     // Auto-detect portrait 9:16 reels format
@@ -2071,36 +2084,17 @@ async function handleVideoUpload(f) {
     if ($('regroup')) $('regroup').disabled = true;
     if ($('suggestBtn')) $('suggestBtn').disabled = true;
 
-    // Transition from Moonshot Landing to Full Editor Workspace!
-    if ($('landingView')) $('landingView').style.display = 'none';
-    if ($('editorWorkspace')) $('editorWorkspace').style.display = 'flex';
-    if ($('btnGoToEditor')) $('btnGoToEditor').style.display = 'inline-block';
-    if ($('stageEmpty')) $('stageEmpty').hidden = true;
-
-    notice('✅ Video uploaded successfully! Choose your caption style below.', 'ok');
-    switchTab('style');
+    notice('✅ Video uploaded successfully! Ready to style and transcribe.', 'ok');
     renderTimeline();
-
-    // Accurately fit stage after editorWorkspace is visible
-    requestAnimationFrame(() => {
-      fitStageToVideo();
-    });
-    setTimeout(() => {
-      fitStageToVideo();
-    }, 150);
-
-    if (heroBtn) {
-      heroBtn.disabled = false;
-      heroBtn.textContent = 'Create video';
-    }
+    fitStageToVideo();
   } catch (err) {
     if (progContainer) progContainer.style.display = 'none';
     if (mediaProg) mediaProg.style.display = 'none';
-    notice(err.message, 'bad');
-    if (heroBtn) {
-      heroBtn.disabled = false;
-      heroBtn.textContent = 'Create video';
-    }
+    console.warn('Server upload notice:', err);
+    notice('⚠️ Video loaded locally. Server sync: ' + (err.message || 'connection retry'), 'warn');
+    // Enable browser speech & editing anyway
+    if ($('browserSpeechBtn')) $('browserSpeechBtn').disabled = false;
+    if ($('playBtn')) $('playBtn').disabled = false;
   }
 }
 

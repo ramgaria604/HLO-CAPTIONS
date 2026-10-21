@@ -26,7 +26,7 @@ WORK.mkdir(exist_ok=True)
 PROJECTS_DIR = WORK / "projects"
 PROJECTS_DIR.mkdir(exist_ok=True)
 CONFIG = BASE / "config.json"
-ALLOWED = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+ALLOWED = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".3gp", ".ts", ".flv", ".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"}
 ALLOWED_AUDIO = {".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"}
 
 import sys
@@ -49,6 +49,11 @@ except Exception as _e:
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1500 * 1024 * 1024
+
+
+@app.errorhandler(413)
+def request_entity_too_large(e):
+    return jsonify(error="Video file is too large for server upload limit. Please use a file under 500MB."), 413
 
 JOBS = {}
 EXPORT_LOCK = threading.Semaphore(1)
@@ -125,7 +130,9 @@ def probe(path):
             data = json.loads(out)
             v = next((s for s in data["streams"] if s.get("codec_type") == "video"), None)
             if not v:
-                raise RuntimeError("This file has no video.")
+                # Audio-only or non-video container fallback
+                dur = float(data.get("format", {}).get("duration") or 10.0)
+                return {"width": 1080, "height": 1920, "fps": 30.0, "duration": round(dur, 3), "has_audio": True}
             w, h = int(v["width"]), int(v["height"])
             rot = v.get("tags", {}).get("rotate")
             if rot is None and v.get("side_data_list"):
@@ -157,14 +164,16 @@ def probe(path):
         h_val, m_val, s_val = float(dur_m.group(1)), float(dur_m.group(2)), float(dur_m.group(3))
         duration = h_val * 3600 + m_val * 60 + s_val
     v_m = re.search(r"Stream.*?Video:.*?,\s*(\d{2,5})x(\d{2,5})", text)
+    has_audio = bool(re.search(r"Stream.*?Audio:", text))
     if not v_m:
-        raise RuntimeError("This file has no video.")
+        # Audio-only fallback
+        return {"width": 1080, "height": 1920, "fps": 30.0,
+                "duration": round(duration or 10.0, 3), "has_audio": has_audio or True}
     w, h = int(v_m.group(1)), int(v_m.group(2))
     fps_m = re.search(r"([\d.]+)\s*fps", text)
     fps = float(fps_m.group(1)) if fps_m else 30.0
     if not (5 <= fps <= 120):
         fps = 30.0
-    has_audio = bool(re.search(r"Stream.*?Audio:", text))
     rot_m = re.search(r"rotate\s*:\s*(-?\d+)", text)
     if rot_m and abs(int(rot_m.group(1))) in (90, 270):
         w, h = h, w
