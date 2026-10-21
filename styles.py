@@ -267,7 +267,7 @@ def load_presets():
 
                 special_item = {
                     "id": p["id"].replace("duo_", "special_"),
-                    "name": p["name"].replace("Duo ·", "Special ·"),
+                    "name": p["name"].replace("Duo ·", "Sequence ·"),
                     "category": "special",
                     "mode": p.get("mode", "emphasis"),
                     "layout": p.get("layout", "stack"),

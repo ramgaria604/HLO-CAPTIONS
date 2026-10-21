@@ -81,14 +81,18 @@
 
       <h2 class="hero-drop-title">Drop your video or audio</h2>
 
-      <label class="hero-choose-btn" for="file">
+      <input type="file" id="heroFileInput" accept="video/*,audio/*" style="display:none">
+
+      <label class="hero-choose-btn" for="heroFileInput" id="heroChooseBtn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>
           <line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
-        <span>Choose file</span>
+        <span id="heroChooseText">Choose file</span>
       </label>
+
+      <div id="heroSelectedFileBox" style="display:none; font-size:12px; color:#34d399; margin:6px 0; font-weight:600; text-align:center;"></div>
 
       <p class="hero-formats">MP4, MOV, WebM, MP3, WAV, M4A</p>
 
@@ -140,7 +144,7 @@
     <div class="gallery-category-bar">
       <div class="gallery-cat-pills" id="galleryCatPills">
         <button class="gallery-pill on" data-cat="all" type="button">🔥 All Presets <span class="pill-sparkle">130+</span></button>
-        <button class="gallery-pill" data-cat="special" type="button">✨ Special Presets <span class="pill-sparkle">31 STYLES</span></button>
+        <button class="gallery-pill" data-cat="special" type="button">✨ Sequence Presets <span class="pill-sparkle">31 STYLES</span></button>
         <button class="gallery-pill" data-cat="reference" type="button">⭐ Original Reference <span class="pill-sparkle">FLAGSHIP</span></button>
         <button class="gallery-pill" data-cat="unique" type="button">✨ Unique Pack <span class="pill-sparkle">26</span></button>
         <button class="gallery-pill" data-cat="classic" type="button">⚡ Classic Viral</button>
@@ -694,6 +698,6 @@
 </dialog>
 
 <script src="/static/fx.js"></script>
-<script src="/static/app.js?v=2.11"></script>
+<script src="/static/app.js?v=2.12"></script>
 </body>
 </html>

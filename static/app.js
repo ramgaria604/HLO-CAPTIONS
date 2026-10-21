@@ -489,7 +489,6 @@ function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind
       ctxTarget.restore();
     }
   }
-}
 
 function drawKineticLensPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll) {
   const kRole = st.key || {}, fRole = st.filler || {};
@@ -2002,6 +2001,15 @@ async function handleVideoUpload(f) {
 
   const shortName = f.name.length > 22 ? f.name.slice(0, 19) + '...' : f.name;
 
+  const heroChooseText = $('heroChooseText');
+  if (heroChooseText) heroChooseText.textContent = shortName;
+  const selBox = $('heroSelectedFileBox');
+  if (selBox) {
+    const sizeMb = (f.size / (1024 * 1024)).toFixed(1);
+    selBox.textContent = `✓ Selected: ${f.name} (${sizeMb} MB) - Uploading...`;
+    selBox.style.display = 'block';
+  }
+
   if (progContainer) progContainer.style.display = 'block';
   if (progFill) progFill.style.width = '0%';
   if (progBadge) progBadge.textContent = '0%';
@@ -2116,6 +2124,25 @@ window.addEventListener('drop', e => {
   }
 });
 
+const heroDrop = $('heroDropZone');
+if (heroDrop) {
+  ['dragenter', 'dragover'].forEach(ev => heroDrop.addEventListener(ev, e => {
+    e.preventDefault();
+    heroDrop.style.borderColor = '#6366f1';
+    heroDrop.style.background = 'rgba(99, 102, 241, 0.08)';
+  }));
+  ['dragleave', 'drop'].forEach(ev => heroDrop.addEventListener(ev, e => {
+    e.preventDefault();
+    heroDrop.style.borderColor = '';
+    heroDrop.style.background = '';
+  }));
+  heroDrop.addEventListener('drop', e => {
+    e.preventDefault();
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleVideoUpload(f);
+  });
+}
+
 if ($('file')) {
   $('file').addEventListener('change', e => {
     if (e.target.files && e.target.files[0]) handleVideoUpload(e.target.files[0]);
@@ -2129,7 +2156,8 @@ if ($('heroFileInput')) {
 if ($('heroCreateBtn')) {
   $('heroCreateBtn').addEventListener('click', () => {
     if (S.videoFile) handleVideoUpload(S.videoFile);
-    else $('file').click();
+    else if ($('heroFileInput')) $('heroFileInput').click();
+    else if ($('file')) $('file').click();
   });
 }
 if ($('heroStylePickerTrigger')) {
@@ -2194,7 +2222,7 @@ function renderMoonshotGallery(selectedCategory = 'all') {
     if (selectedCategory === 'reference') {
       list = list.filter(p => p.category === 'reference' || ['electric_blue_blend', 'teal_gloss', 'neon_duo', 'orange_pop'].includes(p.id));
     } else if (selectedCategory === 'special') {
-      list = list.filter(p => p.category === 'special' || (p.id || '').startsWith('special_'));
+      list = list.filter(p => p.category === 'special' || (p.id || '').startsWith('special_') || (p.id || '').startsWith('duo_') || p.isSpecial);
     } else if (selectedCategory === 'unique') {
       list = list.filter(p => p.category === 'unique' || (p.id || '').startsWith('u_'));
     } else {
@@ -2226,10 +2254,22 @@ function renderMoonshotGallery(selectedCategory = 'all') {
     card.className = 'moonshot-preset-card' + (isSelected ? ' on' : '');
     card.dataset.presetId = p.id;
 
-    // Pure black background for high contrast preview
+    // Authentic preset visuals & backdrops
     const bgLayer = document.createElement('div');
     bgLayer.className = 'card-bg-layer';
-    bgLayer.style.background = '#000000';
+    if (p.id === 'teal_gloss' || p.id === 'electric_blue_blend') {
+      bgLayer.style.cssText = 'position:absolute;inset:0;background:url("/static/ref1_teal_this_gorgeous.jpg") center/cover no-repeat;filter:brightness(0.85);';
+    } else if (p.id === 'neon_duo') {
+      bgLayer.style.cssText = 'position:absolute;inset:0;background:url("/static/ref2_magenta_so_tonight_is_going_to.jpg") center/cover no-repeat;filter:brightness(0.85);';
+    } else if (p.id === 'orange_pop') {
+      bgLayer.style.cssText = 'position:absolute;inset:0;background:url("/static/ref3_orange_real_estate_captions.jpg") center/cover no-repeat;filter:brightness(0.85);';
+    } else if ((p.id || '').startsWith('u_')) {
+      bgLayer.style.cssText = `position:absolute;inset:0;background:url("/static/preset_previews/${p.id}.png") center/cover no-repeat;filter:brightness(0.9);`;
+    } else if (p.isSpecial || p.category === 'special' || (p.id || '').startsWith('special_')) {
+      bgLayer.style.background = '#090d16';
+    } else {
+      bgLayer.style.cssText = 'position:absolute;inset:0;background:radial-gradient(circle at 50% 25%, #1e1b4b 0%, #030712 100%);';
+    }
 
     const specialLayers = [];
     if (p.isSpecial && p.roles) {
@@ -2267,8 +2307,8 @@ function renderMoonshotGallery(selectedCategory = 'all') {
 
     const kicker = document.createElement('span');
     let kickerText = p.depthAccent ? 'DEPTH 3D' : (p.category || 'ORIGINAL').toUpperCase();
-    if (p.category === 'special' || p.isSpecial) {
-      kickerText = p.depthAccent ? 'SPECIAL · BEHIND' : 'SPECIAL · FRONT';
+    if (p.category === 'special' || p.isSpecial || (p.id || '').startsWith('special_')) {
+      kickerText = p.depthAccent ? 'SEQUENCE · BEHIND' : 'SEQUENCE · FRONT';
     }
     kicker.textContent = kickerText;
     kicker.style.cssText = 'font:700 9px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:999px;padding:3px 8px;margin-bottom:8px;';
@@ -2317,9 +2357,11 @@ function renderMoonshotGallery(selectedCategory = 'all') {
 
     const footer = document.createElement('div');
     footer.className = 'card-footer-info';
+    const catLabel = (p.category === 'special' || p.isSpecial) ? 'SEQUENCE' : (p.category || 'AI');
+    const displayName = (p.name || p.id).replace(/Special\s*·\s*/i, 'Sequence · ').replace(/Duo\s*·\s*/i, 'Sequence · ');
     footer.innerHTML = `
-      <span class="card-footer-name">${p.name || p.id}</span>
-      <span class="card-footer-badge" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); font-size:9px; padding:2px 6px; border-radius:4px; color:#cbd5e1;">${(p.category || 'AI').toUpperCase()}</span>
+      <span class="card-footer-name">${displayName}</span>
+      <span class="card-footer-badge" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); font-size:9px; padding:2px 6px; border-radius:4px; color:#cbd5e1;">${catLabel.toUpperCase()}</span>
     `;
 
     card.append(bgLayer, ...specialLayers, gradOverlay, selBadge, capLayer, footer);
