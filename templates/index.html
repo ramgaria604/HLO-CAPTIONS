@@ -1,967 +1,422 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="google-site-verification" content="Vd25FK6PUAxoJyChm-qF8BtAg4fRE6gT7CHN5RqmQV8" />
-<title>Hlo Captions - Free AI Hinglish Video Caption Generator</title>
-<meta name="description" content="Generate accurate Hinglish & English animated subtitles and 31+ viral sequence presets for Instagram Reels and YouTube Shorts online for free.">
-<meta name="keywords" content="hlo captions, AutoCaption, hinglish captions, ai subtitle generator, captions for reels, auto captions, viral subtitles">
-<meta name="author" content="Hlo Captions">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="https://hlo-captions.onrender.com/">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="google-site-verification" content="Vd25FK6PUAxoJyChm-qF8BtAg4fRE6gT7CHN5RqmQV8" />
+  <title>Hlo Captions - AI Animated Video Caption Generator</title>
+  <meta name="description" content="Generate viral animated subtitles and presets for Instagram Reels and YouTube Shorts online for free.">
+  <link rel="canonical" href="https://hlo-captions.onrender.com/">
 
-<!-- Open Graph / Facebook / WhatsApp -->
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://hlo-captions.onrender.com/">
-<meta property="og:title" content="Hlo Captions - Free AI Hinglish Video Caption Generator">
-<meta property="og:description" content="Create viral animated captions with 31+ Sequence presets for Instagram Reels & YouTube Shorts. 100% Free.">
-
-<!-- Twitter -->
-<meta property="twitter:card" content="summary_large_image">
-<meta property="twitter:url" content="https://hlo-captions.onrender.com/">
-<meta property="twitter:title" content="Hlo Captions - Free AI Hinglish Video Caption Generator">
-<meta property="twitter:description" content="Create viral animated captions with 31+ Sequence presets for Instagram Reels & YouTube Shorts.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="/static/style.css?v=2.24">
-<link rel="stylesheet" href="/fonts.css">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Poppins:wght@500;700;800;900&family=Space+Mono:wght@700&display=swap">
-<script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Montserrat:wght@700;800;900&family=Poppins:wght@600;700;800;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/fonts.css">
+  <link rel="stylesheet" href="/static/style.css?v=3.00">
 </head>
 <body>
 
-<!-- ============================================================ MOONSHOT LANDING & PRESET SHOWCASE -->
-<div id="landingView" class="moonshot-landing">
-  <!-- Top Nav -->
-  <header class="moonshot-nav">
-    <div class="nav-left">
-      <button class="menu-icon-btn" type="button" aria-label="Menu" id="landingMenuBtn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-      </button>
-    </div>
-    <div class="nav-center">
-      <div class="moonshot-logo">
-        <span class="moonshot-orb"></span>
-        <span class="moonshot-brand">AutoCaption</span>
+  <!-- ======================== VIEW 1: UPLOAD SCREEN ======================== -->
+  <main id="viewUpload" class="view active">
+    <div class="upload-container">
+      <div class="brand-badge">
+        <span class="brand-dot"></span>
+        <span>HLO CAPTIONS AI</span>
       </div>
-    </div>
-    <div class="nav-right">
-      <button class="nav-editor-link" id="btnGoToEditor" type="button" style="display:none">
-        Open Editor &rarr;
-      </button>
-    </div>
-  </header>
+      <h1 class="hero-title">Add Viral Captions to <span class="gradient-text">Any Video</span></h1>
+      <p class="hero-subtitle">Automatic AI word-by-word subtitles, viral animations, and 130+ creator templates.</p>
 
-  <!-- Hero Headline -->
-  <div class="moonshot-hero-wrap">
-    <h1 class="moonshot-title">
-      Turn your ideas into <span class="viral-text" style="color:#a855f7;">real results.</span>
-    </h1>
-
-    <!-- Upload Card -->
-    <div class="moonshot-upload-card" id="heroDropZone">
-      <div class="hero-card-icons">
-        <div class="icon-slate">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 3v2h2V7H6zm4 0v2h2V7h-2zm4 0v2h2V7h-2zm4 0v2h2V7h-2zM4 11v7h16v-7H4z"/>
-          </svg>
-        </div>
-        </div>
-
-      <h2 class="hero-drop-title">Drop your video or audio</h2>
-
-      <!-- Direct touch file overlay button for 100% reliable mobile & desktop file picking -->
-      <div class="hero-choose-box" style="position:relative; display:inline-block; margin: 6px auto 10px; overflow:hidden;">
-        <div class="hero-choose-btn" id="heroChooseBtn" style="pointer-events:none;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Dropzone Card -->
+      <div class="upload-card" id="dropZone">
+        <input type="file" id="fileInput" accept="video/*,audio/*" class="file-input-hidden">
+        
+        <div class="upload-icon-circle">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <span id="heroChooseText">Choose file</span>
-        </div>
-        <input type="file" id="heroFileInput" accept="video/*,audio/*" style="position:absolute; inset:0; opacity:0; width:100%; height:100%; cursor:pointer; font-size:100px; z-index:5;">
-      </div>
-
-      <div id="heroSelectedFileBox" style="display:none; font-size:12px; color:#34d399; margin:6px 0; font-weight:600; text-align:center;"></div>
-      <div id="landingNoticeBox" style="display:none; font-size:12px; color:#ef4444; margin:4px 0; text-align:center;"></div>
-
-      <p class="hero-formats">MP4, MOV, WebM, MP3, WAV, M4A &bull; Any video or audio</p>
-
-      <!-- Upload Progress Bar with Live Percentage -->
-      <div id="uploadProgressContainer" style="display:none; width:100%; margin: 12px 0; padding: 10px 14px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom: 6px;">
-          <span id="uploadLabelText" style="color: #cbd5e1; font-weight: 500;">Uploading video...</span>
-          <span id="uploadPercentBadge" style="color: #00F0FF; font-weight: 700; font-size: 13px;">0%</span>
-        </div>
-        <div style="width:100%; height:8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden; position: relative;">
-          <div id="uploadProgressBarFill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1 0%, #00F0FF 100%); border-radius: 4px; transition: width 0.12s ease-out;"></div>
-        </div>
-      </div>
-
-      <!-- Selected Style & Action Row -->
-      <div class="hero-style-row">
-        <div class="hero-style-selector" id="heroStylePickerTrigger" title="Click to view all styles below">
-          <div class="hero-style-thumb" id="heroStyleThumb">
-            <div id="heroStyleMiniPreview" class="hero-style-mini-text">Aa</div>
-          </div>
-          <div class="hero-style-info">
-            <div class="pick-style-label">
-              <span>Pick a style</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-            </div>
-            <div class="hero-style-lang">
-              Captions in <u>English letters</u> <span style="font-size:10px;">&#9662;</span>
-            </div>
-          </div>
         </div>
 
-        <div class="hero-type-toggle">
-          <button class="toggle-btn on" data-type="video" type="button">Video</button>
-          <button class="toggle-btn" data-type="srt" type="button">SRT</button>
-        </div>
-      </div>
+        <h3 class="upload-prompt">Choose video or drag & drop here</h3>
+        <p class="upload-hint">MP4, MOV, WebM &bull; Up to 250 MB</p>
 
-      <button class="hero-create-btn" id="heroCreateBtn" type="button">
-        Create video
-      </button>
-
-      <p class="hero-terms">By uploading you agree to our Terms.</p>
-    </div>
-  </div>
-
-  <!-- Presets Gallery Section (Below Upload Card) -->
-  <section class="moonshot-gallery-section" id="moonshotGallerySection">
-    <!-- Category Tabs -->
-    <div class="gallery-category-bar">
-      <div class="gallery-cat-pills" id="galleryCatPills">
-        <button class="gallery-pill on" data-cat="all" type="button">🔥 All Presets <span class="pill-sparkle">130+</span></button>
-        <button class="gallery-pill" data-cat="special" type="button">✨ Sequence Presets <span class="pill-sparkle">31 STYLES</span></button>
-        <button class="gallery-pill" data-cat="reference" type="button">⭐ Original Reference <span class="pill-sparkle">FLAGSHIP</span></button>
-        <button class="gallery-pill" data-cat="unique" type="button">✨ Unique Pack <span class="pill-sparkle">26</span></button>
-        <button class="gallery-pill" data-cat="classic" type="button">⚡ Classic Viral</button>
-        <button class="gallery-pill" data-cat="colourful" type="button">🎨 Gradients &amp; Colors</button>
-        <button class="gallery-pill" data-cat="real-estate" type="button">🏡 Real Estate Depth</button>
-      </div>
-    </div>
-
-    <!-- Category Header -->
-    <div class="gallery-header">
-      <h3 class="gallery-title" id="galleryHeading">Original Flagship Presets <span class="pill-sparkle">100+ STYLES</span></h3>
-      <p class="gallery-desc">Preview our complete collection of viral caption presets, 2-line layouts, and high-impact kinetic animations.</p>
-    </div>
-
-    <!-- 9:16 Vertical Preset Cards Grid -->
-    <div class="moonshot-cards-grid" id="moonshotCardsGrid">
-      <!-- Injected by JS with 9:16 portrait video/photo backdrops and matching typography -->
-    </div>
-  </section>
-</div>
-
-<!-- ============================================================ EDITOR WORKSPACE (SHOWN AFTER VIDEO UPLOAD) -->
-<div id="editorWorkspace" class="editor-workspace" style="display:none">
-
-<!-- ============================================================ CLEAN TOP TOOLBAR -->
-<header class="toolbar moonshot-toolbar" id="toolbar">
-  <div class="toolbar-left">
-    <button class="moonshot-orb-btn" id="btnBackToLanding" type="button" title="Back to Upload">
-      <span class="moonshot-orb-icon"></span>
-    </button>
-  </div>
-  <div class="toolbar-center">
-    <div class="moonshot-undo-pill">
-      <button class="icon-only" id="btnUndo" type="button" title="Undo (Ctrl+Z)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
-      </button>
-      <button class="icon-only" id="btnRedo" type="button" title="Redo (Ctrl+Y)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/></svg>
-      </button>
-    </div>
-    <button class="magic-sparkle-btn" id="btnAiMagic" type="button" title="AI Magic">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
-    </button>
-  </div>
-  <div class="toolbar-right">
-    <button class="export-square-btn" id="exportBtn" type="button" disabled title="Export Video">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>
-    </button>
-  </div>
-</header>
-<div class="moonshot-subbar">
-  <span class="preview-dot"></span>
-  <span>Low-res preview</span>
-</div>
-
-<!-- ============================================================ MAIN EDITOR -->
-<main class="editor" id="editorMain">
-
-  <!-- ========== LEFT PANEL (MOONSHOT BOTTOM TABS ON MOBILE) ========== -->
-  <aside class="left-panel" id="leftPanel">
-    <nav class="panel-tabs moonshot-tabs" id="panelTabs">
-      <button class="ptab" data-panel="ai" type="button" title="Auto edit">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
-        <span>Auto edit</span>
-      </button>
-      <button class="ptab" data-panel="captions" type="button" title="Transcript">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h10"/></svg>
-        <span>Transcript</span>
-      </button>
-      <button class="ptab" data-panel="style" type="button" title="Templates">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        <span>Templates</span>
-      </button>
-      <button class="ptab" data-panel="customize" type="button" title="Customize">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        <span>Customize</span>
-      </button>
-      <button class="ptab voice-tab" data-panel="voice" type="button" title="Voice &amp; Audio">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-        <span>Voice</span>
-      </button>
-    </nav>
-
-        <div class="panel-content" id="panelContent">
-      <div class="drawer-header" id="drawerHeader">
-        <div class="drawer-header-left">
-          <span class="drawer-drag-pill"></span>
-          <b id="drawerTitle">Templates &amp; Presets</b>
-        </div>
-        <div class="drawer-header-right">
-          <button class="drawer-expand-btn" id="drawerExpandBtn" type="button" title="Toggle Full Preview">
-            <span id="drawerExpandIcon">⤢</span> <span id="drawerExpandText">Full Preview</span>
-          </button>
-          <button class="drawer-close-btn" id="closeDrawerBtn" type="button" title="Done (Back to Timeline)">
-            ✕ Done
-          </button>
-        </div>
-      </div>
-      <!-- MEDIA PANEL -->
-      <div class="ppane" id="ppane-media">
-        <label class="upload-zone" for="file">
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <rect x="4" y="6" width="32" height="28" rx="4" stroke="currentColor" stroke-width="1.8" opacity="0.5"/>
-            <path d="M20 14v12M14 20h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <button type="button" class="btn-primary" id="btnSelectFile">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M12 5v14M5 12h14"/>
           </svg>
-          <b id="fileName">Import Video</b>
-          <span>Drop video here or click to browse</span>
-          <small>MP4, MOV, MKV, WebM, AVI &bull; up to 1.5 GB</small>
-        </label>
-        <div id="mediaUploadProgress" style="display:none; width:100%; margin: 8px 0; padding: 8px 12px; background: rgba(255,255,255,0.04); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom: 4px;">
-            <span id="mediaUploadLabel" style="color: #cbd5e1;">Uploading...</span>
-            <span id="mediaUploadPercent" style="color: #00F0FF; font-weight: 700;">0%</span>
-          </div>
-          <div style="width:100%; height:6px; background: rgba(0,0,0,0.5); border-radius: 3px; overflow: hidden;">
-            <div id="mediaUploadBarFill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1 0%, #00F0FF 100%); transition: width 0.12s ease-out;"></div>
-          </div>
-        </div>
-        <input type="file" id="file" accept="video/*" hidden>
-        <div class="field-group">
-          <div class="field-row">
-            <label class="field">Language
-              <select id="lang">
-                <option value="hinglish" selected>🇮🇳 Hinglish (English Alphabet)</option>
-                <option value="hi-IN">🇮🇳 Hindi (हिंदी Devanagari)</option>
-                <option value="en-IN">🇮🇳 Indian English (English Words)</option>
-                <option value="en-US">🇺🇸 English (US)</option>
-                <option value="en-GB">🇬🇧 English (UK)</option>
-                <option value="ur">🇵🇰 Urdu</option>
-                <option value="ar">🇦🇪 Arabic</option>
-                <option value="es">🇪🇸 Spanish</option>
-                <option value="fr">🇫🇷 French</option>
-                <option value="de">🇩🇪 German</option>
-                <option value="auto">🌐 Auto detect</option>
-              </select></label>
-            <label class="field">Accuracy
-              <select id="model">
-                <option value="tiny">Fast (tiny)</option><option value="base" selected>Balanced (base)</option>
-                <option value="small">Best (small)</option><option value="medium">Premium (medium)</option>
-              </select></label>
-          </div>
-          <div class="field-row">
-            <label class="field">Words/caption <output id="wpcOut">3</output>
-              <input type="range" id="wpc" min="1" max="6" value="3"></label>
-            <label class="field">Big words <output id="mkOut">1</output>
-              <input type="range" id="maxKeys" min="0" max="3" value="1"></label>
-          </div>
-        </div>
-        <button class="action-btn primary" id="transcribeBtn" type="button" disabled>&#10024; Generate Captions</button>
-        <div class="sub-actions">
-          <button class="action-btn ghost small" id="browserSpeechBtn" type="button" disabled>&#x1F399;&#xFE0F; Live Mic (not video)</button>
-          <label class="action-btn ghost small" style="cursor:pointer" id="srtUploadLabel">&#x1F4C4; Import SRT<input type="file" id="srtFile" accept=".srt,.vtt,.txt" hidden></label>
-        </div>
-      </div>
-
-      <!-- AI DIRECTOR PANEL -->
-      <div class="ppane" id="ppane-ai">
-        <div class="panel-card" style="margin-bottom:12px; border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.08);">
-          <div class="card-header">
-            <span class="card-icon">⚡</span>
-            <div><b>1-Click AI Auto-Edit</b><br><small>Auto-transcribe, insert contextual motion graphics &amp; apply Moonshot preset</small></div>
-          </div>
-          <button class="action-btn big primary" id="btnAiMagicPanel" type="button" disabled style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); font-weight:700; width:100%;">⚡ 1-Click AI Magic</button>
-        </div>
-        <div class="panel-card">
-          <div class="card-header">
-            <span class="card-icon">&#x1F916;</span>
-            <div><b>AI Content Understanding</b><br><small>Analyze speech, detect key topics, review edit plan</small></div>
-          </div>
-          <button class="action-btn" id="aiAnalyzeBtn" type="button" disabled>&#x1F680; Analyze &amp; Review Plan</button>
-        </div>
-        <div id="aiPlanContainer" style="display:none">
-          <div class="stat-row">
-            <div class="stat"><small>Format</small><b id="aiGenreVal">—</b></div>
-            <div class="stat"><small>Aspect</small><b id="aiAspectVal">—</b></div>
-            <div class="stat"><small>Confidence</small><b id="aiConfVal">—</b></div>
-          </div>
-          <div class="bar"><h4>Proposed Graphics (<span id="aiPlanCount">0</span>)</h4>
-            <button class="action-btn small primary" id="applyPlanBtn" type="button">&#x2714; Apply</button></div>
-          <div id="aiPlanList" class="ai-plan-list"></div>
-        </div>
-      </div>
-
-      <!-- MOTION GRAPHICS PANEL -->
-      <div class="ppane" id="ppane-graphics">
-        <!-- Remotion AI Director Events -->
-        <div class="panel-card" style="margin-bottom:12px; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.06);">
-          <div class="bar">
-            <label class="check" style="font-weight:600; color:#34d399"><input type="checkbox" id="directorEnabled" checked> AI Scene Director</label>
-            <span class="badge" id="directorCountBadge" style="background: rgba(16, 185, 129, 0.25); color: #34d399">0 events</span>
-          </div>
-          <p class="hint" style="margin:4px 0 8px 0">Context-aware motion graphics (kinetic text, lower thirds, counters, arrows, stickers, b-roll) planned from speech.</p>
-          <div style="display:flex; gap:6px; margin-bottom:8px">
-            <button class="action-btn small primary" id="btnPlanDirector" type="button" style="flex:1" disabled>✨ Auto-Plan Graphics</button>
-            <button class="action-btn small ghost" id="btnAddDirectorEvent" type="button">+ Add Event</button>
-          </div>
-          <div id="directorEventsList" class="ai-plan-list" style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:6px">
-            <div class="empty" style="padding:12px">Transcribe speech to auto-plan motion graphics, or click + Add Event.</div>
-          </div>
-        </div>
-
-        <div class="bar">
-          <h4>Graphics Library</h4>
-          <button class="action-btn small ghost" id="addGraphicBtn" type="button" disabled>+ Add at Playhead</button>
-        </div>
-        <div class="mg-templates-grid" id="mgTemplatesGrid"></div>
-      </div>
-
-      <!-- TRANSCRIPT & CAPTIONS PANEL (AutoCaption Style) -->
-      <div class="ppane" id="ppane-captions">
-        <div class="transcript-header-bar">
-          <div class="transcript-subnav">
-            <button type="button" class="ts-tab on" id="tabTranscriptView">Transcript</button>
-            <button type="button" class="ts-tab" id="tabCaptionsView">Captions</button>
-          </div>
-          <div class="transcript-search-wrap">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" id="transcriptSearch" placeholder="Search transcript..." class="transcript-search-input">
-          </div>
-        </div>
-
-        <!-- Quick Voiceover Tools Bar -->
-        <div class="voice-tools-ribbon" style="display:flex; gap:6px; margin: 8px 0 12px;">
-          <button class="action-btn primary small" id="btnAutoTranscribeVoice" type="button" style="flex:1; background:linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); font-weight:700;">
-            🎙️ Auto-Transcribe Voice
-          </button>
-          <button class="action-btn ghost small" id="btnOpenScriptModal" type="button" style="flex:1; border:1px solid rgba(168,85,247,0.3); color:#c084fc;">
-            ✍️ Paste Script (100% Accurate)
-          </button>
-        </div>
-
-        <!-- Interactive Segment List -->
-        <div id="capList" class="caplist autocaption-segment-list">
-          <div class="empty" style="text-align:center; padding:24px 12px; color:#94a3b8;">
-            <p style="margin-bottom:8px; font-weight:600; color:#e2e8f0;">No captions yet</p>
-            <span style="font-size:12px;">Upload video and click "Auto-Transcribe Voice" or "Paste Script" above.</span>
-          </div>
-        </div>
-
-        <button class="action-btn big" id="addCap" type="button" style="width:100%; margin-top:10px; border:1.5px dashed rgba(168,85,247,0.4); background:rgba(168,85,247,0.06); color:#c084fc; font-weight:700;">
-          + Add segment
-        </button>
-      </div>
-
-      <!-- STYLE PANEL -->
-      <div class="ppane on" id="ppane-style">
-        <!-- Video Palette Auto-Match Section -->
-        <div class="panel-card" style="margin-bottom:12px; border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.06);">
-          <div class="bar">
-            <b>🎨 Video Color Match</b>
-            <label class="check" style="font-size:11px"><input type="checkbox" id="autoColorToggle"> Auto match colours</label>
-          </div>
-          <p class="hint" style="margin:4px 0 6px 0">Colors extracted automatically from video frames:</p>
-          <div id="paletteSwatches" style="display:flex; gap:6px; margin-bottom:8px">
-            <div style="flex:1; text-align:center; padding:6px; font-size:10px; color:#94a3b8">Load video to extract palette</div>
-          </div>
-          <button class="action-btn small ghost" id="btnExtractPalette" type="button" style="width:100%" disabled>⚡ Extract Colors from Video</button>
-        </div>
-
-        <div class="bar">
-          <h4>Presets <span class="badge" id="presetCountBadge">0</span></h4>
-          <input type="text" id="presetSearch" class="search-input" placeholder="Search styles...">
-        </div>
-        <div class="cat-pills" id="catPills">
-          <button type="button" class="cat-pill on" data-cat="all">All (133)</button>
-          <button type="button" class="cat-pill" data-cat="special" style="background: rgba(255, 98, 0, 0.15); color: #FF7A18; border-color: rgba(255, 98, 0, 0.4); font-weight:700;">✨ Special Presets (31)</button>
-          <button type="button" class="cat-pill" data-cat="unique" style="background: rgba(0,240,255,0.15); color: #00F0FF; border-color: rgba(0,240,255,0.3); font-weight:700;">✨ Unique (26)</button>
-          <button type="button" class="cat-pill" data-cat="favs">⭐ Favourites</button>
-          <button type="button" class="cat-pill" data-cat="reference">✨ Reference Styles (4)</button>
-          <button type="button" class="cat-pill" data-cat="real-estate">🏡 Real Estate (8)</button>
-          <button type="button" class="cat-pill" data-cat="colourful">🌈 Colourful Gradients (38)</button>
-          <button type="button" class="cat-pill" data-cat="blend">🎬 Blend with Video (13)</button>
-          <button type="button" class="cat-pill" data-cat="classic">⚡ Classic (13)</button>
-        </div>
-                <!-- AutoCaption Viral Presets (Reference Match) -->
-        <div class="autocaption-presets-list" id="autocaptionPresetsList" style="margin-bottom:14px;">
-          <div class="ac-preset-card on" data-preset="viral-hook">
-            <span class="ac-preset-icon">⚡</span>
-            <div class="ac-preset-info">
-              <b>Viral Hook</b>
-              <small>Bold Anton • Purple Highlight</small>
-            </div>
-            <span class="ac-preset-star">⭐</span>
-          </div>
-          <div class="ac-preset-card" data-preset="quote-style">
-            <span class="ac-preset-icon">❝</span>
-            <div class="ac-preset-info">
-              <b>Quote Style</b>
-              <small>White Poppins • Purple Accent</small>
-            </div>
-          </div>
-          <div class="ac-preset-card" data-preset="list-style">
-            <span class="ac-preset-icon">🔢</span>
-            <div class="ac-preset-info">
-              <b>List Style</b>
-              <small>Numbered • Yellow Highlight</small>
-            </div>
-          </div>
-          <div class="ac-preset-card" data-preset="clean-minimal">
-            <span class="ac-preset-icon">—</span>
-            <div class="ac-preset-info">
-              <b>Clean &amp; Minimal</b>
-              <small>White • No Background</small>
-            </div>
-          </div>
-          <div class="ac-preset-card" data-preset="high-energy">
-            <span class="ac-preset-icon">🔥</span>
-            <div class="ac-preset-info">
-              <b>High Energy</b>
-              <small>All Caps • Rainbow Gradient</small>
-            </div>
-          </div>
-          <div class="ac-preset-card" data-preset="podcast-captions">
-            <span class="ac-preset-icon">🎙️</span>
-            <div class="ac-preset-info">
-              <b>Podcast Captions</b>
-              <small>Subtitle Bar • Word Glow</small>
-            </div>
-          </div>
-        </div>
-        <div class="presets" id="presets"></div>
-        <button class="action-btn small ghost" id="savePreset" type="button">&#x1F4BE; Save Style</button>
-      </div>
-
-      <!-- STYLE & DESIGN PANEL (AutoCaption Theme) -->
-      <div class="ppane" id="ppane-customize">
-        <!-- Quick Style Presets Pills -->
-        <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Quick Presets</label>
-        <div class="style-preset-pills" id="quickStylePills">
-          <button type="button" class="style-pill on" data-theme="purple">The quick <span style="color:#a855f7;">brown</span></button>
-          <button type="button" class="style-pill" data-theme="yellow">The quick <span style="color:#facc15;">brown</span></button>
-          <button type="button" class="style-pill" data-theme="cyan">The quick <span style="color:#06b6d4;">brown</span></button>
-        </div>
-
-        <!-- Font Selector -->
-        <div class="field-row" style="margin-top:10px;">
-          <label class="field">Font
-            <select id="captionFontSelect" style="font-weight:700;">
-              <option value="Anton" selected>Anton (Bold Viral)</option>
-              <option value="Poppins">Poppins (Clean Modern)</option>
-              <option value="Montserrat">Montserrat (Impact)</option>
-              <option value="Bebas Neue">Bebas Neue (Tall Condensed)</option>
-              <option value="Space Mono">Space Mono (Tech)</option>
-              <option value="Inter">Inter (Minimal UI)</option>
-            </select>
-          </label>
-        </div>
-
-        <!-- Highlight Color Palette (From Reference Images) -->
-        <div style="margin: 12px 0;">
-          <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Highlight Color</label>
-          <div class="color-swatches-row" id="highlightColorSwatches">
-            <button type="button" class="color-circle-btn" data-color="#ffffff" style="background:#ffffff;" title="White"></button>
-            <button type="button" class="color-circle-btn on" data-color="#a855f7" style="background:#a855f7;" title="Electric Purple"></button>
-            <button type="button" class="color-circle-btn" data-color="#ec4899" style="background:#ec4899;" title="Hot Pink"></button>
-            <button type="button" class="color-circle-btn" data-color="#facc15" style="background:#facc15;" title="Yellow Neon"></button>
-            <button type="button" class="color-circle-btn" data-color="#06b6d4" style="background:#06b6d4;" title="Cyan Azure"></button>
-            <button type="button" class="color-circle-btn" data-color="#3b82f6" style="background:#3b82f6;" title="Electric Blue"></button>
-            <button type="button" class="color-circle-btn" data-color="#ff007a" style="background:linear-gradient(135deg, #ff007a, #7928ca, #0070f3);" title="Rainbow Aura"></button>
-          </div>
-        </div>
-
-        <!-- Animation Options -->
-        <div style="margin: 12px 0;">
-          <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Animation</label>
-          <div class="anim-cards-grid" id="animSelectorGrid">
-            <button type="button" class="anim-btn" data-anim="none"><span style="font-size:14px;">⊘</span><small>None</small></button>
-            <button type="button" class="anim-btn" data-anim="fade"><b>Aa</b><small>Fade</small></button>
-            <button type="button" class="anim-btn" data-anim="slide"><b>Aa›</b><small>Slide</small></button>
-            <button type="button" class="anim-btn on" data-anim="pop"><b>Aa˙</b><small>Pop</small></button>
-            <button type="button" class="anim-btn" data-anim="bounce"><b>Aa²</b><small>Bounce</small></button>
-          </div>
-        </div>
-
-        <!-- Position 3x3 Grid & Background Style (From Reference Images) -->
-        <div class="field-row" style="margin: 12px 0; align-items:flex-start;">
-          <div style="flex:1;">
-            <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Position</label>
-            <div class="pos-grid-3x3" id="posGrid3x3">
-              <button type="button" class="pos-dot" data-pos="top_left" title="Top Left"></button>
-              <button type="button" class="pos-dot" data-pos="top_center" title="Top Center"></button>
-              <button type="button" class="pos-dot" data-pos="top_right" title="Top Right"></button>
-              <button type="button" class="pos-dot" data-pos="mid_left" title="Middle Left"></button>
-              <button type="button" class="pos-dot" data-pos="center" title="Center"></button>
-              <button type="button" class="pos-dot" data-pos="mid_right" title="Middle Right"></button>
-              <button type="button" class="pos-dot" data-pos="bot_left" title="Bottom Left"></button>
-              <button type="button" class="pos-dot on" data-pos="bot_center" title="Bottom Center (Recommended)"></button>
-              <button type="button" class="pos-dot" data-pos="bot_right" title="Bottom Right"></button>
-            </div>
-          </div>
-          <div style="flex:1;">
-            <label class="field-label" style="font-weight:700; color:#e2e8f0; font-size:12px; margin-bottom:6px; display:block;">Background</label>
-            <div class="bg-mode-row" id="bgModeRow">
-              <button type="button" class="bg-mode-btn on" data-bg="none"><span>⊘</span><small>None</small></button>
-              <button type="button" class="bg-mode-btn" data-bg="semi"><span>⬚</span><small>Semi</small></button>
-              <button type="button" class="bg-mode-btn" data-bg="solid"><span>⬛</span><small>Solid</small></button>
-            </div>
-          </div>
-        </div>
-        <h4>Caption Layout &amp; Animation</h4>
-        <div class="field-row">
-          <label class="field">Layout
-            <select id="s_layout"><option value="stack">Stacked (2-lines)</option><option value="line">One line</option></select></label>
-          <label class="field">Animation
-            <select id="s_animation"><option value="pop">Pop in</option><option value="highlight">Highlight</option><option value="none">None</option></select></label>
-        </div>
-        <div class="field-row">
-          <label class="field">Position <output id="s_positionOut">78%</output><input type="range" id="s_position" min="0.1" max="0.95" step="0.01" value="0.78"></label>
-          <label class="field">Caption Size <output id="captionScaleOut">100%</output><input type="range" id="captionScale" min="60" max="150" value="100" step="1"></label>
-        </div>
-        <div class="field-row">
-          <label class="field">Transparency <output id="s_opacityOut">90%</output><input type="range" id="s_opacity" min="0.4" max="1.0" step="0.02" value="0.90"></label>
-          <label class="field">Highlight color <input type="color" id="s_highlightColor"></label>
-        </div>
-        <div class="field-row" style="margin-top:6px">
-          <label class="check" style="font-weight:600"><input type="checkbox" id="s_behindPerson"> 👤 Text behind person (Depth mask)</label>
-        </div>
-        <div class="separator"></div>
-        <h4>Word Roles &amp; Colors</h4>
-        <div id="roles"></div>
-      </div>
-
-      <!-- VOICE & AUDIO TOOL (MOONSHOT TAB 5 - BETTER VOICE TOOL) -->
-      <div class="ppane" id="ppane-voice">
-        <!-- AI Studio Voice Card -->
-        <div class="panel-card" style="border-color: rgba(99, 102, 241, 0.4); background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%); margin-bottom: 12px;">
-          <div class="card-header" style="margin-bottom: 8px;">
-            <span class="card-icon">🎙️</span>
-            <div style="flex:1">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <b>AI Studio Voice</b>
-                <span class="badge" id="studioVoiceBadge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-weight:700;">Studio Active</span>
-              </div>
-              <small style="color: #94a3b8; line-height: 1.3; display:block; margin-top:2px;">
-                One-click professional vocal cleanup, background noise removal &amp; crisp broadcast presence boost.
-              </small>
-            </div>
-          </div>
-          <button class="action-btn big primary" id="btnEnhanceVoice" type="button" style="width:100%; font-weight:700; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);">
-            ✨ Clean &amp; Enhance Voice (Studio Quality)
-          </button>
-        </div>
-
-        <!-- Voice Volume & Clarity -->
-        <h4>Voice Volume &amp; Clarity</h4>
-        <div class="field-row">
-          <label class="field">Voice Volume <output id="voiceVolDisplay">120%</output>
-            <input type="range" id="voiceVolSlider" min="50" max="200" step="5" value="120">
-          </label>
-          <label class="field">Clarity EQ
-            <select id="voiceEqMode">
-              <option value="studio" selected>Studio Presence (+4dB)</option>
-              <option value="warm">Warm &amp; Deep</option>
-              <option value="crisp">Ultra Crisp</option>
-              <option value="flat">Original</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="checks-row" style="margin: 8px 0 12px;">
-          <label class="check" style="font-weight:600;"><input type="checkbox" id="voiceDenoiseCheck" checked> 🔇 AI Denoise (Remove room hiss &amp; fan noise)</label>
-          <label class="check" style="font-weight:600;"><input type="checkbox" id="voiceLoudnormCheck" checked> 🎚️ Auto-leveling (Keep volume even)</label>
-        </div>
-
-        <div class="separator"></div>
-
-        <!-- Transcription Language & Re-transcribe -->
-        <h4>Speech Recognition &amp; Language</h4>
-        <p class="hint">Transcribe speech to natural Hinglish or clean English captions.</p>
-        <div class="field-row">
-          <label class="field">Language
-            <select id="voiceLangSelect">
-              <option value="hinglish" selected>🇮🇳 Hinglish (English Alphabet)</option>
-              <option value="en-IN">🇮🇳 Indian English (Accurate English)</option>
-              <option value="hi-IN">🇮🇳 Hindi (हिंदी Devanagari)</option>
-              <option value="en-US">🇺🇸 English (US)</option>
-            </select>
-          </label>
-          <label class="field">Engine
-            <select id="voiceEngineSelect">
-              <option value="google" selected>⚡ Google Cloud Speech</option>
-              <option value="whisper">🧠 OpenAI Whisper</option>
-            </select>
-          </label>
-        </div>
-        <button class="action-btn primary" id="btnRetranscribeVoice" type="button" style="width:100%; margin-top:4px;">
-          🎙️ Re-Transcribe Speech (High Accuracy)
+          Select Video
         </button>
 
-        <div class="separator"></div>
+        <!-- Language Selector -->
+        <div class="lang-row">
+          <label for="langSelect">Language:</label>
+          <select id="langSelect" class="lang-select">
+            <option value="auto" selected>✨ Auto Detect (Recommended)</option>
+            <option value="en">English (US/UK)</option>
+            <option value="hi">Hindi / Hinglish</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="pt">Portuguese</option>
+          </select>
+        </div>
 
-        <!-- AI Voiceover / Text-to-Speech -->
-        <h4>AI Voiceover (Text to Speech)</h4>
-        <p class="hint">Generate a crystal-clear studio voiceover to narrate your video.</p>
-        <textarea id="ttsTextInput" placeholder="Type text to speak, e.g.: Today we are going to learn how to edit viral videos..." style="width:100%; min-height:50px; font-size:12px; border-radius:6px; background:#0d0d1a; color:#f8fafc; border:1px solid rgba(255,255,255,0.1); padding:8px; resize:vertical;"></textarea>
-        <div class="field-row" style="margin-top:6px;">
-          <label class="field">Speed <output id="ttsSpeedOut">1.0x</output>
-            <input type="range" id="ttsSpeedSlider" min="0.7" max="1.5" step="0.1" value="1.0">
-          </label>
-          <div style="flex:1; display:flex; align-items:flex-end; gap:6px;">
-            <button class="action-btn small" id="btnPreviewTts" type="button" style="flex:1">▶ Preview</button>
-            <button class="action-btn small primary" id="btnAddTts" type="button" style="flex:1">+ Add Voice</button>
+        <!-- Script Paste Toggle -->
+        <details class="script-details">
+          <summary>✍️ Have a written script? Paste it here for 100% precision</summary>
+          <textarea id="scriptInput" class="script-textarea" placeholder="Paste your video's exact spoken words here..."></textarea>
+        </details>
+
+        <!-- Upload Progress Indicator -->
+        <div id="uploadProgressBox" class="progress-box hidden">
+          <div class="progress-label-row">
+            <span id="uploadStatusText">Uploading video...</span>
+            <span id="uploadPercent">0%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div id="uploadProgressBar" class="progress-bar-fill"></div>
           </div>
         </div>
 
-        <div class="separator"></div>
-
-        <!-- Background Music & Ducking -->
-        <h4>Background Music &amp; Auto-Duck</h4>
-        <label class="upload-zone small" for="bgMusicVoice">
-          <b id="bgMusicVoiceName">Add background music (optional)</b>
-          <span>MP3, WAV, M4A &bull; Auto-ducks when you speak</span>
-        </label>
-        <input type="file" id="bgMusicVoice" accept="audio/*" hidden>
-        <div class="field-row" id="voiceMusicControls" style="display:none; margin-top:6px;">
-          <label class="field">Music vol <output id="voiceMusicVolOut">25%</output>
-            <input type="range" id="voiceMusicVol" min="0" max="100" value="25">
-          </label>
-        </div>
-        <label class="check" id="voiceMusicDuckLabel" style="display:none; margin-top:6px;">
-          <input type="checkbox" id="voiceMusicDuck" checked> 📉 Auto-duck music (lower volume during speech)
-        </label>
-      </div>
-
-      <!-- CUTS PANEL -->
-      <div class="ppane" id="ppane-cuts">
-        <p class="hint">Detect silent gaps and remove them on export.</p>
-        <div class="field-row">
-          <label class="field">Sensitivity <output id="c_noiseOut">-30 dB</output><input type="range" id="c_noise" min="-50" max="-20" value="-30"></label>
-          <label class="field">Min gap <output id="c_gapOut">0.5s</output><input type="range" id="c_gap" min="0.2" max="1.5" step="0.1" value="0.5"></label>
-        </div>
-        <label class="field">Padding <output id="c_padOut">0.12s</output><input type="range" id="c_pad" min="0" max="0.3" step="0.02" value="0.12"></label>
-        <button class="action-btn primary" id="detectBtn" type="button" disabled>&#x1F50D; Find Silent Gaps</button>
-        <div id="cutSummary" class="summary"></div>
-        <label class="check"><input type="checkbox" id="zoom"> Subtle zoom on alternating clips</label>
-        <div id="cutList" class="cutlist"></div>
-      </div>
-
-      <!-- EFFECTS PANEL -->
-      <div class="ppane" id="ppane-effects">
-        <h4>Speed</h4>
-        <div class="field-row">
-          <label class="field">Playback <output id="speedOut">1.0x</output>
-            <input type="range" id="speedVal" min="0.5" max="3.0" step="0.1" value="1.0"></label>
-          <label class="field">Apply to
-            <select id="speedScope"><option value="all">Entire video</option><option value="silence">Silent parts</option></select></label>
-        </div>
-        <div class="separator"></div>
-        <h4>Background Music</h4>
-        <label class="upload-zone small" for="bgMusic">
-          <b id="bgMusicName">Add music (optional)</b><span>MP3, WAV, M4A, OGG</span>
-        </label>
-        <input type="file" id="bgMusic" accept="audio/*" hidden>
-        <div class="field-row" id="musicControls" style="display:none">
-          <label class="field">Music vol <output id="musicVolOut">30%</output><input type="range" id="musicVol" min="0" max="100" value="30"></label>
-          <label class="field">Voice vol <output id="voiceVolOut">100%</output><input type="range" id="voiceVol" min="50" max="150" value="100"></label>
-        </div>
-        <label class="check" id="musicFadeLabel" style="display:none"><input type="checkbox" id="musicFade" checked> Fade music during speech</label>
-        <div class="separator"></div>
-        <h4>Video Effects</h4>
-        <div class="checks-row">
-          <label class="check"><input type="checkbox" id="effectKenBurns"> Ken Burns</label>
-          <label class="check"><input type="checkbox" id="effectVignette"> Vignette</label>
-          <label class="check"><input type="checkbox" id="effectSharpen"> Sharpen</label>
-          <label class="check"><input type="checkbox" id="effectCinemaBar"> Cinema bars</label>
-        </div>
-      </div>
-
-      <!-- BROLL PANEL -->
-      <div class="ppane" id="ppane-broll">
-        <div id="keyBox" class="panel-card" hidden>
-          <b>Add your free Pexels key</b>
-          <p class="hint">Go to <a href="https://www.pexels.com/api/" target="_blank">pexels.com/api</a>, sign up, copy key.</p>
-          <div class="bar"><input type="text" id="keyIn" placeholder="Paste API key" autocomplete="off"><button class="action-btn small" id="keySave" type="button">Save</button></div>
-        </div>
-        <div class="bar">
-          <button class="action-btn small" id="suggestBtn" type="button" disabled>&#10024; Suggest Spots</button>
-          <button class="action-btn small ghost" id="addSlot" type="button" disabled>+ Add Spot</button>
-        </div>
-        <p class="hint">B-roll covers the speaker with stock footage. Your voice keeps going.</p>
-        <div id="slots"></div>
+        <div id="uploadError" class="error-msg hidden"></div>
       </div>
     </div>
-  </aside>
+  </main>
 
-  <!-- ========== CENTER PANEL — VIDEO PREVIEW ========== -->
-  <section class="center-panel" id="centerPanel">
-    <div class="canvas-wrap" id="canvasWrap">
-      <div class="stage" id="stage">
-                        <video id="vid" playsinline></video>
-        <!-- Floating Stage Fullscreen Preview Button -->
-        <button class="stage-fullscreen-btn" id="stageFullscreenBtn" type="button" title="Full Screen Video (⛶)">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-        </button>
-        <!-- Floating Stage Gear Settings Button -->
-        <button class="stage-gear-btn" id="stageGearBtn" type="button" title="Editor Settings">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </button>
-        <!-- Floating Pro Template Badge -->
-        <div class="stage-pro-template-badge" id="stageProBadge">
-          <span class="pro-crown-icon">👑</span>
-          <span>Pro template</span>
-        </div>
-        <!-- Real Behind-the-Person Canvas & HTML Overlays (z-index: 15) -->
-        <canvas id="captionCanvasBehind" class="caption-canvas caption-canvas-behind"></canvas>
-        <div id="capboxBehind" class="capbox capbox-behind"></div>
-        <!-- Live Segmented Person Cutout Canvas (z-index: 18) -->
-        <canvas id="personCanvas" class="person-canvas"></canvas>
-        <!-- Motion Graphics Canvas Overlay (z-index: 20) -->
-        <div id="mgStage" class="mg-stage"></div>
-        <!-- SVG Graphics Overlay (real composable elements) -->
-        <svg id="svgOverlay" class="svg-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
-        <!-- Foreground Multi-Pass Kinetic Typography Canvas (z-index: 25) -->
-        <canvas id="captionCanvas" class="caption-canvas caption-canvas-foreground"></canvas>
-        <div id="capbox" class="capbox capbox-foreground"></div>
 
-        <!-- Safe zone guides -->
-        <div id="safeZoneGuides" class="safe-zone-guides" hidden>
-          <div class="sz-top-bar"><span>Header (12%)</span></div>
-          <div class="sz-side-bar"><span>Actions</span></div>
-          <div class="sz-bottom-bar"><span>Bio &amp; Captions (20%)</span></div>
-          <div class="sz-safe-box"><span class="sz-tag">SAFE ZONE</span></div>
-        </div>
-        <!-- Empty state / Style Showcase Launchpad — shown before video upload -->
-        <div id="stageEmpty" class="stage-empty">
-          <div class="stage-launchpad">
-            <div class="stage-launch-icon" style="margin-bottom: 8px;">
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                <rect x="6" y="8" width="36" height="32" rx="8" stroke="#6366f1" stroke-width="2" fill="rgba(99,102,241,0.12)"/>
-                <path d="M24 16v16M16 24h16" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <h2 style="margin: 6px 0 6px; font-size: 20px; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em;">Choose a Caption Style First</h2>
-            <p style="margin: 0 0 16px; font-size: 13px; color: #94a3b8; max-width: 360px; line-height: 1.4;">Browse the 51 styles on the left. Click any style to preview it, then drop or upload your video to enter the editor.</p>
+  <!-- ======================== VIEW 2: EDITOR SCREEN ======================== -->
+  <main id="viewEditor" class="view hidden">
+    <!-- Top Header -->
+    <header class="editor-header">
+      <div class="header-left">
+        <button id="btnNewVideo" class="header-btn" title="Upload another video">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          <span>New</span>
+        </button>
+        <span class="video-filename" id="headerFileName">video.mp4</span>
+      </div>
+
+      <div class="header-right">
+        <button id="btnExport" class="btn-export">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>Export Video</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Editor Body (2 sections: Top Stage, Bottom Tabs) -->
+    <div class="editor-body">
+
+      <!-- TOP: Video Stage & Transport -->
+      <section class="stage-section">
+        <div class="stage-wrapper" id="stageWrapper">
+          <div class="stage" id="stage">
+            <video id="vid" playsinline preload="auto"></video>
+            <canvas id="captionCanvas"></canvas>
             
-            <label class="action-btn big primary" for="file" style="cursor:pointer; display:inline-flex; align-items:center; gap:8px; padding:0 24px; font-weight:700; box-shadow: 0 4px 20px rgba(99,102,241,0.45); border-radius: 8px;">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3v8M5 7l4-4 4 4M2 14v1h14v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>Upload Video to Open Editor</span>
-            </label>
-            <div style="margin-top: 14px; font-size: 12px; color: #64748b;">
-              Selected Style: <b id="emptyStageSelectedStyle" style="color: #38bdf8;">Teal Liquid (Reference 🌊)</b>
+            <!-- Stage Fullscreen Overlay Button -->
+            <button id="btnStageFullscreen" class="btn-stage-fs" title="Toggle Fullscreen">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sleek Transport Controls (directly under video) -->
+        <div class="transport-bar">
+          <button id="btnPlayPause" class="btn-play" title="Play/Pause">
+            <svg id="iconPlay" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+            <svg id="iconPause" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="hidden"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          </button>
+
+          <span id="timeCurrent" class="time-text">0:00</span>
+          
+          <div class="scrub-container">
+            <input type="range" id="timeScrub" min="0" max="100" value="0" step="0.01" class="scrub-slider">
+          </div>
+
+          <span id="timeDuration" class="time-text">0:00</span>
+
+          <button id="btnMute" class="btn-icon" title="Mute/Unmute">
+            <svg id="iconVolume" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <svg id="iconMuted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- BOTTOM: Tab Navigation & Tab Panes -->
+      <section class="tabs-section">
+        <!-- Tab Navigation Buttons -->
+        <nav class="tab-nav">
+          <button class="tab-btn active" data-tab="tabTemplates">
+            <span class="tab-icon">🎨</span>
+            <span>Templates</span>
+          </button>
+          <button class="tab-btn" data-tab="tabCaptions">
+            <span class="tab-icon">📝</span>
+            <span>Edit Captions</span>
+          </button>
+          <button class="tab-btn" data-tab="tabStyle">
+            <span class="tab-icon">🎚️</span>
+            <span>Style Options</span>
+          </button>
+          <button class="tab-btn" data-tab="tabAudio">
+            <span class="tab-icon">🎵</span>
+            <span>Audio</span>
+          </button>
+        </nav>
+
+        <!-- TAB 1: TEMPLATES -->
+        <div id="tabTemplates" class="tab-pane active">
+          <div class="templates-toolbar">
+            <div class="category-pills" id="categoryPills">
+              <button class="cat-pill active" data-cat="all">All</button>
+              <button class="cat-pill" data-cat="viral">🔥 Viral Pop</button>
+              <button class="cat-pill" data-cat="neon">✨ Neon Glow</button>
+              <button class="cat-pill" data-cat="box">📦 Box Pop</button>
+              <button class="cat-pill" data-cat="minimal">🎬 Minimal</button>
             </div>
-            <small style="margin-top: 6px; display:block; font-size: 11px; color: #475569;">Supports MP4, MOV, WebM, MKV up to 1.5GB &bull; Drag &amp; drop anywhere</small>
+            <button id="btnOpenFullTemplates" class="btn-pill-action" title="View all templates in large grid">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+              <span>View All (133)</span>
+            </button>
+          </div>
+
+          <!-- Horizontal/Scrollable Presets Cards Grid -->
+          <div class="presets-grid" id="presetsGrid">
+            <!-- Populated via JavaScript -->
+          </div>
+        </div>
+
+        <!-- TAB 2: EDIT CAPTIONS -->
+        <div id="tabCaptions" class="tab-pane hidden">
+          <div class="captions-toolbar">
+            <div class="captions-info">
+              <span id="captionCountBadge">0 lines</span>
+            </div>
+            <div class="captions-actions">
+              <button id="btnAddCaption" class="btn-subaction">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Add Line</span>
+              </button>
+              <button id="btnSyncScriptModal" class="btn-subaction">
+                ✍️ Sync Script
+              </button>
+            </div>
+          </div>
+
+          <!-- Captions List -->
+          <div class="captions-list" id="captionsList">
+            <!-- Populated via JavaScript -->
+          </div>
+        </div>
+
+        <!-- TAB 3: STYLE OPTIONS -->
+        <div id="tabStyle" class="tab-pane hidden">
+          <div class="style-options-grid">
+            
+            <!-- Font Size -->
+            <div class="control-card">
+              <div class="control-header">
+                <label>Caption Size</label>
+                <span id="valFontSize" class="val-badge">100%</span>
+              </div>
+              <input type="range" id="inputFontSize" min="60" max="180" value="100" class="styled-slider">
+            </div>
+
+            <!-- Position -->
+            <div class="control-card">
+              <div class="control-header">
+                <label>Screen Position</label>
+              </div>
+              <div class="btn-group" id="posButtonGroup">
+                <button class="btn-toggle" data-pos="0.25">Top</button>
+                <button class="btn-toggle" data-pos="0.50">Middle</button>
+                <button class="btn-toggle active" data-pos="0.75">Bottom</button>
+              </div>
+            </div>
+
+            <!-- Highlight Color -->
+            <div class="control-card">
+              <div class="control-header">
+                <label>Active Word Color</label>
+              </div>
+              <div class="color-swatches" id="colorSwatches">
+                <button class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Yellow"></button>
+                <button class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan"></button>
+                <button class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
+                <button class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>
+                <button class="swatch" style="--c:#10B981" data-color="#10B981" title="Neon Green"></button>
+                <button class="swatch" style="--c:#FFFFFF" data-color="#FFFFFF" title="Pure White"></button>
+                <button class="swatch" style="--c:#FF8A00" data-color="#FF8A00" title="Orange"></button>
+              </div>
+            </div>
+
+            <!-- Font Family -->
+            <div class="control-card">
+              <div class="control-header">
+                <label>Font Family</label>
+              </div>
+              <select id="selectFont" class="styled-select">
+                <option value="Poppins" selected>Poppins (Bold Sans)</option>
+                <option value="Montserrat">Montserrat (Modern)</option>
+                <option value="Anton">Anton (Heavy Punch)</option>
+                <option value="Bangers">Bangers (Comic Pop)</option>
+                <option value="Bungee">Bungee (Blocky 3D)</option>
+                <option value="Inter">Inter (Clean Clean)</option>
+                <option value="Space Mono">Space Mono (Tech)</option>
+              </select>
+            </div>
+
+            <!-- Letter Casing -->
+            <div class="control-card">
+              <div class="control-header">
+                <label>Text Case</label>
+              </div>
+              <div class="btn-group" id="caseButtonGroup">
+                <button class="btn-toggle active" data-case="upper">ALL CAPS</button>
+                <button class="btn-toggle" data-case="normal">Normal</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- TAB 4: AUDIO -->
+        <div id="tabAudio" class="tab-pane hidden">
+          <div class="audio-panel">
+            <div class="control-card">
+              <div class="control-header">
+                <label>Original Video Volume</label>
+                <span id="valVidVol" class="val-badge">100%</span>
+              </div>
+              <input type="range" id="inputVidVol" min="0" max="150" value="100" class="styled-slider">
+            </div>
+
+            <div class="control-card">
+              <div class="control-header">
+                <label>Background Music (BGM)</label>
+              </div>
+              <div class="bgm-row">
+                <button id="btnAddBgm" class="btn-subaction">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                  <span>Upload MP3 / Audio</span>
+                </button>
+                <span id="bgmFilename" class="bgm-label">No music added</span>
+                <input type="file" id="bgmFileInput" accept="audio/*" class="file-input-hidden">
+              </div>
+              <div class="control-header" style="margin-top:12px;">
+                <label>BGM Volume</label>
+                <span id="valBgmVol" class="val-badge">30%</span>
+              </div>
+              <input type="range" id="inputBgmVol" min="0" max="100" value="30" class="styled-slider">
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+
+  <!-- ======================== MODAL 1: FULL TEMPLATE BROWSER ======================== -->
+  <div id="modalTemplates" class="modal-backdrop hidden">
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">All Caption Templates</h2>
+          <p class="modal-desc">Pick from 130+ viral designs. Tap any template to apply instantly.</p>
+        </div>
+        <button id="btnCloseTemplatesModal" class="btn-close">&times;</button>
+      </div>
+
+      <div class="modal-filter-bar">
+        <input type="text" id="templateSearchInput" class="search-input" placeholder="🔍 Search templates (e.g. yellow, pop, minimal, neon)...">
+      </div>
+
+      <div class="modal-body-scroll">
+        <div class="full-templates-grid" id="fullTemplatesGrid">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ======================== MODAL 2: SYNC SCRIPT ======================== -->
+  <div id="modalScript" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Sync Your Script</h2>
+        <button id="btnCloseScriptModal" class="btn-close">&times;</button>
+      </div>
+      <p class="modal-desc">Paste your written script. Our AI will align every word to your speech timestamps with 100% accuracy.</p>
+      <textarea id="modalScriptText" class="script-textarea" rows="8" placeholder="Paste your script here..."></textarea>
+      <div class="modal-footer">
+        <button id="btnCancelScript" class="btn-secondary">Cancel</button>
+        <button id="btnApplyScript" class="btn-primary">Apply & Sync Script</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ======================== MODAL 3: EXPORT VIDEO ======================== -->
+  <div id="modalExport" class="modal-backdrop hidden">
+    <div class="modal-card modal-export-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Export Captioned Video</h2>
+        <button id="btnCloseExportModal" class="btn-close">&times;</button>
+      </div>
+
+      <div id="exportWorkingState" class="export-state">
+        <div class="export-spinner"></div>
+        <h3 id="exportProgressText" class="export-status-title">Rendering video with captions...</h3>
+        <p id="exportProgressDetail" class="export-status-sub">Encoding high-definition MP4 with word animations.</p>
+        
+        <div class="progress-box" style="margin-top:16px;">
+          <div class="progress-label-row">
+            <span>Rendering Progress</span>
+            <span id="exportPercent">0%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div id="exportProgressBar" class="progress-bar-fill"></div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- MOONSHOT SUB-BAR & PLAYBACK CONTROLS -->
-    <div class="transport moonshot-transport" id="transport">
-      <div class="transport-drag-handle"></div>
-      <div class="transport-main-row">
-        <div class="transport-left-controls">
-          <button class="moonshot-play-btn" id="playBtn" type="button" disabled title="Play/Pause (Space)">
-            <svg id="playIcon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3l12 7-12 7V3z"/></svg>
-          </button>
-          <button class="transport-icon-btn" id="muteBtn" type="button" title="Mute/Unmute">
-            <svg id="muteIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-          </button>
-          <button class="moonshot-multi-pill on" id="multiToggleBtn" type="button" title="Toggle Multi-word or Single-word mode">
-            <span class="multi-dot"></span>
-            <span>Multi</span>
-          </button>
-          <span id="timeLbl" class="moonshot-timecode-pill" style="font-family:ui-monospace, monospace; font-size:11px; font-weight:700; color:#0f172a; border:1px solid #e2e8f0; border-radius:999px; padding:2px 8px; background:#f8fafc;">0:00.00 / 0:00.00</span>
+      <div id="exportDoneState" class="export-state hidden">
+        <div class="success-icon-badge">✓</div>
+        <h3 class="export-status-title">Your Video Is Ready!</h3>
+        <p class="export-status-sub">Captions baked in with full 1080p quality.</p>
+        
+        <div class="exported-preview-wrap">
+          <video id="exportPreviewVideo" controls playsinline></video>
         </div>
-        <div class="transport-right-controls">
-          <div class="moonshot-zoom-group">
-            <button class="m-zoom-btn" id="zoomOutBtn" type="button" title="Zoom Out">−</button>
-            <button class="m-zoom-btn" id="zoomInBtn" type="button" title="Zoom In">+</button>
-            <button class="m-zoom-fit-btn" id="zoomFitBtn" type="button" title="Fit to Screen">Fit</button>
-            <button class="m-zoom-btn" type="button" title="More">⌄</button>
-          </div>
+
+        <div class="export-actions">
+          <a id="btnDownloadExport" class="btn-download" download="captioned_video.mp4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download Video (MP4)
+          </a>
         </div>
       </div>
-      <div class="transport-sub-row">
-        <button class="section-style-btn" id="sectionStyleBtn" type="button" title="Choose Template / Style">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          <span>Section style</span>
-        </button>
+
+      <div id="exportErrorState" class="export-state hidden">
+        <div class="error-msg" id="exportErrorMessage">Export failed.</div>
+        <button id="btnRetryExport" class="btn-primary" style="margin-top:12px;">Retry Export</button>
       </div>
     </div>
-
-    <!-- MOONSHOT TIMELINE TRACK (DIRECTLY DOWNSIDE VIDEO) -->
-    <div class="timeline-panel moonshot-timeline-panel" id="timelinePanel">
-      <div class="tl-header-strip">
-        <span id="timeLblDesktop" class="moonshot-timecode-pill">0:00.00 / 0:00.00</span>
-      </div>
-      <div class="timeline" id="tl">
-        <div class="tl-track-labels">
-          <div class="tl-label">Words</div>
-          <div class="tl-label">A-roll</div>
-          <div class="tl-label">Graphics</div>
-          <div class="tl-label">Cuts</div>
-        </div>
-        <div class="tl-viewport" id="tlViewport">
-          <div class="tl-scrollable" id="tlScrollable">
-            <div class="track tr-caps"><div class="lane" id="laneCaps"></div></div>
-            <div class="track tr-aroll"><div class="lane" id="laneAroll"><div class="aroll-block"><span class="aroll-icon">🎞</span> A-roll</div></div></div>
-            <div class="track tr-graphics"><div class="lane" id="laneGraphics"></div></div>
-            <div class="track tr-cuts"><div class="lane" id="laneCuts"></div></div>
-            <div class="playhead" id="playhead"></div>
-          </div>
-        </div>
-      </div>
-      <div class="tl-footer-strip">
-        <button class="more-tracks-btn" id="moreTracksBtn" type="button">
-          <span>More tracks</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ========== RIGHT PANEL — PROPERTY INSPECTOR ========== -->
-  <aside class="right-panel" id="rightPanel">
-    <div class="inspector-header">
-      <h4 id="inspectorTitle">Properties</h4>
-    </div>
-
-    <!-- Empty state -->
-    <div id="inspectorEmpty" class="inspector-empty">
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" opacity="0.3"><rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" stroke-width="1.5"/><path d="M12 16h8M16 12v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      <span>Select an element on the canvas or timeline to edit its properties</span>
-    </div>
-
-    <!-- Fields shown when graphic is selected -->
-    <div id="inspectorFields" class="inspector-fields" style="display:none">
-      <div class="field-row">
-        <label class="field">Title <input type="text" id="inspTitle"></label>
-        <label class="field">Subtitle <input type="text" id="inspSubtitle"></label>
-      </div>
-      <div class="field-row">
-        <label class="field">Value <input type="text" id="inspValue"></label>
-        <label class="field">Label <input type="text" id="inspTag"></label>
-      </div>
-      <div class="field-row">
-        <label class="field">Position
-          <select id="inspPosition">
-            <option value="top_left">Top Left</option><option value="top_center">Top Center</option>
-            <option value="top_right">Top Right</option><option value="center">Center</option>
-            <option value="bottom_left">Bottom Left</option><option value="bottom_center">Bottom Center</option>
-            <option value="bottom_right">Bottom Right</option>
-          </select></label>
-        <label class="field">Enter Anim
-          <select id="inspEnterAnim">
-            <option value="fade_slide_down">Fade Slide ↓</option><option value="slide_right">Slide →</option>
-            <option value="scale_pop">Scale Pop</option><option value="slide_up">Slide ↑</option>
-          </select></label>
-      </div>
-      <div class="field-row">
-        <label class="field">Accent <input type="color" id="inspAccentColor"></label>
-        <label class="field">Bg Color <input type="color" id="inspBgColor" value="#0f172a"></label>
-      </div>
-      <div class="field-row">
-        <label class="field">Start (s) <input type="number" step="0.1" id="inspStartTime"></label>
-        <label class="field">End (s) <input type="number" step="0.1" id="inspEndTime"></label>
-      </div>
-      <button class="action-btn small danger" id="delGraphicBtn" type="button" disabled>Remove Element</button>
-    </div>
-  </aside>
-</main>
-</div> <!-- /editorWorkspace -->
-
-<!-- ============================================================ EXPORT MODAL -->
-<dialog id="exportDialog" class="export-dialog">
-  <div class="dialog-header">
-    <h3>Export Video</h3>
-    <button class="close-btn" id="closeExportDialog" type="button">&times;</button>
   </div>
-  <div id="expSummary" class="summary"></div>
-  <div class="field-row">
-    <label class="field">Export Engine
-      <select id="exportEngine">
-        <option value="ffmpeg" selected>⚡ Fast FFmpeg (recommended)</option>
-        <option value="remotion">✨ Remotion Premium (supported presets)</option>
-      </select></label>
-    <label class="field">Quality
-      <select id="exportQuality">
-        <option value="high">High quality</option>
-        <option value="balanced" selected>Balanced (recommended)</option>
-        <option value="fast">Fast</option>
-      </select></label>
-  </div>
-  <div class="field-row" id="formatRow">
-    <label class="field">Format
-      <select id="exportFormat">
-        <option value="mp4" selected>MP4 (H.264)</option><option value="webm">WebM (VP9)</option>
-      </select></label>
-  </div>
-  <button class="action-btn primary big" id="startExportBtn" type="button">&#x1F680; Start Export</button>
-  <div class="progress" id="prog" hidden><div class="pbar"><i id="pfill"></i></div><span id="pmsg" class="hint"></span></div>
-  <div id="result" hidden>
-    <video id="resVid" controls playsinline></video>
-    <a class="action-btn primary" id="dl" download="captioned_video.mp4">&#x2B07; Download</a>
-  </div>
-</dialog>
 
-<!-- AutoCaption Voiceover Script Sync Dialog -->
-<dialog id="scriptModal" class="autocaption-dialog">
-  <div class="dialog-header">
-    <div style="display:flex; align-items:center; gap:8px;">
-      <span style="font-size:20px;">✍️</span>
-      <h3 style="margin:0; font-size:16px; font-weight:800; color:#f8fafc;">Paste Voiceover Script</h3>
-    </div>
-    <button class="close-btn" id="closeScriptModal" type="button">&times;</button>
-  </div>
-  <p style="font-size:12px; color:#94a3b8; margin:8px 0 12px; line-height:1.4;">
-    Paste what you said in your voiceover. We will automatically align every word to the video with <b>100% precision &amp; zero missing words</b>!
-  </p>
-  <textarea id="scriptTextInput" placeholder="Example:
-Turn your ideas into real results.
-AutoCaption makes it fast and easy.
-Easily create engaging captions that grow your audience..." rows="8" style="width:100%; border-radius:10px; background:#0c0a18; color:#f8fafc; border:1px solid rgba(168,85,247,0.3); padding:12px; font-size:13px; font-family:inherit; line-height:1.5; resize:vertical;"></textarea>
-  <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
-    <button class="action-btn ghost" id="cancelScriptBtn" type="button">Cancel</button>
-    <button class="action-btn primary" id="btnSyncScriptSubmit" type="button" style="background:linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); font-weight:700;">
-      ✨ Auto-Sync to Video (100% Accurate)
-    </button>
-  </div>
-</dialog>
-
-
-<script src="/static/fx.js"></script>
-<script src="/static/app.js?v=2.24"></script>
+  <script src="/static/app.js?v=3.00"></script>
 </body>
 </html>
