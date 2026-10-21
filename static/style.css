@@ -4013,6 +4013,7 @@ input[type="color"]::-webkit-color-swatch {
 
   /* Center Panel / Video Stage Above */
   .center-panel {
+    order: 1 !important;
     flex: 0 0 auto !important;
     width: 100% !important;
     display: flex !important;
@@ -4073,6 +4074,7 @@ input[type="color"]::-webkit-color-swatch {
 
   /* Left Panel (Bottom Tabbed Mobile Workspace) */
   .left-panel {
+    order: 2 !important;
     width: 100% !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
@@ -4150,7 +4152,7 @@ input[type="color"]::-webkit-color-swatch {
   .timeline-panel {
     display: flex !important;
     flex-direction: column !important;
-    height: 110px !important;
+    height: 155px !important;
     flex-shrink: 0 !important;
     background: #0d0d1a !important;
     border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -4194,14 +4196,15 @@ input[type="color"]::-webkit-color-swatch {
   }
 
   .tl-label {
-    font-size: 9px !important;
-    padding-left: 4px !important;
-    height: 20px !important;
-    line-height: 20px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    padding-left: 6px !important;
+    height: 26px !important;
+    line-height: 26px !important;
   }
 
   .track {
-    height: 20px !important;
+    height: 26px !important;
   }
 
   .tl-ruler {
@@ -4209,8 +4212,9 @@ input[type="color"]::-webkit-color-swatch {
   }
 
   .blk {
-    font-size: 8px !important;
-    line-height: 16px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 22px !important;
   }
 
   /* Presets in mobile tab */
@@ -4618,7 +4622,7 @@ input[type="color"]::-webkit-color-swatch {
   border-radius: 14px 14px 0 0 !important;
   border-top: 1px solid #e2e8f0 !important;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12) !important;
-  height: 120px !important;
+  height: 155px !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -4752,3 +4756,20 @@ input[type="color"]::-webkit-color-swatch {
 
 
 
+
+
+/* Explicit User Overrides: Remove pro templates, gear btn, subbar, wave line */
+.stage-gear-btn,
+.stage-pro-template-badge,
+.moonshot-subbar,
+.tr-wave,
+.icon-wave,
+#laneWaveform,
+#waveformCanvas {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

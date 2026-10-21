@@ -24,7 +24,7 @@
 <meta property="twitter:description" content="Create viral animated captions with 31+ Sequence presets for Instagram Reels & YouTube Shorts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="/static/style.css?v=2.17">
+<link rel="stylesheet" href="/static/style.css?v=2.18">
 <link rel="stylesheet" href="/fonts.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Poppins:wght@500;700;800;900&family=Space+Mono:wght@700&display=swap">
 <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -68,16 +68,7 @@
             <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 3v2h2V7H6zm4 0v2h2V7h-2zm4 0v2h2V7h-2zm4 0v2h2V7h-2zM4 11v7h16v-7H4z"/>
           </svg>
         </div>
-        <div class="icon-wave">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="3" y="10" width="2.5" height="4" rx="1"/>
-            <rect x="7" y="6" width="2.5" height="12" rx="1"/>
-            <rect x="11" y="2" width="2.5" height="20" rx="1"/>
-            <rect x="15" y="7" width="2.5" height="10" rx="1"/>
-            <rect x="19" y="9" width="2.5" height="6" rx="1"/>
-          </svg>
         </div>
-      </div>
 
       <h2 class="hero-drop-title">Drop your video or audio</h2>
 
@@ -172,45 +163,24 @@
 <!-- ============================================================ EDITOR WORKSPACE (SHOWN AFTER VIDEO UPLOAD) -->
 <div id="editorWorkspace" class="editor-workspace" style="display:none">
 
-<!-- ============================================================ TOP TOOLBAR (MOONSHOT STYLE) -->
-<header class="toolbar moonshot-toolbar" id="toolbar">
-  <div class="toolbar-left">
-    <button class="moonshot-orb-btn" id="btnBackToLanding" type="button" title="Back to Templates & Upload">
+<!-- ============================================================ CLEAN TOP TOOLBAR -->
+<header class="toolbar moonshot-toolbar" id="toolbar" style="height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background:#0a0a14; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0;">
+  <div class="toolbar-left" style="display:flex; align-items:center; gap:8px;">
+    <button class="moonshot-orb-btn" id="btnBackToLanding" type="button" title="Back to Upload">
       <span class="moonshot-orb-icon"></span>
     </button>
+    <span style="font-weight:700; font-size:13px; color:#e2e8f0; letter-spacing:0.02em;">hlocaptions</span>
   </div>
-  <div class="toolbar-center">
-    <div class="aspect-group" id="aspectBar">
-      <button class="aspect-btn on" data-aspect="original" type="button" title="Original aspect ratio">Auto</button>
-      <button class="aspect-btn" data-aspect="9:16" type="button" title="9:16 Vertical">9:16</button>
-      <button class="aspect-btn" data-aspect="16:9" type="button" title="16:9 Horizontal">16:9</button>
-      <button class="aspect-btn" data-aspect="1:1" type="button" title="1:1 Square">1:1</button>
-    </div>
+  <div class="toolbar-center" style="display:flex; align-items:center; justify-content:center;">
+    <span id="notice" class="notice-inline" role="status" style="font-size:11px; color:#94a3b8; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Ready</span>
   </div>
-  <div class="toolbar-right">
-    <div class="moonshot-undo-pill">
-      <button class="tb-btn icon-only" id="btnUndo" type="button" title="Undo (Ctrl+Z)" disabled>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
-      </button>
-      <button class="tb-btn icon-only" id="btnRedo" type="button" title="Redo (Ctrl+Y)" disabled>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/></svg>
-      </button>
-    </div>
-    <button class="tb-btn icon-only magic-sparkle-btn" id="btnAiMagicTop" type="button" title="Auto Edit / AI Magic">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
-    </button>
-    <button class="tb-btn primary export-square-btn" id="exportBtn" type="button" disabled title="Export Video">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>
+  <div class="toolbar-right" style="display:flex; align-items:center; gap:6px;">
+    <button class="tb-btn primary export-square-btn" id="exportBtn" type="button" disabled title="Export Video" style="height:32px; padding:0 14px; font-weight:700; font-size:12px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>
+      <span>Export</span>
     </button>
   </div>
 </header>
-
-<!-- MOONSHOT SUB-STATUS -->
-<div class="moonshot-subbar">
-  <span class="preview-dot"></span>
-  <span class="preview-text">Low-res preview</span>
-  <span id="notice" class="notice-inline" role="status">Ready</span>
-</div>
 
 <!-- ============================================================ MAIN EDITOR -->
 <main class="editor" id="editorMain">
@@ -601,17 +571,6 @@
         <canvas id="captionCanvas" class="caption-canvas caption-canvas-foreground"></canvas>
         <div id="capbox" class="capbox capbox-foreground"></div>
 
-        <!-- Floating Stage Gear Settings Button (Top-Right) -->
-        <button class="stage-gear-btn" id="stageSettingsBtn" type="button" title="Settings &amp; Layout">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </button>
-
-        <!-- Floating Pro Template Badge (Bottom-Center of Video) -->
-        <div class="stage-pro-template-badge" id="stageProBadge">
-          <span class="pro-crown-icon">👑</span>
-          <span id="stageBadgeText">Pro template</span>
-        </div>
-
         <!-- Safe zone guides -->
         <div id="safeZoneGuides" class="safe-zone-guides" hidden>
           <div class="sz-top-bar"><span>Header (12%)</span></div>
@@ -685,7 +644,6 @@
         <div class="tl-track-labels">
           <div class="tl-label">Words</div>
           <div class="tl-label">A-roll</div>
-          <div class="tl-label">Wave</div>
           <div class="tl-label">Graphics</div>
           <div class="tl-label">Cuts</div>
         </div>
@@ -693,7 +651,6 @@
           <div class="tl-scrollable" id="tlScrollable">
             <div class="track tr-caps"><div class="lane" id="laneCaps"></div></div>
             <div class="track tr-aroll"><div class="lane" id="laneAroll"><div class="aroll-block"><span class="aroll-icon">🎞</span> A-roll</div></div></div>
-            <div class="track tr-wave"><div class="lane" id="laneWaveform"><canvas id="waveformCanvas"></canvas></div></div>
             <div class="track tr-graphics"><div class="lane" id="laneGraphics"></div></div>
             <div class="track tr-cuts"><div class="lane" id="laneCuts"></div></div>
             <div class="playhead" id="playhead"></div>
@@ -794,6 +751,6 @@
 </dialog>
 
 <script src="/static/fx.js"></script>
-<script src="/static/app.js?v=2.17"></script>
+<script src="/static/app.js?v=2.18"></script>
 </body>
 </html>

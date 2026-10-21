@@ -954,15 +954,15 @@ def transcribe():
         except Exception as exc:
             transcription_notes.append(f"Local Whisper failed ({type(exc).__name__}).")
 
-    # 2. High-Accuracy Hinglish & Multi-Language Speech Engine
+    # 2. High-Accuracy Hinglish & Multi-Language Voiceover Speech Engine
     if not words and module_ok("speech_recognition"):
         wav_path = WORK / f"{name}_speech.wav"
         try:
-            # Extract vocal track with loudness normalization and bandpass filtering
+            # Extract vocal track with dynamic audio normalization, voice frequency pass & clarity gain
             try:
                 subprocess.run([
                     ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
-                    "-af", "loudnorm=I=-16:TP=-1.5:LRA=11,highpass=f=60,lowpass=f=7500",
+                    "-af", "dynaudnorm=f=75:g=15:m=10.0,highpass=f=80,lowpass=f=7500,volume=1.6",
                     "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_path)
                 ], capture_output=True, check=True)
             except Exception:
@@ -979,52 +979,33 @@ def transcribe():
             total_frames = wf.getnframes()
             total_dur = max(0.5, total_frames / float(framerate))
 
-            # Detect natural speech pauses to cleanly segment without cutting words in half
-            silence_cmd = [ffmpeg_path(), "-i", str(wav_path), "-af", "silencedetect=n=-32dB:d=0.18", "-f", "null", "-"]
-            res_sil = subprocess.run(silence_cmd, capture_output=True, text=True, errors="ignore")
-            starts = [float(m) for m in re.findall(r"silence_start:\s*([0-9.]+)", res_sil.stderr)]
-            ends = [float(m) for m in re.findall(r"silence_end:\s*([0-9.]+)", res_sil.stderr)]
-
-            cut_points = []
-            for s, e in zip(starts, ends):
-                cut_points.append(round((s + e) / 2.0, 2))
-
-            # Build segments between 3.0s and 9.5s (stay within Google limit and natural pauses)
+            # Sweet-spot 4.2-second chunking for Google Voice API (chunks > 7s fail or get dropped)
+            chunk_len = 4.2
+            num_chunks = math.ceil(total_dur / chunk_len)
             segments = []
-            cur_start = 0.0
-            for cp in cut_points:
-                if cp - cur_start >= 3.0:
-                    if cp - cur_start > 10.0:
-                        sub = cur_start
-                        while cp - sub > 9.0:
-                            segments.append((round(sub, 2), round(sub + 8.0, 2)))
-                            sub += 8.0
-                        segments.append((round(sub, 2), round(cp, 2)))
-                    else:
-                        segments.append((round(cur_start, 2), round(cp, 2)))
-                    cur_start = cp
-
-            if total_dur - cur_start > 0.4:
-                sub = cur_start
-                while total_dur - sub > 9.0:
-                    segments.append((round(sub, 2), round(sub + 8.0, 2)))
-                    sub += 8.0
-                if sub < total_dur:
-                    segments.append((round(sub, 2), round(total_dur, 2)))
-
-            if not segments:
-                chunk_len = 8.0
-                num_chunks = math.ceil(total_dur / chunk_len)
-                for i in range(num_chunks):
-                    s = i * chunk_len
-                    e = min(total_dur, (i + 1) * chunk_len)
-                    segments.append((round(s, 2), round(e, 2)))
+            for i in range(num_chunks):
+                s = round(i * chunk_len, 2)
+                e = round(min(total_dur, (i + 1) * chunk_len), 2)
+                if e - s >= 0.3:
+                    segments.append((s, e))
 
             r = sr.Recognizer()
-            r.energy_threshold = 260
+            r.energy_threshold = 70
             r.dynamic_energy_threshold = True
 
-            def transcribe_segment(seg_start, seg_end, primary_lang):
+            # Determine cascading language list for voiceover recognition
+            if is_hinglish:
+                cascade_langs = ["hi-IN", "en-IN", "en-US"]
+            elif recognition_lang in ("en-in", "en-IN"):
+                cascade_langs = ["en-IN", "en-US", "hi-IN"]
+            elif recognition_lang in ("en", "en-us", "en-US", "english"):
+                cascade_langs = ["en-US", "en-GB", "en-IN"]
+            elif recognition_lang in ("hi", "hi-in", "hi-IN", "hindi"):
+                cascade_langs = ["hi-IN", "en-IN"]
+            else:
+                cascade_langs = [recognition_lang, "en-US", "en-IN"]
+
+            def transcribe_segment(seg_start, seg_end):
                 seg_len = seg_end - seg_start
                 if seg_len < 0.25:
                     return []
@@ -1038,15 +1019,13 @@ def transcribe():
                 audio_chunk = sr.AudioData(raw_bytes, framerate, 2)
 
                 txt = None
-                try:
-                    txt = r.recognize_google(audio_chunk, language=primary_lang)
-                except Exception:
-                    # If primary language had UnknownValueError and user wanted Hinglish, try Indian English fallback
-                    if is_hinglish and primary_lang != "en-IN":
-                        try:
-                            txt = r.recognize_google(audio_chunk, language="en-IN")
-                        except Exception:
-                            pass
+                for lang_code in cascade_langs:
+                    try:
+                        txt = r.recognize_google(audio_chunk, language=lang_code)
+                        if txt and txt.strip():
+                            break
+                    except Exception:
+                        continue
 
                 if not txt:
                     return []
@@ -1054,38 +1033,10 @@ def transcribe():
                 raw_tokens = [t.strip() for t in txt.split() if t.strip()]
                 seg_words = []
                 if raw_tokens:
-                    # Detect active speech onset/offset within segment using RMS energy
                     active_start = seg_start
                     active_end = seg_end
-                    frame_samples = int(framerate * 0.05)  # 50ms frames
-                    total_samples = len(raw_bytes) // 2
-                    if total_samples > frame_samples * 4:
-                        try:
-                            samples = struct.unpack(f"<{total_samples}h", raw_bytes[:total_samples * 2])
-                            frame_rms = []
-                            for fi in range(0, total_samples, frame_samples):
-                                sub = samples[fi:fi + frame_samples]
-                                if sub:
-                                    rms = math.sqrt(sum(s * s for s in sub) / len(sub))
-                                    frame_rms.append(rms)
-                                else:
-                                    frame_rms.append(0)
-                            max_rms = max(frame_rms) if frame_rms else 0
-                            thresh = max(180.0, max_rms * 0.14)
-                            active_idx = [idx for idx, val in enumerate(frame_rms) if val >= thresh]
-                            if active_idx:
-                                first_sec = (active_idx[0] * frame_samples) / framerate
-                                last_sec = (min(len(frame_rms), active_idx[-1] + 1) * frame_samples) / framerate
-                                speech_s = max(seg_start, round(seg_start + first_sec - 0.10, 3))
-                                speech_e = min(seg_end, round(seg_start + last_sec + 0.10, 3))
-                                if speech_e > speech_s + 0.3:
-                                    active_start = speech_s
-                                    active_end = speech_e
-                        except Exception:
-                            pass
-                    active_len = active_end - active_start
+                    active_len = max(0.2, active_end - active_start)
 
-                    # Allocate timings weighted by length strictly to active speech window
                     weights = [max(1, len(re.sub(r"[^\w']", "", tok))) ** 0.72 for tok in raw_tokens]
                     total_weight = sum(weights) or len(raw_tokens)
                     cursor = 0.0
@@ -1094,7 +1045,6 @@ def transcribe():
                         cursor += active_len * weights[j] / total_weight
                         w_end = round(active_start + min(active_len, cursor), 3)
 
-                        # Clean & transliterate Devanagari to clean Roman Hinglish
                         final_token = tok
                         if is_hinglish and hinglish.is_devanagari(tok):
                             final_token = hinglish.devanagari_to_hinglish(tok)
@@ -1103,24 +1053,15 @@ def transcribe():
                 return seg_words
 
             for seg_start, seg_end in segments:
-                res_words = transcribe_segment(seg_start, seg_end, recognition_lang)
+                res_words = transcribe_segment(seg_start, seg_end)
                 if res_words:
                     words.extend(res_words)
-
-            # If Hinglish returned 0 words (e.g. video was pure English), try en-US pass
-            if not words and is_hinglish:
-                for seg_start, seg_end in segments:
-                    res_words = transcribe_segment(seg_start, seg_end, "en-US")
-                    if res_words:
-                        words.extend(res_words)
-                if words:
-                    detected_lang = "English (Detected)"
 
             wf.close()
             wav_path.unlink(missing_ok=True)
 
             if words:
-                transcription_engine = "Google Speech AI"
+                transcription_engine = "Google Voice AI"
         except Exception as exc:
             if 'wav_path' in locals() and wav_path.exists():
                 wav_path.unlink(missing_ok=True)

@@ -1601,30 +1601,7 @@ function renderRuler(D) {
 }
 
 function drawWaveform() {
-  const canvas = $('waveformCanvas');
-  if (!canvas) return;
-  const w = canvas.offsetWidth || 800;
-  const h = canvas.offsetHeight || 32;
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, w, h);
-  const D = dur();
-  if (!D || D <= 0) return;
-
-  const bars = Math.floor(w / 3);
-  ctx.fillStyle = '#38bdf8';
-  for (let i = 0; i < bars; i++) {
-    const t = (i / bars) * D;
-    // Check if within active speech/caption
-    const isSpeech = S.captions.some(c => t >= c.start && t <= c.end);
-    let amp = isSpeech ? 0.35 + 0.55 * Math.abs(Math.sin(i * 0.4) * Math.cos(i * 0.2)) : 0.08 + 0.06 * Math.sin(i);
-    const bh = Math.max(3, amp * (h - 6));
-    const bx = i * 3;
-    const by = (h - bh) / 2;
-    ctx.globalAlpha = isSpeech ? 0.75 : 0.2;
-    ctx.fillRect(bx, by, 2, bh);
-  }
-  ctx.globalAlpha = 1.0;
+  // Waveform track removed per user request for clean, clutter-free timeline
 }
 
 let tlDrag = null; // { type: 'left'|'right'|'move', cap, startX, origStart, origEnd, width }
@@ -1636,7 +1613,6 @@ function renderTimeline() {
   if (!D || D <= 0) return;
 
   renderRuler(D);
-  drawWaveform();
 
   // Update enable states of timeline buttons
   if ($('splitCapBtn')) $('splitCapBtn').disabled = !S.captions.length;
