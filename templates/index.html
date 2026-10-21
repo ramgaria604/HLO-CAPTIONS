@@ -24,7 +24,7 @@
 <meta property="twitter:description" content="Create viral animated captions with 31+ Sequence presets for Instagram Reels & YouTube Shorts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="/static/style.css?v=2.13">
+<link rel="stylesheet" href="/static/style.css?v=2.14">
 <link rel="stylesheet" href="/fonts.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Poppins:wght@500;700;800;900&family=Space+Mono:wght@700&display=swap">
 <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -569,6 +569,49 @@
       <label class="check small"><input type="checkbox" id="prevCuts"> Preview cuts</label>
       <label class="check small"><input type="checkbox" id="snapToggle" checked> Snap</label>
     </div>
+
+    <!-- Timeline Track (Directly downside video & transport) -->
+    <div class="timeline-panel" id="timelinePanel">
+      <div class="tl-toolbar">
+        <div class="tl-tools">
+          <button class="tl-btn" id="tlUndoBtn" type="button" disabled title="Undo (Ctrl+Z)">↩ Undo</button>
+          <button class="tl-btn" id="tlRedoBtn" type="button" disabled title="Redo (Ctrl+Y)">↪ Redo</button>
+          <button class="tl-btn" id="splitCapBtn" type="button" disabled title="Split (S)">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M3 5l4 2-4 2M11 5l-4 2 4 2" stroke="currentColor" stroke-width="1.2"/></svg>
+            Split
+          </button>
+          <button class="tl-btn" id="addCapTlBtn" type="button" disabled>+ Caption</button>
+          <button class="tl-btn danger" id="delCapBtn" type="button" disabled>Delete</button>
+        </div>
+        <div class="tl-zoom">
+          <button class="zoom-btn" id="zoomOutBtn" type="button">−</button>
+          <input type="range" id="tlZoom" min="1" max="5" step="0.25" value="1" title="Timeline Zoom">
+          <button class="zoom-btn" id="zoomInBtn" type="button">+</button>
+          <button class="zoom-btn" id="zoomFitBtn" type="button" title="Fit">Fit</button>
+        </div>
+      </div>
+      <div class="timeline" id="tl">
+        <div class="tl-track-labels">
+          <div class="tl-label">Ruler</div>
+          <div class="tl-label">Audio</div>
+          <div class="tl-label">Captions</div>
+          <div class="tl-label">Graphics</div>
+          <div class="tl-label">Cuts</div>
+          <div class="tl-label">B-roll</div>
+        </div>
+        <div class="tl-viewport" id="tlViewport">
+          <div class="tl-scrollable" id="tlScrollable">
+            <div class="tl-ruler" id="tlRuler"></div>
+            <div class="track tr-wave"><div class="lane" id="laneWaveform"><canvas id="waveformCanvas"></canvas></div></div>
+            <div class="track tr-caps"><div class="lane" id="laneCaps"></div></div>
+            <div class="track tr-graphics"><div class="lane" id="laneGraphics"></div></div>
+            <div class="track tr-cuts"><div class="lane" id="laneCuts"></div></div>
+            <div class="track tr-broll"><div class="lane" id="laneBroll"></div></div>
+            <div class="playhead" id="playhead"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ========== RIGHT PANEL — PROPERTY INSPECTOR ========== -->
@@ -619,48 +662,6 @@
     </div>
   </aside>
 </main>
-
-<!-- ============================================================ BOTTOM — TIMELINE -->
-<div class="timeline-panel" id="timelinePanel">
-  <div class="tl-toolbar">
-    <div class="tl-tools">
-      <button class="tl-btn" id="tlUndoBtn" type="button" disabled title="Undo (Ctrl+Z)">↩ Undo</button>
-      <button class="tl-btn" id="tlRedoBtn" type="button" disabled title="Redo (Ctrl+Y)">↪ Redo</button>
-      <button class="tl-btn" id="splitCapBtn" type="button" disabled title="Split (S)">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M3 5l4 2-4 2M11 5l-4 2 4 2" stroke="currentColor" stroke-width="1.2"/></svg>
-        Split
-      </button>
-      <button class="tl-btn" id="addCapTlBtn" type="button" disabled>+ Caption</button>
-      <button class="tl-btn danger" id="delCapBtn" type="button" disabled>Delete</button>
-    </div>
-    <div class="tl-zoom">
-      <button class="zoom-btn" id="zoomOutBtn" type="button">−</button>
-      <input type="range" id="tlZoom" min="1" max="5" step="0.25" value="1" title="Timeline Zoom">
-      <button class="zoom-btn" id="zoomInBtn" type="button">+</button>
-      <button class="zoom-btn" id="zoomFitBtn" type="button" title="Fit">Fit</button>
-    </div>
-  </div>
-  <div class="timeline" id="tl">
-    <div class="tl-track-labels">
-      <div class="tl-label">Ruler</div>
-      <div class="tl-label">Audio</div>
-      <div class="tl-label">Captions</div>
-      <div class="tl-label">Graphics</div>
-      <div class="tl-label">Cuts</div>
-      <div class="tl-label">B-roll</div>
-    </div>
-    <div class="tl-viewport" id="tlViewport">
-      <div class="tl-scrollable" id="tlScrollable">
-        <div class="tl-ruler" id="tlRuler"></div>
-        <div class="track tr-wave"><div class="lane" id="laneWaveform"><canvas id="waveformCanvas"></canvas></div></div>
-        <div class="track tr-caps"><div class="lane" id="laneCaps"></div></div>
-        <div class="track tr-graphics"><div class="lane" id="laneGraphics"></div></div>
-        <div class="track tr-cuts"><div class="lane" id="laneCuts"></div></div>
-        <div class="track tr-broll"><div class="lane" id="laneBroll"></div></div>
-        <div class="playhead" id="playhead"></div>
-      </div>
-    </div>
-</div>
 </div> <!-- /editorWorkspace -->
 
 <!-- ============================================================ EXPORT MODAL -->
@@ -698,6 +699,6 @@
 </dialog>
 
 <script src="/static/fx.js"></script>
-<script src="/static/app.js?v=2.13"></script>
+<script src="/static/app.js?v=2.14"></script>
 </body>
 </html>

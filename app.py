@@ -949,11 +949,21 @@ def transcribe():
     if not words and module_ok("speech_recognition"):
         wav_path = WORK / f"{name}_speech.wav"
         try:
-            subprocess.run([ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn", "-acodec", "pcm_s16le",
-                            "-ar", "16000", "-ac", "1", str(wav_path)],
-                           capture_output=True, check=True)
+            # Extract vocal track with loudness normalization and bandpass filtering
+            try:
+                subprocess.run([
+                    ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
+                    "-af", "loudnorm=I=-16:TP=-1.5:LRA=11,highpass=f=60,lowpass=f=7500",
+                    "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_path)
+                ], capture_output=True, check=True)
+            except Exception:
+                subprocess.run([
+                    ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
+                    "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_path)
+                ], capture_output=True, check=True)
+
             import speech_recognition as sr
-            import wave, math
+            import wave, math, struct
 
             wf = wave.open(str(wav_path), "rb")
             framerate = wf.getframerate()
@@ -1035,14 +1045,45 @@ def transcribe():
                 raw_tokens = [t.strip() for t in txt.split() if t.strip()]
                 seg_words = []
                 if raw_tokens:
-                    # Allocate timings weighted by length
+                    # Detect active speech onset/offset within segment using RMS energy
+                    active_start = seg_start
+                    active_end = seg_end
+                    frame_samples = int(framerate * 0.05)  # 50ms frames
+                    total_samples = len(raw_bytes) // 2
+                    if total_samples > frame_samples * 4:
+                        try:
+                            samples = struct.unpack(f"<{total_samples}h", raw_bytes[:total_samples * 2])
+                            frame_rms = []
+                            for fi in range(0, total_samples, frame_samples):
+                                sub = samples[fi:fi + frame_samples]
+                                if sub:
+                                    rms = math.sqrt(sum(s * s for s in sub) / len(sub))
+                                    frame_rms.append(rms)
+                                else:
+                                    frame_rms.append(0)
+                            max_rms = max(frame_rms) if frame_rms else 0
+                            thresh = max(180.0, max_rms * 0.14)
+                            active_idx = [idx for idx, val in enumerate(frame_rms) if val >= thresh]
+                            if active_idx:
+                                first_sec = (active_idx[0] * frame_samples) / framerate
+                                last_sec = (min(len(frame_rms), active_idx[-1] + 1) * frame_samples) / framerate
+                                speech_s = max(seg_start, round(seg_start + first_sec - 0.10, 3))
+                                speech_e = min(seg_end, round(seg_start + last_sec + 0.10, 3))
+                                if speech_e > speech_s + 0.3:
+                                    active_start = speech_s
+                                    active_end = speech_e
+                        except Exception:
+                            pass
+                    active_len = active_end - active_start
+
+                    # Allocate timings weighted by length strictly to active speech window
                     weights = [max(1, len(re.sub(r"[^\w']", "", tok))) ** 0.72 for tok in raw_tokens]
                     total_weight = sum(weights) or len(raw_tokens)
                     cursor = 0.0
                     for j, tok in enumerate(raw_tokens):
-                        w_start = round(seg_start + cursor, 3)
-                        cursor += seg_len * weights[j] / total_weight
-                        w_end = round(seg_start + min(seg_len, cursor), 3)
+                        w_start = round(active_start + cursor, 3)
+                        cursor += active_len * weights[j] / total_weight
+                        w_end = round(active_start + min(active_len, cursor), 3)
 
                         # Clean & transliterate Devanagari to clean Roman Hinglish
                         final_token = tok

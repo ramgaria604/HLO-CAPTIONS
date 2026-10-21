@@ -96,7 +96,25 @@ COMMON_WORDS = {
     'ऑप्शन': 'option', 'ऑप्शंस': 'options', 'सेटिंग्स': 'settings', 'सेटिंग': 'setting',
     'बात': 'baat', 'काम': 'kaam', 'नाम': 'naam', 'दिन': 'din', 'साल': 'saal', 'समय': 'samay', 'टाइम': 'time',
     'तरह': 'tarah', 'जगह': 'jagah', 'तरीका': 'tareeka', 'तरीके': 'tareeke',
-    'कमाल': 'kamaal', 'वायरल': 'viral', 'क्रेजी': 'crazy', 'सुपर': 'super', 'बेस्ट': 'best'
+    'कमाल': 'kamaal', 'वायरल': 'viral', 'क्रेजी': 'crazy', 'सुपर': 'super', 'बेस्ट': 'best',
+    'चला': 'chala', 'चले': 'chale', 'चली': 'chali', 'चल': 'chal', 'चलना': 'chalna', 'चलाना': 'chalana',
+    'बड़ा': 'bada', 'बड़ी': 'badi', 'बड़े': 'bade',
+    'छोटा': 'chhota', 'छोटी': 'chhoti', 'छोटे': 'chhote',
+    'लगा': 'laga', 'लगी': 'lagi', 'लगे': 'lage',
+    'पता': 'pata', 'हवा': 'hawa', 'दवा': 'dawa',
+    'दिखा': 'dikha', 'दिखाया': 'dikhaya', 'दिखे': 'dikhe', 'दिखना': 'dikhna',
+    'सिखा': 'sikha', 'सिखाया': 'sikhaya', 'सीख': 'seekh', 'सीखो': 'seekho',
+    'बना': 'bana', 'बनाओ': 'banao', 'बनाया': 'banaya', 'बनाना': 'banana', 'बनाने': 'banane',
+    'बता': 'bata', 'बताओ': 'batao', 'बताया': 'bataya', 'बताना': 'batana',
+    'रखा': 'rakha', 'रखो': 'rakho', 'रखना': 'rakhna',
+    'शुरू': 'shuru', 'खत्म': 'khatam', 'वापस': 'wapas',
+    'वाला': 'wala', 'वाली': 'wali', 'वाले': 'wale',
+    'ऐसा': 'aisa', 'ऐसी': 'aisi', 'ऐसे': 'aise',
+    'वैसा': 'waisa', 'वैसी': 'waisi', 'वैसे': 'waise',
+    'खुद': 'khud', 'सबको': 'sabko', 'सबके': 'sabke',
+    'क्लिक': 'click', 'बटन': 'button', 'डाउनलोड': 'download',
+    'ऑडियो': 'audio', 'साउंड': 'sound', 'इफेक्ट': 'effect', 'इफेक्ट्स': 'effects',
+    'टेम्पलेट': 'template', 'फॉन्ट': 'font', 'स्टाइल': 'style'
 }
 
 # Phonetic character tables
@@ -121,7 +139,8 @@ CONSONANTS = {
     'य': 'y', 'र': 'r', 'ल': 'l', 'व': 'v',
     'श': 'sh', 'ष': 'sh', 'स': 's', 'ह': 'h',
     'क्ष': 'ksh', 'त्र': 'tr', 'ज्ञ': 'gya', 'श्र': 'shr',
-    'क़': 'q', 'ख़': 'kh', 'ग़': 'gh', 'ज़': 'z', 'ड़': 'r', 'ढ़': 'rh', 'फ़': 'f'
+    'क़': 'q', 'ख़': 'kh', 'ग़': 'gh', 'ज़': 'z', 'ड़': 'd', 'ढ़': 'dh', 'फ़': 'f',
+    '\u0958': 'q', '\u0959': 'kh', '\u095a': 'gh', '\u095b': 'z', '\u095c': 'd', '\u095d': 'dh', '\u095e': 'f'
 }
 
 HALANT = '्'
@@ -140,14 +159,23 @@ def is_devanagari(text):
 
 def phonetic_word_to_hinglish(word):
     """Phonetically transliterates a Devanagari word with Hindi schwa deletion."""
-    # Pre-normalize nukta character combinations
-    word = (word.replace('क' + NUKTA, 'क़')
-                .replace('ख' + NUKTA, 'ख़')
-                .replace('ग' + NUKTA, 'ग़')
-                .replace('ज' + NUKTA, 'ज़')
-                .replace('ड' + NUKTA, 'ड़')
-                .replace('ढ' + NUKTA, 'ढ़')
-                .replace('फ' + NUKTA, 'फ़'))
+    # Pre-normalize nukta character combinations to single canonical forms
+    word = (word.replace('क' + NUKTA, '\u0958')
+                .replace('ख' + NUKTA, '\u0959')
+                .replace('ग' + NUKTA, '\u095a')
+                .replace('ज' + NUKTA, '\u095b')
+                .replace('ड' + NUKTA, '\u095c')
+                .replace('ढ' + NUKTA, '\u095d')
+                .replace('फ' + NUKTA, '\u095e')
+                .replace('क़', '\u0958')
+                .replace('ख़', '\u0959')
+                .replace('ग़', '\u095a')
+                .replace('ज़', '\u095b')
+                .replace('ड़', '\u095c')
+                .replace('ढ़', '\u095d')
+                .replace('फ़', '\u095e'))
+    # Clean any remaining stray nukta codepoints
+    word = word.replace(NUKTA, '')
 
     chars = list(word)
     n = len(chars)
@@ -175,17 +203,22 @@ def phonetic_word_to_hinglish(word):
                 out.append('ah')
                 i += 2
             else:
-                # Schwa deletion: terminal consonant in modern Hindi does not pronounce inherent 'a'
+                # Schwa deletion:
+                # 1. At word boundary (terminal consonant), modern Hindi drops inherent 'a' (e.g. kam, kar, bol).
+                # 2. At initial consonant (i == 0), inherent 'a' is ALWAYS preserved before another consonant!
+                #    e.g. 'चला' -> chala, 'लगा' -> laga, 'बड़ा' -> bada, 'पता' -> pata, 'नया' -> naya.
+                # 3. For medial consonants (i > 0) when followed by a consonant + matra (syllable boundary),
+                #    schwa is deleted (e.g. 'करता' -> k-a-r-t-a, 'लगता' -> l-a-g-t-a, 'सकता' -> s-a-k-t-a).
                 is_last = (i == n - 1)
-                # Keep 'a' between consonants if not at word boundary
                 if not is_last and next_c in CONSONANTS:
-                    # Check if the next consonant is followed by halant or matra
                     next2_c = chars[i + 2] if i + 2 < n else ''
                     if next2_c == HALANT:
                         out.append('a')
                     elif next2_c in MATRAS:
-                        # e.g., 'करता' -> k-a-r-t-a (r has no inherent vowel before ta)
-                        pass
+                        if i == 0:
+                            out.append('a')  # Initial consonant always keeps inherent 'a'
+                        else:
+                            pass  # Medial schwa deletion before matra
                     else:
                         out.append('a')
                 i += 1
