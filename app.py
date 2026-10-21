@@ -979,31 +979,31 @@ def transcribe():
             total_frames = wf.getnframes()
             total_dur = max(0.5, total_frames / float(framerate))
 
-            # Sweet-spot 4.2-second chunking for Google Voice API (chunks > 7s fail or get dropped)
-            chunk_len = 4.2
-            num_chunks = math.ceil(total_dur / chunk_len)
+            # Keep the online fallback in a single selected language; language
+            # cascades can silently accept a wrong-language guess for Hinglish.
+            # Modest overlap helps avoid clipping a word at a chunk boundary.
+            chunk_len = 5.8
+            overlap = 0.25
+            step = chunk_len - overlap
             segments = []
-            for i in range(num_chunks):
-                s = round(i * chunk_len, 2)
-                e = round(min(total_dur, (i + 1) * chunk_len), 2)
+            s = 0.0
+            while s < total_dur:
+                e = min(total_dur, s + chunk_len)
+                # Fold a tiny trailing remainder into this chunk rather than
+                # sending Google a mostly-overlap fragment with no context.
+                if 0 < total_dur - e < 1.2:
+                    e = total_dur
                 if e - s >= 0.3:
-                    segments.append((s, e))
+                    segments.append((round(s, 2), round(e, 2)))
+                if e >= total_dur:
+                    break
+                s += step
 
             r = sr.Recognizer()
             r.energy_threshold = 70
             r.dynamic_energy_threshold = True
 
-            # Determine cascading language list for voiceover recognition
-            if is_hinglish:
-                cascade_langs = ["hi-IN", "en-IN", "en-US"]
-            elif recognition_lang in ("en-in", "en-IN"):
-                cascade_langs = ["en-IN", "en-US", "hi-IN"]
-            elif recognition_lang in ("en", "en-us", "en-US", "english"):
-                cascade_langs = ["en-US", "en-GB", "en-IN"]
-            elif recognition_lang in ("hi", "hi-in", "hi-IN", "hindi"):
-                cascade_langs = ["hi-IN", "en-IN"]
-            else:
-                cascade_langs = [recognition_lang, "en-US", "en-IN"]
+            google_lang = recognition_lang or "en-US"
 
             def transcribe_segment(seg_start, seg_end):
                 seg_len = seg_end - seg_start
@@ -1018,14 +1018,12 @@ def transcribe():
                 raw_bytes = wf.readframes(num_frames)
                 audio_chunk = sr.AudioData(raw_bytes, framerate, 2)
 
-                txt = None
-                for lang_code in cascade_langs:
-                    try:
-                        txt = r.recognize_google(audio_chunk, language=lang_code)
-                        if txt and txt.strip():
-                            break
-                    except Exception:
-                        continue
+                try:
+                    txt = r.recognize_google(audio_chunk, language=google_lang)
+                except sr.UnknownValueError:
+                    return []
+                except sr.RequestError as exc:
+                    raise RuntimeError("Online speech recognition is unavailable") from exc
 
                 if not txt:
                     return []
@@ -1055,7 +1053,14 @@ def transcribe():
             for seg_start, seg_end in segments:
                 res_words = transcribe_segment(seg_start, seg_end)
                 if res_words:
-                    words.extend(res_words)
+                    for word in res_words:
+                        # The overlap can repeat a word at a boundary; discard
+                        # only matching tokens whose estimated times overlap.
+                        if words and word[0] < words[-1][1]:
+                            clean = lambda value: re.sub(r"\W+", "", value, flags=re.UNICODE).casefold()
+                            if clean(word[2]) == clean(words[-1][2]):
+                                continue
+                        words.append(word)
 
             wf.close()
             wav_path.unlink(missing_ok=True)
@@ -1109,9 +1114,10 @@ def transcribe():
         return err("Automatic transcription returned no words. " + details + " Try Browser Speech AI in Chrome or Edge, or import an SRT/VTT file.", 422)
 
     caps = stylelib.build_captions(words, per=max(1, min(8, per)), max_keys=max(0, min(3, keys)))
+    timing_quality = "estimated" if transcription_engine == "Google Voice AI" else "word"
     return jsonify(captions=caps, words=[[round(a, 3), round(b, 3), t] for a, b, t in words],
                    language=detected_lang, engine=transcription_engine or "Speech AI",
-                   timing_quality="word")
+                   timing_quality=timing_quality)
 
 
 @app.post("/api/regroup")

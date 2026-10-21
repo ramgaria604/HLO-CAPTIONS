@@ -24,7 +24,7 @@
 <meta property="twitter:description" content="Create viral animated captions with 31+ Sequence presets for Instagram Reels & YouTube Shorts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="/static/style.css?v=2.18">
+<link rel="stylesheet" href="/static/style.css?v=2.19">
 <link rel="stylesheet" href="/fonts.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Poppins:wght@500;700;800;900&family=Space+Mono:wght@700&display=swap">
 <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -263,7 +263,7 @@
         </div>
         <button class="action-btn primary" id="transcribeBtn" type="button" disabled>&#10024; Generate Captions</button>
         <div class="sub-actions">
-          <button class="action-btn ghost small" id="browserSpeechBtn" type="button" disabled>&#x1F399;&#xFE0F; Browser Speech</button>
+          <button class="action-btn ghost small" id="browserSpeechBtn" type="button" disabled>&#x1F399;&#xFE0F; Live Mic (not video)</button>
           <label class="action-btn ghost small" style="cursor:pointer" id="srtUploadLabel">&#x1F4C4; Import SRT<input type="file" id="srtFile" accept=".srt,.vtt,.txt" hidden></label>
         </div>
       </div>
@@ -628,6 +628,14 @@
         </div>
       </div>
       <div class="transport-sub-row">
+        <button class="section-style-btn caption-adjust-btn" id="captionAdjustBtn" type="button" aria-pressed="false" title="Touch and drag captions to move them">
+          <span aria-hidden="true">✥</span><span>Move text</span>
+        </button>
+        <label class="stage-caption-scale" title="Resize caption text">
+          <span>Size</span>
+          <input id="stageCaptionScale" type="range" min="60" max="150" value="100" step="1" aria-label="Preview caption size">
+          <output id="stageCaptionScaleOut">100%</output>
+        </label>
         <button class="section-style-btn" id="sectionStyleBtn" type="button" title="Choose Template / Style">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           <span>Section style</span>
@@ -751,6 +759,6 @@
 </dialog>
 
 <script src="/static/fx.js"></script>
-<script src="/static/app.js?v=2.18"></script>
+<script src="/static/app.js?v=2.19"></script>
 </body>
 </html>

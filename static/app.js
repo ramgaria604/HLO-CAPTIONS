@@ -1198,19 +1198,21 @@ function syncCaptionScaleControl() {
   const value = Math.round((Number(S.style?.fontScale) || 1) * 100);
   if ($('captionScale')) $('captionScale').value = value;
   if ($('captionScaleOut')) $('captionScaleOut').textContent = value + '%';
+  if ($('stageCaptionScale')) $('stageCaptionScale').value = value;
+  if ($('stageCaptionScaleOut')) $('stageCaptionScaleOut').textContent = value + '%';
 }
 if ($('captionAdjustBtn')) $('captionAdjustBtn').addEventListener('click', () => {
   captionAdjustMode = !captionAdjustMode;
   $('captionAdjustBtn').setAttribute('aria-pressed', String(captionAdjustMode));
   $('captionAdjustBtn').classList.toggle('on', captionAdjustMode);
   stage.classList.toggle('caption-adjust-mode', captionAdjustMode);
-  if (captionAdjustMode) notice('Drag over a caption to move it. Use the mouse wheel to resize.', 'ok');
+  if (captionAdjustMode) notice('Touch and drag on the preview to move the caption. Use Size to resize it.', 'ok');
 });
-if ($('captionScale')) $('captionScale').addEventListener('input', e => {
+['captionScale', 'stageCaptionScale'].forEach(id => $(id)?.addEventListener('input', e => {
   if (!S.style) return;
   S.style.fontScale = Math.max(.6, Math.min(1.5, Number(e.target.value) / 100));
   syncCaptionScaleControl(); touchStyle();
-});
+}));
 stage.addEventListener('pointerdown', e => {
   if (!captionAdjustMode || !S.style || !S.captions.length) return;
   const r = stage.getBoundingClientRect(), y = (e.clientY - r.top) / r.height;
@@ -1223,13 +1225,15 @@ stage.addEventListener('pointerdown', e => {
   }
   captionDrag = { target, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY,
     x: Number(st.offsetX) || 0, y: Number(st[target] || st.position || .72) };
-  stage.setPointerCapture(e.pointerId); e.preventDefault();
+  try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+  e.preventDefault();
 });
 stage.addEventListener('pointermove', e => {
   if (!captionDrag || e.pointerId !== captionDrag.pointerId) return;
   const r = stage.getBoundingClientRect();
   S.style.offsetX = Math.max(-.10, Math.min(.10, captionDrag.x + (e.clientX - captionDrag.startX) / r.width));
   S.style[captionDrag.target] = Math.max(.05, Math.min(.95, captionDrag.y + (e.clientY - captionDrag.startY) / r.height));
+  e.preventDefault();
   touchStyle();
 });
 function endCaptionDrag(e) {
@@ -2498,7 +2502,7 @@ if (bSpeechBtn) {
     if (speechRec) {
       try { speechRec.stop(); } catch (_) {}
       speechRec = null;
-      bSpeechBtn.textContent = '🎙️ Browser Speech AI';
+      bSpeechBtn.textContent = '🎙️ Live Mic (not video)';
       notice('Finished browser speech capture.', 'ok');
       return;
     }
@@ -2509,7 +2513,7 @@ if (bSpeechBtn) {
     rec.interimResults = true;
     rec.lang = (isHinglish || selLang === 'hi-IN') ? 'hi-IN' : (selLang === 'auto' ? 'hi-IN' : selLang);
     bSpeechBtn.textContent = '⏹ Stop Listening';
-    notice('🎙️ Listening to speech (' + (isHinglish ? 'Hinglish' : rec.lang) + ')... Video is playing. Press "Stop Listening" when done.', 'busy');
+    notice('🎙️ Listening to your microphone (' + (isHinglish ? 'Hinglish' : rec.lang) + '). This does not read the uploaded video audio; use Generate Captions for that.', 'busy');
     speechRec = rec;
     vid.currentTime = 0;
     vid.play();
@@ -2537,12 +2541,12 @@ if (bSpeechBtn) {
         }
       }
     };
-    rec.onerror = () => { bSpeechBtn.textContent = '🎙️ Browser Speech AI'; speechRec = null; };
+    rec.onerror = () => { bSpeechBtn.textContent = '🎙️ Live Mic (not video)'; speechRec = null; };
     rec.onend = () => {
-      bSpeechBtn.textContent = '🎙️ Browser Speech AI';
+      bSpeechBtn.textContent = '🎙️ Live Mic (not video)';
       speechRec = null;
       if (S.captions.length) {
-        notice('✅ Created ' + S.captions.length + ' captions via browser speech! Pick your Moonshot preset in Style.', 'ok');
+        notice('✅ Captured mic captions. Review the estimated timing; use Generate Captions to transcribe the uploaded video.', 'busy');
         $('regroup').disabled = false;
         switchTab('captions');
       }
