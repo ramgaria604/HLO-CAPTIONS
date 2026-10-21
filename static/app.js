@@ -142,9 +142,7 @@
 
   // ==========================================================================
   // 133+ PRESETS TYPOGRAPHY ENGINE (DualNeon, KineticLens, Crimson3D, ChromeStudio, EstateDepth, SpecialFront, Standard)
-  // ==========================================================================
- (DualNeon, KineticLens, Crimson3D, ChromeStudio, EstateDepth, SpecialFront, Standard)
-  // ==========================================================================
+
 function getWordPop(w, t, showAll, anim) {
   if (showAll || !anim || anim === 'none') return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
   if (!w) return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
@@ -1074,7 +1072,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // UPLOAD & TRANSCRIPTION
   // ==========================================================================
   function setupUploadHandlers() {
-    btnSelectFile.addEventListener('click', () => fileInput.click());
+    btnSelectFile.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    dropZone.addEventListener('click', (e) => {
+      // Allow clicking anywhere inside the drop card to open file chooser
+      if (e.target !== fileInput && !e.target.closest('select') && !e.target.closest('details') && !e.target.closest('textarea')) {
+        fileInput.click();
+      }
+    });
 
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
@@ -2088,6 +2096,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     exportErrorMessage.textContent = msg;
   }
 
-  window.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 
 })();
