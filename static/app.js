@@ -1316,6 +1316,7 @@ function fitStageToVideo() {
   stage.style.setProperty('--ar', ar);
 }
 window.addEventListener('resize', fitStageToVideo);
+window.addEventListener('orientationchange', () => setTimeout(fitStageToVideo, 250));
 vid.addEventListener('loadedmetadata', fitStageToVideo);
 
 // ------------------------------------------------------------------ motion graphics stage overlay (3D Reference Video Suite)

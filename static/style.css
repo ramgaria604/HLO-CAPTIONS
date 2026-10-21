@@ -3793,7 +3793,424 @@ input[type="color"]::-webkit-color-swatch {
   flex-direction: column;
   width: 100%;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
+
+/* ==========================================================================
+   MOBILE & TOUCH-FIRST RESPONSIVE ARCHITECTURE
+   Tailored for smartphones & tablets (Instagram, TikTok, CapCut mobile UI)
+   ========================================================================== */
+@media (max-width: 860px) {
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button, input, select, label {
+    touch-action: manipulation;
+  }
+
+  /* -----------------------------------------------------------
+     1. MOONSHOT LANDING PAGE ON MOBILE
+     ----------------------------------------------------------- */
+  .moonshot-landing {
+    padding: 0 10px 60px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .moonshot-nav {
+    height: 48px !important;
+    padding: 8px 12px !important;
+  }
+
+  .moonshot-hero-wrap {
+    margin: 8px 0 16px !important;
+    padding: 0 4px !important;
+    max-width: 100% !important;
+  }
+
+  .moonshot-title {
+    font-size: 26px !important;
+    line-height: 1.22 !important;
+    margin-bottom: 16px !important;
+  }
+
+  .moonshot-upload-card {
+    padding: 18px 14px 16px !important;
+    border-radius: 20px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .hero-card-icons {
+    margin-bottom: 10px !important;
+  }
+
+  .hero-drop-title {
+    font-size: 17px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .hero-choose-btn {
+    height: 48px !important;
+    font-size: 15px !important;
+    border-radius: 12px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .hero-create-btn {
+    height: 48px !important;
+    font-size: 15px !important;
+    border-radius: 12px !important;
+    margin-top: 6px !important;
+  }
+
+  .hero-style-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    margin: 10px 0 !important;
+  }
+
+  .hero-style-selector {
+    width: 100% !important;
+  }
+
+  .hero-type-toggle {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .gallery-category-bar {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 4px !important;
+  }
+  .gallery-category-bar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .gallery-cat-pills {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+  }
+
+  .gallery-pill {
+    padding: 6px 14px !important;
+    font-size: 12px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .moonshot-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .moonshot-preset-card {
+    border-radius: 14px !important;
+  }
+
+  .gallery-header {
+    margin-bottom: 14px !important;
+  }
+  .gallery-title {
+    font-size: 18px !important;
+  }
+  .gallery-desc {
+    font-size: 12px !important;
+  }
+
+  /* -----------------------------------------------------------
+     2. EDITOR TOP TOOLBAR ON MOBILE
+     ----------------------------------------------------------- */
+  .toolbar {
+    height: 46px !important;
+    padding: 0 8px !important;
+    gap: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  /* Hide desktop buttons that crowd the phone header */
+  .toolbar-center,
+  .brand-name em,
+  .project-name,
+  .toolbar-divider,
+  #chipFfmpeg,
+  #chipWhisper,
+  #btnNewProj,
+  #btnLoadProj,
+  #btnSaveProj,
+  #btnUndo,
+  #btnRedo,
+  .aspect-group {
+    display: none !important;
+  }
+
+  .toolbar-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  #btnBackToLanding {
+    height: 32px !important;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+  }
+
+  .brand .logo {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 10px !important;
+  }
+  .brand .brand-name {
+    font-size: 12px !important;
+  }
+
+  .toolbar-right {
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  #exportBtn {
+    height: 32px !important;
+    padding: 0 14px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+  }
+
+  .notice {
+    height: 22px !important;
+    line-height: 22px !important;
+    font-size: 10px !important;
+    padding: 0 8px !important;
+  }
+
+  /* -----------------------------------------------------------
+     3. MOBILE EDITOR STACK: Video Stage Top, Controls Bottom
+     ----------------------------------------------------------- */
+  .editor {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Center Panel / Video Stage */
+  .center-panel {
+    flex: 0 0 38vh !important;
+    min-height: 200px !important;
+    max-height: 42vh !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #000000 !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    position: relative !important;
+  }
+
+  .canvas-wrap {
+    flex: 1 !important;
+    padding: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+  }
+
+  .stage {
+    max-height: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Video Transport Bar on Phone */
+  .transport {
+    height: 40px !important;
+    padding: 0 8px !important;
+    gap: 6px !important;
+    background: #111122 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .transport .transport-btn {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .transport .play-btn {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .transport .time-display {
+    font-size: 11px !important;
+  }
+
+  .transport .tool-btn {
+    display: none !important;
+  }
+
+  /* Left Panel (Bottom Tabbed Mobile Workspace) */
+  .left-panel {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column-reverse !important; /* Bottom nav bar like Instagram/CapCut */
+    overflow: hidden !important;
+    background: var(--bg-panel) !important;
+  }
+
+  /* Mobile Bottom Navigation Bar */
+  .panel-tabs {
+    width: 100% !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    border-right: none !important;
+    border-top: 1px solid var(--border-color) !important;
+    background: #0e0e1e !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+    z-index: 20 !important;
+  }
+
+  .ptab {
+    flex: 1 !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    border-left: none !important;
+    border-bottom: 2px solid transparent !important;
+    padding: 4px 2px !important;
+    color: var(--text-muted) !important;
+  }
+
+  .ptab.on {
+    border-bottom: 2px solid var(--accent) !important;
+    border-left: none !important;
+    background: rgba(99, 102, 241, 0.14) !important;
+    color: #ffffff !important;
+  }
+
+  .ptab svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .ptab span {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+  }
+
+  /* Panel Content (Scrollable Area Above Bottom Tabs) */
+  .panel-content {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 10px 12px 20px !important;
+    border-right: none !important;
+  }
+
+  /* Hide Desktop Right Inspector & Timeline on Mobile */
+  .right-panel {
+    display: none !important;
+  }
+
+  .timeline-panel {
+    display: none !important;
+  }
+
+  /* Presets in mobile tab */
+  .presets {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+    max-height: none !important;
+  }
+  .pcard {
+    padding: 6px 4px !important;
+  }
+  .pcard .pv {
+    height: 38px !important;
+  }
+  .pcard b {
+    font-size: 9px !important;
+  }
+
+  /* Captions in mobile tab */
+  .caplist {
+    max-height: 40vh !important;
+  }
+  .caprow {
+    padding: 8px 6px !important;
+  }
+  .caprow textarea {
+    font-size: 13px !important;
+    min-height: 42px !important;
+  }
+
+  /* Mobile Touch-Friendly Buttons */
+  .action-btn {
+    height: 40px !important;
+    font-size: 13px !important;
+    border-radius: 8px !important;
+  }
+  .action-btn.big {
+    height: 46px !important;
+    font-size: 14px !important;
+    border-radius: 10px !important;
+  }
+
+  /* Export Dialog on mobile */
+  .export-dialog {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 18px 14px !important;
+    border-radius: 16px !important;
+  }
+}
+
+/* Extra small screens (iPhone SE, Galaxy Fold folded < 380px) */
+@media (max-width: 380px) {
+  .center-panel {
+    flex: 0 0 33vh !important;
+    min-height: 180px !important;
+  }
+  .presets {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .moonshot-cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .moonshot-title {
+    font-size: 22px !important;
+  }
+}
+
 
 
