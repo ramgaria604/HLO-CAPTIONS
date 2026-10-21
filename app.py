@@ -937,8 +937,65 @@ def transcribe():
     detected_lang = target_label
     transcription_engine = None
 
+    # 0. High-Accuracy Whisper Large v3 via Groq (Fastest & Studio Accuracy)
+    groq_key = (d.get("groq_api_key") or os.environ.get("GROQ_API_KEY") or "").strip()
+    if groq_key:
+        audio_for_groq = WORK / f"{name}_groq.mp3"
+        try:
+            subprocess.run([
+                ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
+                "-ar", "16000", "-ac", "1", "-b:a", "64k", str(audio_for_groq)
+            ], capture_output=True, check=True)
+
+            with open(audio_for_groq, "rb") as af:
+                files = {"file": (f"{name}.mp3", af, "audio/mpeg")}
+                post_data = {
+                    "model": "whisper-large-v3",
+                    "response_format": "verbose_json",
+                    "timestamp_granularities[]": "word"
+                }
+                if whisper_lang:
+                    post_data["language"] = whisper_lang
+                if whisper_prompt:
+                    post_data["prompt"] = whisper_prompt
+
+                headers = {"Authorization": f"Bearer {groq_key}"}
+                import requests
+                groq_resp = requests.post(
+                    "https://api.groq.com/openai/v1/audio/transcriptions",
+                    headers=headers,
+                    files=files,
+                    data=post_data,
+                    timeout=60
+                )
+                if groq_resp.ok:
+                    res_json = groq_resp.json()
+                    raw_words = res_json.get("words") or []
+                    if not raw_words and "segments" in res_json:
+                        for s in res_json["segments"]:
+                            raw_words.extend(s.get("words") or [])
+
+                    for w in raw_words:
+                        t = (w.get("word") or "").strip()
+                        if t:
+                            if is_hinglish and hinglish.is_devanagari(t):
+                                t = hinglish.devanagari_to_hinglish(t)
+                            words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
+
+                    if words:
+                        transcription_engine = "Groq Whisper Large v3"
+                        detected_lang = res_json.get("language") or detected_lang
+        except Exception as groq_err:
+            transcription_notes.append(f"Groq Whisper Large v3 note: {groq_err}")
+        finally:
+            if audio_for_groq.exists():
+                try:
+                    audio_for_groq.unlink()
+                except Exception:
+                    pass
+
     # 1. Try faster-whisper if available
-    if module_ok("faster_whisper"):
+    if not words and module_ok("faster_whisper"):
         try:
             model = get_model(size)
             beam_size = 1 if size == "tiny" else (3 if size == "base" else 5)

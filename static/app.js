@@ -38,7 +38,8 @@
   const fileInput = $('fileInput');
   const btnSelectFile = $('btnSelectFile');
   const langSelect = $('langSelect');
-  const scriptInput = $('scriptInput');
+  const scriptInput = $('scriptInput');
+  const groqApiKeyInput = $('groqApiKeyInput');
   const uploadProgressBox = $('uploadProgressBox');
   const uploadStatusText = $('uploadStatusText');
   const uploadPercent = $('uploadPercent');
@@ -1107,6 +1108,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
       if (file) handleFileSelected(file);
     });
+
+    if (groqApiKeyInput) {
+      try {
+        const savedGroqKey = localStorage.getItem('groq_api_key');
+        if (savedGroqKey) groqApiKeyInput.value = savedGroqKey;
+      } catch (e) {}
+
+      groqApiKeyInput.addEventListener('input', () => {
+        try {
+          localStorage.setItem('groq_api_key', groqApiKeyInput.value.trim());
+        } catch (e) {}
+      });
+    }
   }
 
   async function handleFileSelected(file) {
@@ -1192,12 +1206,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     try {
       let endpoint = '/api/transcribe';
+      const groqKey = (groqApiKeyInput && groqApiKeyInput.value.trim()) || '';
+      if (groqKey) {
+        uploadStatusText.textContent = 'Transcribing with Groq Whisper Large v3 (ultra-fast)...';
+      }
+
       let payload = {
         filename: S.filename,
         language: lang,
         lang: lang,
         wordsPerCaption: 3,
-        maxKeys: 1
+        maxKeys: 1,
+        groq_api_key: groqKey
       };
 
       if (pastedScript.length > 0) {
