@@ -1850,7 +1850,7 @@ vid.addEventListener('play', () => $('playBtn').innerHTML = '&#10074;&#10074;');
 vid.addEventListener('pause', () => $('playBtn').innerHTML = '&#9654;');
 vid.addEventListener('ended', () => $('playBtn').innerHTML = '&#9654;');
 vid.addEventListener('click', () => $('playBtn').click());
-$('prevCuts').addEventListener('change', e => { S.previewCuts = e.target.checked; });
+if ($('prevCuts')) $('prevCuts').addEventListener('change', e => { S.previewCuts = e.target.checked; });
 
 // Split caption at current playhead position
 function splitCaptionAtPlayhead() {
@@ -2135,6 +2135,11 @@ if (heroDrop) {
     e.preventDefault();
     const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
     if (f) handleVideoUpload(f);
+  });
+  heroDrop.addEventListener('click', e => {
+    if (e.target.closest('button, input, select, a, .hero-style-row, .hero-choose-box')) return;
+    const inp = $('heroFileInput') || $('file');
+    if (inp) inp.click();
   });
 }
 
@@ -3459,8 +3464,8 @@ async function loadStatus() {
   }
   const set = (id, ok) => { if ($(id)) $(id).className = 'chip' + (id === 'chipPexels' ? ' btnchip ' : ' ') + (ok ? 'ok' : 'bad'); };
   set('chipFfmpeg', s.ffmpeg && s.ass); set('chipWhisper', s.server_whisper || s.server_sr); set('chipPexels', s.pexels);
-  $('chipFfmpeg').textContent = 'FFmpeg ' + (s.ffmpeg && s.ass ? '\u2713' : '\u2717');
-  $('chipWhisper').textContent = s.server_whisper ? 'Local Whisper ✓' : (s.server_sr ? 'Speech online only' : 'Speech unavailable');
+  if ($('chipFfmpeg')) $('chipFfmpeg').textContent = 'FFmpeg ' + (s.ffmpeg && s.ass ? '\u2713' : '\u2717');
+  if ($('chipWhisper')) $('chipWhisper').textContent = s.server_whisper ? 'Local Whisper ✓' : (s.server_sr ? 'Speech online only' : 'Speech unavailable');
   if ($('chipPexels')) $('chipPexels').textContent = 'Pexels ' + (s.pexels ? '\u2713' : '\u2717 add key');
   if ($('keyBox')) $('keyBox').hidden = !!s.pexels;
   return s;
