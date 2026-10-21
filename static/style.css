@@ -4001,18 +4001,19 @@ input[type="color"]::-webkit-color-swatch {
   }
 
   /* -----------------------------------------------------------
-     3. MOBILE EDITOR STACK: Video Stage Top, Controls Bottom
+     3. MOBILE EDITOR STACK: AutoCaption / CapCut 2-Section Layout
      ----------------------------------------------------------- */
   .editor {
     display: flex !important;
     flex-direction: column !important;
-    height: auto !important;
+    height: calc(100vh - 46px - 22px) !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow: hidden !important;
+    background: #000000 !important;
   }
 
-  /* Center Panel / Video Stage Above */
+  /* TOP SECTION (~52% viewport): Sleek Vertical 9:16 Video Player */
   .center-panel {
     order: 1 !important;
     flex: 0 0 auto !important;
@@ -4020,86 +4021,179 @@ input[type="color"]::-webkit-color-swatch {
     display: flex !important;
     flex-direction: column !important;
     background: #000000 !important;
-    border-bottom: 2px solid var(--border-color) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
     position: relative !important;
-  }
-
-  .canvas-wrap {
-    height: 30vh !important;
-    min-height: 170px !important;
-    max-height: 34vh !important;
-    flex: none !important;
-    padding: 4px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
     overflow: hidden !important;
   }
 
-  .stage {
-    max-height: 100% !important;
-    max-width: 100% !important;
-  }
-
-  /* Video Transport Bar on Phone */
-  .transport {
-    height: 36px !important;
-    padding: 0 8px !important;
-    gap: 4px !important;
-    background: #111122 !important;
+  .canvas-wrap {
+    height: 50vh !important;
+    min-height: 230px !important;
+    max-height: 54vh !important;
+    flex: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
+    justify-content: center !important;
+    background: #000000 !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  .stage {
+    height: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    max-width: 100% !important;
+    aspect-ratio: 9 / 16 !important;
+    position: relative !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
+    background: #05050d !important;
+  }
+
+  #vid {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    display: block !important;
+  }
+
+  /* Compact 40px Video Transport directly under video */
+  .transport {
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    padding: 0 10px !important;
+    background: #0d0e1d !important;
     border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-shrink: 0 !important;
+    z-index: 10 !important;
+  }
+
+  .transport-main-row {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .transport-left-controls {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
     flex-shrink: 0 !important;
   }
 
-  .transport .transport-btn {
+  .transport-center-controls {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+  }
+
+  .mobile-scrub-slider {
+    flex: 1 1 auto !important;
+    height: 6px !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: rgba(255, 255, 255, 0.18) !important;
+    border-radius: 3px !important;
+    outline: none !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+  }
+
+  .mobile-scrub-slider::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 14px !important;
+    height: 14px !important;
+    border-radius: 50% !important;
+    background: #a855f7 !important;
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.8) !important;
+    cursor: pointer !important;
+  }
+
+  .mobile-timecode {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 11px !important;
+    color: #cbd5e1 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    font-weight: 600 !important;
+  }
+
+  .moonshot-play-btn {
     width: 32px !important;
     height: 32px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    border: none !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 10px rgba(139, 92, 246, 0.45) !important;
+    cursor: pointer !important;
   }
 
-  .transport .play-btn {
-    width: 34px !important;
-    height: 34px !important;
+  .transport-icon-btn {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #94a3b8 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
-  .transport .time-display {
-    font-size: 11px !important;
-  }
-
-  .transport .tool-btn {
+  .moonshot-multi-pill,
+  .transport-right-controls,
+  .transport-drag-handle,
+  .transport-sub-row,
+  .moonshot-zoom-group {
     display: none !important;
   }
 
-  /* Left Panel (Bottom Tabbed Mobile Workspace) */
+  /* BOTTOM SECTION (~48% viewport): Clean AutoCaption Tab Panes */
   .left-panel {
     order: 2 !important;
     width: 100% !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
     display: flex !important;
-    flex-direction: column-reverse !important; /* Bottom nav bar like Instagram/CapCut */
+    flex-direction: column-reverse !important; /* Fixed bottom tab bar */
+    background: #090915 !important;
     overflow: hidden !important;
-    background: var(--bg-panel) !important;
   }
 
-  /* Mobile Bottom Navigation Bar */
+  /* Mobile Bottom Navigation Bar (AutoCaption style) */
   .panel-tabs {
     width: 100% !important;
     height: 52px !important;
     min-height: 52px !important;
+    max-height: 52px !important;
     display: flex !important;
     flex-direction: row !important;
     justify-content: space-around !important;
     align-items: center !important;
+    background: #0d0e1d !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-right: none !important;
-    border-top: 1px solid var(--border-color) !important;
-    background: #0e0e1e !important;
     padding: 0 !important;
     flex-shrink: 0 !important;
-    z-index: 20 !important;
+    z-index: 25 !important;
   }
 
   .ptab {
@@ -4109,18 +4203,19 @@ input[type="color"]::-webkit-color-swatch {
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 2px !important;
-    border-left: none !important;
-    border-bottom: 2px solid transparent !important;
-    padding: 4px 2px !important;
-    color: var(--text-muted) !important;
+    gap: 3px !important;
+    border: none !important;
+    border-top: 2px solid transparent !important;
+    background: transparent !important;
+    color: #64748b !important;
+    padding: 2px 0 !important;
+    transition: all 0.15s ease !important;
   }
 
   .ptab.on {
-    border-bottom: 2px solid var(--accent) !important;
-    border-left: none !important;
-    background: rgba(99, 102, 241, 0.14) !important;
-    color: #ffffff !important;
+    color: #c084fc !important;
+    border-top: 2px solid #a855f7 !important;
+    background: rgba(168, 85, 247, 0.12) !important;
   }
 
   .ptab svg {
@@ -4130,143 +4225,167 @@ input[type="color"]::-webkit-color-swatch {
 
   .ptab span {
     font-size: 10px !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em !important;
   }
 
-  /* Panel Content (Scrollable Area Above Bottom Tabs) */
+  /* Active Scrollable Panel Content Area */
   .panel-content {
     width: 100% !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 10px 12px 20px !important;
-    border-right: none !important;
+    padding: 10px 12px 18px !important;
+    border: none !important;
+    background: #090915 !important;
   }
 
-  /* Hide Desktop Right Inspector on Mobile */
+  /* Hide Desktop Inspector on Mobile */
   .right-panel {
     display: none !important;
   }
 
-  /* Timeline Directly Downside Video on Mobile */
-  .timeline-panel {
+  /* COMPLETE REMOVAL OF WHITE TIMELINE ON MOBILE */
+  .timeline-panel,
+  .moonshot-timeline-panel,
+  .tl-header-strip,
+  .tl-footer-strip,
+  .tl-track-labels,
+  .tl-viewport,
+  .tl-toolbar,
+  .more-tracks-btn,
+  .desktop-only-tab,
+  #paletteSwatches {
+    display: none !important;
+  }
+
+  /* Touch-Friendly Transcript Cards List */
+  .autocaption-segment-list {
     display: flex !important;
     flex-direction: column !important;
-    height: 155px !important;
+    gap: 8px !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .transcript-segment-card {
+    background: #141328 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .transcript-segment-card.active {
+    background: rgba(168, 85, 247, 0.14) !important;
+    border-color: #a855f7 !important;
+    box-shadow: 0 0 14px rgba(168, 85, 247, 0.3) !important;
+  }
+
+  .seg-play-btn {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    background: rgba(168, 85, 247, 0.22) !important;
+    border: 1px solid rgba(168, 85, 247, 0.4) !important;
+    color: #d8b4fe !important;
+    font-size: 11px !important;
     flex-shrink: 0 !important;
-    background: #0d0d1a !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
-    overflow: hidden !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
-  .tl-toolbar {
-    height: 26px !important;
-    padding: 0 6px !important;
-    gap: 4px !important;
-    background-color: #111124 !important;
-  }
-
-  .tl-tools {
+  .seg-body {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
     gap: 4px !important;
   }
 
-  .tl-btn {
-    height: 20px !important;
-    font-size: 10px !important;
-    padding: 0 5px !important;
-  }
-
-  .tl-zoom {
-    gap: 3px !important;
-  }
-
-  .tl-zoom input[type=range] {
-    width: 44px !important;
-  }
-
-  .zoom-btn {
-    width: 18px !important;
-    height: 18px !important;
-    font-size: 10px !important;
-  }
-
-  .tl-track-labels {
-    width: 52px !important;
-  }
-
-  .tl-label {
+  .seg-time-pill {
+    font-family: ui-monospace, monospace !important;
     font-size: 10px !important;
     font-weight: 700 !important;
-    padding-left: 6px !important;
+    color: #a855f7 !important;
+    letter-spacing: 0.03em !important;
+  }
+
+  .seg-text-input {
+    width: 100% !important;
+    background: transparent !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    padding: 0 !important;
+    resize: none !important;
+    outline: none !important;
+    line-height: 1.35 !important;
+  }
+
+  .seg-del-btn {
+    width: 26px !important;
     height: 26px !important;
-    line-height: 26px !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    border: none !important;
+    color: #ef4444 !important;
+    font-size: 18px !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
   }
 
-  .track {
-    height: 26px !important;
+  /* Style Tab Controls on Phone */
+  .color-swatches-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
   }
 
-  .tl-ruler {
-    height: 18px !important;
+  .color-circle-btn {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 50% !important;
   }
 
-  .blk {
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    line-height: 22px !important;
-  }
-
-  /* Presets in mobile tab */
-  .presets {
-    grid-template-columns: repeat(3, 1fr) !important;
+  .pos-grid-3x3 {
+    width: 90px !important;
+    height: 90px !important;
     gap: 6px !important;
+  }
+
+  .pos-dot {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 6px !important;
+  }
+
+  /* Presets Grid on Phone */
+  .presets {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
     max-height: none !important;
   }
-  .pcard {
-    padding: 6px 4px !important;
-  }
-  .pcard .pv {
-    height: 38px !important;
-  }
-  .pcard b {
-    font-size: 9px !important;
-  }
 
-  /* Captions in mobile tab */
-  .caplist {
-    max-height: 40vh !important;
-  }
-  .caprow {
-    padding: 8px 6px !important;
-  }
-  .caprow textarea {
-    font-size: 13px !important;
-    min-height: 42px !important;
-  }
-
-  /* Mobile Touch-Friendly Buttons */
+  /* Mobile Touch Buttons */
   .action-btn {
-    height: 40px !important;
+    height: 42px !important;
     font-size: 13px !important;
-    border-radius: 8px !important;
-  }
-  .action-btn.big {
-    height: 46px !important;
-    font-size: 14px !important;
     border-radius: 10px !important;
   }
 
-  /* Export Dialog on mobile */
-  .export-dialog {
-    width: 95% !important;
-    max-width: 95% !important;
-    padding: 18px 14px !important;
-    border-radius: 16px !important;
+  .action-btn.big {
+    height: 48px !important;
+    font-size: 14px !important;
+    border-radius: 12px !important;
   }
 }
-
 /* ==========================================================================
    MOONSHOT INTERFACE & VOICE TOOL THEME (EXACT MAKEMOONSHOT.CO MATCH)
    ========================================================================== */
@@ -4636,10 +4755,10 @@ input[type="color"]::-webkit-color-swatch {
 
 /* 5. Moonshot Modern Clean White Timeline */
 .moonshot-timeline-panel {
-  background: #ffffff !important;
-  color: #0f172a !important;
+  background: #0e0f1e !important;
+  color: #e2e8f0 !important;
   border-radius: 14px 14px 0 0 !important;
-  border-top: 1px solid #e2e8f0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12) !important;
   height: 155px !important;
   display: flex !important;
@@ -4649,7 +4768,7 @@ input[type="color"]::-webkit-color-swatch {
 
 .tl-header-strip {
   height: 24px;
-  background: #ffffff;
+  background: #0e0f1e;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4686,8 +4805,8 @@ input[type="color"]::-webkit-color-swatch {
 
 .moonshot-timeline-panel .track {
   height: 22px;
-  border-bottom: 1px solid #f1f5f9;
-  background: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: #0e0f1e;
 }
 
 .moonshot-timeline-panel .blk.cap {
@@ -4728,7 +4847,7 @@ input[type="color"]::-webkit-color-swatch {
 
 .tl-footer-strip {
   height: 22px;
-  background: #ffffff;
+  background: #0e0f1e;
   border-top: 1px solid #f1f5f9;
   display: flex;
   align-items: center;

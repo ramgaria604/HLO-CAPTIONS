@@ -1568,11 +1568,16 @@ function tick() {
   renderCaption(vid.currentTime || 0);
   renderMotionGraphics(vid.currentTime || 0);
   processSegmentationFrame();
-  $('timeLbl').textContent = fmtT(vid.currentTime) + ' / ' + fmtT(dur());
   const D = dur();
+  const timeStr = fmtT(vid.currentTime) + ' / ' + fmtT(D);
+  if ($('timeLbl')) $('timeLbl').textContent = timeStr;
+  if ($('mobileTimeLbl')) $('mobileTimeLbl').textContent = timeStr;
   if (D && D > 0) {
     const pct = Math.min(100, Math.max(0, (vid.currentTime / D) * 100));
-    $('playhead').style.left = pct + '%';
+    if ($('playhead')) $('playhead').style.left = pct + '%';
+    if ($('mobileScrubRange') && !window.isMobileScrubbing) {
+      $('mobileScrubRange').value = pct;
+    }
     // Auto-scroll viewport while playing if zoomed
     if (!vid.paused && S.tlZoom > 1) {
       const vp = $('tlViewport');
@@ -1830,6 +1835,24 @@ vid.addEventListener('play', () => $('playBtn').innerHTML = '&#10074;&#10074;');
 vid.addEventListener('pause', () => $('playBtn').innerHTML = '&#9654;');
 vid.addEventListener('ended', () => $('playBtn').innerHTML = '&#9654;');
 vid.addEventListener('click', () => $('playBtn').click());
+
+// Mobile Touch Seek Scrubber
+const mScrub = $('mobileScrubRange');
+if (mScrub) {
+  mScrub.addEventListener('pointerdown', () => { window.isMobileScrubbing = true; });
+  mScrub.addEventListener('input', (e) => {
+    const D = dur();
+    if (D > 0) {
+      const targetT = (parseFloat(e.target.value) / 100) * D;
+      vid.currentTime = targetT;
+      const tStr = fmtT(targetT) + ' / ' + fmtT(D);
+      if ($('mobileTimeLbl')) $('mobileTimeLbl').textContent = tStr;
+      if ($('timeLbl')) $('timeLbl').textContent = tStr;
+    }
+  });
+  mScrub.addEventListener('pointerup', () => { window.isMobileScrubbing = false; });
+  mScrub.addEventListener('change', () => { window.isMobileScrubbing = false; });
+}
 if ($('prevCuts')) $('prevCuts').addEventListener('change', e => { S.previewCuts = e.target.checked; });
 
 // Split caption at current playhead position

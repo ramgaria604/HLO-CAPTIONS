@@ -24,7 +24,7 @@
 <meta property="twitter:description" content="Create viral animated captions with 31+ Sequence presets for Instagram Reels & YouTube Shorts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="/static/style.css?v=2.20">
+<link rel="stylesheet" href="/static/style.css?v=2.21">
 <link rel="stylesheet" href="/fonts.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Poppins:wght@500;700;800;900&family=Space+Mono:wght@700&display=swap">
 <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -188,25 +188,25 @@
   <!-- ========== LEFT PANEL (MOONSHOT BOTTOM TABS ON MOBILE) ========== -->
   <aside class="left-panel" id="leftPanel">
     <nav class="panel-tabs moonshot-tabs" id="panelTabs">
-      <button class="ptab" data-panel="ai" type="button" title="Auto edit">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
-        <span>Auto edit</span>
-      </button>
-      <button class="ptab" data-panel="captions" type="button" title="Transcript">
+      <button class="ptab on" data-panel="captions" type="button" title="Captions">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h10"/></svg>
-        <span>Transcript</span>
+        <span>Captions</span>
       </button>
-      <button class="ptab on" data-panel="style" type="button" title="Templates">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        <span>Templates</span>
-      </button>
-      <button class="ptab" data-panel="customize" type="button" title="Customize">
+      <button class="ptab" data-panel="customize" type="button" title="Style">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        <span>Customize</span>
+        <span>Style</span>
       </button>
-      <button class="ptab voice-tab" data-panel="voice" type="button" title="Voice &amp; Audio">
+      <button class="ptab" data-panel="style" type="button" title="Presets">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Presets</span>
+      </button>
+      <button class="ptab voice-tab" data-panel="voice" type="button" title="Voice">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
         <span>Voice</span>
+      </button>
+      <button class="ptab desktop-only-tab" data-panel="ai" type="button" title="Auto edit">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
+        <span>AI Director</span>
       </button>
     </nav>
 
@@ -764,6 +764,10 @@
             <span>Multi</span>
           </button>
         </div>
+        <div class="transport-center-controls" id="transportCenterControls">
+          <input type="range" id="mobileScrubRange" class="mobile-scrub-slider" min="0" max="100" value="0" step="0.1" aria-label="Seek video">
+          <span id="mobileTimeLbl" class="mobile-timecode">0:00 / 0:00</span>
+        </div>
         <div class="transport-right-controls">
           <div class="moonshot-zoom-group">
             <button class="m-zoom-btn" id="zoomOutBtn" type="button" title="Zoom Out">−</button>
@@ -929,6 +933,6 @@ Easily create engaging captions that grow your audience..." rows="8" style="widt
 
 
 <script src="/static/fx.js"></script>
-<script src="/static/app.js?v=2.20"></script>
+<script src="/static/app.js?v=2.21"></script>
 </body>
 </html>
