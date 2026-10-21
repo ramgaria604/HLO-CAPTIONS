@@ -24,7 +24,7 @@
 <meta property="twitter:description" content="Create viral animated captions with 31+ Sequence presets for Instagram Reels & YouTube Shorts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="/static/style.css?v=2.22">
+<link rel="stylesheet" href="/static/style.css?v=2.23">
 <link rel="stylesheet" href="/fonts.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Poppins:wght@500;700;800;900&family=Space+Mono:wght@700&display=swap">
 <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -788,6 +788,7 @@
             <span class="multi-dot"></span>
             <span>Multi</span>
           </button>
+          <span id="timeLbl" class="moonshot-timecode-pill" style="font-family:ui-monospace, monospace; font-size:11px; font-weight:700; color:#0f172a; border:1px solid #e2e8f0; border-radius:999px; padding:2px 8px; background:#f8fafc;">0:00.00 / 0:00.00</span>
         </div>
         <div class="transport-right-controls">
           <div class="moonshot-zoom-group">
@@ -809,7 +810,7 @@
     <!-- MOONSHOT TIMELINE TRACK (DIRECTLY DOWNSIDE VIDEO) -->
     <div class="timeline-panel moonshot-timeline-panel" id="timelinePanel">
       <div class="tl-header-strip">
-        <span id="timeLbl" class="moonshot-timecode-pill">0:00.00 / 0:00.00</span>
+        <span id="timeLblDesktop" class="moonshot-timecode-pill">0:00.00 / 0:00.00</span>
       </div>
       <div class="timeline" id="tl">
         <div class="tl-track-labels">
@@ -947,6 +948,6 @@ Easily create engaging captions that grow your audience..." rows="8" style="widt
 
 
 <script src="/static/fx.js"></script>
-<script src="/static/app.js?v=2.22"></script>
+<script src="/static/app.js?v=2.23"></script>
 </body>
 </html>

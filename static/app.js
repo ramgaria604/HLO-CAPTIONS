@@ -1570,7 +1570,7 @@ function tick() {
   processSegmentationFrame();
   const D = dur();
   const timeStr = fmtT(vid.currentTime) + ' / ' + fmtT(D);
-  if ($('timeLbl')) $('timeLbl').textContent = timeStr;
+  if ($('timeLbl')) $('timeLbl').textContent = timeStr; if ($('timeLblDesktop')) $('timeLblDesktop').textContent = timeStr;
   if ($('mobileTimeLbl')) $('mobileTimeLbl').textContent = timeStr;
   if (D && D > 0) {
     const pct = Math.min(100, Math.max(0, (vid.currentTime / D) * 100));
@@ -1942,17 +1942,6 @@ document.addEventListener('keydown', e => {
 
 // ------------------------------------------------------------------ tabs & panels
 function switchTab(name) {
-  const isMobile = window.innerWidth <= 860;
-  const pContent = $('panelContent');
-  const alreadyOpen = pContent && pContent.classList.contains('drawer-open') && S.activeTab === name;
-
-  if (isMobile && alreadyOpen) {
-    pContent.classList.remove('drawer-open');
-    document.querySelectorAll('#panelTabs button').forEach(b => b.classList.remove('on'));
-    S.activeTab = null;
-    return;
-  }
-
   S.activeTab = name;
   document.querySelectorAll('#panelTabs button, #tabs button').forEach(b => {
     b.classList.toggle('on', b.dataset.panel === name || b.dataset.tab === name);
@@ -1960,22 +1949,12 @@ function switchTab(name) {
   document.querySelectorAll('.ppane, .pane').forEach(p => {
     p.classList.toggle('on', p.id === 'ppane-' + name || p.id === 'pane-' + name);
   });
-
-  if (isMobile && pContent) {
-    pContent.classList.add('drawer-open');
-    const titles = { ai: 'Auto edit', captions: 'Transcript', style: 'Templates', customize: 'Customize', voice: 'Voice & Audio' };
-    if ($('drawerTitle')) $('drawerTitle').textContent = titles[name] || 'Editor';
+  if (name === 'style') {
+    renderPresets();
   }
   if (name === 'export') updateExportSummary();
 }
 
-if ($('closeDrawerBtn')) {
-  $('closeDrawerBtn').addEventListener('click', () => {
-    if ($('panelContent')) $('panelContent').classList.remove('drawer-open');
-    document.querySelectorAll('#panelTabs button').forEach(b => b.classList.remove('on'));
-    S.activeTab = null;
-  });
-}
 if ($('sectionStyleBtn')) {
   $('sectionStyleBtn').addEventListener('click', () => switchTab('style'));
 }
