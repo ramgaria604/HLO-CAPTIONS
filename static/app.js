@@ -2793,7 +2793,8 @@ function renderCuts() {
 
 // ------------------------------------------------------------------ 5 effects (NEW)
 // Aspect ratio
-$('aspectBar').addEventListener('click', e => {
+const aspectBar = $('aspectBar');
+if (aspectBar) aspectBar.addEventListener('click', e => {
   const btn = e.target.closest('.aspect-btn'); if (!btn) return;
   S.aspect = btn.dataset.aspect;
   document.querySelectorAll('.aspect-btn').forEach(b => b.classList.toggle('on', b === btn));
