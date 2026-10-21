@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Montserrat:wght@700;800;900&family=Poppins:wght@600;700;800;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=3.01">
+  <link rel="stylesheet" href="/static/style.css?v=3.02">
 </head>
 <body>
 
@@ -110,10 +110,10 @@
       </div>
     </header>
 
-    <!-- Editor Body (2 sections: Top Stage, Bottom Tabs) -->
+    <!-- Editor Body -->
     <div class="editor-body">
 
-      <!-- TOP: Video Stage & Transport -->
+      <!-- TOP: Video Stage -->
       <section class="stage-section">
         <div class="stage-wrapper" id="stageWrapper">
           <div class="stage" id="stage">
@@ -149,177 +149,230 @@
         </div>
       </section>
 
-      <!-- BOTTOM: Tab Navigation & Tab Panes -->
-      <section class="tabs-section">
-        <!-- Tab Navigation Buttons -->
-        <nav class="tab-nav">
-          <button class="tab-btn active" data-tab="tabTemplates">
-            <span class="tab-icon">🎨</span>
-            <span>Templates</span>
-          </button>
-          <button class="tab-btn" data-tab="tabCaptions">
-            <span class="tab-icon">📝</span>
-            <span>Edit Captions</span>
-          </button>
-          <button class="tab-btn" data-tab="tabStyle">
-            <span class="tab-icon">🎚️</span>
-            <span>Style Options</span>
-          </button>
-          <button class="tab-btn" data-tab="tabAudio">
-            <span class="tab-icon">🎵</span>
-            <span>Audio</span>
-          </button>
-        </nav>
+      <!-- VISUAL TIMELINE PANEL -->
+      <section class="timeline-section" id="timelineSection">
+        <div class="timeline-header-bar">
+          <span class="timeline-label">💬 Captions Timeline</span>
+          <span id="tlTimeIndicator" class="timeline-time">0:00.0</span>
+        </div>
+        
+        <div class="timeline-track-wrap" id="timelineTrackWrap">
+          <!-- Time Ruler -->
+          <div class="timeline-ruler" id="timelineRuler"></div>
+          
+          <!-- Caption Blocks Lane -->
+          <div class="timeline-lane" id="timelineLane">
+            <!-- Dynamically populated caption blocks -->
+          </div>
 
-        <!-- TAB 1: TEMPLATES -->
-        <div id="tabTemplates" class="tab-pane active">
-          <div class="templates-toolbar">
-            <div class="category-pills" id="categoryPills">
-              <button class="cat-pill active" data-cat="all">All</button>
-              <button class="cat-pill" data-cat="viral">🔥 Viral Pop</button>
-              <button class="cat-pill" data-cat="neon">✨ Neon Glow</button>
-              <button class="cat-pill" data-cat="box">📦 Box Pop</button>
-              <button class="cat-pill" data-cat="minimal">🎬 Minimal</button>
-            </div>
-            <button id="btnOpenFullTemplates" class="btn-pill-action" title="View all templates in large grid">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-              <span>View All (133)</span>
+          <!-- Red Playhead -->
+          <div class="timeline-playhead" id="timelinePlayhead">
+            <div class="playhead-marker"></div>
+            <div class="playhead-line"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- POPUP / DRAWER PANEL (Covers timeline when a tab is tapped, with fullscreen & close options) -->
+      <div class="drawer-panel" id="drawerPanel">
+        <div class="drawer-header">
+          <div class="drawer-title-row">
+            <span id="drawerTitle">🎨 Templates</span>
+          </div>
+          <div class="drawer-actions">
+            <button id="btnDrawerExpand" class="btn-drawer-tool" title="Expand Fullscreen">
+              <svg id="iconExpand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+              <svg id="iconCollapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><path d="M4 14h6m0 0v6m0-6L3 21m17-11h-6m0 0V4m0 6l7-7"/></svg>
+            </button>
+            <button id="btnDrawerClose" class="btn-drawer-tool" title="Close drawer to see timeline">
+              &times;
             </button>
           </div>
-
-          <!-- Horizontal/Scrollable Presets Cards Grid -->
-          <div class="presets-grid" id="presetsGrid">
-            <!-- Populated via JavaScript -->
-          </div>
         </div>
 
-        <!-- TAB 2: EDIT CAPTIONS -->
-        <div id="tabCaptions" class="tab-pane hidden">
-          <div class="captions-toolbar">
-            <div class="captions-info">
-              <span id="captionCountBadge">0 lines</span>
-            </div>
-            <div class="captions-actions">
-              <button id="btnAddCaption" class="btn-subaction">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>Add Line</span>
-              </button>
-              <button id="btnSyncScriptModal" class="btn-subaction">
-                ✍️ Sync Script
+        <div class="drawer-content">
+          <!-- TAB 1: TEMPLATES -->
+          <div id="tabTemplates" class="tab-pane active">
+            <div class="templates-toolbar">
+              <div class="category-pills" id="categoryPills">
+                <button class="cat-pill active" data-cat="all">All</button>
+                <button class="cat-pill" data-cat="viral">🔥 Viral Pop</button>
+                <button class="cat-pill" data-cat="neon">✨ Neon Glow</button>
+                <button class="cat-pill" data-cat="box">📦 Box Pop</button>
+                <button class="cat-pill" data-cat="minimal">🎬 Minimal</button>
+              </div>
+              <button id="btnOpenFullTemplates" class="btn-pill-action" title="View all templates in large grid">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                <span>View All (133)</span>
               </button>
             </div>
+
+            <!-- Horizontal/Scrollable Presets Cards Grid -->
+            <div class="presets-grid" id="presetsGrid">
+              <!-- Populated via JavaScript -->
+            </div>
+
+            <!-- PROMINENT GENERATE BUTTON ON TEMPLATE -->
+            <div class="generate-bar">
+              <button id="btnGenerateTemplate" class="btn-generate">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>Generate with <strong id="selectedPresetName">Yellow Box Pop</strong></span>
+              </button>
+            </div>
           </div>
 
-          <!-- Captions List -->
-          <div class="captions-list" id="captionsList">
-            <!-- Populated via JavaScript -->
-          </div>
-        </div>
-
-        <!-- TAB 3: STYLE OPTIONS -->
-        <div id="tabStyle" class="tab-pane hidden">
-          <div class="style-options-grid">
-            
-            <!-- Font Size -->
-            <div class="control-card">
-              <div class="control-header">
-                <label>Caption Size</label>
-                <span id="valFontSize" class="val-badge">100%</span>
+          <!-- TAB 2: EDIT CAPTIONS -->
+          <div id="tabCaptions" class="tab-pane hidden">
+            <div class="captions-toolbar">
+              <div class="captions-info">
+                <span id="captionCountBadge">0 lines</span>
               </div>
-              <input type="range" id="inputFontSize" min="60" max="180" value="100" class="styled-slider">
-            </div>
-
-            <!-- Position -->
-            <div class="control-card">
-              <div class="control-header">
-                <label>Screen Position</label>
-              </div>
-              <div class="btn-group" id="posButtonGroup">
-                <button class="btn-toggle" data-pos="0.25">Top</button>
-                <button class="btn-toggle" data-pos="0.50">Middle</button>
-                <button class="btn-toggle active" data-pos="0.75">Bottom</button>
-              </div>
-            </div>
-
-            <!-- Highlight Color -->
-            <div class="control-card">
-              <div class="control-header">
-                <label>Active Word Color</label>
-              </div>
-              <div class="color-swatches" id="colorSwatches">
-                <button class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Yellow"></button>
-                <button class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan"></button>
-                <button class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
-                <button class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>
-                <button class="swatch" style="--c:#10B981" data-color="#10B981" title="Neon Green"></button>
-                <button class="swatch" style="--c:#FFFFFF" data-color="#FFFFFF" title="Pure White"></button>
-                <button class="swatch" style="--c:#FF8A00" data-color="#FF8A00" title="Orange"></button>
-              </div>
-            </div>
-
-            <!-- Font Family -->
-            <div class="control-card">
-              <div class="control-header">
-                <label>Font Family</label>
-              </div>
-              <select id="selectFont" class="styled-select">
-                <option value="Poppins" selected>Poppins (Bold Sans)</option>
-                <option value="Montserrat">Montserrat (Modern)</option>
-                <option value="Anton">Anton (Heavy Punch)</option>
-                <option value="Bangers">Bangers (Comic Pop)</option>
-                <option value="Bungee">Bungee (Blocky 3D)</option>
-                <option value="Inter">Inter (Clean Clean)</option>
-                <option value="Space Mono">Space Mono (Tech)</option>
-              </select>
-            </div>
-
-            <!-- Letter Casing -->
-            <div class="control-card">
-              <div class="control-header">
-                <label>Text Case</label>
-              </div>
-              <div class="btn-group" id="caseButtonGroup">
-                <button class="btn-toggle active" data-case="upper">ALL CAPS</button>
-                <button class="btn-toggle" data-case="normal">Normal</button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- TAB 4: AUDIO -->
-        <div id="tabAudio" class="tab-pane hidden">
-          <div class="audio-panel">
-            <div class="control-card">
-              <div class="control-header">
-                <label>Original Video Volume</label>
-                <span id="valVidVol" class="val-badge">100%</span>
-              </div>
-              <input type="range" id="inputVidVol" min="0" max="150" value="100" class="styled-slider">
-            </div>
-
-            <div class="control-card">
-              <div class="control-header">
-                <label>Background Music (BGM)</label>
-              </div>
-              <div class="bgm-row">
-                <button id="btnAddBgm" class="btn-subaction">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                  <span>Upload MP3 / Audio</span>
+              <div class="captions-actions">
+                <button id="btnAddCaption" class="btn-subaction">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>Add Line</span>
                 </button>
-                <span id="bgmFilename" class="bgm-label">No music added</span>
-                <input type="file" id="bgmFileInput" accept="audio/*" class="file-input-hidden">
+                <button id="btnSyncScriptModal" class="btn-subaction">
+                  ✍️ Sync Script
+                </button>
               </div>
-              <div class="control-header" style="margin-top:12px;">
-                <label>BGM Volume</label>
-                <span id="valBgmVol" class="val-badge">30%</span>
+            </div>
+
+            <!-- Captions List -->
+            <div class="captions-list" id="captionsList">
+              <!-- Populated via JavaScript -->
+            </div>
+          </div>
+
+          <!-- TAB 3: STYLE OPTIONS -->
+          <div id="tabStyle" class="tab-pane hidden">
+            <div class="style-options-grid">
+              
+              <!-- Font Size -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>Caption Size</label>
+                  <span id="valFontSize" class="val-badge">100%</span>
+                </div>
+                <input type="range" id="inputFontSize" min="60" max="180" value="100" class="styled-slider">
               </div>
-              <input type="range" id="inputBgmVol" min="0" max="100" value="30" class="styled-slider">
+
+              <!-- Position -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>Screen Position</label>
+                </div>
+                <div class="btn-group" id="posButtonGroup">
+                  <button class="btn-toggle" data-pos="0.25">Top</button>
+                  <button class="btn-toggle" data-pos="0.50">Middle</button>
+                  <button class="btn-toggle active" data-pos="0.75">Bottom</button>
+                </div>
+              </div>
+
+              <!-- Highlight Color -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>Active Word Color</label>
+                </div>
+                <div class="color-swatches" id="colorSwatches">
+                  <button class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Yellow"></button>
+                  <button class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan"></button>
+                  <button class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
+                  <button class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>
+                  <button class="swatch" style="--c:#10B981" data-color="#10B981" title="Neon Green"></button>
+                  <button class="swatch" style="--c:#FFFFFF" data-color="#FFFFFF" title="Pure White"></button>
+                  <button class="swatch" style="--c:#FF8A00" data-color="#FF8A00" title="Orange"></button>
+                </div>
+              </div>
+
+              <!-- Font Family -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>Font Family</label>
+                </div>
+                <select id="selectFont" class="styled-select">
+                  <option value="Poppins" selected>Poppins (Bold Sans)</option>
+                  <option value="Montserrat">Montserrat (Modern)</option>
+                  <option value="Anton">Anton (Heavy Punch)</option>
+                  <option value="Bangers">Bangers (Comic Pop)</option>
+                  <option value="Bungee">Bungee (Blocky 3D)</option>
+                  <option value="Inter">Inter (Clean Clean)</option>
+                  <option value="Space Mono">Space Mono (Tech)</option>
+                </select>
+              </div>
+
+              <!-- Letter Casing -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>Text Case</label>
+                </div>
+                <div class="btn-group" id="caseButtonGroup">
+                  <button class="btn-toggle active" data-case="upper">ALL CAPS</button>
+                  <button class="btn-toggle" data-case="normal">Normal</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- TAB 4: AUDIO -->
+          <div id="tabAudio" class="tab-pane hidden">
+            <div class="audio-panel">
+              <div class="control-card">
+                <div class="control-header">
+                  <label>Original Video Volume</label>
+                  <span id="valVidVol" class="val-badge">100%</span>
+                </div>
+                <input type="range" id="inputVidVol" min="0" max="150" value="100" class="styled-slider">
+              </div>
+
+              <div class="control-card">
+                <div class="control-header">
+                  <label>Background Music (BGM)</label>
+                </div>
+                <div class="bgm-row">
+                  <button id="btnAddBgm" class="btn-subaction">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    <span>Upload MP3 / Audio</span>
+                  </button>
+                  <span id="bgmFilename" class="bgm-label">No music added</span>
+                  <input type="file" id="bgmFileInput" accept="audio/*" class="file-input-hidden">
+                </div>
+                <div class="control-header" style="margin-top:12px;">
+                  <label>BGM Volume</label>
+                  <span id="valBgmVol" class="val-badge">30%</span>
+                </div>
+                <input type="range" id="inputBgmVol" min="0" max="100" value="30" class="styled-slider">
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-      </section>
+      <!-- LOWEST PART: BOTTOM NAV BAR -->
+      <nav class="bottom-nav-bar" id="bottomNavBar">
+        <button class="bottom-nav-btn active" data-tab="tabTemplates">
+          <span class="nav-btn-icon">🎨</span>
+          <span class="nav-btn-label">Templates</span>
+        </button>
+        <button class="bottom-nav-btn" data-tab="tabCaptions">
+          <span class="nav-btn-icon">📝</span>
+          <span class="nav-btn-label">Captions</span>
+        </button>
+        <button class="bottom-nav-btn" data-tab="tabStyle">
+          <span class="nav-btn-icon">🎚️</span>
+          <span class="nav-btn-label">Styles</span>
+        </button>
+        <button class="bottom-nav-btn" data-tab="tabAudio">
+          <span class="nav-btn-icon">🎵</span>
+          <span class="nav-btn-label">Audio</span>
+        </button>
+        <button class="bottom-nav-btn" id="btnToggleTimeline" title="View timeline">
+          <span class="nav-btn-icon">⏱️</span>
+          <span class="nav-btn-label">Timeline</span>
+        </button>
+      </nav>
+
     </div>
   </main>
 
@@ -330,7 +383,7 @@
       <div class="modal-header">
         <div>
           <h2 class="modal-title">All Caption Templates</h2>
-          <p class="modal-desc">Pick from 130+ viral designs. Tap any template to apply instantly.</p>
+          <p class="modal-desc">Pick from 130+ viral designs. Tap "Generate" on any template to apply.</p>
         </div>
         <button id="btnCloseTemplatesModal" class="btn-close">&times;</button>
       </div>
@@ -417,6 +470,9 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=3.01"></script>
+  <!-- Notification Toast -->
+  <div id="toastNotification" class="toast-notification hidden"></div>
+
+  <script src="/static/app.js?v=3.02"></script>
 </body>
 </html>

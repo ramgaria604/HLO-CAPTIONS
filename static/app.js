@@ -1,6 +1,6 @@
 /* ==========================================================================
-   HLO CAPTIONS - CLIENT APPLICATION (v3.00)
-   Clean, intuitive, high-performance editor with live canvas captions & instant presets
+   HLO CAPTIONS - CLIENT APPLICATION (v3.02)
+   Timeline + Lowest-Part Tab Bar + Sliding Drawer + Template Generate
    ========================================================================== */
 
 (function () {
@@ -20,6 +20,8 @@
     presets: [],
     style: null,
     activeTab: 'tabTemplates',
+    drawerOpen: true,
+    drawerFullscreen: false,
     bgmFilename: '',
     bgmVolume: 0.3,
     vidVolume: 1.0,
@@ -64,13 +66,34 @@
   const iconVolume = $('iconVolume');
   const iconMuted = $('iconMuted');
 
-  // Tabs
+  // Timeline elements
+  const timelineSection = $('timelineSection');
+  const timelineTrackWrap = $('timelineTrackWrap');
+  const timelineRuler = $('timelineRuler');
+  const timelineLane = $('timelineLane');
+  const timelinePlayhead = $('timelinePlayhead');
+  const tlTimeIndicator = $('tlTimeIndicator');
+
+  // Drawer & Lowest Nav elements
+  const drawerPanel = $('drawerPanel');
+  const drawerTitle = $('drawerTitle');
+  const btnDrawerExpand = $('btnDrawerExpand');
+  const iconExpand = $('iconExpand');
+  const iconCollapse = $('iconCollapse');
+  const btnDrawerClose = $('btnDrawerClose');
+  const btnToggleTimeline = $('btnToggleTimeline');
+
+  // Presets & Templates
   const presetsGrid = $('presetsGrid');
+  const selectedPresetName = $('selectedPresetName');
+  const btnGenerateTemplate = $('btnGenerateTemplate');
+  const btnOpenFullTemplates = $('btnOpenFullTemplates');
+
+  // Captions list
   const captionsList = $('captionsList');
   const captionCountBadge = $('captionCountBadge');
   const btnAddCaption = $('btnAddCaption');
   const btnSyncScriptModal = $('btnSyncScriptModal');
-  const btnOpenFullTemplates = $('btnOpenFullTemplates');
 
   // Style controls
   const inputFontSize = $('inputFontSize');
@@ -115,13 +138,16 @@
   const exportErrorMessage = $('exportErrorMessage');
   const btnRetryExport = $('btnRetryExport');
 
+  const toastNotification = $('toastNotification');
+
   // ==========================================================================
   // INITIALIZATION
   // ==========================================================================
   async function init() {
     setupUploadHandlers();
     setupTransportHandlers();
-    setupTabHandlers();
+    setupTimelineHandlers();
+    setupDrawerAndNavHandlers();
     setupStyleHandlers();
     setupAudioHandlers();
     setupModalHandlers();
@@ -139,13 +165,13 @@
       const data = await res.json();
       S.presets = data.presets || [];
       if (S.presets.length > 0) {
-        // Find a top viral preset or default
-        S.style = S.presets.find(p => p.id === 'yellow_box' || p.id === 'box_pop') || S.presets[0];
+        const initial = S.presets.find(p => p.id === 'yellow_box' || p.id === 'box_pop') || S.presets[0];
+        applyPreset(initial, false);
       }
       renderPresetsTab('all');
     } catch (e) {
       console.warn('Failed to load presets, using default:', e);
-      S.style = {
+      applyPreset({
         id: 'yellow_box',
         name: 'Yellow Box Pop',
         highlightColor: '#FFE600',
@@ -153,7 +179,7 @@
         filler: { font: 'Poppins', color: '#FFFFFF' },
         position: 0.75,
         fontScale: 1.0,
-      };
+      }, false);
     }
   }
 
@@ -165,6 +191,7 @@
       viewUpload.classList.add('hidden');
       viewEditor.classList.remove('hidden');
       fitCanvas();
+      renderTimeline();
       renderCaptionsList();
     } else {
       viewEditor.classList.add('hidden');
@@ -280,7 +307,6 @@
     const lang = langSelect.value;
     const pastedScript = scriptInput.value.trim();
 
-    // Progress simulation during transcription
     let transcribePct = 50;
     const progressInterval = setInterval(() => {
       if (transcribePct < 92) {
@@ -375,7 +401,6 @@
     return raw.map((c, i) => {
       let words = c.words || [];
       if (!words.length && c.text) {
-        // Fallback: estimate word timings if missing
         const parts = c.text.split(/\s+/).filter(Boolean);
         const dur = (c.end - c.start) / Math.max(parts.length, 1);
         words = parts.map((w, idx) => ({
@@ -420,18 +445,21 @@
     vid.addEventListener('timeupdate', () => {
       updateTransportUI();
       renderCanvas();
+      syncTimelinePlayhead();
     });
 
     vid.addEventListener('loadedmetadata', () => {
       timeDuration.textContent = formatTime(vid.duration || 0);
       timeScrub.max = vid.duration || 100;
       fitCanvas();
+      renderTimeline();
       renderCanvas();
     });
 
     timeScrub.addEventListener('input', (e) => {
       vid.currentTime = parseFloat(e.target.value);
       renderCanvas();
+      syncTimelinePlayhead();
     });
 
     btnMute.addEventListener('click', () => {
@@ -457,6 +485,7 @@
     timeCurrent.textContent = formatTime(cur);
     timeDuration.textContent = formatTime(dur);
     timeScrub.value = cur;
+    tlTimeIndicator.textContent = formatTimeWithTenths(cur);
   }
 
   function formatTime(sec) {
@@ -464,6 +493,14 @@
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function formatTimeWithTenths(sec) {
+    if (isNaN(sec) || sec < 0) sec = 0;
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    const t = Math.floor((sec % 1) * 10);
+    return m + ':' + (s < 10 ? '0' : '') + s + '.' + t;
   }
 
   function toggleFullscreen() {
@@ -476,163 +513,203 @@
   }
 
   // ==========================================================================
-  // CANVAS SIZING & RENDERING LOOP
+  // TIMELINE RENDERING & INTERACTION
   // ==========================================================================
-  function setupCanvasSizing() {
-    window.addEventListener('resize', fitCanvas);
-    document.addEventListener('fullscreenchange', fitCanvas);
-  }
-
-  function fitCanvas() {
-    const rect = stage.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    if (rect.width > 0 && rect.height > 0) {
-      captionCanvas.width = Math.round(rect.width * dpr);
-      captionCanvas.height = Math.round(rect.height * dpr);
+  function setupTimelineHandlers() {
+    // Click or scrub on timeline
+    timelineTrackWrap.addEventListener('click', (e) => {
+      const rect = timelineTrackWrap.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      const dur = vid.duration || S.probe.duration || 10;
+      vid.currentTime = pct * dur;
       renderCanvas();
-    }
-  }
-
-  function renderLoop() {
-    if (!vid.paused && !vid.ended) {
-      renderCanvas();
-      requestAnimationFrame(renderLoop);
-    }
-  }
-
-  function renderCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    const w = captionCanvas.width / dpr;
-    const h = captionCanvas.height / dpr;
-
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
-    ctx.scale(dpr, dpr);
-
-    if (!S.captions.length) return;
-
-    const t = vid.currentTime || 0;
-    // Find active caption
-    const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
-    if (!activeCap) return;
-
-    drawCaptionOnCanvas(activeCap, t, w, h);
-  }
-
-  function drawCaptionOnCanvas(cap, t, w, h) {
-    const st = S.style || {};
-    const fontScale = (Number(st.fontScale) || 1.0);
-    const fontName = st.fontFamily || (st.key && st.key.font) || 'Poppins';
-    const isUpper = st.textCase !== 'normal';
-    const highlightColor = st.highlightColor || (st.key && st.key.color) || '#FFE600';
-    const normalColor = (st.filler && st.filler.color) || '#FFFFFF';
-
-    // Base font size scaled to stage height
-    const fontSize = Math.round(Math.min(w, h) * 0.08 * fontScale);
-    ctx.font = `900 ${fontSize}px "${fontName}", sans-serif`;
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-
-    const words = cap.words && cap.words.length ? cap.words : [{ word: cap.text, start: cap.start, end: cap.end }];
-    
-    // Position on screen
-    const posY = h * (typeof st.position === 'number' ? st.position : 0.75);
-
-    // Measure total width of line
-    const spaceWidth = ctx.measureText(' ').width;
-    let totalLineWidth = 0;
-    const wordMeasures = words.map(wObj => {
-      const displayWord = isUpper ? wObj.word.toUpperCase() : wObj.word;
-      const m = ctx.measureText(displayWord);
-      totalLineWidth += m.width;
-      return { word: displayWord, width: m.width, start: wObj.start, end: wObj.end };
+      syncTimelinePlayhead();
     });
-    totalLineWidth += spaceWidth * (words.length - 1);
+  }
 
-    // Starting X to center the line
-    let curX = (w - totalLineWidth) / 2;
+  function renderTimeline() {
+    timelineLane.innerHTML = '';
+    timelineRuler.innerHTML = '';
 
-    wordMeasures.forEach((wItem) => {
-      const isActive = t >= wItem.start && t <= wItem.end;
-      const wordCenterX = curX + wItem.width / 2;
+    const dur = vid.duration || S.probe.duration || 10;
+    if (dur <= 0) return;
 
-      ctx.save();
+    // Draw ruler tick marks
+    const step = dur > 60 ? 10 : (dur > 20 ? 5 : (dur > 10 ? 2 : 1));
+    for (let t = 0; t <= dur; t += step) {
+      const mark = document.createElement('span');
+      mark.style.position = 'absolute';
+      mark.style.left = (t / dur * 100) + '%';
+      mark.style.fontSize = '9px';
+      mark.style.color = '#64748b';
+      mark.style.transform = 'translateX(-50%)';
+      mark.textContent = t + 's';
+      timelineRuler.appendChild(mark);
+    }
 
-      if (isActive) {
-        // Active word animation / pop
-        const progress = Math.min(1, Math.max(0, (t - wItem.start) / Math.max(0.01, (wItem.end - wItem.start))));
-        const scale = 1.0 + Math.sin(progress * Math.PI) * 0.12;
+    // Draw caption blocks
+    const curTime = vid.currentTime || 0;
+    S.captions.forEach((cap, idx) => {
+      const block = document.createElement('div');
+      block.className = 'timeline-block' + (curTime >= cap.start && curTime <= cap.end ? ' active' : '');
+      const leftPct = (cap.start / dur) * 100;
+      const widthPct = Math.max(2, ((cap.end - cap.start) / dur) * 100);
+      block.style.left = leftPct + '%';
+      block.style.width = widthPct + '%';
+      block.textContent = cap.text || `Line ${idx + 1}`;
+      block.setAttribute('data-id', cap.id);
 
-        ctx.translate(wordCenterX, posY);
-        ctx.scale(scale, scale);
-        ctx.translate(-wordCenterX, -posY);
+      block.addEventListener('click', (e) => {
+        e.stopPropagation();
+        vid.currentTime = cap.start + 0.05;
+        vid.play();
+      });
 
-        // Highlight Box if preset has pill/box
-        if (st.id && (st.id.includes('box') || st.id.includes('yellow') || st.pill)) {
-          const padX = 8;
-          const padY = 4;
-          ctx.fillStyle = highlightColor;
-          ctx.beginPath();
-          ctx.roundRect(curX - padX, posY - fontSize / 2 - padY, wItem.width + padX * 2, fontSize + padY * 2, 6);
-          ctx.fill();
+      timelineLane.appendChild(block);
+    });
 
-          // Black text inside yellow/bright box
-          ctx.fillStyle = '#000000';
-          ctx.fillText(wItem.word, wordCenterX, posY);
-        } else {
-          // Glow and Stroke
-          ctx.shadowColor = highlightColor;
-          ctx.shadowBlur = 14;
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = Math.max(3, fontSize * 0.12);
-          ctx.lineJoin = 'round';
-          ctx.strokeText(wItem.word, wordCenterX, posY);
+    syncTimelinePlayhead();
+  }
 
-          ctx.fillStyle = highlightColor;
-          ctx.fillText(wItem.word, wordCenterX, posY);
-        }
-      } else {
-        // Inactive words
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 6;
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = Math.max(2, fontSize * 0.1);
-        ctx.lineJoin = 'round';
-        ctx.strokeText(wItem.word, wordCenterX, posY);
+  function syncTimelinePlayhead() {
+    const dur = vid.duration || S.probe.duration || 10;
+    if (dur <= 0) return;
+    const cur = vid.currentTime || 0;
+    const pct = Math.max(0, Math.min(100, (cur / dur) * 100));
+    timelinePlayhead.style.left = pct + '%';
 
-        ctx.fillStyle = normalColor;
-        ctx.fillText(wItem.word, wordCenterX, posY);
+    // Highlight active timeline block
+    $$('.timeline-block').forEach((blk) => {
+      const capId = blk.getAttribute('data-id');
+      const cap = S.captions.find(c => c.id === capId);
+      if (cap) {
+        const isActive = cur >= cap.start && cur <= cap.end;
+        blk.classList.toggle('active', isActive);
       }
-
-      ctx.restore();
-      curX += wItem.width + spaceWidth;
     });
   }
 
   // ==========================================================================
-  // TABS NAVIGATION & CONTENT
+  // DRAWER & LOWEST NAV BAR
   // ==========================================================================
-  function setupTabHandlers() {
-    $$('.tab-btn').forEach(btn => {
+  function setupDrawerAndNavHandlers() {
+    // Bottom nav bar tabs
+    $$('.bottom-nav-btn[data-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-tab');
-        $$('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-        $$('.tab-pane').forEach(p => p.classList.toggle('hidden', p.id !== targetId));
-        S.activeTab = targetId;
-
-        if (targetId === 'tabCaptions') {
-          renderCaptionsList();
-        }
+        openDrawerTab(targetId);
       });
     });
 
-    // Preset category filter pills
+    // Toggle Timeline button (collapses drawer to reveal full timeline)
+    btnToggleTimeline.addEventListener('click', () => {
+      toggleTimelineView();
+    });
+
+    // Close button on drawer header
+    btnDrawerClose.addEventListener('click', () => {
+      closeDrawer();
+    });
+
+    // Expand / Fullscreen button on drawer header
+    btnDrawerExpand.addEventListener('click', () => {
+      toggleDrawerFullscreen();
+    });
+
+    // Generate Button on Template
+    btnGenerateTemplate.addEventListener('click', () => {
+      triggerGenerateActiveTemplate();
+    });
+
+    // Category pills
     $$('#categoryPills .cat-pill').forEach(pill => {
       pill.addEventListener('click', () => {
         $$('#categoryPills .cat-pill').forEach(p => p.classList.toggle('active', p === pill));
         renderPresetsTab(pill.getAttribute('data-cat'));
       });
     });
+  }
+
+  function openDrawerTab(targetId) {
+    S.activeTab = targetId;
+    S.drawerOpen = true;
+    drawerPanel.classList.remove('collapsed');
+
+    // Update bottom nav active state
+    $$('.bottom-nav-btn').forEach(btn => {
+      const tabAttr = btn.getAttribute('data-tab');
+      btn.classList.toggle('active', tabAttr === targetId);
+    });
+
+    // Show corresponding tab pane
+    $$('.tab-pane').forEach(p => p.classList.toggle('hidden', p.id !== targetId));
+
+    // Update drawer header title
+    const titles = {
+      tabTemplates: '🎨 Choose Template',
+      tabCaptions: '📝 Edit Captions',
+      tabStyle: '🎚️ Style Options',
+      tabAudio: '🎵 Audio & Music'
+    };
+    drawerTitle.textContent = titles[targetId] || 'Editor Options';
+
+    if (targetId === 'tabCaptions') {
+      renderCaptionsList();
+    }
+  }
+
+  function closeDrawer() {
+    S.drawerOpen = false;
+    drawerPanel.classList.add('collapsed');
+    $$('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
+    btnToggleTimeline.classList.add('active');
+  }
+
+  function toggleTimelineView() {
+    if (S.drawerOpen) {
+      closeDrawer();
+      showToast('⏱️ Timeline view active');
+    } else {
+      openDrawerTab(S.activeTab || 'tabTemplates');
+    }
+  }
+
+  function toggleDrawerFullscreen() {
+    S.drawerFullscreen = !S.drawerFullscreen;
+    drawerPanel.classList.toggle('fullscreen', S.drawerFullscreen);
+    iconExpand.classList.toggle('hidden', S.drawerFullscreen);
+    iconCollapse.classList.toggle('hidden', !S.drawerFullscreen);
+  }
+
+  function triggerGenerateActiveTemplate() {
+    const pName = S.style?.name || 'Selected Template';
+    btnGenerateTemplate.classList.add('generating');
+    btnGenerateTemplate.innerHTML = `<span>⚡ Generating with ${pName}...</span>`;
+
+    // Apply generation effect
+    setTimeout(() => {
+      btnGenerateTemplate.classList.remove('generating');
+      btnGenerateTemplate.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span>Generate with <strong id="selectedPresetName">${pName}</strong></span>
+      `;
+      showToast(`✨ Generated with ${pName}!`);
+      renderCanvas();
+      renderTimeline();
+
+      // Start playing preview
+      vid.play();
+    }, 350);
+  }
+
+  function showToast(msg) {
+    toastNotification.textContent = msg;
+    toastNotification.classList.remove('hidden');
+    clearTimeout(toastNotification._timer);
+    toastNotification._timer = setTimeout(() => {
+      toastNotification.classList.add('hidden');
+    }, 2400);
   }
 
   // ==========================================================================
@@ -653,16 +730,21 @@
         });
 
     filtered.slice(0, 40).forEach(preset => {
-      const card = createPresetCard(preset);
+      const card = createPresetCard(preset, false);
       presetsGrid.appendChild(card);
     });
   }
 
-  function createPresetCard(preset) {
+  function createPresetCard(preset, isModal) {
     const card = document.createElement('div');
     card.className = 'preset-card' + (S.style && S.style.id === preset.id ? ' active' : '');
     const color = preset.highlightColor || (preset.key && preset.key.color) || '#FFE600';
     const tag = preset.badge || (preset.category || 'POP').toUpperCase();
+
+    let generateBtnHtml = '';
+    if (isModal) {
+      generateBtnHtml = `<button class="btn-card-generate">⚡ Generate</button>`;
+    }
 
     card.innerHTML = `
       <span class="preset-badge-tag" style="background:${color}22; color:${color};">${tag}</span>
@@ -670,18 +752,30 @@
         VIRAL POP
       </div>
       <span class="preset-name">${preset.name || 'Template'}</span>
+      ${generateBtnHtml}
     `;
 
+    if (isModal) {
+      const genBtn = card.querySelector('.btn-card-generate');
+      genBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        applyPreset(preset, true);
+        modalTemplates.classList.add('hidden');
+      });
+    }
+
     card.addEventListener('click', () => {
-      applyPreset(preset);
+      applyPreset(preset, false);
       $$('.preset-card').forEach(c => c.classList.toggle('active', c === card));
+      if (isModal) {
+        modalTemplates.classList.add('hidden');
+      }
     });
 
     return card;
   }
 
-  function applyPreset(preset) {
-    // Preserve custom tweaks while applying preset base
+  function applyPreset(preset, showGenToast = false) {
     S.style = Object.assign({}, preset, {
       fontScale: S.style?.fontScale || 1.0,
       position: S.style?.position !== undefined ? S.style.position : (preset.position || 0.75),
@@ -690,9 +784,21 @@
       textCase: S.style?.textCase || 'upper'
     });
 
-    // Sync style controls
-    selectFont.value = S.style.fontFamily;
+    if (selectedPresetName) {
+      selectedPresetName.textContent = preset.name || 'Template';
+    }
+
+    if (selectFont) {
+      selectFont.value = S.style.fontFamily;
+    }
+
     renderCanvas();
+    renderTimeline();
+
+    if (showGenToast) {
+      showToast(`✨ Generated with ${preset.name}!`);
+      vid.play();
+    }
   }
 
   // ==========================================================================
@@ -723,13 +829,11 @@
         <button class="caption-delete-btn" title="Delete caption">&times;</button>
       `;
 
-      // Jump video
       row.querySelector('.caption-play-btn').addEventListener('click', () => {
         vid.currentTime = cap.start + 0.05;
         vid.play();
       });
 
-      // Text edit
       const textarea = row.querySelector('.caption-text-input');
       textarea.addEventListener('input', (e) => {
         cap.text = e.target.value;
@@ -741,12 +845,13 @@
           end: cap.start + (wIdx + 1) * dur
         }));
         renderCanvas();
+        renderTimeline();
       });
 
-      // Delete
       row.querySelector('.caption-delete-btn').addEventListener('click', () => {
         S.captions.splice(idx, 1);
         renderCaptionsList();
+        renderTimeline();
         renderCanvas();
       });
 
@@ -770,6 +875,7 @@
     S.captions.push(newCap);
     S.captions.sort((a, b) => a.start - b.start);
     renderCaptionsList();
+    renderTimeline();
     renderCanvas();
   });
 
@@ -785,7 +891,6 @@
       renderCanvas();
     });
 
-    // Position buttons
     $$('#posButtonGroup .btn-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         $$('#posButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
@@ -795,7 +900,6 @@
       });
     });
 
-    // Color Swatches
     $$('#colorSwatches .swatch').forEach(swatch => {
       swatch.addEventListener('click', () => {
         $$('#colorSwatches .swatch').forEach(s => s.classList.toggle('active', s === swatch));
@@ -806,14 +910,12 @@
       });
     });
 
-    // Font Select
     selectFont.addEventListener('change', (e) => {
       if (!S.style) S.style = {};
       S.style.fontFamily = e.target.value;
       renderCanvas();
     });
 
-    // Text Case
     $$('#caseButtonGroup .btn-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         $$('#caseButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
@@ -850,6 +952,7 @@
         const data = await res.json();
         S.bgmFilename = data.filename || file.name;
         bgmFilename.textContent = file.name;
+        showToast('🎵 Audio added!');
       } catch (err) {
         bgmFilename.textContent = 'Upload failed: ' + err.message;
       }
@@ -863,10 +966,133 @@
   }
 
   // ==========================================================================
+  // CANVAS SIZING & RENDERING LOOP
+  // ==========================================================================
+  function setupCanvasSizing() {
+    window.addEventListener('resize', fitCanvas);
+    document.addEventListener('fullscreenchange', fitCanvas);
+  }
+
+  function fitCanvas() {
+    const rect = stage.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    if (rect.width > 0 && rect.height > 0) {
+      captionCanvas.width = Math.round(rect.width * dpr);
+      captionCanvas.height = Math.round(rect.height * dpr);
+      renderCanvas();
+    }
+  }
+
+  function renderLoop() {
+    if (!vid.paused && !vid.ended) {
+      renderCanvas();
+      syncTimelinePlayhead();
+      requestAnimationFrame(renderLoop);
+    }
+  }
+
+  function renderCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = captionCanvas.width / dpr;
+    const h = captionCanvas.height / dpr;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
+    ctx.scale(dpr, dpr);
+
+    if (!S.captions.length) return;
+
+    const t = vid.currentTime || 0;
+    const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+    if (!activeCap) return;
+
+    drawCaptionOnCanvas(activeCap, t, w, h);
+  }
+
+  function drawCaptionOnCanvas(cap, t, w, h) {
+    const st = S.style || {};
+    const fontScale = (Number(st.fontScale) || 1.0);
+    const fontName = st.fontFamily || (st.key && st.key.font) || 'Poppins';
+    const isUpper = st.textCase !== 'normal';
+    const highlightColor = st.highlightColor || (st.key && st.key.color) || '#FFE600';
+    const normalColor = (st.filler && st.filler.color) || '#FFFFFF';
+
+    const fontSize = Math.round(Math.min(w, h) * 0.08 * fontScale);
+    ctx.font = `900 ${fontSize}px "${fontName}", sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+
+    const words = cap.words && cap.words.length ? cap.words : [{ word: cap.text, start: cap.start, end: cap.end }];
+    const posY = h * (typeof st.position === 'number' ? st.position : 0.75);
+
+    const spaceWidth = ctx.measureText(' ').width;
+    let totalLineWidth = 0;
+    const wordMeasures = words.map(wObj => {
+      const displayWord = isUpper ? wObj.word.toUpperCase() : wObj.word;
+      const m = ctx.measureText(displayWord);
+      totalLineWidth += m.width;
+      return { word: displayWord, width: m.width, start: wObj.start, end: wObj.end };
+    });
+    totalLineWidth += spaceWidth * (words.length - 1);
+
+    let curX = (w - totalLineWidth) / 2;
+
+    wordMeasures.forEach((wItem) => {
+      const isActive = t >= wItem.start && t <= wItem.end;
+      const wordCenterX = curX + wItem.width / 2;
+
+      ctx.save();
+
+      if (isActive) {
+        const progress = Math.min(1, Math.max(0, (t - wItem.start) / Math.max(0.01, (wItem.end - wItem.start))));
+        const scale = 1.0 + Math.sin(progress * Math.PI) * 0.12;
+
+        ctx.translate(wordCenterX, posY);
+        ctx.scale(scale, scale);
+        ctx.translate(-wordCenterX, -posY);
+
+        if (st.id && (st.id.includes('box') || st.id.includes('yellow') || st.pill)) {
+          const padX = 8;
+          const padY = 4;
+          ctx.fillStyle = highlightColor;
+          ctx.beginPath();
+          ctx.roundRect(curX - padX, posY - fontSize / 2 - padY, wItem.width + padX * 2, fontSize + padY * 2, 6);
+          ctx.fill();
+
+          ctx.fillStyle = '#000000';
+          ctx.fillText(wItem.word, wordCenterX, posY);
+        } else {
+          ctx.shadowColor = highlightColor;
+          ctx.shadowBlur = 14;
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = Math.max(3, fontSize * 0.12);
+          ctx.lineJoin = 'round';
+          ctx.strokeText(wItem.word, wordCenterX, posY);
+
+          ctx.fillStyle = highlightColor;
+          ctx.fillText(wItem.word, wordCenterX, posY);
+        }
+      } else {
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 6;
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = Math.max(2, fontSize * 0.1);
+        ctx.lineJoin = 'round';
+        ctx.strokeText(wItem.word, wordCenterX, posY);
+
+        ctx.fillStyle = normalColor;
+        ctx.fillText(wItem.word, wordCenterX, posY);
+      }
+
+      ctx.restore();
+      curX += wItem.width + spaceWidth;
+    });
+  }
+
+  // ==========================================================================
   // MODALS HANDLERS (FULL TEMPLATES, SCRIPT SYNC, EXPORT)
   // ==========================================================================
   function setupModalHandlers() {
-    // 1. Full Templates Browser Modal
     btnOpenFullTemplates.addEventListener('click', () => {
       modalTemplates.classList.remove('hidden');
       renderFullTemplatesGrid('');
@@ -880,7 +1106,6 @@
       renderFullTemplatesGrid(e.target.value.toLowerCase().trim());
     });
 
-    // 2. Script Sync Modal
     btnSyncScriptModal.addEventListener('click', () => {
       modalScript.classList.remove('hidden');
     });
@@ -910,9 +1135,11 @@
         if (data.captions) {
           S.captions = normalizeCaptions(data.captions);
           renderCaptionsList();
+          renderTimeline();
           renderCanvas();
         }
         modalScript.classList.add('hidden');
+        showToast('✍️ Script synced with audio!');
       } catch (e) {
         alert('Script sync error: ' + e.message);
       } finally {
@@ -921,7 +1148,6 @@
       }
     });
 
-    // 3. Export Modal
     btnExport.addEventListener('click', startExport);
 
     btnCloseExportModal.addEventListener('click', () => {
@@ -942,12 +1168,7 @@
     });
 
     filtered.forEach(preset => {
-      const card = createPresetCard(preset);
-      card.addEventListener('click', () => {
-        applyPreset(preset);
-        modalTemplates.classList.add('hidden');
-        renderPresetsTab('all');
-      });
+      const card = createPresetCard(preset, true);
       fullTemplatesGrid.appendChild(card);
     });
   }
@@ -992,7 +1213,6 @@
       const data = await res.json();
       S.exportJobId = data.job;
 
-      // Start polling status
       pollExportStatus(S.exportJobId);
 
     } catch (err) {
@@ -1038,7 +1258,6 @@
     btnDownloadExport.href = downloadUrl;
     btnDownloadExport.download = 'captioned_' + filename;
 
-    // Direct preview in browser
     exportPreviewVideo.src = '/work/' + filename;
     exportPreviewVideo.load();
   }
@@ -1049,7 +1268,6 @@
     exportErrorMessage.textContent = msg;
   }
 
-  // Run on startup
   window.addEventListener('DOMContentLoaded', init);
 
 })();
