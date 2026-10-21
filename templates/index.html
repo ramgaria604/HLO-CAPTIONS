@@ -24,7 +24,7 @@
 <meta property="twitter:description" content="Create viral animated captions with 31+ Sequence presets for Instagram Reels & YouTube Shorts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="/static/style.css?v=2.21">
+<link rel="stylesheet" href="/static/style.css?v=2.22">
 <link rel="stylesheet" href="/fonts.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Poppins:wght@500;700;800;900&family=Space+Mono:wght@700&display=swap">
 <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -164,23 +164,35 @@
 <div id="editorWorkspace" class="editor-workspace" style="display:none">
 
 <!-- ============================================================ CLEAN TOP TOOLBAR -->
-<header class="toolbar moonshot-toolbar" id="toolbar" style="height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background:#0a0a14; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0;">
-  <div class="toolbar-left" style="display:flex; align-items:center; gap:8px;">
+<header class="toolbar moonshot-toolbar" id="toolbar">
+  <div class="toolbar-left">
     <button class="moonshot-orb-btn" id="btnBackToLanding" type="button" title="Back to Upload">
       <span class="moonshot-orb-icon"></span>
     </button>
-    <span style="font-weight:700; font-size:13px; color:#e2e8f0; letter-spacing:0.02em;">AutoCaption</span>
   </div>
-  <div class="toolbar-center" style="display:flex; align-items:center; justify-content:center;">
-    <span id="notice" class="notice-inline" role="status" style="font-size:11px; color:#94a3b8; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Ready</span>
+  <div class="toolbar-center">
+    <div class="moonshot-undo-pill">
+      <button class="icon-only" id="btnUndo" type="button" title="Undo (Ctrl+Z)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+      </button>
+      <button class="icon-only" id="btnRedo" type="button" title="Redo (Ctrl+Y)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/></svg>
+      </button>
+    </div>
+    <button class="magic-sparkle-btn" id="btnAiMagic" type="button" title="AI Magic">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
+    </button>
   </div>
-  <div class="toolbar-right" style="display:flex; align-items:center; gap:6px;">
-    <button class="tb-btn primary export-square-btn" id="exportBtn" type="button" disabled title="Export Video" style="height:32px; padding:0 14px; font-weight:700; font-size:12px; border-radius:8px; display:inline-flex; align-items:center; gap:6px;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>
-      <span>Export</span>
+  <div class="toolbar-right">
+    <button class="export-square-btn" id="exportBtn" type="button" disabled title="Export Video">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>
     </button>
   </div>
 </header>
+<div class="moonshot-subbar">
+  <span class="preview-dot"></span>
+  <span>Low-res preview</span>
+</div>
 
 <!-- ============================================================ MAIN EDITOR -->
 <main class="editor" id="editorMain">
@@ -188,29 +200,33 @@
   <!-- ========== LEFT PANEL (MOONSHOT BOTTOM TABS ON MOBILE) ========== -->
   <aside class="left-panel" id="leftPanel">
     <nav class="panel-tabs moonshot-tabs" id="panelTabs">
-      <button class="ptab on" data-panel="captions" type="button" title="Captions">
+      <button class="ptab" data-panel="ai" type="button" title="Auto edit">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
+        <span>Auto edit</span>
+      </button>
+      <button class="ptab" data-panel="captions" type="button" title="Transcript">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 9h6M7 13h10"/></svg>
-        <span>Captions</span>
+        <span>Transcript</span>
       </button>
-      <button class="ptab" data-panel="customize" type="button" title="Style">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        <span>Style</span>
-      </button>
-      <button class="ptab" data-panel="style" type="button" title="Presets">
+      <button class="ptab" data-panel="style" type="button" title="Templates">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        <span>Presets</span>
+        <span>Templates</span>
       </button>
-      <button class="ptab voice-tab" data-panel="voice" type="button" title="Voice">
+      <button class="ptab" data-panel="customize" type="button" title="Customize">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span>Customize</span>
+      </button>
+      <button class="ptab voice-tab" data-panel="voice" type="button" title="Voice &amp; Audio">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
         <span>Voice</span>
       </button>
-      <button class="ptab desktop-only-tab" data-panel="ai" type="button" title="Auto edit">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
-        <span>AI Director</span>
-      </button>
     </nav>
 
-    <div class="panel-content" id="panelContent">
+        <div class="panel-content" id="panelContent">
+      <div class="drawer-header" id="drawerHeader" style="display:flex; justify-content:space-between; align-items:center; padding: 2px 0 10px; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9;">
+        <b id="drawerTitle" style="font-size: 13px; font-weight: 700; color: #0f172a;">Settings</b>
+        <button id="closeDrawerBtn" type="button" style="border:none; background:none; font-size:22px; color:#64748b; cursor:pointer; padding:0 4px; line-height:1;" title="Close">×</button>
+      </div>
       <!-- MEDIA PANEL -->
       <div class="ppane" id="ppane-media">
         <label class="upload-zone" for="file">
@@ -702,7 +718,16 @@
   <section class="center-panel" id="centerPanel">
     <div class="canvas-wrap" id="canvasWrap">
       <div class="stage" id="stage">
-        <video id="vid" playsinline></video>
+                <video id="vid" playsinline></video>
+        <!-- Floating Stage Gear Settings Button -->
+        <button class="stage-gear-btn" id="stageGearBtn" type="button" title="Editor Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <!-- Floating Pro Template Badge -->
+        <div class="stage-pro-template-badge" id="stageProBadge">
+          <span class="pro-crown-icon">👑</span>
+          <span>Pro template</span>
+        </div>
         <!-- Real Behind-the-Person Canvas & HTML Overlays (z-index: 15) -->
         <canvas id="captionCanvasBehind" class="caption-canvas caption-canvas-behind"></canvas>
         <div id="capboxBehind" class="capbox capbox-behind"></div>
@@ -754,7 +779,7 @@
       <div class="transport-main-row">
         <div class="transport-left-controls">
           <button class="moonshot-play-btn" id="playBtn" type="button" disabled title="Play/Pause (Space)">
-            <svg id="playIcon" width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3l12 7-12 7V3z"/></svg>
+            <svg id="playIcon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3l12 7-12 7V3z"/></svg>
           </button>
           <button class="transport-icon-btn" id="muteBtn" type="button" title="Mute/Unmute">
             <svg id="muteIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
@@ -764,27 +789,16 @@
             <span>Multi</span>
           </button>
         </div>
-        <div class="transport-center-controls" id="transportCenterControls">
-          <input type="range" id="mobileScrubRange" class="mobile-scrub-slider" min="0" max="100" value="0" step="0.1" aria-label="Seek video">
-          <span id="mobileTimeLbl" class="mobile-timecode">0:00 / 0:00</span>
-        </div>
         <div class="transport-right-controls">
           <div class="moonshot-zoom-group">
             <button class="m-zoom-btn" id="zoomOutBtn" type="button" title="Zoom Out">−</button>
             <button class="m-zoom-btn" id="zoomInBtn" type="button" title="Zoom In">+</button>
             <button class="m-zoom-fit-btn" id="zoomFitBtn" type="button" title="Fit to Screen">Fit</button>
+            <button class="m-zoom-btn" type="button" title="More">⌄</button>
           </div>
         </div>
       </div>
       <div class="transport-sub-row">
-        <button class="section-style-btn caption-adjust-btn" id="captionAdjustBtn" type="button" aria-pressed="false" title="Touch and drag captions to move them">
-          <span aria-hidden="true">✥</span><span>Move text</span>
-        </button>
-        <label class="stage-caption-scale" title="Resize caption text">
-          <span>Size</span>
-          <input id="stageCaptionScale" type="range" min="60" max="150" value="100" step="1" aria-label="Preview caption size">
-          <output id="stageCaptionScaleOut">100%</output>
-        </label>
         <button class="section-style-btn" id="sectionStyleBtn" type="button" title="Choose Template / Style">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           <span>Section style</span>
@@ -933,6 +947,6 @@ Easily create engaging captions that grow your audience..." rows="8" style="widt
 
 
 <script src="/static/fx.js"></script>
-<script src="/static/app.js?v=2.21"></script>
+<script src="/static/app.js?v=2.22"></script>
 </body>
 </html>

@@ -1942,13 +1942,45 @@ document.addEventListener('keydown', e => {
 
 // ------------------------------------------------------------------ tabs & panels
 function switchTab(name) {
+  const isMobile = window.innerWidth <= 860;
+  const pContent = $('panelContent');
+  const alreadyOpen = pContent && pContent.classList.contains('drawer-open') && S.activeTab === name;
+
+  if (isMobile && alreadyOpen) {
+    pContent.classList.remove('drawer-open');
+    document.querySelectorAll('#panelTabs button').forEach(b => b.classList.remove('on'));
+    S.activeTab = null;
+    return;
+  }
+
+  S.activeTab = name;
   document.querySelectorAll('#panelTabs button, #tabs button').forEach(b => {
     b.classList.toggle('on', b.dataset.panel === name || b.dataset.tab === name);
   });
   document.querySelectorAll('.ppane, .pane').forEach(p => {
     p.classList.toggle('on', p.id === 'ppane-' + name || p.id === 'pane-' + name);
   });
+
+  if (isMobile && pContent) {
+    pContent.classList.add('drawer-open');
+    const titles = { ai: 'Auto edit', captions: 'Transcript', style: 'Templates', customize: 'Customize', voice: 'Voice & Audio' };
+    if ($('drawerTitle')) $('drawerTitle').textContent = titles[name] || 'Editor';
+  }
   if (name === 'export') updateExportSummary();
+}
+
+if ($('closeDrawerBtn')) {
+  $('closeDrawerBtn').addEventListener('click', () => {
+    if ($('panelContent')) $('panelContent').classList.remove('drawer-open');
+    document.querySelectorAll('#panelTabs button').forEach(b => b.classList.remove('on'));
+    S.activeTab = null;
+  });
+}
+if ($('sectionStyleBtn')) {
+  $('sectionStyleBtn').addEventListener('click', () => switchTab('style'));
+}
+if ($('stageGearBtn')) {
+  $('stageGearBtn').addEventListener('click', () => switchTab('customize'));
 }
 const pTabs = $('panelTabs') || $('tabs');
 if (pTabs) {

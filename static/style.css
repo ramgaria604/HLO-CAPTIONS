@@ -4001,42 +4001,42 @@ input[type="color"]::-webkit-color-swatch {
   }
 
   /* -----------------------------------------------------------
-     3. MOBILE EDITOR STACK: AutoCaption / CapCut 2-Section Layout
+     3. EXACT MAKEMOONSHOT MOBILE SIZING & PREVIEW
      ----------------------------------------------------------- */
   .editor {
     display: flex !important;
     flex-direction: column !important;
-    height: calc(100vh - 46px - 22px) !important;
+    height: calc(100vh - 44px - 20px) !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow: hidden !important;
-    background: #000000 !important;
+    background: #ffffff !important;
   }
 
-  /* TOP SECTION (~52% viewport): Sleek Vertical 9:16 Video Player */
+  /* Center Panel / Preview Container */
   .center-panel {
     order: 1 !important;
-    flex: 0 0 auto !important;
+    flex: 1 1 auto !important;
     width: 100% !important;
+    height: calc(100% - 52px) !important;
+    min-height: 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    background: #000000 !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: #ffffff !important;
     position: relative !important;
     overflow: hidden !important;
   }
 
+  /* Video Stage Wrapper: ~44vh nicely centered with breathing room */
   .canvas-wrap {
-    height: 50vh !important;
-    min-height: 230px !important;
-    max-height: 54vh !important;
-    flex: none !important;
-    padding: 0 !important;
+    flex: 1 1 auto !important;
+    min-height: 220px !important;
+    padding: 6px 14px 2px !important;
     margin: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    background: #000000 !important;
+    background: #ffffff !important;
     overflow: hidden !important;
     position: relative !important;
   }
@@ -4048,137 +4048,321 @@ input[type="color"]::-webkit-color-swatch {
     max-width: 100% !important;
     aspect-ratio: 9 / 16 !important;
     position: relative !important;
-    border-radius: 12px !important;
+    border-radius: 20px !important;
     overflow: hidden !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
-    background: #05050d !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16) !important;
+    background: #000000 !important;
   }
 
   #vid {
     width: 100% !important;
     height: 100% !important;
-    object-fit: contain !important;
+    object-fit: cover !important;
     display: block !important;
+    border-radius: 20px !important;
   }
 
-  /* Compact 40px Video Transport directly under video */
-  .transport {
-    height: 40px !important;
-    min-height: 40px !important;
-    max-height: 40px !important;
-    padding: 0 10px !important;
-    background: #0d0e1d !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  /* Floating Gear Settings & Pro Badge */
+  .stage-gear-btn {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff !important;
     display: flex !important;
-    flex-direction: row !important;
     align-items: center !important;
-    justify-content: space-between !important;
+    justify-content: center !important;
+    z-index: 28 !important;
+    cursor: pointer !important;
+  }
+
+  .stage-pro-template-badge {
+    position: absolute !important;
+    bottom: 12px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: rgba(0, 0, 0, 0.72) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 999px !important;
+    padding: 4px 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    z-index: 28 !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+    pointer-events: none !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+  }
+
+  .pro-crown-icon {
+    color: #f59e0b !important;
+    font-size: 12px !important;
+  }
+
+  /* Transport Bar directly below Video */
+  .transport {
+    background: #ffffff !important;
+    border-top: 1px solid #f1f5f9 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 2px 14px 6px !important;
+    gap: 2px !important;
     flex-shrink: 0 !important;
-    z-index: 10 !important;
+  }
+
+  .transport-drag-handle {
+    display: block !important;
+    width: 36px !important;
+    height: 4px !important;
+    border-radius: 2px !important;
+    background: #cbd5e1 !important;
+    margin: 2px auto 6px !important;
   }
 
   .transport-main-row {
     width: 100% !important;
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    justify-content: space-between !important;
   }
 
   .transport-left-controls {
     display: flex !important;
     align-items: center !important;
-    gap: 6px !important;
-    flex-shrink: 0 !important;
-  }
-
-  .transport-center-controls {
-    display: flex !important;
-    flex: 1 1 auto !important;
-    align-items: center !important;
     gap: 8px !important;
-    min-width: 0 !important;
-  }
-
-  .mobile-scrub-slider {
-    flex: 1 1 auto !important;
-    height: 6px !important;
-    -webkit-appearance: none !important;
-    appearance: none !important;
-    background: rgba(255, 255, 255, 0.18) !important;
-    border-radius: 3px !important;
-    outline: none !important;
-    cursor: pointer !important;
-    margin: 0 !important;
-  }
-
-  .mobile-scrub-slider::-webkit-slider-thumb {
-    -webkit-appearance: none !important;
-    appearance: none !important;
-    width: 14px !important;
-    height: 14px !important;
-    border-radius: 50% !important;
-    background: #a855f7 !important;
-    box-shadow: 0 0 10px rgba(168, 85, 247, 0.8) !important;
-    cursor: pointer !important;
-  }
-
-  .mobile-timecode {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-    font-size: 11px !important;
-    color: #cbd5e1 !important;
-    white-space: nowrap !important;
-    flex-shrink: 0 !important;
-    font-weight: 600 !important;
   }
 
   .moonshot-play-btn {
-    width: 32px !important;
-    height: 32px !important;
+    width: 36px !important;
+    height: 36px !important;
     border-radius: 50% !important;
-    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    background: #0f172a !important;
     border: none !important;
     color: #ffffff !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    box-shadow: 0 2px 10px rgba(139, 92, 246, 0.45) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
     cursor: pointer !important;
   }
 
   .transport-icon-btn {
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: 6px !important;
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    color: #94a3b8 !important;
+    width: 26px !important;
+    height: 26px !important;
+    background: transparent !important;
+    border: none !important;
+    color: #64748b !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
   }
 
-  .moonshot-multi-pill,
-  .transport-right-controls,
-  .transport-drag-handle,
-  .transport-sub-row,
-  .moonshot-zoom-group {
-    display: none !important;
+  .moonshot-multi-pill {
+    height: 28px !important;
+    border-radius: 14px !important;
+    padding: 0 10px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #0f172a !important;
   }
 
-  /* BOTTOM SECTION (~48% viewport): Clean AutoCaption Tab Panes */
+  .moonshot-multi-pill .multi-dot {
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    border: 1.5px solid #64748b !important;
+    display: inline-block !important;
+  }
+
+  .transport-right-controls {
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .moonshot-zoom-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+
+  .m-zoom-btn, .m-zoom-fit-btn {
+    height: 26px !important;
+    padding: 0 8px !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #475569 !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+  }
+
+  .transport-sub-row {
+    display: flex !important;
+    align-items: center !important;
+    margin-top: 2px !important;
+  }
+
+  .section-style-btn {
+    background: transparent !important;
+    border: none !important;
+    color: #6366f1 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 2px 0 !important;
+    cursor: pointer !important;
+  }
+
+  /* Moonshot Timeline matching screenshot */
+  .timeline-panel,
+  .moonshot-timeline-panel {
+    height: 115px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+  }
+
+  .tl-header-strip {
+    height: 22px !important;
+    background: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-bottom: 1px solid #f8fafc !important;
+    flex-shrink: 0 !important;
+  }
+
+  .moonshot-timecode-pill {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    font-family: ui-monospace, SFMono-Regular, monospace !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    border-radius: 999px !important;
+    padding: 1px 12px !important;
+  }
+
+  .timeline {
+    display: flex !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+  }
+
+  .tl-track-labels {
+    width: 48px !important;
+    background: #ffffff !important;
+    border-right: 1px solid #f1f5f9 !important;
+  }
+
+  .tl-label {
+    height: 24px !important;
+    line-height: 24px !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    color: #94a3b8 !important;
+    padding-left: 6px !important;
+    border-bottom: 1px solid #f8fafc !important;
+  }
+
+  .track {
+    height: 24px !important;
+    border-bottom: 1px solid #f8fafc !important;
+    background: #ffffff !important;
+    position: relative !important;
+  }
+
+  .blk.cap {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    border-radius: 6px !important;
+    font-weight: 700 !important;
+    font-size: 10px !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .blk.cap.sel {
+    border-color: #6366f1 !important;
+    background: #eef2ff !important;
+    color: #4338ca !important;
+  }
+
+  .aroll-block {
+    height: 18px !important;
+    margin: 2px 0 !important;
+    background: #eef2ff !important;
+    border: 1px solid #c7d2fe !important;
+    border-radius: 5px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 0 8px !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    color: #4338ca !important;
+  }
+
+  .playhead {
+    width: 2px !important;
+    background: #0f172a !important;
+  }
+
+  .tl-footer-strip {
+    height: 22px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #f8fafc !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    padding: 0 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .more-tracks-btn {
+    height: 18px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #64748b !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    border-radius: 999px !important;
+    padding: 0 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+
+  /* Bottom Navigation Bar: Exactly 5 items, clean white */
   .left-panel {
     order: 2 !important;
     width: 100% !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    display: flex !important;
-    flex-direction: column-reverse !important; /* Fixed bottom tab bar */
-    background: #090915 !important;
-    overflow: hidden !important;
+    flex: 0 0 52px !important;
+    height: 52px !important;
+    position: relative !important;
+    background: #ffffff !important;
   }
 
-  /* Mobile Bottom Navigation Bar (AutoCaption style) */
   .panel-tabs {
     width: 100% !important;
     height: 52px !important;
@@ -4188,11 +4372,9 @@ input[type="color"]::-webkit-color-swatch {
     flex-direction: row !important;
     justify-content: space-around !important;
     align-items: center !important;
-    background: #0d0e1d !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-right: none !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
     padding: 0 !important;
-    flex-shrink: 0 !important;
     z-index: 25 !important;
   }
 
@@ -4203,187 +4385,56 @@ input[type="color"]::-webkit-color-swatch {
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 3px !important;
+    gap: 2px !important;
     border: none !important;
-    border-top: 2px solid transparent !important;
     background: transparent !important;
     color: #64748b !important;
     padding: 2px 0 !important;
-    transition: all 0.15s ease !important;
   }
 
   .ptab.on {
-    color: #c084fc !important;
-    border-top: 2px solid #a855f7 !important;
-    background: rgba(168, 85, 247, 0.12) !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    background: transparent !important;
+    border-top: none !important;
   }
 
   .ptab svg {
-    width: 18px !important;
-    height: 18px !important;
+    width: 19px !important;
+    height: 19px !important;
+    color: inherit !important;
   }
 
   .ptab span {
     font-size: 10px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.02em !important;
+    font-weight: inherit !important;
   }
 
-  /* Active Scrollable Panel Content Area */
+  /* Slide-up drawer when a tool tab is active */
   .panel-content {
-    width: 100% !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
+    display: none;
+  }
+
+  .panel-content.drawer-open {
+    display: block !important;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 52px !important;
+    max-height: 60vh !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-top: 1px solid #e2e8f0 !important;
+    border-radius: 16px 16px 0 0 !important;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12) !important;
+    z-index: 60 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 10px 12px 18px !important;
-    border: none !important;
-    background: #090915 !important;
+    padding: 14px 16px 20px !important;
   }
 
-  /* Hide Desktop Inspector on Mobile */
   .right-panel {
     display: none !important;
-  }
-
-  /* COMPLETE REMOVAL OF WHITE TIMELINE ON MOBILE */
-  .timeline-panel,
-  .moonshot-timeline-panel,
-  .tl-header-strip,
-  .tl-footer-strip,
-  .tl-track-labels,
-  .tl-viewport,
-  .tl-toolbar,
-  .more-tracks-btn,
-  .desktop-only-tab,
-  #paletteSwatches {
-    display: none !important;
-  }
-
-  /* Touch-Friendly Transcript Cards List */
-  .autocaption-segment-list {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
-  .transcript-segment-card {
-    background: #141328 !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 12px !important;
-    padding: 10px 12px !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-  }
-
-  .transcript-segment-card.active {
-    background: rgba(168, 85, 247, 0.14) !important;
-    border-color: #a855f7 !important;
-    box-shadow: 0 0 14px rgba(168, 85, 247, 0.3) !important;
-  }
-
-  .seg-play-btn {
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: 50% !important;
-    background: rgba(168, 85, 247, 0.22) !important;
-    border: 1px solid rgba(168, 85, 247, 0.4) !important;
-    color: #d8b4fe !important;
-    font-size: 11px !important;
-    flex-shrink: 0 !important;
-    cursor: pointer !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  .seg-body {
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
-  }
-
-  .seg-time-pill {
-    font-family: ui-monospace, monospace !important;
-    font-size: 10px !important;
-    font-weight: 700 !important;
-    color: #a855f7 !important;
-    letter-spacing: 0.03em !important;
-  }
-
-  .seg-text-input {
-    width: 100% !important;
-    background: transparent !important;
-    border: none !important;
-    color: #ffffff !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    padding: 0 !important;
-    resize: none !important;
-    outline: none !important;
-    line-height: 1.35 !important;
-  }
-
-  .seg-del-btn {
-    width: 26px !important;
-    height: 26px !important;
-    border-radius: 6px !important;
-    background: transparent !important;
-    border: none !important;
-    color: #ef4444 !important;
-    font-size: 18px !important;
-    cursor: pointer !important;
-    flex-shrink: 0 !important;
-  }
-
-  /* Style Tab Controls on Phone */
-  .color-swatches-row {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 10px !important;
-  }
-
-  .color-circle-btn {
-    width: 34px !important;
-    height: 34px !important;
-    border-radius: 50% !important;
-  }
-
-  .pos-grid-3x3 {
-    width: 90px !important;
-    height: 90px !important;
-    gap: 6px !important;
-  }
-
-  .pos-dot {
-    width: 22px !important;
-    height: 22px !important;
-    border-radius: 6px !important;
-  }
-
-  /* Presets Grid on Phone */
-  .presets {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px !important;
-    max-height: none !important;
-  }
-
-  /* Mobile Touch Buttons */
-  .action-btn {
-    height: 42px !important;
-    font-size: 13px !important;
-    border-radius: 10px !important;
-  }
-
-  .action-btn.big {
-    height: 48px !important;
-    font-size: 14px !important;
-    border-radius: 12px !important;
   }
 }
 /* ==========================================================================
@@ -4392,8 +4443,9 @@ input[type="color"]::-webkit-color-swatch {
 
 /* 1. Header Toolbar */
 .moonshot-toolbar {
-  height: 48px;
-  background: #0b0c16;
+  height: 44px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
@@ -4496,8 +4548,9 @@ input[type="color"]::-webkit-color-swatch {
 
 /* 2. Sub-bar Status */
 .moonshot-subbar {
-  height: 22px;
-  background: #090a14;
+  height: 20px;
+  background: #ffffff;
+  color: #6366f1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4898,8 +4951,6 @@ input[type="color"]::-webkit-color-swatch {
 
 /* Explicit User Overrides: Remove pro templates, gear btn, subbar, wave line */
 .stage-gear-btn,
-.stage-pro-template-badge,
-.moonshot-subbar,
 .tr-wave,
 .icon-wave,
 #laneWaveform,
