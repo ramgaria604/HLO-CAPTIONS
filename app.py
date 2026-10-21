@@ -758,6 +758,7 @@ def serve_preview_card(filename):
     return send_from_directory(WORK, filename)
 
 
+@app.get("/work/<path:filename>")
 @app.get("/video/<path:filename>")
 def serve_video(filename):
     safe = safe_name(filename)
@@ -861,7 +862,13 @@ def transcribe():
 
     # Intelligent language detection and Hinglish mapping
     is_hinglish = False
-    if not raw_lang or raw_lang in ("hinglish", "en-in", "auto", "hi-latn"):
+    if not raw_lang or raw_lang == "auto":
+        is_hinglish = False
+        recognition_lang = "en-US"
+        target_label = "Auto Detect"
+        whisper_lang = None
+        whisper_prompt = "High accuracy transcription with clean grammar and punctuation."
+    elif raw_lang in ("hinglish", "en-in", "hi-latn"):
         is_hinglish = True
         recognition_lang = "hi-IN"
         target_label = "Hinglish"

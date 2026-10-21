@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Montserrat:wght@700;800;900&family=Poppins:wght@600;700;800;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=3.03">
+  <link rel="stylesheet" href="/static/style.css?v=3.04">
 </head>
 <body>
 
@@ -195,7 +195,8 @@
           <div id="tabTemplates" class="tab-pane active">
             <div class="templates-toolbar">
               <div class="category-pills" id="categoryPills">
-                <button class="cat-pill active" data-cat="all">All (133)</button>
+                <button class="cat-pill active" data-cat="all">All (164)</button>
+                <button class="cat-pill" data-cat="duo">⚡ Duo Presets (31)</button>
                 <button class="cat-pill" data-cat="viral">🔥 Viral Pop</button>
                 <button class="cat-pill" data-cat="neon">✨ Neon & Ice</button>
                 <button class="cat-pill" data-cat="box">📦 Box Pop</button>
@@ -206,7 +207,7 @@
               </div>
               <button id="btnOpenFullTemplates" class="btn-pill-action" title="View all templates in large grid">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-                <span>View All (133)</span>
+                <span>View All (164)</span>
               </button>
             </div>
 
@@ -476,6 +477,7 @@
   <!-- Notification Toast -->
   <div id="toastNotification" class="toast-notification hidden"></div>
 
-  <script src="/static/app.js?v=3.03"></script>
+  <script src="/static/duo_presets/duo_presets_loader.js"></script>
+  <script src="/static/app.js?v=3.04"></script>
 </body>
 </html>

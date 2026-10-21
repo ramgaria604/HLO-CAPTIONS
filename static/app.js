@@ -1,6 +1,6 @@
 /* ==========================================================================
-   HLO CAPTIONS - CLIENT APPLICATION (v3.03)
-   All 133 Presets Fully Working + Interactive Timeline + Full Preview
+   HLO CAPTIONS - CLIENT APPLICATION (v3.04)
+   164 Presets + Instant Zero-Lag Video Preview + Accurate Listening AI + Duo Pack
    ========================================================================== */
 
 (function () {
@@ -141,7 +141,9 @@
   const toastNotification = $('toastNotification');
 
   // ==========================================================================
-  // 133 PRESETS TYPOGRAPHY ENGINE (DualNeon, KineticLens, Crimson3D, ChromeStudio, EstateDepth, SpecialFront, Standard)
+  // 133+ PRESETS TYPOGRAPHY ENGINE (DualNeon, KineticLens, Crimson3D, ChromeStudio, EstateDepth, SpecialFront, Standard)
+  // ==========================================================================
+ (DualNeon, KineticLens, Crimson3D, ChromeStudio, EstateDepth, SpecialFront, Standard)
   // ==========================================================================
 function getWordPop(w, t, showAll, anim) {
   if (showAll || !anim || anim === 'none') return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
@@ -978,6 +980,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
 // Preview caption controls: drag to position, wheel/trackpad to resize.
 
+
+
   // ==========================================================================
   // INITIALIZATION
   // ==========================================================================
@@ -995,13 +999,28 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   // ==========================================================================
-  // LOAD PRESETS FROM SERVER
+  // LOAD PRESETS FROM SERVER + MERGE LOCAL CS_PRESETS (DUO PACK)
   // ==========================================================================
   async function loadPresets() {
     try {
       const res = await fetch('/api/presets');
       const data = await res.json();
       S.presets = data.presets || [];
+
+      // Merge any local Duo or custom saved presets from localStorage
+      try {
+        const stored = JSON.parse(localStorage.getItem('cs_presets') || '[]');
+        if (Array.isArray(stored) && stored.length > 0) {
+          const haveNames = new Set(S.presets.map(p => p.name));
+          stored.forEach(p => {
+            if (!haveNames.has(p.name)) {
+              S.presets.push(p);
+              haveNames.add(p.name);
+            }
+          });
+        }
+      } catch(e) {}
+
       if (S.presets.length > 0) {
         const initial = S.presets.find(p => p.id === 'yellow_box' || p.id === 'box_pop') || S.presets[0];
         applyPreset(initial, false);
@@ -1086,6 +1105,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.file = file;
     headerFileName.textContent = file.name;
 
+    // Instant local zero-latency video preview stream
+    try {
+      const blobUrl = URL.createObjectURL(file);
+      vid.src = blobUrl;
+      vid.load();
+    } catch (e) {
+      console.warn('Blob URL preview fallback:', e);
+    }
+
     uploadError.classList.add('hidden');
     uploadProgressBox.classList.remove('hidden');
     uploadProgressBar.style.width = '5%';
@@ -1121,7 +1149,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
           uploadProgressBar.style.width = '50%';
           uploadPercent.textContent = '50%';
-          uploadStatusText.textContent = 'Generating word-level captions with AI...';
+          uploadStatusText.textContent = 'Listening with neural AI speech models...';
 
           await startTranscription();
         } catch (err) {
@@ -1200,8 +1228,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           ]
         }];
 
-        vid.src = '/work/' + S.filename;
-        vid.load();
+        if (!vid.src || !vid.src.startsWith('blob:')) {
+          vid.src = '/video/' + S.filename;
+          vid.load();
+        }
         setTimeout(() => showView('viewEditor'), 300);
         return;
       }
@@ -1213,8 +1243,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
       S.captions = normalizeCaptions(data.captions || []);
 
-      vid.src = '/work/' + S.filename;
-      vid.load();
+      if (!vid.src || !vid.src.startsWith('blob:')) {
+        vid.src = '/video/' + S.filename;
+        vid.load();
+      }
 
       setTimeout(() => {
         showView('viewEditor');
@@ -1290,6 +1322,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     vid.addEventListener('loadedmetadata', () => {
       timeDuration.textContent = formatTime(vid.duration || 0);
       timeScrub.max = vid.duration || 100;
+      if (vid.videoWidth && vid.videoHeight) {
+        stage.style.aspectRatio = `${vid.videoWidth} / ${vid.videoHeight}`;
+      }
       fitCanvas();
       renderTimeline();
       renderCanvas();
@@ -1473,7 +1508,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     $$('.tab-pane').forEach(p => p.classList.toggle('hidden', p.id !== targetId));
 
     const titles = {
-      tabTemplates: '🎨 Choose Template (133 Available)',
+      tabTemplates: '🎨 Choose Template (164 Available)',
       tabCaptions: '📝 Edit Captions',
       tabStyle: '🎚️ Style Options',
       tabAudio: '🎵 Audio & Music'
@@ -1546,6 +1581,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           const cat = (p.category || '').toLowerCase();
           const name = (p.name || '').toLowerCase();
           const id = (p.id || '').toLowerCase();
+          if (filterCat === 'duo') return cat === 'duo' || name.startsWith('Duo ·') || Boolean(p.isDuo);
           if (filterCat === 'viral') return cat.includes('viral') || name.includes('viral') || name.includes('pop') || id.includes('hype');
           if (filterCat === 'neon') return cat.includes('neon') || name.includes('neon') || name.includes('ice') || name.includes('electric') || name.includes('glow');
           if (filterCat === 'box') return name.includes('box') || cat.includes('box') || Boolean(p.pill);
@@ -2042,7 +2078,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     btnDownloadExport.href = downloadUrl;
     btnDownloadExport.download = 'captioned_' + filename;
 
-    exportPreviewVideo.src = '/work/' + filename;
+    exportPreviewVideo.src = '/video/' + filename;
     exportPreviewVideo.load();
   }
 

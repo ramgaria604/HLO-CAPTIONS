@@ -374,6 +374,122 @@ def load_presets():
         except Exception as se:
             print("Warning: could not load special_presets.json:", se)
 
+    # Load 31 Duo Presets Pack
+    duo_json = os.path.join(os.path.dirname(__file__), "static", "duo_presets", "duo_presets.json")
+    if os.path.exists(duo_json):
+        try:
+            with open(duo_json, "r", encoding="utf-8") as df:
+                duo_data = json.load(df)
+            for p in duo_data:
+                roles = p.get("roles", {})
+                accent = roles.get("accent", {})
+                base = roles.get("base", {})
+                fill = accent.get("fill", {})
+                raw_colors = fill.get("colors")
+                if not raw_colors:
+                    if fill.get("type") == "holo":
+                        colors = ["#FF5EDF", "#FFE45E", "#5EFFB1", "#5EC8FF", "#B65EFF"]
+                    else:
+                        colors = [accent.get("color") or "#FFFFFF"]
+                else:
+                    colors = list(raw_colors)
+                
+                grad = None
+                if len(colors) > 1:
+                    ang = fill.get("angle", 90)
+                    col_str = ", ".join(colors)
+                    grad = f"linear-gradient({ang}deg, {col_str})"
+                
+                base_color = base.get("color") or "#FFFFFF"
+                accent_color = colors[0] if colors else (accent.get("color") or "#FFFFFF")
+
+                duo_item = {
+                    "id": p["id"],
+                    "name": p["name"],
+                    "category": "duo",
+                    "mode": p.get("mode", "emphasis"),
+                    "layout": p.get("layout", "stack"),
+                    "animation": accent.get("enter", "slide-up"),
+                    "wordsPerCaption": int(p.get("wordsPerPage", 3)),
+                    "maxKeys": 1,
+                    "position": (float(p.get("posY", 0.52)) if accent.get("layer") == "behind"
+                                  else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48))),
+                    "posCycle": p.get("posCycle"),
+                    "behindPerson": accent.get("layer") == "behind",
+                    "depthAccent": accent.get("layer") == "behind",
+                    "depthAccentSize": round(accent.get("size", 160) / 1080.0, 3),
+                    "depthAccentY": float(p.get("posY", 0.52)),
+                    "subtitlePosition": (float(p.get("posY", 0.72)) if accent.get("layer") == "behind"
+                                         else max(0.68, min(0.84, float(p.get("posY", 0.2)) + 0.52))),
+                    "subtitleSize": round(base.get("size", 62) / 1080.0, 3),
+                    "blend": p.get("blend", "screen"),
+                    "blendMode": p.get("blend", "screen"),
+                    "highlightColor": accent_color,
+                    "isSpecial": True,
+                    "isDuo": True,
+                    "previewWord": p.get("name", "").replace("Duo ·", "").strip().upper()[:16],
+                    "badge": "DUO ⚡",
+                    "key": {
+                        "font": accent.get("font", "Montserrat"),
+                        "size": round(accent.get("size", 160) / 1080.0, 3),
+                        "color": accent_color,
+                        "bold": bool(accent.get("bold", True)),
+                        "italic": bool(accent.get("italic", False)),
+                        "shadow": round(accent.get("shadow", 0) / 100.0, 3),
+                        "shadowColor": accent.get("shadowColor", "#000000"),
+                        "glow": accent.get("glowColor", "#FFFFFF"),
+                        "glowSize": (0.0 if accent.get("glowColor", "#FFFFFF").lower() in ("#000000", "#000", "#050505", "#111111")
+                                     else round(accent.get("glow", 0) / 100.0, 3)),
+                        "outline": round(accent.get("outline", 0) / 1080.0, 3),
+                        "outlineColor": accent.get("outlineColor", "#000000"),
+                        "keyGradient": grad,
+                        "upper": bool(accent.get("upper", True)),
+                        "track": accent.get("track", 0),
+                    },
+                    "filler": {
+                        "font": base.get("font", "Poppins"),
+                        "size": round(base.get("size", 62) / 1080.0, 3),
+                        "color": base_color,
+                        "bold": bool(base.get("bold", True)),
+                        "italic": bool(base.get("italic", False)),
+                        "shadow": round(base.get("shadow", 0) / 100.0, 3),
+                        "shadowColor": base.get("shadowColor", "#000000"),
+                        "glow": base.get("glowColor", "#FFFFFF"),
+                        "glowSize": (0.0 if base.get("glowColor", "#FFFFFF").lower() in ("#000000", "#000", "#050505", "#111111")
+                                     else round(base.get("glow", 0) / 100.0, 3)),
+                        "outline": round(base.get("outline", 0) / 1080.0, 3),
+                        "outlineColor": base.get("outlineColor", "#000000"),
+                        "track": base.get("track", 0),
+                        "upper": bool(base.get("upper", False))
+                    },
+                    "big": {"font": accent.get("font", "Montserrat"), "weight": accent.get("weight", 900), "size": round(accent.get("size", 160) / 1080.0, 3), "fill": fill},
+                    "small": {"font": base.get("font", "Poppins"), "weight": base.get("weight", 700), "size": round(base.get("size", 62) / 1080.0, 3), "fill": {"colors": [base_color]}}
+                }
+                if roles.get("accent2"):
+                    alt = roles["accent2"]
+                    alt_fill = alt.get("fill", {})
+                    alt_colors = alt_fill.get("colors") or [alt.get("color", "#FFFFFF")]
+                    alt_grad = None
+                    if len(alt_colors) > 1:
+                        alt_grad = f"linear-gradient({alt_fill.get('angle', 90)}deg, {', '.join(alt_colors)})"
+                    duo_item["accent2"] = {
+                        "font": alt.get("font", accent.get("font", "Montserrat")),
+                        "size": round(alt.get("size", accent.get("size", 190)) / 1080.0, 3),
+                        "color": alt_colors[0], "bold": bool(alt.get("bold", True)),
+                        "italic": bool(alt.get("italic", False)),
+                        "shadow": round(alt.get("shadow", 0) / 100.0, 3),
+                        "shadowColor": alt.get("shadowColor", "#000000"),
+                        "glow": alt.get("glowColor", "#FFFFFF"),
+                        "glowSize": (0.0 if alt.get("glowColor", "#FFFFFF").lower() in ("#000000", "#000", "#050505", "#111111")
+                                     else round(alt.get("glow", 0) / 100.0, 3)),
+                        "outline": round(alt.get("outline", 0) / 1080.0, 3),
+                        "outlineColor": alt.get("outlineColor", "#000000"),
+                        "keyGradient": alt_grad,
+                    }
+                out.append(duo_item)
+        except Exception as de:
+            print("Warning: could not load duo_presets.json:", de)
+
     return out
 
 

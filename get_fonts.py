@@ -15,30 +15,23 @@ need = {}   # family -> set of (weight, italic)
 for p in presets:
     for r in p['roles'].values():
         need.setdefault(r['font'], set()).add((int(r['weight']), bool(r['italic'])))
-UA = 'Mozilla/5.0 (Linux; U; Android 2.2; en-us; Nexus One Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1'
+UA = 'Mozilla/5.0 (Windows NT 6.1; rv:30.0) Gecko/20100101 Firefox/30.0'   # old browser => Google returns .ttf files
 for fam, wl in sorted(need.items()):
     for weight, ital in sorted(wl):
         name = f"{fam.replace(' ', '')}-{weight}{'-italic' if ital else ''}.ttf"
         dest = OUT / name
         if dest.exists(): continue
-        # Try API v1 first, then API v2
-        urls = [
-            f"https://fonts.googleapis.com/css?family={fam.replace(' ', '+')}:{weight}{'italic' if ital else ''}",
-            f"https://fonts.googleapis.com/css?family={fam.replace(' ', '+')}",
-            f"https://fonts.googleapis.com/css2?family={fam.replace(' ', '+')}:wght@{weight}"
-        ]
-        found = False
-        for url in urls:
+        for w, it in ((weight, ital), (400, ital), (400, False)):   # fall back if that exact weight does not exist
+            spec = f"{fam.replace(' ', '+')}:{'ital,' if it else ''}wght@{'1,' if it else ''}{w}" if True else ''
+            url = 'https://fonts.googleapis.com/css2?family=' + spec
             try:
-                css = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': UA}), timeout=15).read().decode()
+                css = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': UA}), timeout=30).read().decode()
                 m = re.search(r'url\((https://[^)]+\.ttf)\)', css)
-                if m:
-                    dest.write_bytes(urllib.request.urlopen(m.group(1), timeout=60).read())
-                    print('OK  ', name)
-                    found = True
-                    break
-            except Exception:
-                pass
-        if not found:
+                if not m: continue
+                dest.write_bytes(urllib.request.urlopen(m.group(1), timeout=60).read())
+                print('OK  ', name); break
+            except Exception as e:
+                last = e
+        else:
             print('FAIL', name)
 print('Done. Fonts are in', OUT.resolve())
