@@ -760,8 +760,9 @@ def _chunk_text(words, style, W, H, layer, ev_start):
                     tags.append(f"\\t({reveal},{reveal + 110},\\fscx112\\fscy112)")
                     tags.append(f"\\t({reveal + 110},{reveal + 210},\\fscx100\\fscy100)")
             elif anim == "slide-right-soft" and layer == "main":
+                slide_ms = int(style.get("_slideMs", 400))
                 tags.extend(["\\alpha&HFF&", "\\fscx92",
-                             f"\\t({reveal},{reveal + 400},\\alpha&H00&\\fscx100)"])
+                             f"\\t({reveal},{reveal + slide_ms},{shown}\\fscx100)"])
             elif anim == "highlight" and layer == "main":
                 hl = style["highlightColor"]
                 tags.append(f"\\t({reveal},{reveal + 1},\\1c{_c(hl)})")
@@ -785,6 +786,9 @@ def build_depth_ass(captions, style, W, H):
     if base.get("estateVariant"):
         line_style = copy.deepcopy(base)
         line_style["layout"] = "line"
+        # Keep the rendered word at the same vertical position used by the
+        # editor preview (the general subtitle position is lower on the screen).
+        line_style["position"] = base.get("depthAccentY", base["position"])
         single_word_caps = []
         for cap in captions:
             cap_words = cap.get("words", [])
@@ -876,10 +880,17 @@ def build_ass(captions, style, W, H):
         if i + 1 < len(caps):
             ev_end = min(ev_end, caps[i + 1]["start"])
         ev_end = max(ev_end, ev_start + 0.25)
-        pos = f"{{\\an5\\pos({x},{y})}}"
+        if style["animation"] == "slide-right-soft":
+            slide_ms = max(80, min(400, int((ev_end - ev_start) * 550)))
+            slide_x = max(12, round(min(W, H) * 0.025))
+            pos = f"{{\\an5\\move({x - slide_x},{y},{x},{y},0,{slide_ms})}}"
+            event_style = {**style, "_slideMs": slide_ms}
+        else:
+            pos = f"{{\\an5\\pos({x},{y})}}"
+            event_style = style
         if has_glow:
             rows.append(f"Dialogue: 0,{ts(ev_start)},{ts(ev_end)},Cap,,0,0,0,,{pos}"
-                        + _chunk_text(words, style, W, H, "glow", ev_start))
+                        + _chunk_text(words, event_style, W, H, "glow", ev_start))
         rows.append(f"Dialogue: 1,{ts(ev_start)},{ts(ev_end)},Cap,,0,0,0,,{pos}"
-                    + _chunk_text(words, style, W, H, "main", ev_start))
+                    + _chunk_text(words, event_style, W, H, "main", ev_start))
     return header + "\n".join(rows) + "\n"

@@ -158,7 +158,8 @@ function getWordPop(w, t, showAll, anim) {
 
     if (anim === 'slide-right-soft') {
       if (dt < 0) return { visible: true, scale: 1.0, dx: -24, dy: 0, opacity: 0 };
-      const p = Math.max(0, Math.min(1, dt / 0.40));
+      const duration = Math.min(0.40, Math.max(0.12, (w.e - w.s) * 0.60));
+      const p = Math.max(0, Math.min(1, dt / duration));
       const ease = 1 - Math.pow(1 - p, 3);
       return { visible: true, scale: 1.0, dx: -24 * (1 - ease), dy: 0, opacity: 0.12 + 0.88 * ease };
     }
@@ -935,8 +936,8 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
     ctx.restore();
   }
 
-  // Keep each Real Estate caption in one measured line. Only its final word
-  // appears at a time. The spoken final word gets the large accent treatment.
+  // Show one Real Estate word at a time, centered in the same fixed position.
+  // This avoids the large artificial gaps caused by mixing headline sizes.
   if (st.estateVariant && words.length) {
     let activeIndex = showAll ? words.length - 1 : words.findIndex(word => t >= word.s && t < word.e);
     if (activeIndex < 0) activeIndex = words.findIndex(word => t < word.s);

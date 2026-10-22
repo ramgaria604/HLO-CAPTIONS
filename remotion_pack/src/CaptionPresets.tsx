@@ -227,12 +227,12 @@ function roleStyle(r: Role, em: number, solidOverride?: string, frame = 0): Reac
   return css;
 }
 
-function animStyle(anim: Anim, age: number, fps: number, em: number): React.CSSProperties {
+function animStyle(anim: Anim, age: number, fps: number, em: number, slideFrames = 14): React.CSSProperties {
   if (age < 0) return {opacity: 0};
   if (anim === 'pop') { const s = spring({frame: age, fps, config: {damping: 11, stiffness: 170}}); return {opacity: Math.min(1, age / 2), transform: `scale(${0.55 + 0.45 * s})`}; }
   if (anim === 'bounce') { const s = spring({frame: age, fps, config: {damping: 6, stiffness: 200, mass: 0.6}}); const settle = interpolate(age, [0, 18], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); return {opacity: Math.min(1, age / 2), transform: `scale(${0.3 + 0.7 * s}) translateY(${(1 - settle) * -0.25 * em}px)`}; }
   if (anim === 'slide') { const p = interpolate(age, [0, 12], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: eased, transform: `translateY(${(1 - eased) * 0.4 * em}px)`}; }
-  if (anim === 'slideRightSoft') { const p = interpolate(age, [0, 14], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: 0.12 + 0.88 * eased, transform: `translateX(${(1 - eased) * -0.16 * em}px)`}; }
+  if (anim === 'slideRightSoft') { const p = interpolate(age, [0, slideFrames], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: 0.12 + 0.88 * eased, transform: `translateX(${(1 - eased) * -0.16 * em}px)`}; }
   if (anim === 'glitch') { const j = age < 8 ? (age % 2 ? 1 : -1) * 0.06 * em : 0; return {opacity: age < 8 && age % 3 === 0 ? 0.4 : 1, transform: `translateX(${j}px)`}; }
   if (anim === 'rise') { const p = interpolate(age, [0, 18], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: eased, transform: `translateY(${(1 - eased) * 0.6 * em}px)`}; }
   if (anim === 'flip') { const s = spring({frame: age, fps, config: {damping: 12, stiffness: 120}}); return {opacity: Math.min(1, age / 3), transform: `perspective(${em * 8}px) rotateX(${(1 - s) * 85}deg)`}; }
@@ -251,7 +251,8 @@ const WordView: React.FC<{w: Word; p: Preset; role: Role; em: number; anchor: nu
   const hl = p.highlight;
   let text = w.t;
   if (p.anim === 'type' && age >= 0) text = w.t.slice(0, Math.max(1, Math.floor(age / (fps * 0.04))));
-  const base = animStyle(p.anim, age, fps, em);
+  const slideFrames = Math.min(14, Math.max(5, Math.round((w.e - w.s) * fps * 0.6)));
+  const base = animStyle(p.anim, age, fps, em, slideFrames);
   const margin = {margin: `0 ${(p.gap ?? 0.12) * em}px`};
   const vis: React.CSSProperties = hidden ? {visibility: 'hidden'} : {};
 
