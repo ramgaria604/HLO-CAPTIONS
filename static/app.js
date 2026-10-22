@@ -155,10 +155,10 @@ function getWordPop(w, t, showAll, anim) {
     const dt = t - w.s;
 
     if (anim === 'slide-right-soft') {
-      if (dt < 0) return { visible: true, scale: 1.0, dx: -9, dy: 0, opacity: 0 };
+      if (dt < 0) return { visible: true, scale: 1.0, dx: -3, dy: 0, opacity: 0 };
       const p = Math.max(0, Math.min(1, dt / 0.40));
       const ease = 1 - Math.pow(1 - p, 3);
-      return { visible: true, scale: 1.0, dx: -9 * (1 - ease), dy: 0, opacity: 0.15 + 0.85 * ease };
+      return { visible: true, scale: 1.0, dx: -3 * (1 - ease), dy: 0, opacity: 0.15 + 0.85 * ease };
     }
 
     if (anim === 'slide-up' || anim === 'slide-down' || anim === 'slide-left' || anim === 'slide-right' || (typeof anim === 'string' && anim.startsWith('slide'))) {
@@ -894,13 +894,23 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       const width = ctx.measureText(label).width;
       measured.push({ ...item, role, size, font, label, width });
     }
-    let total = measured.reduce((sum, item) => sum + item.width, 0);
-    for (let i = 0; i < measured.length - 1; i++) total += Math.max(measured[i].size, measured[i + 1].size) * 0.12;
+    const gaps = measured.slice(0, -1).map((item, i) => {
+      const next = measured[i + 1];
+      const smaller = item.size <= next.size ? item : next;
+      ctx.save();
+      ctx.font = smaller.font;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${(smaller.role.track || 0) * smaller.size}px`;
+      const gap = Math.max(2, ctx.measureText(' ').width * 0.72);
+      ctx.restore();
+      return gap;
+    });
+    const total = measured.reduce((sum, item) => sum + item.width, 0) + gaps.reduce((sum, gap) => sum + gap, 0);
     const fit = Math.min(1, maxWidth / Math.max(1, total));
     ctx.translate(W / 2 + offsetX, y);
     ctx.scale(fit, 1);
     let x = -total / 2;
-    for (const item of measured) {
+    for (let i = 0; i < measured.length; i++) {
+      const item = measured[i];
       const role = item.role;
       ctx.save();
       ctx.translate(x + (item.anim?.dx || 0), item.anim?.dy || 0);
@@ -918,10 +928,7 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       ctx.fillStyle = canvasRolePaint(ctx, role, role.color || '#FFFFFF', base);
       ctx.fillText(item.label, 0, 0);
       ctx.restore();
-      if (item !== measured[measured.length - 1]) {
-        const next = measured[measured.indexOf(item) + 1];
-        x += item.width + Math.max(item.size, next.size) * 0.12;
-      }
+      if (i < gaps.length) x += item.width + gaps[i];
     }
     ctx.restore();
   }
