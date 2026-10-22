@@ -140,5 +140,12 @@ def resolve(role):
         name = role.get(key)
         if name and font_path(name):
             return name, cell_ratio(font_path(name))
+        # The bundled bold Montserrat file reports its internal family as
+        # "Montserrat Thin". Map the requested family to that actual face so
+        # FFmpeg exports don't silently fall back to Poppins/Arial.
+        if name and str(name).strip().lower() == "montserrat":
+            bundled = font_path("Montserrat Thin")
+            if bundled:
+                return "Montserrat Thin", cell_ratio(bundled)
     name = role.get("fallback") or role.get("font") or "Arial"
     return name, 1.25

@@ -446,6 +446,7 @@ def load_presets():
                     "isSpecial": True,
                     "isDuo": True,
                     "estateVariant": p.get("estateVariant"),
+                    "wordGap": float(p.get("wordGap", 0.08)),
                     "roles": roles,
                     "previewWord": p.get("previewWord") or p.get("name", "").replace("Duo ·", "").strip().upper()[:16],
                     "badge": "DUO ⚡",
@@ -550,6 +551,7 @@ def clean_role(r, d):
         "glow": _hex(r.get("glow"), d["glow"]), "glowSize": _num(r.get("glowSize"), 0, 0.25, d["glowSize"]),
         "shadow": _num(r.get("shadow"), 0, 0.2, d["shadow"]),
         "shadowColor": _hex(r.get("shadowColor"), d["shadowColor"]),
+        "track": float(_num(r.get("track"), -0.5, 0.5, 0.0)),
         "italic": bool(r.get("italic")), "bold": bool(r.get("bold")), "upper": bool(r.get("upper")),
     }
 
@@ -576,6 +578,7 @@ def clean_style(s):
         "category": s.get("category", "all"),
         "isDuo": bool(s.get("isDuo", False)),
         "estateVariant": s.get("estateVariant"),
+        "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
         "layout": s.get("layout") if s.get("layout") in ("stack", "line") else "stack",
         "animation": s.get("animation") if s.get("animation") in ("pop", "highlight", "none", "slide-right-soft") else "pop",
@@ -688,16 +691,18 @@ def _chunk_text(words, style, W, H, layer, ev_start):
 
     for line in lines:
         est = 0.0
-        for w in line:
+        for i, w in enumerate(line):
             r = word_role(w)
             tx = w["T"]
             _, font_ratio = resolve(r)
             em = r["size"] * base * font_ratio * style.get("fontScale", 1.0)
             gap_em = style["filler"]["size"] * base * gap_ratio * style.get("fontScale", 1.0)
-            est += len(tx) * em * (0.68 if r["upper"] else 0.56) + gap_em * 0.25
+            est += len(tx) * em * (0.68 if r["upper"] else 0.56)
+            if i < len(line) - 1:
+                est += gap_em * style.get("wordGap", 0.08) if style.get("estateVariant") else gap_em * 0.25
         scale_x = float(style.get("scaleX", 1.0))
         scale = min(1.0, 0.86 * W / (est * scale_x)) if est else 1.0
-        scale = max(scale, 0.20 if style.get("depthAccent") else 0.45)
+        scale = max(scale, 0.20 if style.get("depthAccent") or style.get("estateVariant") else 0.45)
         gap_fs = max(8, round(style["filler"]["size"] * base * gap_ratio * style.get("fontScale", 1.0) * scale))
         parts = []
         for i, w in enumerate(line):
@@ -719,6 +724,15 @@ def _chunk_text(words, style, W, H, layer, ev_start):
 
             tags = [f"\\fn{name}", f"\\fs{fs}", f"\\b{1 if r['bold'] else 0}", f"\\i{1 if r['italic'] else 0}",
                     f"\\fscx{round(100 * float(style.get('scaleX', 1.0)))}", "\\fscy100"]
+            if style.get("estateVariant") and r.get("track"):
+                tags.append(f"\\fsp{round(float(r['track']) * em, 2)}")
+            if w.get("_hiddenLayer"):
+                tags.append("\\alpha&HFF&")
+                parts.append("{" + "".join(tags) + "}" + _esc(w["T"]))
+                if i < len(line) - 1:
+                    space_scale = round(max(12, min(100, 100 * style.get("wordGap", 0.12) / 0.30)))
+                    parts.append(f"{{\\fn{gap_name}\\fs{gap_fs}\\b0\\i0\\fsp0\\fscx{space_scale}}} {{\\fscx100}}")
+                continue
             if rot:
                 tags.append(f"\\frz{rot}")
 
@@ -786,7 +800,11 @@ def _chunk_text(words, style, W, H, layer, ev_start):
             txt = w["T"]
             parts.append("{" + "".join(tags) + "}" + _esc(txt))
             if i < len(line) - 1:
-                parts.append(f"{{\\fn{gap_name}\\fs{gap_fs}\\b0\\i0}} ")
+                if style.get("estateVariant"):
+                    space_scale = round(max(12, min(100, 100 * style.get("wordGap", 0.08) / 0.30)))
+                    parts.append(f"{{\\fn{gap_name}\\fs{gap_fs}\\b0\\i0\\fsp0\\fscx{space_scale}}} {{\\fscx100}}")
+                else:
+                    parts.append(f"{{\\fn{gap_name}\\fs{gap_fs}\\b0\\i0}} ")
         out_lines.append("".join(parts))
     return "\\N".join(out_lines)
 
@@ -800,7 +818,7 @@ def build_depth_ass(captions, style, W, H):
         # Keep the rendered word at the same vertical position used by the
         # editor preview (the general subtitle position is lower on the screen).
         line_style["position"] = base.get("depthAccentY", base["position"])
-        line_caps = []
+        behind_caps, front_caps = [], []
         for cap in captions:
             cap_words = []
             for word in cap.get("words", []):
@@ -809,8 +827,11 @@ def build_depth_ass(captions, style, W, H):
                 cap_words.append(item)
             if cap_words:
                 cap_words[-1]["key"] = True
-                line_caps.append({**cap, "words": cap_words})
-        return build_ass(line_caps, line_style, W, H), None
+                behind_words = [dict(word, _hiddenLayer=(i != len(cap_words) - 1)) for i, word in enumerate(cap_words)]
+                front_words = [dict(word, _hiddenLayer=(i == len(cap_words) - 1)) for i, word in enumerate(cap_words)]
+                behind_caps.append({**cap, "words": behind_words})
+                front_caps.append({**cap, "words": front_words})
+        return build_ass(behind_caps, line_style, W, H), build_ass(front_caps, line_style, W, H)
     if base.get("isSpecial") and base.get("mode") == "highlight":
         line_style = copy.deepcopy(base)
         line_style["layout"] = "line"

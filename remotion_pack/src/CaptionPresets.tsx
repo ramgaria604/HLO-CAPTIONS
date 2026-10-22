@@ -288,13 +288,22 @@ export const PremiumCaptions: React.FC<{words: Word[]; presetId?: string; preset
   const chunk = chunks[ci];
 
   const emOf = (r: Role, line: Word[]) => {
-    let est = 0;
-    for (const w of line) {
+    // Measure the actual font metrics before sizing the entire line. Character-count
+    // estimates drift badly when a large final word uses a different font size.
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (!ctx) return r.size * base;
+    let naturalWidth = 0;
+    for (const [i, w] of line.entries()) {
       const wordRole = roleOf(w);
-      est += w.t.length * wordRole.size * base * (wordRole.upper ? 0.68 : 0.58);
-      est += p.small.size * base * (p.gap ?? 0.12);
+      const nominalSize = wordRole.size * base;
+      ctx.font = `${wordRole.italic ? 'italic ' : ''}${wordRole.weight} ${nominalSize}px "${wordRole.font}", sans-serif`;
+      const label = wordRole.upper ? w.t.toUpperCase() : wordRole.lower ? w.t.toLowerCase() : w.t;
+      const tracking = (wordRole.track ?? 0) * nominalSize;
+      naturalWidth += Math.max(0, ctx.measureText(label).width + Math.max(0, label.length - 1) * tracking);
+      if (i < line.length - 1) naturalWidth += p.gap === 0 ? 0 : Math.max(2, p.gap * p.small.size * base);
     }
-    return r.size * base * Math.max(0.45, Math.min(1, (0.92 * width) / (est || 1)));
+    const fit = Math.min(1, width * 0.90 / Math.max(1, naturalWidth));
+    return r.size * base * fit;
   };
   const roleOf = (w: Word) => (w.key ? p.big : p.small);
   const firstKey = chunk.words.find((w) => w.key);

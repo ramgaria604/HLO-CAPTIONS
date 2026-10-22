@@ -807,6 +807,53 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 
 function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, capId) {
   if (!words || !words.length) return;
+  if (st.estateVariant) {
+    const subtitleRole = st.filler || {};
+    const heroRole = st.key || {};
+    const items = words.map((word, i) => {
+      const isHero = i === words.length - 1;
+      const role = isHero ? heroRole : subtitleRole;
+      const raw = isHero ? (st.roles?.accent || {}) : (st.roles?.base || {});
+      const label = role.upper ? word.t.toUpperCase() : role.lower ? word.t.toLowerCase() : word.t;
+      const size = Math.max(12, Math.round(base * (role.size || 0.07)));
+      return {word, role, raw, isHero, label, size, anim: getWordPop(word, t, showAll, raw.enter || st.animation)};
+    });
+    const measure = (item) => {
+      const ctx = ctxFore;
+      ctx.font = (item.role.italic ? 'italic ' : '') + `${item.role.bold ? 800 : 500} ${item.size}px "${item.role.font || 'Montserrat'}",sans-serif`;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${(item.role.track || 0) * item.size}px`;
+      item.width = ctx.measureText(item.label).width;
+    };
+    items.forEach(measure);
+    const gapFor = (a, b) => Math.max(2, Math.min(a.size, b.size) * (st.wordGap || 0.12));
+    const lineWidth = () => items.reduce((sum, item) => sum + item.width, 0) + items.slice(0, -1).reduce((sum, item, i) => sum + gapFor(item, items[i + 1]), 0);
+    const fit = Math.min(1, W * 0.92 / Math.max(1, lineWidth()));
+    if (fit < 1) {
+      items.forEach((item) => { item.size = Math.max(12, Math.floor(item.size * fit)); measure(item); });
+    }
+    const total = lineWidth();
+    let x = -total / 2;
+    const y = H * (st.depthAccentY || st.position || 0.63);
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const target = item.isHero && ctxBehind ? ctxBehind : ctxFore;
+      if (item.anim?.opacity > 0) {
+        target.save();
+        target.translate(W / 2 + x + (item.anim?.dx || 0), y + (item.anim?.dy || 0));
+        target.scale(item.anim?.scale || 1, item.anim?.scale || 1);
+        target.globalAlpha *= item.anim?.opacity ?? 1;
+        target.font = (item.role.italic ? 'italic ' : '') + `${item.role.bold ? 800 : 500} ${item.size}px "${item.role.font || 'Montserrat'}",sans-serif`;
+        if ('letterSpacing' in target) target.letterSpacing = `${(item.role.track || 0) * item.size}px`;
+        target.textAlign = 'left'; target.textBaseline = 'middle';
+        target.shadowColor = 'rgba(0,0,0,.22)'; target.shadowBlur = Math.max(1, Math.round(base * 0.005));
+        target.fillStyle = canvasRolePaint(target, item.role, item.role.color || '#FFFFFF', base);
+        target.fillText(item.label, 0, 0);
+        target.restore();
+      }
+      x += item.width + (i < items.length - 1 ? gapFor(item, items[i + 1]) : 0);
+    }
+    return;
+  }
   const hero = words[words.length - 1];
   const heroAnim = getWordPop(hero, t, showAll, st.animation);
   const alternateHero = st.accent2 && Math.max(0, Number(capId || 1) - 1) % 2 === 1;
@@ -903,15 +950,28 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       ctx.save();
       ctx.font = smaller.font;
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${(smaller.role.track || 0) * smaller.size}px`;
-      const gap = Math.max(2, ctx.measureText(' ').width * 0.55);
+      const gap = Math.max(2, smaller.size * (st.wordGap || 0.08));
       ctx.restore();
       return gap;
     });
     const total = measured.reduce((sum, item) => sum + item.width, 0) + gaps.reduce((sum, gap) => sum + gap, 0);
     const fit = Math.min(1, maxWidth / Math.max(1, total));
+    if (fit < 1) {
+      for (const item of measured) {
+        item.size = Math.max(12, Math.floor(item.size * fit));
+        item.font = (item.role.italic ? 'italic ' : '') + `${item.role.bold ? 800 : 500} ${item.size}px "${item.role.font || 'Montserrat'}",sans-serif`;
+        ctx.font = item.font;
+        if ('letterSpacing' in ctx) ctx.letterSpacing = `${(item.role.track || 0) * item.size}px`;
+        item.width = ctx.measureText(item.label).width;
+      }
+      for (let i = 0; i < gaps.length; i++) {
+        const smaller = measured[i].size <= measured[i + 1].size ? measured[i] : measured[i + 1];
+        gaps[i] = Math.max(2, smaller.size * (st.wordGap || 0.08));
+      }
+    }
+    const fittedTotal = measured.reduce((sum, item) => sum + item.width, 0) + gaps.reduce((sum, gap) => sum + gap, 0);
     ctx.translate(W / 2 + offsetX, y);
-    ctx.scale(fit, 1);
-    let x = -total / 2;
+    let x = -fittedTotal / 2;
     for (let i = 0; i < measured.length; i++) {
       const item = measured[i];
       const role = item.role;

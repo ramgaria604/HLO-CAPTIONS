@@ -1558,7 +1558,7 @@ def export_worker(job_id, d):
                     })
 
                 person_name = None
-                if d.get("behindPerson") or preset_id in ("orange_pop", "ca_cutout", "dimension_story", "spatial_red", "spatial_white", "spatial_yellow"):
+                if d.get("behindPerson") or (d.get("style") or {}).get("behindPerson") or preset_id in ("orange_pop", "ca_cutout", "dimension_story", "spatial_red", "spatial_white", "spatial_yellow"):
                     try:
                         job["message"] = f"Creating person cutout mask for {preset_id}..."
                         person_webm_name = f"person_{job_id}.webm"
