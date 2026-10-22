@@ -40,6 +40,7 @@
   const langSelect = $('langSelect');
   const scriptInput = $('scriptInput');
   const groqApiKeyInput = $('groqApiKeyInput');
+  const groqModelSelect = $('groqModelSelect');
   const uploadProgressBox = $('uploadProgressBox');
   const uploadStatusText = $('uploadStatusText');
   const uploadPercent = $('uploadPercent');
@@ -1124,6 +1125,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         } catch (e) {}
       });
     }
+
+    if (groqModelSelect) {
+      try {
+        groqModelSelect.value = localStorage.getItem('groq_model') || 'whisper-large-v3';
+      } catch (e) {}
+      groqModelSelect.addEventListener('change', () => {
+        try { localStorage.setItem('groq_model', groqModelSelect.value); } catch (e) {}
+      });
+    }
   }
 
   async function handleFileSelected(file) {
@@ -1220,7 +1230,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         lang: lang,
         wordsPerCaption: 3,
         maxKeys: 1,
-        groq_api_key: groqKey
+        groq_api_key: groqKey,
+        groq_model: (groqModelSelect && groqModelSelect.value) || 'whisper-large-v3'
       };
 
       if (pastedScript.length > 0) {

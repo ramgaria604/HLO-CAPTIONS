@@ -937,8 +937,12 @@ def transcribe():
     detected_lang = target_label
     transcription_engine = None
 
-    # 0. High-Accuracy Whisper Large v3 via Groq (Fastest & Studio Accuracy)
+    # 0. Whisper Large v3 via Groq, with a user-selectable speed/accuracy option.
     groq_key = (d.get("groq_api_key") or os.environ.get("GROQ_API_KEY") or "").strip()
+    groq_model = d.get("groq_model")
+    if groq_model not in ("whisper-large-v3", "whisper-large-v3-turbo"):
+        groq_model = "whisper-large-v3"
+    groq_engine_name = "Groq Whisper Large v3 Turbo" if groq_model.endswith("-turbo") else "Groq Whisper Large v3"
     if groq_key:
         audio_for_groq = WORK / f"{name}_groq.mp3"
         try:
@@ -950,7 +954,7 @@ def transcribe():
             with open(audio_for_groq, "rb") as af:
                 files = {"file": (f"{name}.mp3", af, "audio/mpeg")}
                 post_data = {
-                    "model": "whisper-large-v3",
+                    "model": groq_model,
                     "response_format": "verbose_json",
                     "timestamp_granularities[]": "word"
                 }
@@ -983,10 +987,10 @@ def transcribe():
                             words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
 
                     if words:
-                        transcription_engine = "Groq Whisper Large v3"
+                        transcription_engine = groq_engine_name
                         detected_lang = res_json.get("language") or detected_lang
         except Exception as groq_err:
-            transcription_notes.append(f"Groq Whisper Large v3 note: {groq_err}")
+            transcription_notes.append(f"{groq_engine_name} note: {groq_err}")
         finally:
             if audio_for_groq.exists():
                 try:

@@ -69,12 +69,17 @@
           <textarea id="scriptInput" class="script-textarea" placeholder="Paste your video's exact spoken words here..."></textarea>
         </details>
 
-        <!-- Groq Whisper Large v3 Key -->
+        <!-- Whisper v3 speech recognition -->
         <details class="script-details" style="margin-top: 10px;">
-          <summary>⚡ Groq Whisper Large v3 (1-sec & 99.9% studio accuracy)</summary>
+          <summary>🎙️ Whisper v3 speech recognition</summary>
           <div style="margin-top: 8px;">
+            <label for="groqModelSelect" style="display:block;font-size:12px;margin-bottom:5px;">Recognition model</label>
+            <select id="groqModelSelect" class="lang-select" style="width:100%;margin-bottom:8px;">
+              <option value="whisper-large-v3" selected>Whisper Large v3 · best accuracy</option>
+              <option value="whisper-large-v3-turbo">Whisper Large v3 Turbo · faster</option>
+            </select>
             <input type="password" id="groqApiKeyInput" class="script-textarea" style="height: 38px; min-height: 38px; padding: 8px 12px; font-family: monospace; font-size: 13px;" placeholder="Paste free Groq API key (gsk_...) - auto saved in browser" autocomplete="off">
-            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Get a free instant key at <a href="https://console.groq.com/keys" target="_blank" style="color: var(--accent); text-decoration: underline;">console.groq.com/keys</a></p>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">A Groq API key is required for Whisper v3. Without one, the app uses its available local speech engine. Get a key at <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" style="color: var(--accent); text-decoration: underline;">console.groq.com/keys</a></p>
           </div>
         </details>
 
@@ -488,6 +493,6 @@
   <div id="toastNotification" class="toast-notification hidden"></div>
 
   <script src="/static/duo_presets/duo_presets_loader.js"></script>
-  <script src="/static/app.js?v=3.07"></script>
+  <script src="/static/app.js?v=3.08"></script>
 </body>
 </html>
