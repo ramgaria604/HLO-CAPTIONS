@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Montserrat:wght@700;800;900&family=Poppins:wght@600;700;800;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=3.10">
+  <link rel="stylesheet" href="/static/style.css?v=3.11">
 </head>
 <body>
 
@@ -40,24 +40,36 @@
       <div class="upload-card" id="dropZone">
         <input type="file" id="fileInput" accept="video/*,audio/*" class="file-input-hidden">
         
-        <div class="upload-icon-circle">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
+        <div class="video-picker-group" id="videoPickerGroup">
+          <div class="upload-icon-circle">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+
+          <h3 class="upload-prompt">Choose video or drag & drop here</h3>
+          <p class="upload-hint">MP4, MOV, WebM &bull; Up to 250 MB</p>
+
+          <button type="button" class="btn-primary" id="btnSelectFile">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            Select Video
+          </button>
+          <p id="selectedMediaName" class="selected-media-name hidden"></p>
+
+          <div id="uploadProgressBox" class="progress-box hidden">
+            <div class="progress-label-row">
+              <span id="uploadStatusText">Uploading video...</span>
+              <span id="uploadPercent">0%</span>
+            </div>
+            <div class="progress-bar-track">
+              <div id="uploadProgressBar" class="progress-bar-fill"></div>
+            </div>
+          </div>
         </div>
-
-        <h3 class="upload-prompt">Choose video or drag & drop here</h3>
-        <p class="upload-hint">MP4, MOV, WebM &bull; Up to 250 MB</p>
-
-        <button type="button" class="btn-primary" id="btnSelectFile">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M12 5v14M5 12h14"/>
-          </svg>
-          Select Video
-        </button>
-        <p id="selectedMediaName" class="selected-media-name hidden"></p>
 
         <!-- Language Selector -->
         <div class="lang-row">
@@ -83,17 +95,6 @@
           <span>Generate captions</span><span aria-hidden="true">→</span>
         </button>
         <p class="generate-hint">Your selected style will be ready in the editor.</p>
-
-        <!-- Upload Progress Indicator -->
-        <div id="uploadProgressBox" class="progress-box hidden">
-          <div class="progress-label-row">
-            <span id="uploadStatusText">Uploading video...</span>
-            <span id="uploadPercent">0%</span>
-          </div>
-          <div class="progress-bar-track">
-            <div id="uploadProgressBar" class="progress-bar-fill"></div>
-          </div>
-        </div>
 
         <div id="uploadError" class="error-msg hidden"></div>
       </div>
@@ -493,6 +494,6 @@
   <!-- Notification Toast -->
   <div id="toastNotification" class="toast-notification hidden"></div>
 
-  <script src="/static/app.js?v=3.10"></script>
+  <script src="/static/app.js?v=3.11"></script>
 </body>
 </html>

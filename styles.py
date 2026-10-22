@@ -48,20 +48,25 @@ def pick_keys(tokens, max_keys=1):
 
 
 def build_captions(words, per=3, max_keys=1, max_gap=0.7, max_len=3.2):
-    """words: [(start, end, text)] -> list of captions with *emphasis* markup and word times."""
+    """Group timed words into plain-text captions with explicit emphasis metadata."""
     caps, cur = [], []
 
     def flush():
         if not cur:
             return
-        toks = [{"t": w[2], "key": False} for w in cur]
+        toks = [{"t": str(w[2]).replace("*", ""), "key": False} for w in cur]
         if toks:
             toks[-1]["key"] = True
         for i in pick_keys(toks, max_keys):
             toks[i]["key"] = True
-        text = " ".join(f"*{t['t']}*" if t["key"] else t["t"] for t in toks)
+        text = " ".join(t["t"] for t in toks)
+        caption_words = [{"t": token["t"], "word": token["t"], "key": token["key"],
+                          "start": round(word[0], 2), "s": round(word[0], 2),
+                          "end": round(word[1], 2), "e": round(word[1], 2)}
+                         for word, token in zip(cur, toks) if token["t"]]
         caps.append({"id": len(caps) + 1, "start": round(cur[0][0], 2), "end": round(cur[-1][1], 2),
-                     "text": text, "wt": [[round(w[0], 2), round(w[1], 2)] for w in cur]})
+                     "text": text, "words": caption_words,
+                     "wt": [[round(w[0], 2), round(w[1], 2)] for w in cur]})
 
     for w in words:
         if cur:
@@ -79,6 +84,18 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.7, max_len=3.2):
 
 def caption_words(cap):
     """Words of a caption with start/end times. Uses real timings when the word count still matches."""
+    supplied = cap.get("words")
+    if isinstance(supplied, list) and supplied and all(isinstance(item, dict) for item in supplied):
+        out = []
+        for item in supplied:
+            text = str(item.get("t", item.get("word", ""))).replace("*", "")
+            if not text:
+                continue
+            start = float(item.get("s", item.get("start", cap.get("start", 0))))
+            end = float(item.get("e", item.get("end", cap.get("end", start))))
+            out.append({"t": text, "key": bool(item.get("key")), "s": start, "e": end})
+        if out:
+            return out
     toks = tokenize(cap.get("text", ""))
     if not toks:
         return []
@@ -402,6 +419,8 @@ def load_presets():
                 
                 base_color = base.get("color") or "#FFFFFF"
                 accent_color = colors[0] if colors else (accent.get("color") or "#FFFFFF")
+                preset_y = max(0.20, min(0.82, float(p.get("posY", 0.52))))
+                subtitle_gap = max(0.055, min(0.09, (float(accent.get("size", 160)) + float(base.get("size", 62))) * 0.35 / 1920.0 + 0.01))
 
                 duo_item = {
                     "id": p["id"],
@@ -418,9 +437,8 @@ def load_presets():
                     "behindPerson": accent.get("layer") == "behind",
                     "depthAccent": accent.get("layer") == "behind",
                     "depthAccentSize": round(accent.get("size", 160) / 1080.0, 3),
-                    "depthAccentY": float(p.get("posY", 0.52)),
-                    "subtitlePosition": (float(p.get("posY", 0.72)) if accent.get("layer") == "behind"
-                                         else max(0.68, min(0.84, float(p.get("posY", 0.2)) + 0.52))),
+                    "depthAccentY": preset_y,
+                    "subtitlePosition": max(0.20, min(0.90, preset_y + subtitle_gap)),
                     "subtitleSize": round(base.get("size", 62) / 1080.0, 3),
                     "blend": p.get("blend", "screen"),
                     "blendMode": p.get("blend", "screen"),
@@ -580,8 +598,8 @@ def clean_style(s):
         "behindPerson": bool(s.get("behindPerson", False)),
         "depthAccent": bool(s.get("depthAccent", False)),
         "depthAccentSize": float(_num(s.get("depthAccentSize"), 0.12, 0.34, 0.22)),
-        "depthAccentY": float(_num(s.get("depthAccentY"), 0.20, 0.62, 0.41)),
-        "subtitlePosition": float(_num(s.get("subtitlePosition"), 0.58, 0.90, 0.76)),
+        "depthAccentY": float(_num(s.get("depthAccentY"), 0.20, 0.82, 0.41)),
+        "subtitlePosition": float(_num(s.get("subtitlePosition"), 0.20, 0.90, 0.76)),
         "subtitleSize": float(_num(s.get("subtitleSize"), 0.035, 0.09, 0.058)),
         "fontScale": float(_num(s.get("fontScale"), 0.6, 1.5, 1.0)),
         "offsetX": float(_num(s.get("offsetX"), -0.10, 0.10, 0.0)),
@@ -624,7 +642,7 @@ def _c(hex_color):
 
 
 def _esc(t):
-    return t.replace("\\", "").replace("{", "(").replace("}", ")")
+    return t.replace("*", "").replace("\\", "").replace("{", "(").replace("}", ")")
 
 
 def ts(sec):

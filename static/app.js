@@ -10,6 +10,7 @@
   const $ = (id) => document.getElementById(id);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const round = (n, d = 2) => Number(Number(n).toFixed(d));
+  const cleanCaptionText = (value) => String(value ?? '').replace(/\*/g, '');
 
   // --- Global State ---
   const S = {
@@ -1132,6 +1133,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       btnGenerateCaptions.disabled = false;
       btnGenerateCaptions.innerHTML = '<span>Generate captions</span><span aria-hidden="true">→</span>';
       uploadError.classList.add('hidden');
+      dropZone.classList.remove('is-uploading');
       uploadProgressBox.classList.add('hidden');
       uploadProgressBar.style.width = '0%';
       showView('viewUpload');
@@ -1144,6 +1146,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function setupUploadHandlers() {
     btnSelectFile.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (dropZone.classList.contains('is-uploading')) return;
       S.generateAfterPicker = false;
       fileInput.click();
     });
@@ -1160,7 +1163,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     dropZone.addEventListener('click', (e) => {
       // Allow clicking anywhere inside the drop card to open file chooser
-      if (e.target !== fileInput && !e.target.closest('select') && !e.target.closest('details') && !e.target.closest('textarea')) {
+      if (!dropZone.classList.contains('is-uploading') && e.target !== fileInput && !e.target.closest('select') && !e.target.closest('details') && !e.target.closest('textarea')) {
         fileInput.click();
       }
     });
@@ -1193,6 +1196,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
 
     dropZone.addEventListener('drop', (e) => {
+      if (dropZone.classList.contains('is-uploading')) return;
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
       if (file) stageSelectedFile(file);
     });
@@ -1205,6 +1209,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     selectedMediaName.textContent = 'Ready: ' + file.name;
     selectedMediaName.classList.remove('hidden');
     uploadError.classList.add('hidden');
+    dropZone.classList.remove('is-uploading');
 
     // Instant local zero-latency video preview stream
     try {
@@ -1226,6 +1231,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.file = file;
     btnGenerateCaptions.disabled = true;
     btnGenerateCaptions.innerHTML = '<span>Generating captions…</span><span class="generate-spinner" aria-hidden="true"></span>';
+    dropZone.classList.add('is-uploading');
     uploadProgressBox.classList.remove('hidden');
     uploadProgressBar.style.width = '5%';
     uploadPercent.textContent = '5%';
@@ -1375,6 +1381,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     uploadError.textContent = msg;
     uploadError.classList.remove('hidden');
     uploadProgressBox.classList.add('hidden');
+    dropZone.classList.remove('is-uploading');
     btnGenerateCaptions.disabled = false;
     btnGenerateCaptions.innerHTML = '<span>Try generating again</span><span aria-hidden="true">↻</span>';
   }
@@ -1391,20 +1398,26 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           end: c.start + (idx + 1) * dur
         }));
       }
-      return {
-        id: c.id || ('cap_' + (i + 1)),
-        start: parseFloat(c.start) || 0,
-        end: parseFloat(c.end) || 0,
-        text: c.text || '',
-        words: words.map(w => ({
-          t: Array.isArray(w) ? w[2] : (w.word || w.t || ''),
-          word: Array.isArray(w) ? w[2] : (w.word || w.t || ''),
+      const normalizedWords = words.map(w => {
+        const rawWord = Array.isArray(w) ? w[2] : (w.word || w.t || '');
+        const text = cleanCaptionText(rawWord);
+        const markedKey = String(rawWord ?? '').includes('*');
+        return {
+          t: text,
+          word: text,
           s: parseFloat(Array.isArray(w) ? w[0] : (w.start || w.s || 0)),
           start: parseFloat(Array.isArray(w) ? w[0] : (w.start || w.s || 0)),
           e: parseFloat(Array.isArray(w) ? w[1] : (w.end || w.e || 0)),
           end: parseFloat(Array.isArray(w) ? w[1] : (w.end || w.e || 0)),
-          key: Boolean(w.key)
-        }))
+          key: Boolean(w.key || markedKey)
+        };
+      }).filter(w => w.t);
+      return {
+        id: c.id || ('cap_' + (i + 1)),
+        start: parseFloat(c.start) || 0,
+        end: parseFloat(c.end) || 0,
+        text: cleanCaptionText(c.text || normalizedWords.map(w => w.t).join(' ')),
+        words: normalizedWords
       };
     });
   }
@@ -1824,23 +1837,28 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const isCur = curTime >= cap.start && curTime <= cap.end;
       row.className = 'caption-row' + (isCur ? ' active' : '');
 
-      row.innerHTML = `
-        <button class="caption-play-btn" title="Jump to timestamp">▶</button>
-        <div class="caption-center">
-          <span class="caption-time-pill">${formatTime(cap.start)} - ${formatTime(cap.end)}</span>
-          <textarea class="caption-text-input" rows="1">${cap.text}</textarea>
-        </div>
-        <button class="caption-delete-btn" title="Delete caption">&times;</button>
-      `;
+      row.innerHTML = `<button class="caption-play-btn" title="Jump to timestamp">▶</button><div class="caption-center"><span class="caption-time-pill">${formatTime(cap.start)} - ${formatTime(cap.end)}</span></div><button class="caption-delete-btn" title="Delete caption">&times;</button>`;
+      const captionCenter = row.querySelector('.caption-center');
+      const captionInput = document.createElement('textarea');
+      captionInput.className = 'caption-text-input';
+      captionInput.rows = 1;
+      captionInput.value = cleanCaptionText(cap.text);
+      captionCenter.appendChild(captionInput);
 
       row.querySelector('.caption-play-btn').addEventListener('click', () => {
         vid.currentTime = cap.start + 0.05;
         vid.play();
       });
 
-      const textarea = row.querySelector('.caption-text-input');
+      const textarea = captionInput;
       textarea.addEventListener('input', (e) => {
-        cap.text = e.target.value;
+        const cleanValue = cleanCaptionText(e.target.value);
+        if (cleanValue !== e.target.value) {
+          const caret = Math.max(0, e.target.selectionStart - (e.target.value.length - cleanValue.length));
+          e.target.value = cleanValue;
+          e.target.setSelectionRange(caret, caret);
+        }
+        cap.text = cleanValue;
         const words = cap.text.split(/\s+/).filter(Boolean);
         const dur = (cap.end - cap.start) / Math.max(words.length, 1);
         cap.words = words.map((w, wIdx) => ({
@@ -1905,8 +1923,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         if (!S.style) S.style = {};
         S.style.position = parseFloat(btn.getAttribute('data-pos'));
         if (S.style.isDuo || S.style.isSpecial) {
-          S.style.depthAccentY = Math.max(0.20, Math.min(0.62, S.style.position));
-          S.style.subtitlePosition = Math.max(0.58, Math.min(0.90, S.style.position + 0.20));
+          S.style.depthAccentY = Math.max(0.20, Math.min(0.82, S.style.position));
+          S.style.subtitlePosition = Math.max(0.20, Math.min(0.90, S.style.position + 0.07));
         }
         renderCanvas();
       });
@@ -2015,11 +2033,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const basePosition = Number.isFinite(originalPosition) ? originalPosition : 0.72;
       const moveKey = (key, fallback) => {
         const current = Number(S.style[key]);
-        const [min, max] = key === 'depthAccentY' ? [0.20, 0.62] : key === 'subtitlePosition' ? [0.58, 0.90] : [0.10, 0.95];
+        const [min, max] = key === 'depthAccentY' ? [0.20, 0.82] : key === 'subtitlePosition' ? [0.20, 0.90] : [0.10, 0.95];
         S.style[key] = Math.max(min, Math.min(max, (Number.isFinite(current) ? current : fallback) + delta));
       };
-      moveKey('position', basePosition);
-      if (S.style.depthAccent || S.style.isSpecial || S.style.isDuo) {
+      if (S.style.isDuo) {
+        const oldHero = Number(S.style.depthAccentY) || 0.20;
+        const oldSubtitle = Number(S.style.subtitlePosition) || oldHero + 0.06;
+        const lineGap = Math.max(0.055, Math.min(0.09, oldSubtitle - oldHero));
+        let nextHero = Math.max(0.20, Math.min(0.82, oldHero + delta));
+        if (nextHero + lineGap > 0.90) nextHero = 0.90 - lineGap;
+        S.style.depthAccentY = nextHero;
+        S.style.subtitlePosition = nextHero + lineGap;
+        S.style.position = nextHero;
+      } else {
+        moveKey('position', basePosition);
+      }
+      if (!S.style.isDuo && (S.style.depthAccent || S.style.isSpecial)) {
         const depthFallback = S.style.depthAccent ? 0.41 : (basePosition || 0.42);
         moveKey('depthAccentY', Number(S.style.depthAccentY) || depthFallback);
         moveKey('subtitlePosition', S.style.subtitlePosition || 0.76);
@@ -2186,7 +2215,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     try {
       const payload = {
         filename: S.filename,
-        captions: S.captions,
+        captions: S.captions.map(cap => ({
+          ...cap,
+          text: cleanCaptionText(cap.text),
+          words: (cap.words || []).map(word => ({ ...word, t: cleanCaptionText(word.t ?? word.word), word: cleanCaptionText(word.word ?? word.t) })).filter(word => word.t)
+        })),
         style: S.style,
         preset_id: S.style?.id || 'yellow_box',
         quality: 'balanced',

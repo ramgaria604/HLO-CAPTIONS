@@ -243,6 +243,15 @@ button {
   background: rgba(0, 240, 255, 0.05);
 }
 
+.video-picker-group { width:100%; display:flex; flex-direction:column; align-items:center; }
+.upload-card.is-uploading { border-style:solid; border-color:rgba(139,92,246,.42); }
+.upload-card.is-uploading .upload-icon-circle,
+.upload-card.is-uploading .upload-prompt,
+.upload-card.is-uploading .upload-hint,
+.upload-card.is-uploading #btnSelectFile { display:none; }
+.upload-card.is-uploading .selected-media-name { margin:4px 0 12px; }
+.upload-card.is-uploading .progress-box { width:100%; margin:0 0 8px; }
+
 .upload-icon-circle {
   width: 58px;
   height: 58px;
