@@ -352,7 +352,8 @@
                 <textarea id="voiceoverText" class="script-textarea voiceover-text" maxlength="4000" placeholder="Type or paste your Hindi/Hinglish/English voiceover script here…"></textarea>
                 <label class="voiceover-label">Voice Packs & Instant Generation</label>
                 <select id="voiceoverVoice" class="styled-select" style="display:none;">
-                  <option value="special_voice" selected>⭐ Special Voice (Exact Instagram Viral Creator)</option>
+                  <option value="special_voice" selected>⭐ Special Voice (ElevenLabs Multilingual)</option>
+                  <option value="eleven_adam">🔥 ElevenLabs Adam (Deep Viral Creator)</option>
                   <option value="madhur_creator">🔥 Viral Reel Storyteller (Madhur)</option>
                   <option value="swara_soft">🌸 Soft & Emotional Aesthetic (Swara)</option>
                   <option value="madhur_fast">⚡ High-Retention Fast Reel (Madhur - 1.15x)</option>
@@ -369,11 +370,22 @@
                     <div class="voice-pack-info">
                       <div class="voice-pack-header">
                         <strong class="voice-pack-title">⭐ Special Voice</strong>
-                        <span class="voice-pack-tag">Exact Match</span>
+                        <span class="voice-pack-tag">ElevenLabs Multilingual</span>
                       </div>
-                      <span class="voice-pack-desc">Exact viral Instagram creator voice from your reference video</span>
+                      <span class="voice-pack-desc">Ultra-realistic, soft & human Instagram creator voice</span>
                     </div>
                     <button type="button" class="btn-pack-generate" data-voice="special_voice">⚡ Generate</button>
+                  </div>
+
+                  <div class="voice-pack-card" data-voice="eleven_adam">
+                    <div class="voice-pack-info">
+                      <div class="voice-pack-header">
+                        <strong class="voice-pack-title">🔥 ElevenLabs Adam</strong>
+                        <span class="voice-pack-tag">Viral #1</span>
+                      </div>
+                      <span class="voice-pack-desc">Deep, authoritative and famous viral creator voice</span>
+                    </div>
+                    <button type="button" class="btn-pack-generate" data-voice="eleven_adam">⚡ Generate</button>
                   </div>
 
                   <div class="voice-pack-card" data-voice="madhur_creator">
@@ -594,6 +606,6 @@
   <!-- Notification Toast -->
   <div id="toastNotification" class="toast-notification hidden"></div>
 
-  <script src="/static/app.js?v=3.17"></script>
+  <script src="/static/app.js?v=3.18"></script>
 </body>
 </html>

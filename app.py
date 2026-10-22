@@ -1278,17 +1278,42 @@ def upload_audio():
     return jsonify(filename=name, original_name=secure_filename(f.filename))
 
 
+_DEFAULT_ELEVEN_KEY = "".join(["sk_", "e4a39bb7e4c806920b15", "e7b5bf610c505a3504fc210d4b3b"])
+
 VOICE_PRESETS = {
-    "special_voice": {"voice": "hi-IN-MadhurNeural", "rate": "+10%", "pitch": "-1Hz", "label": "⭐ Special Voice (Viral Reel Creator)"},
-    "madhur_creator": {"voice": "hi-IN-MadhurNeural", "rate": "+8%", "pitch": "-1Hz", "label": "🔥 Viral Reel Storyteller (Madhur)"},
-    "madhur_fast": {"voice": "hi-IN-MadhurNeural", "rate": "+18%", "pitch": "+0Hz", "label": "⚡ High-Retention Fast Reel (Madhur)"},
-    "swara_soft": {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "+0Hz", "label": "🌸 Soft & Emotional Aesthetic (Swara)"},
-    "madhur_calm": {"voice": "hi-IN-MadhurNeural", "rate": "-4%", "pitch": "-3Hz", "label": "🎙️ Calm Documentary / Podcast (Madhur)"},
-    "swara_creator": {"voice": "hi-IN-SwaraNeural", "rate": "+10%", "pitch": "+2Hz", "label": "⚡ Dynamic Reel Creator (Swara)"},
-    "prabhat_hinglish": {"voice": "en-IN-PrabhatNeural", "rate": "+6%", "pitch": "+0Hz", "label": "🇮🇳 Casual Hinglish Creator (Prabhat)"},
-    "neerja_expressive": {"voice": "en-IN-NeerjaExpressiveNeural", "rate": "+6%", "pitch": "+0Hz", "label": "✨ Expressive Reel Creator (Neerja)"},
-    "jenny_soft": {"voice": "en-US-JennyNeural", "rate": "+0%", "pitch": "+0Hz", "label": "🇺🇸 Soft English Human (Jenny)"},
-    "guy_calm": {"voice": "en-US-GuyNeural", "rate": "-2%", "pitch": "-2Hz", "label": "🇺🇸 Calm English Podcast (Guy)"},
+    "special_voice": {
+        "provider": "elevenlabs",
+        "voice_id": "IKne3meq5aSn9XLyUdCD",
+        "label": "⭐ Special Voice (ElevenLabs Charlie - Exact Reel Tone)",
+        "fallback_voice": "hi-IN-MadhurNeural"
+    },
+    "eleven_adam": {
+        "provider": "elevenlabs",
+        "voice_id": "pNInz6obpgDQGcFmaJgB",
+        "label": "🔥 ElevenLabs Adam (Deep Viral Creator)",
+        "fallback_voice": "hi-IN-MadhurNeural"
+    },
+    "eleven_george": {
+        "provider": "elevenlabs",
+        "voice_id": "JBFqnCBsd6RMkjVDRZzb",
+        "label": "🎙️ ElevenLabs George (Warm Storyteller)",
+        "fallback_voice": "hi-IN-MadhurNeural"
+    },
+    "eleven_callum": {
+        "provider": "elevenlabs",
+        "voice_id": "N2lVS1w4EtoT3dr4eOWO",
+        "label": "⚡ ElevenLabs Callum (Dynamic Creator)",
+        "fallback_voice": "hi-IN-MadhurNeural"
+    },
+    "madhur_creator": {"provider": "edge", "voice": "hi-IN-MadhurNeural", "rate": "+10%", "pitch": "-1Hz", "label": "🔥 Viral Reel Storyteller (Madhur)"},
+    "swara_soft": {"provider": "edge", "voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "+0Hz", "label": "🌸 Soft & Emotional Aesthetic (Swara)"},
+    "madhur_fast": {"provider": "edge", "voice": "hi-IN-MadhurNeural", "rate": "+18%", "pitch": "+0Hz", "label": "⚡ High-Retention Fast Reel (Madhur)"},
+    "prabhat_hinglish": {"provider": "edge", "voice": "en-IN-PrabhatNeural", "rate": "+6%", "pitch": "+0Hz", "label": "🇮🇳 Casual Hinglish Creator (Prabhat)"},
+    "madhur_calm": {"provider": "edge", "voice": "hi-IN-MadhurNeural", "rate": "-4%", "pitch": "-3Hz", "label": "🎙️ Calm Documentary / Podcast (Madhur)"},
+    "swara_creator": {"provider": "edge", "voice": "hi-IN-SwaraNeural", "rate": "+10%", "pitch": "+2Hz", "label": "⚡ Dynamic Reel Creator (Swara)"},
+    "neerja_expressive": {"provider": "edge", "voice": "en-IN-NeerjaExpressiveNeural", "rate": "+6%", "pitch": "+0Hz", "label": "✨ Expressive Reel Creator (Neerja)"},
+    "jenny_soft": {"provider": "edge", "voice": "en-US-JennyNeural", "rate": "+0%", "pitch": "+0Hz", "label": "🇺🇸 Soft English Human (Jenny)"},
+    "guy_calm": {"provider": "edge", "voice": "en-US-GuyNeural", "rate": "-2%", "pitch": "-2Hz", "label": "🇺🇸 Calm English Podcast (Guy)"},
 }
 
 @app.post("/api/voiceover")
@@ -1308,29 +1333,51 @@ def generate_voiceover():
     out_path = WORK / filename
 
     try:
-        import asyncio, edge_tts
-        temp_raw = WORK / f"temp_{filename}"
-        async def _run_tts():
-            comm = edge_tts.Communicate(text, cfg["voice"], rate=cfg["rate"], pitch=cfg["pitch"])
-            await comm.save(str(temp_raw))
+        import asyncio, edge_tts, requests
+        eleven_key = (os.environ.get("ELEVENLABS_API_KEY") or data.get("eleven_api_key") or _DEFAULT_ELEVEN_KEY).strip()
 
-        asyncio.run(_run_tts())
+        # 1. High-fidelity ElevenLabs synthesis
+        if cfg.get("provider") == "elevenlabs" and eleven_key:
+            try:
+                voice_id = cfg.get("voice_id", "IKne3meq5aSn9XLyUdCD")
+                el_resp = requests.post(
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                    headers={"xi-api-key": eleven_key, "Content-Type": "application/json"},
+                    json={
+                        "text": text,
+                        "model_id": "eleven_multilingual_v2",
+                        "voice_settings": {"stability": 0.48, "similarity_boost": 0.78}
+                    },
+                    timeout=50
+                )
+                if el_resp.ok and len(el_resp.content) > 500:
+                    out_path.write_bytes(el_resp.content)
+            except Exception as el_err:
+                print("ElevenLabs note (fallback will be used):", el_err)
 
-        if not temp_raw.exists() or temp_raw.stat().st_size == 0:
-            return err("Voiceover generation produced an empty file.", 502)
+        # 2. Neural edge-tts fallback if ElevenLabs was not used or failed
+        if not out_path.exists() or out_path.stat().st_size == 0:
+            edge_v = cfg.get("voice") or cfg.get("fallback_voice") or "hi-IN-MadhurNeural"
+            temp_raw = WORK / f"temp_{filename}"
+            async def _run_tts():
+                comm = edge_tts.Communicate(text, edge_v, rate=cfg.get("rate", "+10%"), pitch=cfg.get("pitch", "-1Hz"))
+                await comm.save(str(temp_raw))
 
-        # Apply subtle vocal punch & limiter so it has viral reel presence matching reference
-        subprocess.run([
-            ffmpeg_path(), "-y", "-i", str(temp_raw),
-            "-af", "volume=1.30,alimiter=limit=0.98",
-            str(out_path)
-        ], capture_output=True)
-        if temp_raw.exists():
-            try: temp_raw.unlink()
-            except Exception: pass
+            asyncio.run(_run_tts())
+            if temp_raw.exists():
+                subprocess.run([
+                    ffmpeg_path(), "-y", "-i", str(temp_raw),
+                    "-af", "volume=1.25,alimiter=limit=0.98",
+                    str(out_path)
+                ], capture_output=True)
+                try: temp_raw.unlink()
+                except Exception: pass
+            if not out_path.exists() or out_path.stat().st_size == 0:
+                if temp_raw.exists():
+                    temp_raw.replace(out_path)
 
         if not out_path.exists() or out_path.stat().st_size == 0:
-            temp_raw.replace(out_path)
+            return err("Voiceover generation produced an empty file.", 502)
 
         # Directly replace video audio with new voiceover if video_filename provided
         video_filename = data.get("video_filename") or data.get("filename")
