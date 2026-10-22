@@ -46,7 +46,8 @@
   const btnGenerateCaptions = $('btnGenerateCaptions');
   const selectedMediaName = $('selectedMediaName');
   const langSelect = $('langSelect');
-  const scriptInput = $('scriptInput');
+  const scriptInput = $('scriptInput');
+
   const uploadProgressBox = $('uploadProgressBox');
   const uploadStatusText = $('uploadStatusText');
   const uploadPercent = $('uploadPercent');
@@ -1479,6 +1480,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
       setTimeout(() => {
         showView('viewEditor');
+        try {
+          if (voiceoverText && !voiceoverText.value.trim() && S.captions && S.captions.length > 0) {
+            voiceoverText.value = S.captions.map(c => c.text).join(' ');
+          }
+        } catch (e) {}
       }, 400);
 
     } catch (err) {
@@ -2111,41 +2117,64 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
 
     voiceoverVoice.addEventListener('change', () => { S.voiceoverVoice = voiceoverVoice.value; });
+    let lastVoiceoverData = null;
+
     btnGenerateVoiceover.addEventListener('click', async () => {
       const text = voiceoverText.value.trim();
       if (!text) {
-        voiceoverStatus.textContent = 'Write or paste a short voiceover script first.';
+        voiceoverStatus.textContent = 'Write or paste your voiceover script first.';
         return;
       }
       btnGenerateVoiceover.disabled = true;
-      btnGenerateVoiceover.textContent = 'Generating soft voice…';
-      voiceoverStatus.textContent = 'Creating your voiceover…';
+      btnGenerateVoiceover.textContent = 'Generating voice…';
+      voiceoverStatus.textContent = 'Synthesizing realistic creator voiceover…';
       try {
+        const groqKey = (groqApiKeyInput && groqApiKeyInput.value.trim()) || '';
         const res = await fetch('/api/voiceover', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: voiceoverVoice.value })
+          body: JSON.stringify({ text, voice: voiceoverVoice.value, groq_api_key: groqKey })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Voiceover could not be generated');
+        lastVoiceoverData = data;
         S.voiceoverFilename = data.filename;
         btnReplaceVoiceover.classList.remove('active');
-        btnReplaceVoiceover.textContent = 'Replace original audio';
+        btnReplaceVoiceover.textContent = '✓ Apply to Video';
         voiceoverAudio.src = '/video/' + encodeURIComponent(data.filename);
         voiceoverAudio.classList.remove('hidden');
         btnReplaceVoiceover.disabled = false;
-        voiceoverStatus.textContent = 'Voiceover ready. Preview it, then select Replace original audio to use it in your export.';
+        voiceoverStatus.textContent = 'Voiceover generated! Preview audio above, then click Apply to Video.';
+        voiceoverAudio.play().catch(() => {});
       } catch (err) {
         voiceoverStatus.textContent = err.message;
       } finally {
         btnGenerateVoiceover.disabled = false;
-        btnGenerateVoiceover.textContent = 'Generate voiceover';
+        btnGenerateVoiceover.textContent = '🔊 Generate Voiceover';
       }
     });
+
     btnReplaceVoiceover.addEventListener('click', () => {
       if (!S.voiceoverFilename) return;
-      showToast('Voiceover will replace the original audio on export.');
       btnReplaceVoiceover.classList.add('active');
-      btnReplaceVoiceover.textContent = '✓ Replacing original audio';
+      btnReplaceVoiceover.textContent = '✓ Applied to Video';
+      
+      // If synchronized captions were generated, update the caption track instantly
+      if (lastVoiceoverData && lastVoiceoverData.captions && lastVoiceoverData.captions.length > 0) {
+        S.captions = normalizeCaptions(lastVoiceoverData.captions);
+        renderCaptionsList();
+        renderTimeline();
+        showToast('Applied new voiceover & synchronized captions!');
+      } else {
+        showToast('Applied new voiceover to video!');
+      }
+
+      // Synchronize video player with voiceover audio
+      vid.muted = true;
+      voiceoverAudio.currentTime = vid.currentTime;
+      if (!vid.paused) {
+        voiceoverAudio.play().catch(() => {});
+      }
+      voiceoverStatus.textContent = 'Voiceover active! Captions & audio are synchronized to the new voice.';
     });
   }
 

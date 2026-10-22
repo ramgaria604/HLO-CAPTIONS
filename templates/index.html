@@ -342,23 +342,29 @@
             <div class="audio-panel">
               <div class="control-card voiceover-card">
                 <div class="control-header">
-                  <label>AI Voiceover</label>
-                  <span class="val-badge">3 soft voices</span>
+                  <label>🎙️ AI Voiceover Producer</label>
+                  <span class="val-badge">Viral Hindi & Reels</span>
                 </div>
-                <p class="voiceover-help">Write up to 200 characters, choose a voice, and preview it before replacing the video audio.</p>
-                <textarea id="voiceoverText" class="script-textarea voiceover-text" maxlength="200" placeholder="Type up to 200 characters…"></textarea>
+                <p class="voiceover-help">Write or edit your script, choose a natural creator voice, and replace the video's audio with 1 click.</p>
+                <textarea id="voiceoverText" class="script-textarea voiceover-text" maxlength="4000" placeholder="Type or paste your Hindi/Hinglish/English voiceover script here…"></textarea>
                 <label class="voiceover-label" for="voiceoverVoice">Voice style</label>
                 <select id="voiceoverVoice" class="styled-select">
-                  <option value="hannah" selected>Hannah · warm and soft</option>
-                  <option value="autumn">Autumn · warm and gentle</option>
-                  <option value="troy">Troy · calm and clear</option>
+                  <option value="madhur_creator" selected>🔥 Viral Reel Storyteller (Madhur - Confident & Punchy)</option>
+                  <option value="madhur_fast">⚡ High-Retention Fast Reel (Madhur - 1.15x Speed)</option>
+                  <option value="swara_soft">🌸 Soft & Emotional Aesthetic (Swara - Gentle Human)</option>
+                  <option value="madhur_calm">🎙️ Calm Documentary / Podcast (Madhur - Soothing)</option>
+                  <option value="swara_creator">⚡ Dynamic Reel Creator (Swara - Punchy)</option>
+                  <option value="prabhat_hinglish">🇮🇳 Casual Hinglish Creator (Prabhat)</option>
+                  <option value="neerja_expressive">✨ Expressive Reel Creator (Neerja)</option>
+                  <option value="jenny_soft">🇺🇸 Soft English Human (Jenny)</option>
+                  <option value="guy_calm">🇺🇸 Calm English Podcast (Guy)</option>
                 </select>
                 <div class="voiceover-actions">
-                  <button id="btnGenerateVoiceover" class="btn-subaction">Generate voiceover</button>
-                  <button id="btnReplaceVoiceover" class="btn-subaction" disabled>Replace original audio</button>
+                  <button id="btnGenerateVoiceover" class="btn-subaction">🔊 Generate Voiceover</button>
+                  <button id="btnReplaceVoiceover" class="btn-subaction" disabled>✓ Replace Original Audio</button>
                 </div>
                 <audio id="voiceoverAudio" class="voiceover-audio hidden" controls></audio>
-                <p id="voiceoverStatus" class="voiceover-status" aria-live="polite">Generated audio stays private to this video project.</p>
+                <p id="voiceoverStatus" class="voiceover-status" aria-live="polite">Click Generate to preview the voice, then Replace to apply it to your video.</p>
               </div>
 
               <div class="control-card">

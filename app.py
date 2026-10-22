@@ -1278,38 +1278,89 @@ def upload_audio():
     return jsonify(filename=name, original_name=secure_filename(f.filename))
 
 
+VOICE_PRESETS = {
+    "madhur_creator": {"voice": "hi-IN-MadhurNeural", "rate": "+8%", "pitch": "-1Hz", "label": "🔥 Viral Reel Storyteller (Madhur)"},
+    "madhur_fast": {"voice": "hi-IN-MadhurNeural", "rate": "+12%", "pitch": "+0Hz", "label": "⚡ High-Retention Fast Reel (Madhur)"},
+    "swara_soft": {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "+0Hz", "label": "🌸 Soft & Emotional Aesthetic (Swara)"},
+    "madhur_calm": {"voice": "hi-IN-MadhurNeural", "rate": "-4%", "pitch": "-3Hz", "label": "🎙️ Calm Documentary / Podcast (Madhur)"},
+    "swara_creator": {"voice": "hi-IN-SwaraNeural", "rate": "+10%", "pitch": "+2Hz", "label": "⚡ Dynamic Reel Creator (Swara)"},
+    "prabhat_hinglish": {"voice": "en-IN-PrabhatNeural", "rate": "+6%", "pitch": "+0Hz", "label": "🇮🇳 Casual Hinglish Creator (Prabhat)"},
+    "neerja_expressive": {"voice": "en-IN-NeerjaExpressiveNeural", "rate": "+6%", "pitch": "+0Hz", "label": "✨ Expressive Reel Creator (Neerja)"},
+    "jenny_soft": {"voice": "en-US-JennyNeural", "rate": "+0%", "pitch": "+0Hz", "label": "🇺🇸 Soft English Human (Jenny)"},
+    "guy_calm": {"voice": "en-US-GuyNeural", "rate": "-2%", "pitch": "-2Hz", "label": "🇺🇸 Calm English Podcast (Guy)"},
+}
+
 @app.post("/api/voiceover")
 def generate_voiceover():
-    """Generate a short, natural English voiceover without exposing the API key."""
+    """Generate high-quality viral Hindi & human creator voiceover using neural TTS."""
     data = request.get_json(silent=True) or {}
     text = str(data.get("text", "")).strip()
-    voice = str(data.get("voice", "hannah")).strip().lower()
+    voice_key = str(data.get("voice", "madhur_creator")).strip()
+
     if not text:
         return err("Enter the words you want spoken.")
-    if len(text) > 200:
-        return err("Voiceover scripts are limited to 200 characters per generation.")
-    if voice not in {"hannah", "autumn", "troy"}:
-        return err("Choose one of the available voice styles.")
-    api_key = (os.environ.get("GROQ_API_KEY") or "").strip()
-    if not api_key:
-        return err("Voiceover is not configured on the server yet. Add GROQ_API_KEY in the server environment settings.", 503)
+    if len(text) > 4000:
+        return err("Voiceover scripts are limited to 4,000 characters.")
+
+    cfg = VOICE_PRESETS.get(voice_key, VOICE_PRESETS["madhur_creator"])
+    filename = f"voiceover_{uuid.uuid4().hex[:12]}.mp3"
+    out_path = WORK / filename
+
     try:
-        import requests
-        response = requests.post(
-            "https://api.groq.com/openai/v1/audio/speech",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={"model": "canopylabs/orpheus-v1-english", "input": text,
-                  "voice": voice, "response_format": "wav"},
-            timeout=120,
+        import asyncio, edge_tts
+        async def _run_tts():
+            comm = edge_tts.Communicate(text, cfg["voice"], rate=cfg["rate"], pitch=cfg["pitch"])
+            await comm.save(str(out_path))
+
+        asyncio.run(_run_tts())
+
+        if not out_path.exists() or out_path.stat().st_size == 0:
+            return err("Voiceover generation produced an empty file.", 502)
+
+        # Transcribe the generated voiceover with Whisper to produce synchronized captions
+        words = []
+        try:
+            groq_key = (data.get("groq_api_key") or os.environ.get("GROQ_API_KEY") or "").strip()
+            if groq_key:
+                with open(out_path, "rb") as af:
+                    post_data = {
+                        "model": "whisper-large-v3",
+                        "response_format": "verbose_json",
+                        "timestamp_granularities[]": "word"
+                    }
+                    headers = {"Authorization": f"Bearer {groq_key}"}
+                    import requests
+                    res = requests.post(
+                        "https://api.groq.com/openai/v1/audio/transcriptions",
+                        headers=headers,
+                        files={"file": (filename, af, "audio/mpeg")},
+                        data=post_data,
+                        timeout=30
+                    )
+                    if res.ok:
+                        rjson = res.json()
+                        raw_w = rjson.get("words") or []
+                        if not raw_w and "segments" in rjson:
+                            for s in rjson["segments"]:
+                                raw_w.extend(s.get("words") or [])
+                        for w in raw_w:
+                            wt = (w.get("word") or "").strip()
+                            if wt:
+                                words.append((float(w.get("start", 0)), float(w.get("end", 0)), wt))
+        except Exception as e:
+            print("Note: voiceover auto-transcription skipped:", e)
+
+        captions = []
+        if words:
+            caps = stylelib.build_captions(words, 3, 1)
+            captions = caps
+
+        return jsonify(
+            filename=filename,
+            voice=voice_key,
+            voice_label=cfg.get("label"),
+            captions=captions
         )
-        if not response.ok:
-            detail = " ".join(response.text.split())[:350]
-            return err(f"Voiceover provider error ({response.status_code}): {detail}", 502)
-        if not response.content:
-            return err("The voiceover provider returned an empty audio file.", 502)
-        filename = f"voiceover_{uuid.uuid4().hex[:12]}.wav"
-        (WORK / filename).write_bytes(response.content)
-        return jsonify(filename=filename, voice=voice)
     except Exception as exc:
         return err(f"Could not generate voiceover: {str(exc)[:250]}", 502)
 
