@@ -67,7 +67,7 @@ export type Role = {
   fx?: Fx;                                                                // SVG+CSS liquid / grunge texture (see fx.ts)
   upper?: boolean; lower?: boolean; track?: number;
 };
-type Anim = 'pop' | 'bounce' | 'slide' | 'fade' | 'glitch' | 'type' | 'rise' | 'flip';
+type Anim = 'pop' | 'bounce' | 'slide' | 'slideRightSoft' | 'fade' | 'glitch' | 'type' | 'rise' | 'flip';
 type Highlight = {mode: 'color' | 'box' | 'underline' | 'wipe'; color: string; textColor?: string; wipe?: [string, string]};
 export type Preset = {
   id: string; name: string;
@@ -224,6 +224,7 @@ function animStyle(anim: Anim, age: number, fps: number, em: number): React.CSSP
   if (anim === 'pop') { const s = spring({frame: age, fps, config: {damping: 11, stiffness: 170}}); return {opacity: Math.min(1, age / 2), transform: `scale(${0.55 + 0.45 * s})`}; }
   if (anim === 'bounce') { const s = spring({frame: age, fps, config: {damping: 6, stiffness: 200, mass: 0.6}}); const settle = interpolate(age, [0, 18], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); return {opacity: Math.min(1, age / 2), transform: `scale(${0.3 + 0.7 * s}) translateY(${(1 - settle) * -0.25 * em}px)`}; }
   if (anim === 'slide') { const p = interpolate(age, [0, 12], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: eased, transform: `translateY(${(1 - eased) * 0.4 * em}px)`}; }
+  if (anim === 'slideRightSoft') { const p = interpolate(age, [0, 9], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: 0.72 + 0.28 * eased, transform: `translateX(${(1 - eased) * -0.12 * em}px)`}; }
   if (anim === 'glitch') { const j = age < 8 ? (age % 2 ? 1 : -1) * 0.06 * em : 0; return {opacity: age < 8 && age % 3 === 0 ? 0.4 : 1, transform: `translateX(${j}px)`}; }
   if (anim === 'rise') { const p = interpolate(age, [0, 18], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: eased, transform: `translateY(${(1 - eased) * 0.6 * em}px)`}; }
   if (anim === 'flip') { const s = spring({frame: age, fps, config: {damping: 12, stiffness: 120}}); return {opacity: Math.min(1, age / 3), transform: `perspective(${em * 8}px) rotateX(${(1 - s) * 85}deg)`}; }

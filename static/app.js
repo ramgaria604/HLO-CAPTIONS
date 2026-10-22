@@ -154,6 +154,13 @@ function getWordPop(w, t, showAll, anim) {
   if (typeof w.s === 'number') {
     const dt = t - w.s;
 
+    if (anim === 'slide-right-soft') {
+      if (dt < 0) return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
+      const p = Math.max(0, Math.min(1, dt / 0.30));
+      const ease = 1 - Math.pow(1 - p, 3);
+      return { visible: true, scale: 1.0, dx: -12 * (1 - ease), dy: 0, opacity: 0.72 + 0.28 * ease };
+    }
+
     if (anim === 'slide-up' || anim === 'slide-down' || anim === 'slide-left' || anim === 'slide-right' || (typeof anim === 'string' && anim.startsWith('slide'))) {
       if (dt < 0) {
         return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
