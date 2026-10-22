@@ -11,9 +11,15 @@ PACK = Path(__file__).resolve().parent.parent
 def build_props(video_name, words, preset_id, graphics, palette, duration, width, height,
                 fps=30, person_name=None, auto_color=False):
     """words = [(start, end, text)] on the CUT video timeline. video_name/person_name = files inside public/."""
+    remotion_words = []
+    for word in words:
+        item = {"t": word[2], "s": round(word[0], 3), "e": round(word[1], 3)}
+        if len(word) > 3 and word[3]:
+            item["key"] = True
+        remotion_words.append(item)
     return {
         "videoSrc": video_name, "personSrc": person_name, "presetId": preset_id, "autoColor": auto_color,
-        "words": [{"t": t, "s": round(s, 3), "e": round(e, 3)} for s, e, t in words],
+        "words": remotion_words,
         "graphics": graphics, "palette": palette,
         "durationSec": round(duration, 3), "width": width, "height": height, "fps": fps,
     }

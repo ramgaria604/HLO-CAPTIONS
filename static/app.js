@@ -155,10 +155,10 @@ function getWordPop(w, t, showAll, anim) {
     const dt = t - w.s;
 
     if (anim === 'slide-right-soft') {
-      if (dt < 0) return { visible: true, scale: 1.0, dx: -3, dy: 0, opacity: 0 };
+      if (dt < 0) return { visible: true, scale: 1.0, dx: -24, dy: 0, opacity: 0 };
       const p = Math.max(0, Math.min(1, dt / 0.40));
       const ease = 1 - Math.pow(1 - p, 3);
-      return { visible: true, scale: 1.0, dx: -3 * (1 - ease), dy: 0, opacity: 0.15 + 0.85 * ease };
+      return { visible: true, scale: 1.0, dx: -24 * (1 - ease), dy: 0, opacity: 0.12 + 0.88 * ease };
     }
 
     if (anim === 'slide-up' || anim === 'slide-down' || anim === 'slide-left' || anim === 'slide-right' || (typeof anim === 'string' && anim.startsWith('slide'))) {
@@ -199,7 +199,7 @@ function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind
   const l1Words = words.filter(w => !w.key);
   const l2Words = words.filter(w => w.key);
   const hasBoth = l1Words.length > 0 && l2Words.length > 0;
-  
+
   const line1 = hasBoth ? l1Words : words.slice(0, Math.ceil(words.length / 2));
   const line2 = hasBoth ? l2Words : words.slice(Math.ceil(words.length / 2));
 
@@ -934,15 +934,17 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
   }
 
   // Keep each Real Estate caption in one measured line. Only its final word
-  // gets the large accent treatment; earlier words flow naturally before it.
+  // appears at a time. The spoken final word gets the large accent treatment.
   if (st.estateVariant && words.length) {
-    const items = words.map((word, index) => {
-      const isFinal = index === words.length - 1;
-      const role = isFinal ? (st.key || {}) : subtitleRole;
-      const enter = isFinal ? st.roles?.accent?.enter : st.roles?.base?.enter;
-      return {word, role, anim: getWordPop(word, t, showAll, enter || st.animation)};
-    });
-    drawLine(items, heroY, W * 0.92, subtitleRole);
+    let activeIndex = showAll ? words.length - 1 : words.findIndex(word => t >= word.s && t < word.e);
+    if (activeIndex < 0) activeIndex = words.findIndex(word => t < word.s);
+    if (activeIndex < 0) activeIndex = words.length - 1;
+    const word = words[activeIndex];
+    const isFinal = activeIndex === words.length - 1;
+    const role = isFinal ? (st.key || {}) : subtitleRole;
+    const enter = isFinal ? st.roles?.accent?.enter : st.roles?.base?.enter;
+    const item = {word, role, anim: getWordPop(word, t, showAll, enter || st.animation)};
+    drawLine([item], heroY, W * 0.92, role);
     return;
   }
 
@@ -1360,7 +1362,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           const errData = await res.json();
           if (errData.error) errMsg = errData.error;
         } catch (e) {}
-        
+
         console.warn('Transcription notice:', errMsg);
         const dur = S.probe.duration || 5.0;
         const segDur = Math.min(dur, 3.0);
@@ -1733,8 +1735,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   function renderPresetsTab(filterCat) {
     presetsGrid.innerHTML = '';
-    const filtered = filterCat === 'all' 
-      ? S.presets 
+    const filtered = filterCat === 'all'
+      ? S.presets
       : S.presets.filter(p => {
           const cat = (p.category || '').toLowerCase();
           const name = (p.name || '').toLowerCase();

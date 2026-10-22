@@ -1511,15 +1511,21 @@ def export_worker(job_id, d):
                 temp.append(remotion_vid_target)
 
                 remotion_words = []
+                final_word_only_presets = {"real_estate_1", "real_estate_2", "real_estate_3"}
                 for c in caps:
-                    for w in c.get("words", []):
+                    caption_items = c.get("words", [])
+                    for word_index, w in enumerate(caption_items):
                         if isinstance(w, dict):
                             ws = w.get("s", w.get("start", 0))
                             we = w.get("e", w.get("end", ws))
                             wt = w.get("t", w.get("word", ""))
                         else:
                             ws, we, wt = w[0], w[1], w[2]
-                        remotion_words.append((round(float(ws), 3), round(float(we), 3), str(wt)))
+                        timing = (round(float(ws), 3), round(float(we), 3), str(wt))
+                        if preset_id in final_word_only_presets:
+                            remotion_words.append((*timing, word_index == len(caption_items) - 1))
+                        else:
+                            remotion_words.append(timing)
 
                 remotion_graphics = []
                 raw_graphics = d.get("graphics", [])

@@ -785,7 +785,14 @@ def build_depth_ass(captions, style, W, H):
     if base.get("estateVariant"):
         line_style = copy.deepcopy(base)
         line_style["layout"] = "line"
-        return build_ass(captions, line_style, W, H), None
+        single_word_caps = []
+        for cap in captions:
+            cap_words = cap.get("words", [])
+            for index, word in enumerate(cap_words):
+                item = dict(word)
+                item["key"] = index == len(cap_words) - 1
+                single_word_caps.append({**cap, "start": item["s"], "words": [item]})
+        return build_ass(single_word_caps, line_style, W, H), None
     if base.get("isSpecial") and base.get("mode") == "highlight":
         line_style = copy.deepcopy(base)
         line_style["layout"] = "line"
