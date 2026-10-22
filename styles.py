@@ -778,7 +778,7 @@ def _chunk_text(words, style, W, H, layer, ev_start):
             gap_em = style["filler"]["size"] * base * gap_ratio * style.get("fontScale", 1.0)
             est += len(tx) * em * (0.68 if r["upper"] else 0.56)
             if i < len(line) - 1:
-                est += gap_em * style.get("wordGap", 0.08) if style.get("estateVariant") else gap_em * 0.25
+                est += gap_em * style.get("wordGap", 0.28) if style.get("estateVariant") else gap_em * 0.28
         scale_x = float(style.get("scaleX", 1.0))
         scale = min(1.0, 0.86 * W / (est * scale_x)) if est else 1.0
         scale = max(scale, 0.20 if style.get("depthAccent") or style.get("estateVariant") else 0.45)

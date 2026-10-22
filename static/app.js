@@ -634,7 +634,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     // Recalculate word measurements with final font size
     ctx.save();
     ctx.font = `800 ${fs}px ${fontFam}`;
-    const scaledSpaceWidth = ctx.measureText(' ').width;
+    const scaledSpaceWidth = Math.max(fs * 0.28, ctx.measureText(' ').width);
     let actualLineWidth = 0;
     mLine.wordObjs.forEach((wo, idx) => {
       ctx.font = `${wo.isKey ? 900 : 800} ${fs}px ${fontFam}`;
@@ -848,7 +848,7 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       ctx.save();
       ctx.font = smaller.font;
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${(smaller.role.track || 0) * smaller.size}px`;
-      const gap = Math.max(2, smaller.size * (st.wordGap || 0.08));
+      const gap = Math.max(smaller.size * 0.28, smaller.size * (st.wordGap || 0.28));
       ctx.restore();
       return gap;
     });
