@@ -39,8 +39,6 @@
   const btnSelectFile = $('btnSelectFile');
   const langSelect = $('langSelect');
   const scriptInput = $('scriptInput');
-  const groqApiKeyInput = $('groqApiKeyInput');
-  const groqModelSelect = $('groqModelSelect');
   const uploadProgressBox = $('uploadProgressBox');
   const uploadStatusText = $('uploadStatusText');
   const uploadPercent = $('uploadPercent');
@@ -1113,27 +1111,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (file) handleFileSelected(file);
     });
 
-    if (groqApiKeyInput) {
-      try {
-        const savedGroqKey = localStorage.getItem('groq_api_key');
-        if (savedGroqKey) groqApiKeyInput.value = savedGroqKey;
-      } catch (e) {}
-
-      groqApiKeyInput.addEventListener('input', () => {
-        try {
-          localStorage.setItem('groq_api_key', groqApiKeyInput.value.trim());
-        } catch (e) {}
-      });
-    }
-
-    if (groqModelSelect) {
-      try {
-        groqModelSelect.value = localStorage.getItem('groq_model') || 'whisper-large-v3';
-      } catch (e) {}
-      groqModelSelect.addEventListener('change', () => {
-        try { localStorage.setItem('groq_model', groqModelSelect.value); } catch (e) {}
-      });
-    }
   }
 
   async function handleFileSelected(file) {
@@ -1219,10 +1196,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     try {
       let endpoint = '/api/transcribe';
-      const groqKey = (groqApiKeyInput && groqApiKeyInput.value.trim()) || '';
-      if (groqKey) {
-        uploadStatusText.textContent = 'Transcribing with Groq Whisper Large v3 (ultra-fast)...';
-      }
+      uploadStatusText.textContent = 'Transcribing with Whisper speech recognition...';
 
       let payload = {
         filename: S.filename,
@@ -1230,8 +1204,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         lang: lang,
         wordsPerCaption: 3,
         maxKeys: 1,
-        groq_api_key: groqKey,
-        groq_model: (groqModelSelect && groqModelSelect.value) || 'whisper-large-v3'
       };
 
       if (pastedScript.length > 0) {
