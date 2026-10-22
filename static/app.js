@@ -103,6 +103,7 @@
   const captionCountBadge = $('captionCountBadge');
   const btnAddCaption = $('btnAddCaption');
   const btnSyncScriptModal = $('btnSyncScriptModal');
+  const btnCleanCaptions = $('btnCleanCaptions');
 
   // Style controls
   const inputFontSize = $('inputFontSize');
@@ -159,46 +160,31 @@
   // 133+ PRESETS TYPOGRAPHY ENGINE (DualNeon, KineticLens, Crimson3D, ChromeStudio, EstateDepth, SpecialFront, Standard)
 
 function getWordPop(w, t, showAll, anim) {
-  if (showAll || !anim || anim === 'none') return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
-  if (!w) return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
+  if (showAll || !w) return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
 
   if (typeof w.s === 'number') {
     const dt = t - w.s;
 
-    if (anim === 'slide-right-soft') {
-      if (dt < 0) return { visible: true, scale: 1.0, dx: -24, dy: 0, opacity: 0 };
-      const duration = Math.min(0.40, Math.max(0.12, (w.e - w.s) * 0.60));
-      const p = Math.max(0, Math.min(1, dt / duration));
-      const ease = 1 - Math.pow(1 - p, 3);
-      return { visible: true, scale: 1.0, dx: -24 * (1 - ease), dy: 0, opacity: 0.45 + 0.55 * ease };
+    // Word not yet reached in the line: pre-reveal hidden
+    if (dt < 0) {
+      return { visible: false, scale: 0.96, dx: -8, dy: 0, opacity: 0.0 };
     }
 
-    if (anim === 'slide-up' || anim === 'slide-down' || anim === 'slide-left' || anim === 'slide-right' || (typeof anim === 'string' && anim.startsWith('slide'))) {
-      if (dt < 0) {
-        return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
-      }
-      if (dt < 0.25) {
-        const p = Math.max(0, Math.min(1, dt / 0.25));
-        const ease = 1 - Math.pow(1 - p, 3);
-        const dist = 24 * (1 - ease);
-        let dx = 0, dy = 0;
-        if (anim === 'slide-up') dy = dist;
-        else if (anim === 'slide-down') dy = -dist;
-        else if (anim === 'slide-left') dx = -dist;
-        else if (anim === 'slide-right') dx = dist;
-        return { visible: true, scale: 1.0, dx, dy, opacity: Math.max(0.4, p) };
-      }
-      return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
+    // Word is currently being spoken: gentle left-to-right fade in & subtle slide over 0.22s
+    if (dt < 0.22) {
+      const p = Math.max(0, Math.min(1, dt / 0.22));
+      const ease = 1 - Math.pow(1 - p, 2);
+      const dx = -8 * (1 - ease);
+      const scale = 0.96 + 0.04 * ease;
+      const opacity = Math.max(0, Math.min(1, ease));
+      return { visible: true, scale, dx, dy, opacity };
     }
 
-    if (dt >= 0 && dt < 0.20) {
-      const p = Math.max(0, dt / 0.20);
-      const s = (p < 0.5) ? 0.95 + 0.20 * (p / 0.5) : 1.15 - 0.15 * ((p - 0.5) / 0.5);
-      return { visible: true, scale: s, dx: 0, dy: 0, opacity: 1 };
-    }
+    // Word finished: stays fully opaque, crisp and clear until caption finishes
+    return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
   }
 
-  return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
+  return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
 }
 
 function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll) {
@@ -670,102 +656,159 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     ctx.restore();
   }
 
-  // --- PASS 1: High-Contrast Crisp Solid Base with Black Outline & Drop Shadow ---
-  // Line 1: Small words
+  // --- PASS 1: Word-by-Word Left-to-Right Progressive Fade & Reveal ---
+  // Line 1: Small words drawn word-by-word with subtle fade-in
   if (line1.length) {
     ctx.save();
-    ctx.translate(W / 2 + (anim1.dx || 0), y1 + (anim1.dy || 0));
-    ctx.scale(anim1.scale || 1, anim1.scale || 1);
-    if (typeof anim1.opacity === 'number') ctx.globalAlpha = anim1.opacity;
     ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
-    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-    ctx.shadowBlur = Math.round(base * 0.02) + 6;
-    ctx.strokeStyle = fRole.outlineColor || '#000000';
-    ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
-    ctx.strokeText(txt1, 0, 0);
-    ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
-    ctx.fillText(txt1, 0, 0);
+    ctx.textAlign = 'left';
+
+    const wordWidths1 = line1.map(w => ctx.measureText(fRole.upper !== false ? w.t.toUpperCase() : w.t).width);
+    const spaceW1 = ctx.measureText(' ').width;
+    const totalLine1W = wordWidths1.reduce((a, b) => a + b, 0) + spaceW1 * (line1.length - 1);
+    let curX1 = (W - totalLine1W) / 2;
+
+    for (let i = 0; i < line1.length; i++) {
+      const w = line1[i];
+      const wTxt = fRole.upper !== false ? w.t.toUpperCase() : w.t;
+      const wW = wordWidths1[i];
+      const wPop = getWordPop(w, t, showAll, st.animation);
+
+      if (wPop.opacity > 0.01) {
+        ctx.save();
+        ctx.translate(curX1 + (wPop.dx || 0), y1 + (wPop.dy || 0));
+        ctx.scale(wPop.scale || 1, wPop.scale || 1);
+        ctx.globalAlpha = Math.max(0, Math.min(1, wPop.opacity));
+
+        ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
+        ctx.shadowBlur = Math.round(base * 0.02) + 6;
+        ctx.strokeStyle = fRole.outlineColor || '#000000';
+        ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
+        ctx.strokeText(wTxt, 0, 0);
+
+        ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
+        ctx.fillText(wTxt, 0, 0);
+        ctx.restore();
+      }
+      curX1 += wW + spaceW1;
+    }
     ctx.restore();
   }
 
-  // Line 2: Small earlier words + BIG LAST WORD
+  // Line 2: Small earlier words + BIG LAST WORD drawn word-by-word
   if (line2.length) {
     ctx.save();
-    ctx.translate(W / 2 + (anim2.dx || 0), y2 + (anim2.dy || 0));
-    ctx.scale(anim2.scale || 1, anim2.scale || 1);
-    if (typeof anim2.opacity === 'number') ctx.globalAlpha = anim2.opacity;
+    ctx.translate(W / 2, y2);
     ctx.textBaseline = 'middle';
 
     const isBoxMode = st.highlight && st.highlight.mode === 'box';
 
     if (earlyWords.length) {
-      // Earlier words (small)
+      // Draw earlier words word-by-word with left-to-right fade
       ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
       ctx.textAlign = 'left';
-      ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-      ctx.shadowBlur = Math.round(base * 0.02) + 6;
-      ctx.strokeStyle = fRole.outlineColor || '#000000';
-      ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
-      ctx.strokeText(earlyTxt, startX, 0);
-      ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
-      ctx.fillText(earlyTxt, startX, 0);
 
-      // BIG last word
-      ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-      if (isBoxMode) {
-        const padX = Math.max(6, Math.round(bigFs * 0.22));
-        const padY = Math.max(3, Math.round(bigFs * 0.12));
-        const boxW = lastWidth + padX * 2;
-        const boxH = bigFs * 1.18;
+      const earlyWordWidths = earlyWords.map(w => ctx.measureText(fRole.upper !== false ? w.t.toUpperCase() : w.t).width);
+      const earlySpaceW = ctx.measureText(' ').width;
+      let curEarlyX = startX;
+
+      for (let i = 0; i < earlyWords.length; i++) {
+        const ew = earlyWords[i];
+        const ewTxt = fRole.upper !== false ? ew.t.toUpperCase() : ew.t;
+        const ewW = earlyWordWidths[i];
+        const ewPop = getWordPop(ew, t, showAll, st.animation);
+
+        if (ewPop.opacity > 0.01) {
+          ctx.save();
+          ctx.translate(curEarlyX + (ewPop.dx || 0), ewPop.dy || 0);
+          ctx.scale(ewPop.scale || 1, ewPop.scale || 1);
+          ctx.globalAlpha = Math.max(0, Math.min(1, ewPop.opacity));
+
+          ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
+          ctx.shadowBlur = Math.round(base * 0.02) + 6;
+          ctx.strokeStyle = fRole.outlineColor || '#000000';
+          ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
+          ctx.strokeText(ewTxt, 0, 0);
+
+          ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
+          ctx.fillText(ewTxt, 0, 0);
+          ctx.restore();
+        }
+        curEarlyX += ewW + earlySpaceW;
+      }
+
+      // Draw BIG last word with its reveal
+      const lastPop = getWordPop(lastWord, t, showAll, st.animation);
+      if (lastPop.opacity > 0.01) {
         ctx.save();
-        ctx.fillStyle = st.highlight.color || '#FFE600';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(lastX - padX, -boxH / 2, boxW, boxH, 6) : ctx.rect(lastX - padX, -boxH / 2, boxW, boxH);
-        ctx.fill();
-        ctx.restore();
+        ctx.translate(lastX + (lastPop.dx || 0), lastPop.dy || 0);
+        ctx.scale(lastPop.scale || 1, lastPop.scale || 1);
+        ctx.globalAlpha = Math.max(0, Math.min(1, lastPop.opacity));
+        ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
 
-        ctx.fillStyle = st.highlight.textColor || '#111111';
-        ctx.fillText(lastTxt, lastX, 0);
-      } else {
-        ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-        ctx.shadowBlur = Math.round(base * 0.02) + 8;
-        ctx.strokeStyle = kRole.outlineColor || '#000000';
-        ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
-        ctx.strokeText(lastTxt, lastX, 0);
-        ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
-        ctx.fillText(lastTxt, lastX, 0);
+        if (isBoxMode) {
+          const padX = Math.max(6, Math.round(bigFs * 0.22));
+          const padY = Math.max(3, Math.round(bigFs * 0.12));
+          const boxW = lastWidth + padX * 2;
+          const boxH = bigFs * 1.18;
+          ctx.save();
+          ctx.fillStyle = st.highlight.color || '#FFE600';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.roundRect ? ctx.roundRect(-padX, -boxH / 2, boxW, boxH, 6) : ctx.rect(-padX, -boxH / 2, boxW, boxH);
+          ctx.fill();
+          ctx.restore();
+
+          ctx.fillStyle = st.highlight.textColor || '#111111';
+          ctx.fillText(lastTxt, 0, 0);
+        } else {
+          ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
+          ctx.shadowBlur = Math.round(base * 0.02) + 8;
+          ctx.strokeStyle = kRole.outlineColor || '#000000';
+          ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
+          ctx.strokeText(lastTxt, 0, 0);
+          ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
+          ctx.fillText(lastTxt, 0, 0);
+        }
+        ctx.restore();
       }
     } else {
       // Single last word on line 2 (BIG, centered)
-      ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-      ctx.textAlign = 'center';
-      if (isBoxMode) {
-        const padX = Math.max(8, Math.round(bigFs * 0.24));
-        const boxW = lastWidth + padX * 2;
-        const boxH = bigFs * 1.18;
+      const lastPop = getWordPop(lastWord, t, showAll, st.animation);
+      if (lastPop.opacity > 0.01) {
         ctx.save();
-        ctx.fillStyle = st.highlight.color || '#FFE600';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(-boxW / 2, -boxH / 2, boxW, boxH, 6) : ctx.rect(-boxW / 2, -boxH / 2, boxW, boxH);
-        ctx.fill();
-        ctx.restore();
+        ctx.translate(lastPop.dx || 0, lastPop.dy || 0);
+        ctx.scale(lastPop.scale || 1, lastPop.scale || 1);
+        ctx.globalAlpha = Math.max(0, Math.min(1, lastPop.opacity));
+        ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
+        ctx.textAlign = 'center';
+        if (isBoxMode) {
+          const padX = Math.max(8, Math.round(bigFs * 0.24));
+          const boxW = lastWidth + padX * 2;
+          const boxH = bigFs * 1.18;
+          ctx.save();
+          ctx.fillStyle = st.highlight.color || '#FFE600';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.roundRect ? ctx.roundRect(-boxW / 2, -boxH / 2, boxW, boxH, 6) : ctx.rect(-boxW / 2, -boxH / 2, boxW, boxH);
+          ctx.fill();
+          ctx.restore();
 
-        ctx.fillStyle = st.highlight.textColor || '#111111';
-        ctx.fillText(lastTxt, 0, 0);
-      } else {
-        ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-        ctx.shadowBlur = Math.round(base * 0.02) + 8;
-        ctx.strokeStyle = kRole.outlineColor || '#000000';
-        ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
-        ctx.strokeText(lastTxt, 0, 0);
-        ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
-        ctx.fillText(lastTxt, 0, 0);
+          ctx.fillStyle = st.highlight.textColor || '#111111';
+          ctx.fillText(lastTxt, 0, 0);
+        } else {
+          ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
+          ctx.shadowBlur = Math.round(base * 0.02) + 8;
+          ctx.strokeStyle = kRole.outlineColor || '#000000';
+          ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
+          ctx.strokeText(lastTxt, 0, 0);
+          ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
+          ctx.fillText(lastTxt, 0, 0);
+        }
+        ctx.restore();
       }
     }
     ctx.restore();
@@ -1503,7 +1546,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function normalizeCaptions(raw) {
-    return raw.map((c, i) => {
+    const list = raw.map((c, i) => {
       let words = c.words || [];
       if (!words.length && c.text) {
         const parts = c.text.split(/\s+/).filter(Boolean);
@@ -1528,6 +1571,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           key: Boolean(w.key || markedKey)
         };
       }).filter(w => w.t);
+
+      // Close micro word gaps
+      for (let j = 0; j < normalizedWords.length - 1; j++) {
+        const wGap = normalizedWords[j + 1].s - normalizedWords[j].e;
+        if (wGap > 0 && wGap <= 0.35) {
+          normalizedWords[j].e = normalizedWords[j + 1].s;
+          normalizedWords[j].end = normalizedWords[j + 1].s;
+        }
+      }
+
       return {
         id: c.id || ('cap_' + (i + 1)),
         start: parseFloat(c.start) || 0,
@@ -1536,6 +1589,21 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         words: normalizedWords
       };
     });
+
+    // Close inter-caption gaps (eliminate flickering between sentences)
+    for (let i = 0; i < list.length - 1; i++) {
+      const interGap = list[i + 1].start - list[i].end;
+      if (interGap > 0 && interGap <= 0.85) {
+        list[i].end = list[i + 1].start;
+        if (list[i].words && list[i].words.length) {
+          const lastW = list[i].words[list[i].words.length - 1];
+          lastW.e = list[i + 1].start;
+          lastW.end = list[i + 1].start;
+        }
+      }
+    }
+
+    return list;
   }
 
   // ==========================================================================
@@ -2176,6 +2244,57 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
       voiceoverStatus.textContent = 'Voiceover active! Captions & audio are synchronized to the new voice.';
     });
+
+    if (btnCleanCaptions) {
+      btnCleanCaptions.addEventListener('click', async () => {
+        if (!S.captions || !S.captions.length) {
+          showToast('No captions to clean yet.');
+          return;
+        }
+        btnCleanCaptions.disabled = true;
+        btnCleanCaptions.textContent = '🧹 Cleaning...';
+        try {
+          const res = await fetch('/api/clean_captions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ captions: S.captions, remove_fillers: true, remove_repeats: true, close_gaps: true })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to clean captions');
+          S.captions = normalizeCaptions(data.captions);
+          renderCaptionsList();
+          renderTimeline();
+          const fCount = data.removed_fillers || 0;
+          const rCount = data.removed_repeats || 0;
+          showToast(`✨ Cleaned! Removed ${fCount} fillers, ${rCount} repeats, and closed gaps.`);
+        } catch (e) {
+          showToast('Error: ' + e.message);
+        } finally {
+          btnCleanCaptions.disabled = false;
+          btnCleanCaptions.textContent = '🧹 Clean Gaps & Fillers';
+        }
+      });
+    }
+
+    // Voice Pack Cards & Instant Generate Buttons
+    $$('.btn-pack-generate').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const vKey = btn.getAttribute('data-voice') || 'madhur_creator';
+        if (voiceoverVoice) voiceoverVoice.value = vKey;
+        $$('.voice-pack-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-voice') === vKey));
+        btnGenerateVoiceover.click();
+      });
+    });
+
+    $$('.voice-pack-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const vKey = card.getAttribute('data-voice') || 'madhur_creator';
+        if (voiceoverVoice) voiceoverVoice.value = vKey;
+        $$('.voice-pack-card').forEach(c => c.classList.toggle('active', c === card));
+      });
+    });
+
   }
 
   // ==========================================================================

@@ -1599,3 +1599,75 @@ button {
 .generate-spinner { width:15px; height:15px; border:2px solid rgba(255,255,255,.38); border-top-color:white; border-radius:50%; animation:duo-spin .7s linear infinite; }
 @keyframes duo-spin { to { transform:rotate(360deg); } }
 @media (min-width:560px) { .duo-front-grid { grid-template-columns:repeat(3,minmax(0,1fr)); max-height:390px; } }
+
+
+/* Voice Pack Cards with Instant Generate Buttons */
+.voice-packs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.voice-pack-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-surface-elevated, #16181e);
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.voice-pack-card:hover {
+  border-color: var(--accent, #6366f1);
+  background: rgba(99, 102, 241, 0.06);
+}
+.voice-pack-card.active {
+  border-color: var(--accent, #6366f1);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.22);
+}
+.voice-pack-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+.voice-pack-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.voice-pack-title {
+  font-size: 13px;
+  color: var(--text-main, #ffffff);
+}
+.voice-pack-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+}
+.voice-pack-desc {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+}
+.btn-pack-generate {
+  background: var(--accent, #6366f1);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.btn-pack-generate:hover {
+  transform: scale(1.05);
+  background: #4f46e5;
+}

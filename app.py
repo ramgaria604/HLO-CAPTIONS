@@ -1365,6 +1365,31 @@ def generate_voiceover():
         return err(f"Could not generate voiceover: {str(exc)[:250]}", 502)
 
 
+@app.post("/api/clean_captions")
+def clean_captions():
+    """Removes unnecessary filler sounds, repeated words, and closes caption gaps."""
+    data = request.get_json(silent=True) or {}
+    caps = data.get("captions", [])
+    if not caps:
+        return err("No captions to clean.")
+    try:
+        cleaned_caps, fillers, repeats, gaps = stylelib.clean_captions_data(
+            caps,
+            remove_fillers=bool(data.get("remove_fillers", True)),
+            remove_repeats=bool(data.get("remove_repeats", True)),
+            close_gaps=bool(data.get("close_gaps", True))
+        )
+        return jsonify(
+            success=True,
+            captions=cleaned_caps,
+            removed_fillers=fillers,
+            removed_repeats=repeats,
+            closed_gaps=gaps
+        )
+    except Exception as exc:
+        return err(f"Error cleaning captions: {str(exc)}", 500)
+
+
 @app.post("/api/broll/suggest")
 def broll_suggest():
     d = request.get_json(force=True)

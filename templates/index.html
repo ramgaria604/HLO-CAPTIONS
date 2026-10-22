@@ -257,6 +257,9 @@
                 <button id="btnSyncScriptModal" class="btn-subaction">
                   ✍️ Sync Script
                 </button>
+                <button id="btnCleanCaptions" class="btn-subaction" title="Remove filler sounds (uh, um), repeated words, and close gaps">
+                  🧹 Clean Gaps & Fillers
+                </button>
               </div>
             </div>
 
@@ -347,18 +350,75 @@
                 </div>
                 <p class="voiceover-help">Write or edit your script, choose a natural creator voice, and replace the video's audio with 1 click.</p>
                 <textarea id="voiceoverText" class="script-textarea voiceover-text" maxlength="4000" placeholder="Type or paste your Hindi/Hinglish/English voiceover script here…"></textarea>
-                <label class="voiceover-label" for="voiceoverVoice">Voice style</label>
-                <select id="voiceoverVoice" class="styled-select">
-                  <option value="madhur_creator" selected>🔥 Viral Reel Storyteller (Madhur - Confident & Punchy)</option>
-                  <option value="madhur_fast">⚡ High-Retention Fast Reel (Madhur - 1.15x Speed)</option>
-                  <option value="swara_soft">🌸 Soft & Emotional Aesthetic (Swara - Gentle Human)</option>
-                  <option value="madhur_calm">🎙️ Calm Documentary / Podcast (Madhur - Soothing)</option>
-                  <option value="swara_creator">⚡ Dynamic Reel Creator (Swara - Punchy)</option>
+                <label class="voiceover-label">Voice Packs & Instant Generation</label>
+                <select id="voiceoverVoice" class="styled-select" style="display:none;">
+                  <option value="madhur_creator" selected>🔥 Viral Reel Storyteller (Madhur)</option>
+                  <option value="swara_soft">🌸 Soft & Emotional Aesthetic (Swara)</option>
+                  <option value="madhur_fast">⚡ High-Retention Fast Reel (Madhur - 1.15x)</option>
                   <option value="prabhat_hinglish">🇮🇳 Casual Hinglish Creator (Prabhat)</option>
+                  <option value="madhur_calm">🎙️ Calm Documentary / Podcast (Madhur)</option>
+                  <option value="swara_creator">⚡ Dynamic Reel Creator (Swara)</option>
                   <option value="neerja_expressive">✨ Expressive Reel Creator (Neerja)</option>
                   <option value="jenny_soft">🇺🇸 Soft English Human (Jenny)</option>
                   <option value="guy_calm">🇺🇸 Calm English Podcast (Guy)</option>
                 </select>
+
+                <div class="voice-packs-list" id="voicePacksList">
+                  <div class="voice-pack-card active" data-voice="madhur_creator">
+                    <div class="voice-pack-info">
+                      <div class="voice-pack-header">
+                        <strong class="voice-pack-title">🔥 Madhur Reel Storyteller</strong>
+                        <span class="voice-pack-tag">Viral #1</span>
+                      </div>
+                      <span class="voice-pack-desc">Deep, confident & punchy Indian creator narration</span>
+                    </div>
+                    <button type="button" class="btn-pack-generate" data-voice="madhur_creator">⚡ Generate</button>
+                  </div>
+
+                  <div class="voice-pack-card" data-voice="swara_soft">
+                    <div class="voice-pack-info">
+                      <div class="voice-pack-header">
+                        <strong class="voice-pack-title">🌸 Swara Soft Aesthetic</strong>
+                        <span class="voice-pack-tag">Soft Human</span>
+                      </div>
+                      <span class="voice-pack-desc">Ultra-soft, sweet & emotional female narration</span>
+                    </div>
+                    <button type="button" class="btn-pack-generate" data-voice="swara_soft">⚡ Generate</button>
+                  </div>
+
+                  <div class="voice-pack-card" data-voice="madhur_fast">
+                    <div class="voice-pack-info">
+                      <div class="voice-pack-header">
+                        <strong class="voice-pack-title">⚡ Madhur Fast Reel</strong>
+                        <span class="voice-pack-tag">1.15x</span>
+                      </div>
+                      <span class="voice-pack-desc">High-retention, dynamic pacing for viral shorts</span>
+                    </div>
+                    <button type="button" class="btn-pack-generate" data-voice="madhur_fast">⚡ Generate</button>
+                  </div>
+
+                  <div class="voice-pack-card" data-voice="prabhat_hinglish">
+                    <div class="voice-pack-info">
+                      <div class="voice-pack-header">
+                        <strong class="voice-pack-title">🇮🇳 Prabhat Modern Creator</strong>
+                        <span class="voice-pack-tag">Hinglish</span>
+                      </div>
+                      <span class="voice-pack-desc">Modern conversational Indian English & Hinglish</span>
+                    </div>
+                    <button type="button" class="btn-pack-generate" data-voice="prabhat_hinglish">⚡ Generate</button>
+                  </div>
+
+                  <div class="voice-pack-card" data-voice="madhur_calm">
+                    <div class="voice-pack-info">
+                      <div class="voice-pack-header">
+                        <strong class="voice-pack-title">🎙️ Madhur Calm Documentary</strong>
+                        <span class="voice-pack-tag">Podcast</span>
+                      </div>
+                      <span class="voice-pack-desc">Soothing, relaxed & deep storytelling tone</span>
+                    </div>
+                    <button type="button" class="btn-pack-generate" data-voice="madhur_calm">⚡ Generate</button>
+                  </div>
+                </div>
                 <div class="voiceover-actions">
                   <button id="btnGenerateVoiceover" class="btn-subaction">🔊 Generate Voiceover</button>
                   <button id="btnReplaceVoiceover" class="btn-subaction" disabled>✓ Replace Original Audio</button>
@@ -522,6 +582,6 @@
   <!-- Notification Toast -->
   <div id="toastNotification" class="toast-notification hidden"></div>
 
-  <script src="/static/app.js?v=3.11"></script>
+  <script src="/static/app.js?v=3.13"></script>
 </body>
 </html>

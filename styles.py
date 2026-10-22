@@ -47,9 +47,21 @@ def pick_keys(tokens, max_keys=1):
     return keys
 
 
-def build_captions(words, per=3, max_keys=1, max_gap=0.7, max_len=3.2):
-    """Group timed words into plain-text captions with explicit emphasis metadata."""
+def build_captions(words, per=3, max_keys=1, max_gap=0.85, max_len=3.4):
+    """Group timed words into plain-text captions with seamless gap-closing and no misplaced words."""
     caps, cur = [], []
+
+    # Filter out immediate duplicate stutters (e.g. "tum tum", "the the")
+    clean_words = []
+    for w in words:
+        wt = str(w[2]).strip()
+        if clean_words:
+            prev_wt = str(clean_words[-1][2]).strip()
+            # If identical word spoken within 0.7s of each other, merge into one
+            if wt.lower() == prev_wt.lower() and (w[0] - clean_words[-1][1]) <= 0.7:
+                clean_words[-1] = (clean_words[-1][0], max(clean_words[-1][1], w[1]), clean_words[-1][2])
+                continue
+        clean_words.append(w)
 
     def flush():
         if not cur:
@@ -64,22 +76,98 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.7, max_len=3.2):
                           "start": round(word[0], 2), "s": round(word[0], 2),
                           "end": round(word[1], 2), "e": round(word[1], 2)}
                          for word, token in zip(cur, toks) if token["t"]]
+
+        # Prevent misplaced orphan 1-word captions by merging with preceding caption if appropriate
+        if len(caption_words) == 1 and caps and len(caps[-1]["words"]) < 4:
+            prev = caps[-1]
+            prev["words"].extend(caption_words)
+            prev["text"] = prev["text"] + " " + text
+            prev["end"] = round(cur[-1][1], 2)
+            prev["wt"].extend([[round(w[0], 2), round(w[1], 2)] for w in cur])
+            return
+
         caps.append({"id": len(caps) + 1, "start": round(cur[0][0], 2), "end": round(cur[-1][1], 2),
                      "text": text, "words": caption_words,
                      "wt": [[round(w[0], 2), round(w[1], 2)] for w in cur]})
 
-    for w in words:
+    for w in clean_words:
         if cur:
             gap = w[0] - cur[-1][1]
             if len(cur) >= per or gap > max_gap or (w[1] - cur[0][0]) > max_len:
                 flush()
                 cur = []
         cur.append(w)
-        if re.search(r"[.!?]$", w[2]):
+        if re.search(r"[.!?।]$", w[2]):
             flush()
             cur = []
     flush()
+
+    # Seamless gap-closing: eliminate blank black screens between captions
+    for i in range(len(caps) - 1):
+        inter_gap = caps[i + 1]["start"] - caps[i]["end"]
+        if 0 < inter_gap <= 0.85:
+            caps[i]["end"] = caps[i + 1]["start"]
+            if caps[i].get("words"):
+                caps[i]["words"][-1]["end"] = caps[i + 1]["start"]
+                caps[i]["words"][-1]["e"] = caps[i + 1]["start"]
+
     return caps
+
+
+def clean_captions_data(captions, remove_fillers=True, remove_repeats=True, close_gaps=True):
+    """Deep clean filler sounds (uh, um), repeated words, and close timing gaps."""
+    FILLERS = {
+        "uh", "um", "umm", "uhh", "er", "ah", "ahh", "hmm", "haan", "haa",
+        "achha", "accha", "[music]", "[applause]", "(laughter)", "[laughter]"
+    }
+    raw_words = []
+    for cap in captions:
+        supplied = cap.get("words")
+        if supplied and isinstance(supplied, list):
+            for w in supplied:
+                text = str(w.get("word", w.get("t", ""))).strip()
+                if text:
+                    s = float(w.get("start", w.get("s", cap.get("start", 0))))
+                    e = float(w.get("end", w.get("e", cap.get("end", s))))
+                    raw_words.append((s, e, text))
+        else:
+            txt = str(cap.get("text", "")).strip()
+            if txt:
+                toks = txt.split()
+                s = float(cap.get("start", 0))
+                e = float(cap.get("end", s + 1.0))
+                dur = max(0.1, (e - s) / max(1, len(toks)))
+                for idx, t in enumerate(toks):
+                    raw_words.append((s + idx * dur, s + (idx + 1) * dur, t))
+
+    fillers_count = 0
+    repeats_count = 0
+    gaps_count = 0
+
+    cleaned_words = []
+    for w in raw_words:
+        clean_tok = re.sub(r"[^\w\s]", "", w[2].lower()).strip()
+        if remove_fillers and clean_tok in FILLERS:
+            fillers_count += 1
+            continue
+
+        if remove_repeats and cleaned_words:
+            prev_tok = re.sub(r"[^\w\s]", "", cleaned_words[-1][2].lower()).strip()
+            if clean_tok and clean_tok == prev_tok and (w[0] - cleaned_words[-1][1]) <= 0.85:
+                repeats_count += 1
+                cleaned_words[-1] = (cleaned_words[-1][0], max(cleaned_words[-1][1], w[1]), cleaned_words[-1][2])
+                continue
+
+        cleaned_words.append(w)
+
+    if not cleaned_words:
+        return captions, fillers_count, repeats_count, gaps_count
+
+    # Build balanced captions with clean phrasing
+    new_caps = build_captions(cleaned_words, per=3, max_keys=1)
+    gaps_count = max(0, len(new_caps) - 1)
+
+    return new_caps, fillers_count, repeats_count, gaps_count
 
 
 def caption_words(cap):
