@@ -225,6 +225,14 @@ button {
   max-width: 440px;
 }
 
+.hero-deploy-check {
+  margin: -12px 0 18px;
+  color: var(--neon-cyan);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
 .upload-card {
   width: 100%;
   background: var(--bg-surface);
