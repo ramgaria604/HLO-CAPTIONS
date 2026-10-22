@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Montserrat:wght@700;800;900&family=Poppins:wght@600;700;800;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=3.04">
+  <link rel="stylesheet" href="/static/style.css?v=3.05">
 </head>
 <body>
 
@@ -23,10 +23,9 @@
       <div class="brand-badge">
         <span class="brand-dot"></span>
         <span>HLO CAPTIONS AI</span>
-        <span style="margin-left:4px;padding:2px 6px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:9px;letter-spacing:.08em;">CHATGPT TEST</span>
       </div>
       <h1 class="hero-title">Add Viral Captions to <span class="gradient-text">Any Video</span></h1>
-      <p class="hero-subtitle">Automatic AI word-by-word subtitles, viral animations, and 130+ creator templates.</p>
+      <p class="hero-subtitle">Upload a video → captions follow the voice → choose a style → export.</p>
 
       <!-- Dropzone Card -->
       <div class="upload-card" id="dropZone">
@@ -129,6 +128,7 @@
           <div class="stage" id="stage">
             <video id="vid" playsinline preload="auto"></video>
             <canvas id="captionCanvas"></canvas>
+            <div id="captionDragHint" class="caption-drag-hint hidden" aria-live="polite">✋ Touch or click and drag captions to move · Voice-synced preview</div>
             
             <!-- Stage Fullscreen Overlay Button -->
             <button id="btnStageFullscreen" class="btn-stage-fs" title="Toggle Fullscreen">
@@ -375,11 +375,11 @@
         </button>
         <button class="bottom-nav-btn" data-tab="tabStyle">
           <span class="nav-btn-icon">🎚️</span>
-          <span class="nav-btn-label">Styles</span>
+          <span class="nav-btn-label">Text</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabAudio">
           <span class="nav-btn-icon">🎵</span>
-          <span class="nav-btn-label">Audio</span>
+          <span class="nav-btn-label">Sound</span>
         </button>
         <button class="bottom-nav-btn" id="btnToggleTimeline" title="View timeline">
           <span class="nav-btn-icon">⏱️</span>
@@ -488,6 +488,6 @@
   <div id="toastNotification" class="toast-notification hidden"></div>
 
   <script src="/static/duo_presets/duo_presets_loader.js"></script>
-  <script src="/static/app.js?v=3.06"></script>
+  <script src="/static/app.js?v=3.07"></script>
 </body>
 </html>

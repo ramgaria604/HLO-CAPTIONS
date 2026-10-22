@@ -993,6 +993,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     setupAudioHandlers();
     setupModalHandlers();
     setupCanvasSizing();
+    setupCaptionDragging();
 
     await loadPresets();
   }
@@ -1049,6 +1050,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       fitCanvas();
       renderTimeline();
       renderCaptionsList();
+      const dragHint = $('captionDragHint');
+      if (dragHint) dragHint.classList.toggle('hidden', !S.captions.length);
     } else {
       viewEditor.classList.add('hidden');
       viewUpload.classList.remove('hidden');
@@ -1891,6 +1894,56 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function setupCanvasSizing() {
     window.addEventListener('resize', fitCanvas);
     document.addEventListener('fullscreenchange', fitCanvas);
+  }
+
+  function setupCaptionDragging() {
+    const hint = $('captionDragHint');
+    let drag = null;
+    stage.addEventListener('pointerdown', (event) => {
+      if (!S.captions.length || !S.style || event.target.closest('button')) return;
+      drag = { id: event.pointerId, startY: event.clientY, lastY: event.clientY, moved: false };
+    });
+
+    stage.addEventListener('pointermove', (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const rect = stage.getBoundingClientRect();
+      if (!rect.height) return;
+      if (!drag.moved && Math.abs(event.clientY - drag.startY) < 4) return;
+      if (!drag.moved) {
+        try { stage.setPointerCapture(event.pointerId); } catch (e) {}
+      }
+      drag.moved = true;
+      event.preventDefault();
+      stage.classList.add('is-caption-dragging');
+      if (hint) hint.textContent = '↕ Moving captions · release to place';
+      const delta = (event.clientY - drag.lastY) / rect.height;
+      drag.lastY = event.clientY;
+      const originalPosition = Number(S.style.position);
+      const basePosition = Number.isFinite(originalPosition) ? originalPosition : 0.72;
+      const moveKey = (key, fallback) => {
+        const current = Number(S.style[key]);
+        S.style[key] = Math.max(0.08, Math.min(0.92, (Number.isFinite(current) ? current : fallback) + delta));
+      };
+      moveKey('position', basePosition);
+      if (S.style.depthAccent || S.style.isSpecial) {
+        const depthFallback = S.style.depthAccent ? 0.41 : (basePosition || 0.42);
+        moveKey('depthAccentY', Number(S.style.depthAccentY) || depthFallback);
+        moveKey('subtitlePosition', S.style.subtitlePosition || 0.76);
+      }
+      renderCanvas();
+    });
+
+    const finish = (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const moved = drag.moved;
+      drag = null;
+      stage.classList.remove('is-caption-dragging');
+      if (hint) hint.textContent = '✋ Touch or click and drag captions to move · Voice-synced preview';
+      if (moved) renderCanvas();
+    };
+    stage.addEventListener('pointerup', finish);
+    stage.addEventListener('pointercancel', finish);
+    stage.addEventListener('lostpointercapture', finish);
   }
 
   function fitCanvas() {

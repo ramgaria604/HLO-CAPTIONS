@@ -488,6 +488,7 @@ button {
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
   border: 1px solid var(--border-subtle);
+  touch-action: none;
 }
 
 .stage video {
@@ -506,6 +507,31 @@ button {
   height: 100%;
   pointer-events: none;
   z-index: 5;
+}
+
+.caption-drag-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  z-index: 9;
+  max-width: calc(100% - 24px);
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(10, 12, 20, 0.72);
+  backdrop-filter: blur(8px);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.35;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.stage.is-caption-dragging .caption-drag-hint {
+  border-color: rgba(168, 85, 247, 0.75);
+  background: rgba(76, 29, 149, 0.82);
 }
 
 .btn-stage-fs {
