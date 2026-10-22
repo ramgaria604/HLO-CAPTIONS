@@ -81,7 +81,6 @@ export type Preset = {
   behindPerson?: boolean;        // legacy flag
   smallDx?: number[];            // x-offsets of the small-word runs in 'scatter' layout (fraction of width, negative = left)
   keyLast?: boolean;             // use only the final spoken word as the large headline
-  oneByOne?: boolean;            // show one word at a time instead of a grouped caption
   gap?: number;                  // space between words in em (default 0.12; neon uses 0.02)
   blend?: string;                // CSS mix-blend-mode so the captions melt into the video: overlay | soft-light | hard-light | screen | multiply | difference | color-dodge
 };
@@ -164,15 +163,7 @@ const score = (w: string) => {
   return c.length + (/\d/.test(c) ? 4 : 0);
 };
 type Chunk = {start: number; end: number; words: Word[]};
-function makeChunks(words: Word[], per: number, nKeys: number, keyLast = false, oneByOne = false): Chunk[] {
-  if (oneByOne) {
-    return words.map((w, i) => {
-      const next = words[i + 1];
-      const naturalEnd = w.e + 0.25;
-      const end = next ? Math.max(w.s + 0.05, Math.min(naturalEnd, next.s)) : naturalEnd;
-      return {start: w.s, end, words: [{...w, key: !!w.key}]};
-    });
-  }
+function makeChunks(words: Word[], per: number, nKeys: number, keyLast = false): Chunk[] {
   const out: Chunk[] = [];
   let cur: Word[] = [];
   const flush = () => {
@@ -232,7 +223,7 @@ function animStyle(anim: Anim, age: number, fps: number, em: number, slideFrames
   if (anim === 'pop') { const s = spring({frame: age, fps, config: {damping: 11, stiffness: 170}}); return {opacity: Math.min(1, age / 2), transform: `scale(${0.55 + 0.45 * s})`}; }
   if (anim === 'bounce') { const s = spring({frame: age, fps, config: {damping: 6, stiffness: 200, mass: 0.6}}); const settle = interpolate(age, [0, 18], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); return {opacity: Math.min(1, age / 2), transform: `scale(${0.3 + 0.7 * s}) translateY(${(1 - settle) * -0.25 * em}px)`}; }
   if (anim === 'slide') { const p = interpolate(age, [0, 12], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: eased, transform: `translateY(${(1 - eased) * 0.4 * em}px)`}; }
-  if (anim === 'slideRightSoft') { const p = interpolate(age, [0, slideFrames], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: 0.12 + 0.88 * eased, transform: `translateX(${(1 - eased) * -0.16 * em}px)`}; }
+  if (anim === 'slideRightSoft') { const p = interpolate(age, [0, slideFrames], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: 0.45 + 0.55 * eased, transform: `translateX(${(1 - eased) * -0.16 * em}px)`}; }
   if (anim === 'glitch') { const j = age < 8 ? (age % 2 ? 1 : -1) * 0.06 * em : 0; return {opacity: age < 8 && age % 3 === 0 ? 0.4 : 1, transform: `translateX(${j}px)`}; }
   if (anim === 'rise') { const p = interpolate(age, [0, 18], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: eased, transform: `translateY(${(1 - eased) * 0.6 * em}px)`}; }
   if (anim === 'flip') { const s = spring({frame: age, fps, config: {damping: 12, stiffness: 120}}); return {opacity: Math.min(1, age / 3), transform: `perspective(${em * 8}px) rotateX(${(1 - s) * 85}deg)`}; }
@@ -243,7 +234,7 @@ function animStyle(anim: Anim, age: number, fps: number, em: number, slideFrames
 // ---------------------------------------------------------------- one word
 const WordView: React.FC<{w: Word; p: Preset; role: Role; em: number; anchor: number; hidden?: boolean}> = ({w, p, role, em, anchor, hidden}) => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
+  const {fps, width, height} = useVideoConfig();
   const t = frame / fps;
   const sf = (p.reveal === 'all' ? anchor : w.s) * fps;
   const age = frame - sf;
@@ -253,7 +244,10 @@ const WordView: React.FC<{w: Word; p: Preset; role: Role; em: number; anchor: nu
   if (p.anim === 'type' && age >= 0) text = w.t.slice(0, Math.max(1, Math.floor(age / (fps * 0.04))));
   const slideFrames = Math.min(14, Math.max(5, Math.round((w.e - w.s) * fps * 0.6)));
   const base = animStyle(p.anim, age, fps, em, slideFrames);
-  const margin = {margin: `0 ${(p.gap ?? 0.12) * em}px`};
+  const canvasBase = Math.min(width, height);
+  const scale = em / Math.max(1, role.size * canvasBase);
+  const wordGap = Math.max(2, (p.gap ?? 0.12) * p.small.size * canvasBase * scale);
+  const margin = {margin: `0 ${wordGap / 2}px`};
   const vis: React.CSSProperties = hidden ? {visibility: 'hidden'} : {};
 
   if (hl?.mode === 'wipe') {
@@ -288,7 +282,7 @@ export const PremiumCaptions: React.FC<{words: Word[]; presetId?: string; preset
   const {fps, width, height} = useVideoConfig();
   const t = frame / fps;
   const base = Math.min(width, height);
-  const chunks = useMemo(() => makeChunks(words, p.wordsPerCaption, p.keyWords, p.keyLast, p.oneByOne), [words, p]);
+  const chunks = useMemo(() => makeChunks(words, p.wordsPerCaption, p.keyWords, p.keyLast), [words, p]);
   const ci = chunks.findIndex((c) => t >= c.start - 0.02 && t < c.end);
   if (ci < 0) return null;
   const chunk = chunks[ci];
@@ -297,8 +291,8 @@ export const PremiumCaptions: React.FC<{words: Word[]; presetId?: string; preset
     let est = 0;
     for (const w of line) {
       const wordRole = roleOf(w);
-      est += w.t.length * wordRole.size * base * (wordRole.upper ? 0.68 : 0.58) + wordRole.size * base * 0.25;
-      est += wordRole.size * base * (p.gap ?? 0.12) * 2;
+      est += w.t.length * wordRole.size * base * (wordRole.upper ? 0.68 : 0.58);
+      est += p.small.size * base * (p.gap ?? 0.12);
     }
     return r.size * base * Math.max(0.45, Math.min(1, (0.92 * width) / (est || 1)));
   };

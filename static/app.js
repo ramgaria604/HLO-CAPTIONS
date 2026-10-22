@@ -161,7 +161,7 @@ function getWordPop(w, t, showAll, anim) {
       const duration = Math.min(0.40, Math.max(0.12, (w.e - w.s) * 0.60));
       const p = Math.max(0, Math.min(1, dt / duration));
       const ease = 1 - Math.pow(1 - p, 3);
-      return { visible: true, scale: 1.0, dx: -24 * (1 - ease), dy: 0, opacity: 0.12 + 0.88 * ease };
+      return { visible: true, scale: 1.0, dx: -24 * (1 - ease), dy: 0, opacity: 0.45 + 0.55 * ease };
     }
 
     if (anim === 'slide-up' || anim === 'slide-down' || anim === 'slide-left' || anim === 'slide-right' || (typeof anim === 'string' && anim.startsWith('slide'))) {
@@ -903,7 +903,7 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       ctx.save();
       ctx.font = smaller.font;
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${(smaller.role.track || 0) * smaller.size}px`;
-      const gap = Math.max(2, ctx.measureText(' ').width * 0.72);
+      const gap = Math.max(2, ctx.measureText(' ').width * 0.55);
       ctx.restore();
       return gap;
     });
@@ -916,7 +916,8 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       const item = measured[i];
       const role = item.role;
       ctx.save();
-      ctx.translate(x + (item.anim?.dx || 0), item.anim?.dy || 0);
+      const slideScale = Math.max(0.25, Math.min(1, W * 0.025 / 24));
+      ctx.translate(x + (item.anim?.dx || 0) * slideScale, item.anim?.dy || 0);
       ctx.scale(item.anim?.scale || 1, item.anim?.scale || 1);
       if (typeof item.anim?.opacity === 'number') ctx.globalAlpha *= item.anim.opacity;
       ctx.font = item.font;
@@ -936,18 +937,16 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
     ctx.restore();
   }
 
-  // Show one Real Estate word at a time, centered in the same fixed position.
-  // This avoids the large artificial gaps caused by mixing headline sizes.
+  // Keep the full caption line laid out, then reveal each word at its own time.
+  // Measuring the whole line prevents large text size changes from creating gaps.
   if (st.estateVariant && words.length) {
-    let activeIndex = showAll ? words.length - 1 : words.findIndex(word => t >= word.s && t < word.e);
-    if (activeIndex < 0) activeIndex = words.findIndex(word => t < word.s);
-    if (activeIndex < 0) activeIndex = words.length - 1;
-    const word = words[activeIndex];
-    const isFinal = activeIndex === words.length - 1;
-    const role = isFinal ? (st.key || {}) : subtitleRole;
-    const enter = isFinal ? st.roles?.accent?.enter : st.roles?.base?.enter;
-    const item = {word, role, anim: getWordPop(word, t, showAll, enter || st.animation)};
-    drawLine([item], heroY, W * 0.92, role);
+    const items = words.map((word, index) => {
+      const isFinal = index === words.length - 1;
+      const role = isFinal ? (st.key || {}) : subtitleRole;
+      const enter = isFinal ? st.roles?.accent?.enter : st.roles?.base?.enter;
+      return {word, role, anim: getWordPop(word, t, showAll, enter || st.animation)};
+    });
+    drawLine(items, heroY, W * 0.92, subtitleRole);
     return;
   }
 

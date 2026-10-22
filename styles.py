@@ -676,6 +676,7 @@ def _chunk_text(words, style, W, H, layer, ev_start):
     res = {k: resolve(r) for k, r in roles.items()}
     if style.get("accent2"):
         res["accent2"] = resolve(style["accent2"])
+    gap_name, gap_ratio = res[False]
     def word_role(word):
         return style.get("accent2") if word.get("_role") == "accent2" and style.get("accent2") else roles[word["key"]]
     lines = _lines(words, style["layout"])
@@ -692,10 +693,12 @@ def _chunk_text(words, style, W, H, layer, ev_start):
             tx = w["T"]
             _, font_ratio = resolve(r)
             em = r["size"] * base * font_ratio * style.get("fontScale", 1.0)
-            est += len(tx) * em * (0.68 if r["upper"] else 0.56) + em * 0.3
+            gap_em = style["filler"]["size"] * base * gap_ratio * style.get("fontScale", 1.0)
+            est += len(tx) * em * (0.68 if r["upper"] else 0.56) + gap_em * 0.25
         scale_x = float(style.get("scaleX", 1.0))
         scale = min(1.0, 0.86 * W / (est * scale_x)) if est else 1.0
         scale = max(scale, 0.20 if style.get("depthAccent") else 0.45)
+        gap_fs = max(8, round(style["filler"]["size"] * base * gap_ratio * style.get("fontScale", 1.0) * scale))
         parts = []
         for i, w in enumerate(line):
             r = word_role(w)
@@ -761,8 +764,14 @@ def _chunk_text(words, style, W, H, layer, ev_start):
                     tags.append(f"\\t({reveal + 110},{reveal + 210},\\fscx100\\fscy100)")
             elif anim == "slide-right-soft" and layer == "main":
                 slide_ms = int(style.get("_slideMs", 400))
-                tags.extend(["\\alpha&HFF&", "\\fscx92",
-                             f"\\t({reveal},{reveal + slide_ms},{shown}\\fscx100)"])
+                tags.append("\\fscx92")
+                if reveal > 0:
+                    tags.append("\\alpha&HFF&")
+                    tags.append(f"\\t({reveal},{reveal + 1},\\alpha&H80&)")
+                    tags.append(f"\\t({reveal + 1},{reveal + slide_ms},{shown}\\fscx100)")
+                else:
+                    tags.append("\\alpha&H80&")
+                    tags.append(f"\\t(0,{slide_ms},{shown}\\fscx100)")
             elif anim == "highlight" and layer == "main":
                 hl = style["highlightColor"]
                 tags.append(f"\\t({reveal},{reveal + 1},\\1c{_c(hl)})")
@@ -775,7 +784,9 @@ def _chunk_text(words, style, W, H, layer, ev_start):
                 tags.append(f"\\t({max(reveal, end_ms - 70)},{end_ms + 70},\\1c{_c(w_color)}\\fscx100\\fscy100)")
 
             txt = w["T"]
-            parts.append("{" + "".join(tags) + "}" + ("" if i == 0 else " ") + _esc(txt))
+            parts.append("{" + "".join(tags) + "}" + _esc(txt))
+            if i < len(line) - 1:
+                parts.append(f"{{\\fn{gap_name}\\fs{gap_fs}\\b0\\i0}} ")
         out_lines.append("".join(parts))
     return "\\N".join(out_lines)
 
@@ -789,14 +800,17 @@ def build_depth_ass(captions, style, W, H):
         # Keep the rendered word at the same vertical position used by the
         # editor preview (the general subtitle position is lower on the screen).
         line_style["position"] = base.get("depthAccentY", base["position"])
-        single_word_caps = []
+        line_caps = []
         for cap in captions:
-            cap_words = cap.get("words", [])
-            for index, word in enumerate(cap_words):
+            cap_words = []
+            for word in cap.get("words", []):
                 item = dict(word)
-                item["key"] = index == len(cap_words) - 1
-                single_word_caps.append({**cap, "start": item["s"], "words": [item]})
-        return build_ass(single_word_caps, line_style, W, H), None
+                item["key"] = False
+                cap_words.append(item)
+            if cap_words:
+                cap_words[-1]["key"] = True
+                line_caps.append({**cap, "words": cap_words})
+        return build_ass(line_caps, line_style, W, H), None
     if base.get("isSpecial") and base.get("mode") == "highlight":
         line_style = copy.deepcopy(base)
         line_style["layout"] = "line"
