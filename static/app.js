@@ -2305,11 +2305,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     exportWorkingState.classList.add('hidden');
     exportDoneState.classList.remove('hidden');
 
-    const downloadUrl = '/download/' + filename;
+    // The export API already returns /download/<filename>. Avoid adding the
+    // route prefix twice, and point the preview at the matching video route.
+    const file = String(filename || '').split('/').pop();
+    const downloadUrl = String(filename || '').startsWith('/download/')
+      ? filename
+      : '/download/' + encodeURIComponent(file);
     btnDownloadExport.href = downloadUrl;
-    btnDownloadExport.download = 'captioned_' + filename;
+    btnDownloadExport.download = 'captioned_' + file;
 
-    exportPreviewVideo.src = '/video/' + filename;
+    exportPreviewVideo.src = '/video/' + encodeURIComponent(file);
     exportPreviewVideo.load();
   }
 

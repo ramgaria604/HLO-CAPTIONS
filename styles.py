@@ -578,7 +578,7 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
         "layout": s.get("layout") if s.get("layout") in ("stack", "line") else "stack",
-        "animation": s.get("animation") if s.get("animation") in ("pop", "highlight", "none") else "pop",
+        "animation": s.get("animation") if s.get("animation") in ("pop", "highlight", "none", "slide-right-soft") else "pop",
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",
         "wordsPerCaption": int(_num(s.get("wordsPerCaption"), 1, 8, 3)),
         "maxKeys": int(_num(s.get("maxKeys"), 0, 3, 1)),
@@ -759,6 +759,9 @@ def _chunk_text(words, style, W, H, layer, ev_start):
                 if layer == "main" or True:
                     tags.append(f"\\t({reveal},{reveal + 110},\\fscx112\\fscy112)")
                     tags.append(f"\\t({reveal + 110},{reveal + 210},\\fscx100\\fscy100)")
+            elif anim == "slide-right-soft" and layer == "main":
+                tags.extend(["\\alpha&HFF&", "\\fscx92",
+                             f"\\t({reveal},{reveal + 400},\\alpha&H00&\\fscx100)"])
             elif anim == "highlight" and layer == "main":
                 hl = style["highlightColor"]
                 tags.append(f"\\t({reveal},{reveal + 1},\\1c{_c(hl)})")
@@ -782,7 +785,7 @@ def build_depth_ass(captions, style, W, H):
     if base.get("estateVariant"):
         line_style = copy.deepcopy(base)
         line_style["layout"] = "line"
-        return build_ass(captions, line_style, W, H), ""
+        return build_ass(captions, line_style, W, H), None
     if base.get("isSpecial") and base.get("mode") == "highlight":
         line_style = copy.deepcopy(base)
         line_style["layout"] = "line"

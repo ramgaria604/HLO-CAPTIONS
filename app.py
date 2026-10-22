@@ -1599,10 +1599,19 @@ def export_worker(job_id, d):
                 def on_render_progress(pct):
                     job.update(progress=round(base + (pct / 100.0) * rem_span, 1))
 
-                premium_render.render(props, out_file, on_progress=on_render_progress)
-                job.update(status="done", progress=100, message="Your video is ready! 🎬",
-                           download=f"/download/{out_name}")
-                return
+                try:
+                    premium_render.render(props, out_file, on_progress=on_render_progress)
+                except Exception as render_error:
+                    # Keep exports usable when Remotion/Chromium cannot start
+                    # in the current host; the FFmpeg path below still renders
+                    # captions and returns a downloadable video.
+                    print("Remotion render failed; falling back to FFmpeg:", render_error)
+                    job.update(message="Premium renderer unavailable; finishing with compatible export...",
+                               progress=base)
+                else:
+                    job.update(status="done", progress=100, message="Your video is ready! 🎬",
+                               download=f"/download/{out_name}")
+                    return
 
             ass_name = None
             front_ass_name = None
@@ -1610,11 +1619,13 @@ def export_worker(job_id, d):
                 st = stylelib.clean_style(d.get("style"))
                 if st.get("isSpecial"):
                     ass_name = f"{job_id}_depth.ass"
-                    front_ass_name = f"{job_id}_subtitle.ass"
                     depth_ass, subtitle_ass = stylelib.build_depth_ass(caps, st, W, H)
                     (WORK / ass_name).write_text(depth_ass, encoding="utf-8")
-                    (WORK / front_ass_name).write_text(subtitle_ass, encoding="utf-8")
-                    temp.extend([WORK / ass_name, WORK / front_ass_name])
+                    temp.append(WORK / ass_name)
+                    if subtitle_ass:
+                        front_ass_name = f"{job_id}_subtitle.ass"
+                        (WORK / front_ass_name).write_text(subtitle_ass, encoding="utf-8")
+                        temp.append(WORK / front_ass_name)
                 else:
                     ass_name = f"{job_id}.ass"
                     temp.append(WORK / ass_name)
