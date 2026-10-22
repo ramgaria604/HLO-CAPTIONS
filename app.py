@@ -1279,8 +1279,9 @@ def upload_audio():
 
 
 VOICE_PRESETS = {
+    "special_voice": {"voice": "hi-IN-MadhurNeural", "rate": "+45%", "pitch": "-1Hz", "label": "⭐ Special Voice (Viral Reel Creator)"},
     "madhur_creator": {"voice": "hi-IN-MadhurNeural", "rate": "+8%", "pitch": "-1Hz", "label": "🔥 Viral Reel Storyteller (Madhur)"},
-    "madhur_fast": {"voice": "hi-IN-MadhurNeural", "rate": "+12%", "pitch": "+0Hz", "label": "⚡ High-Retention Fast Reel (Madhur)"},
+    "madhur_fast": {"voice": "hi-IN-MadhurNeural", "rate": "+18%", "pitch": "+0Hz", "label": "⚡ High-Retention Fast Reel (Madhur)"},
     "swara_soft": {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "+0Hz", "label": "🌸 Soft & Emotional Aesthetic (Swara)"},
     "madhur_calm": {"voice": "hi-IN-MadhurNeural", "rate": "-4%", "pitch": "-3Hz", "label": "🎙️ Calm Documentary / Podcast (Madhur)"},
     "swara_creator": {"voice": "hi-IN-SwaraNeural", "rate": "+10%", "pitch": "+2Hz", "label": "⚡ Dynamic Reel Creator (Swara)"},
@@ -1295,27 +1296,41 @@ def generate_voiceover():
     """Generate high-quality viral Hindi & human creator voiceover using neural TTS."""
     data = request.get_json(silent=True) or {}
     text = str(data.get("text", "")).strip()
-    voice_key = str(data.get("voice", "madhur_creator")).strip()
+    voice_key = str(data.get("voice", "special_voice")).strip()
 
     if not text:
         text = "नमस्ते दोस्तों! आज मैं आपको बताने वाला हूँ एक ऐसा सीक्रेट जो आपकी ज़िंदगी बदल देगा।" 
     if len(text) > 4000:
         return err("Voiceover scripts are limited to 4,000 characters.")
 
-    cfg = VOICE_PRESETS.get(voice_key, VOICE_PRESETS["madhur_creator"])
+    cfg = VOICE_PRESETS.get(voice_key, VOICE_PRESETS["special_voice"])
     filename = f"voiceover_{uuid.uuid4().hex[:12]}.mp3"
     out_path = WORK / filename
 
     try:
         import asyncio, edge_tts
+        temp_raw = WORK / f"temp_{filename}"
         async def _run_tts():
             comm = edge_tts.Communicate(text, cfg["voice"], rate=cfg["rate"], pitch=cfg["pitch"])
-            await comm.save(str(out_path))
+            await comm.save(str(temp_raw))
 
         asyncio.run(_run_tts())
 
-        if not out_path.exists() or out_path.stat().st_size == 0:
+        if not temp_raw.exists() or temp_raw.stat().st_size == 0:
             return err("Voiceover generation produced an empty file.", 502)
+
+        # Apply subtle vocal punch & limiter so it has viral reel presence matching reference
+        subprocess.run([
+            ffmpeg_path(), "-y", "-i", str(temp_raw),
+            "-af", "volume=1.30,alimiter=limit=0.98",
+            str(out_path)
+        ], capture_output=True)
+        if temp_raw.exists():
+            try: temp_raw.unlink()
+            except Exception: pass
+
+        if not out_path.exists() or out_path.stat().st_size == 0:
+            temp_raw.replace(out_path)
 
         # Directly replace video audio with new voiceover if video_filename provided
         video_filename = data.get("video_filename") or data.get("filename")

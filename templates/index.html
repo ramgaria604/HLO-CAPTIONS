@@ -352,7 +352,8 @@
                 <textarea id="voiceoverText" class="script-textarea voiceover-text" maxlength="4000" placeholder="Type or paste your Hindi/Hinglish/English voiceover script here…"></textarea>
                 <label class="voiceover-label">Voice Packs & Instant Generation</label>
                 <select id="voiceoverVoice" class="styled-select" style="display:none;">
-                  <option value="madhur_creator" selected>🔥 Viral Reel Storyteller (Madhur)</option>
+                  <option value="special_voice" selected>⭐ Special Voice (Exact Instagram Viral Creator)</option>
+                  <option value="madhur_creator">🔥 Viral Reel Storyteller (Madhur)</option>
                   <option value="swara_soft">🌸 Soft & Emotional Aesthetic (Swara)</option>
                   <option value="madhur_fast">⚡ High-Retention Fast Reel (Madhur - 1.15x)</option>
                   <option value="prabhat_hinglish">🇮🇳 Casual Hinglish Creator (Prabhat)</option>
@@ -364,7 +365,18 @@
                 </select>
 
                 <div class="voice-packs-list" id="voicePacksList">
-                  <div class="voice-pack-card active" data-voice="madhur_creator">
+                  <div class="voice-pack-card active" data-voice="special_voice">
+                    <div class="voice-pack-info">
+                      <div class="voice-pack-header">
+                        <strong class="voice-pack-title">⭐ Special Voice</strong>
+                        <span class="voice-pack-tag">Exact Match</span>
+                      </div>
+                      <span class="voice-pack-desc">Exact viral Instagram creator voice from your reference video</span>
+                    </div>
+                    <button type="button" class="btn-pack-generate" data-voice="special_voice">⚡ Generate</button>
+                  </div>
+
+                  <div class="voice-pack-card" data-voice="madhur_creator">
                     <div class="voice-pack-info">
                       <div class="voice-pack-header">
                         <strong class="voice-pack-title">🔥 Madhur Reel Storyteller</strong>
@@ -582,6 +594,6 @@
   <!-- Notification Toast -->
   <div id="toastNotification" class="toast-notification hidden"></div>
 
-  <script src="/static/app.js?v=3.15"></script>
+  <script src="/static/app.js?v=3.16"></script>
 </body>
 </html>

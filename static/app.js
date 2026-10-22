@@ -26,7 +26,7 @@
     bgmFilename: '',
     bgmVolume: 0.3,
     voiceoverFilename: '',
-    voiceoverVoice: 'hannah',
+    voiceoverVoice: 'special_voice',
     vidVolume: 1.0,
     exportJobId: null,
     exportTimer: null,
@@ -2051,7 +2051,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text,
-            voice: voiceoverVoice ? voiceoverVoice.value : 'madhur_creator',
+            voice: voiceoverVoice ? voiceoverVoice.value : 'special_voice',
             filename: S.filename,
             video_filename: S.filename
           })
@@ -2171,7 +2171,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     $$('.btn-pack-generate').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const vKey = btn.getAttribute('data-voice') || 'madhur_creator';
+        const vKey = btn.getAttribute('data-voice') || 'special_voice';
         if (voiceoverVoice) voiceoverVoice.value = vKey;
         $$('.voice-pack-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-voice') === vKey));
         
@@ -2195,7 +2195,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     $$('.voice-pack-card').forEach(card => {
       card.addEventListener('click', () => {
-        const vKey = card.getAttribute('data-voice') || 'madhur_creator';
+        const vKey = card.getAttribute('data-voice') || 'special_voice';
         if (voiceoverVoice) voiceoverVoice.value = vKey;
         $$('.voice-pack-card').forEach(c => c.classList.toggle('active', c === card));
       });
