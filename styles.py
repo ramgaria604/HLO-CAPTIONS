@@ -102,14 +102,12 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.85, max_len=3.4):
             cur = []
     flush()
 
-    # Seamless gap-closing: eliminate blank black screens between captions
+    # Seamless gap-closing: keep caption container visible between sentences
+    # but do NOT stretch the word's own pronunciation boundary artificially
     for i in range(len(caps) - 1):
         inter_gap = caps[i + 1]["start"] - caps[i]["end"]
-        if 0 < inter_gap <= 0.85:
+        if 0 < inter_gap <= 0.75:
             caps[i]["end"] = caps[i + 1]["start"]
-            if caps[i].get("words"):
-                caps[i]["words"][-1]["end"] = caps[i + 1]["start"]
-                caps[i]["words"][-1]["e"] = caps[i + 1]["start"]
 
     return caps
 

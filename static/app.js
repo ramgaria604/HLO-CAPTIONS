@@ -656,159 +656,102 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     ctx.restore();
   }
 
-  // --- PASS 1: Word-by-Word Left-to-Right Progressive Fade & Reveal ---
-  // Line 1: Small words drawn word-by-word with subtle fade-in
+  // --- PASS 1: Natural, Crisp Non-Overlapping Canvas Typography ---
+  // Line 1: Small words
   if (line1.length) {
     ctx.save();
+    ctx.translate(W / 2 + (anim1.dx || 0), y1 + (anim1.dy || 0));
+    ctx.scale(anim1.scale || 1, anim1.scale || 1);
+    if (typeof anim1.opacity === 'number') ctx.globalAlpha = anim1.opacity;
     ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left';
-
-    const wordWidths1 = line1.map(w => ctx.measureText(fRole.upper !== false ? w.t.toUpperCase() : w.t).width);
-    const spaceW1 = ctx.measureText(' ').width;
-    const totalLine1W = wordWidths1.reduce((a, b) => a + b, 0) + spaceW1 * (line1.length - 1);
-    let curX1 = (W - totalLine1W) / 2;
-
-    for (let i = 0; i < line1.length; i++) {
-      const w = line1[i];
-      const wTxt = fRole.upper !== false ? w.t.toUpperCase() : w.t;
-      const wW = wordWidths1[i];
-      const wPop = getWordPop(w, t, showAll, st.animation);
-
-      if (wPop.opacity > 0.01) {
-        ctx.save();
-        ctx.translate(curX1 + (wPop.dx || 0), y1 + (wPop.dy || 0));
-        ctx.scale(wPop.scale || 1, wPop.scale || 1);
-        ctx.globalAlpha = Math.max(0, Math.min(1, wPop.opacity));
-
-        ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-        ctx.shadowBlur = Math.round(base * 0.02) + 6;
-        ctx.strokeStyle = fRole.outlineColor || '#000000';
-        ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
-        ctx.strokeText(wTxt, 0, 0);
-
-        ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
-        ctx.fillText(wTxt, 0, 0);
-        ctx.restore();
-      }
-      curX1 += wW + spaceW1;
-    }
+    ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
+    ctx.shadowBlur = Math.round(base * 0.02) + 6;
+    ctx.strokeStyle = fRole.outlineColor || '#000000';
+    ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
+    ctx.strokeText(txt1, 0, 0);
+    ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
+    ctx.fillText(txt1, 0, 0);
     ctx.restore();
   }
 
-  // Line 2: Small earlier words + BIG LAST WORD drawn word-by-word
+  // Line 2: Small earlier words + BIG LAST WORD
   if (line2.length) {
     ctx.save();
-    ctx.translate(W / 2, y2);
+    ctx.translate(W / 2 + (anim2.dx || 0), y2 + (anim2.dy || 0));
+    ctx.scale(anim2.scale || 1, anim2.scale || 1);
+    if (typeof anim2.opacity === 'number') ctx.globalAlpha = anim2.opacity;
     ctx.textBaseline = 'middle';
 
     const isBoxMode = st.highlight && st.highlight.mode === 'box';
 
     if (earlyWords.length) {
-      // Draw earlier words word-by-word with left-to-right fade
+      // Earlier words (small)
       ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
       ctx.textAlign = 'left';
+      ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
+      ctx.shadowBlur = Math.round(base * 0.02) + 6;
+      ctx.strokeStyle = fRole.outlineColor || '#000000';
+      ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
+      ctx.strokeText(earlyTxt, startX, 0);
+      ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
+      ctx.fillText(earlyTxt, startX, 0);
 
-      const earlyWordWidths = earlyWords.map(w => ctx.measureText(fRole.upper !== false ? w.t.toUpperCase() : w.t).width);
-      const earlySpaceW = ctx.measureText(' ').width;
-      let curEarlyX = startX;
-
-      for (let i = 0; i < earlyWords.length; i++) {
-        const ew = earlyWords[i];
-        const ewTxt = fRole.upper !== false ? ew.t.toUpperCase() : ew.t;
-        const ewW = earlyWordWidths[i];
-        const ewPop = getWordPop(ew, t, showAll, st.animation);
-
-        if (ewPop.opacity > 0.01) {
-          ctx.save();
-          ctx.translate(curEarlyX + (ewPop.dx || 0), ewPop.dy || 0);
-          ctx.scale(ewPop.scale || 1, ewPop.scale || 1);
-          ctx.globalAlpha = Math.max(0, Math.min(1, ewPop.opacity));
-
-          ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-          ctx.shadowBlur = Math.round(base * 0.02) + 6;
-          ctx.strokeStyle = fRole.outlineColor || '#000000';
-          ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
-          ctx.strokeText(ewTxt, 0, 0);
-
-          ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
-          ctx.fillText(ewTxt, 0, 0);
-          ctx.restore();
-        }
-        curEarlyX += ewW + earlySpaceW;
-      }
-
-      // Draw BIG last word with its reveal
-      const lastPop = getWordPop(lastWord, t, showAll, st.animation);
-      if (lastPop.opacity > 0.01) {
+      // BIG last word
+      ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
+      if (isBoxMode) {
+        const padX = Math.max(6, Math.round(bigFs * 0.22));
+        const padY = Math.max(3, Math.round(bigFs * 0.12));
+        const boxW = lastWidth + padX * 2;
+        const boxH = bigFs * 1.18;
         ctx.save();
-        ctx.translate(lastX + (lastPop.dx || 0), lastPop.dy || 0);
-        ctx.scale(lastPop.scale || 1, lastPop.scale || 1);
-        ctx.globalAlpha = Math.max(0, Math.min(1, lastPop.opacity));
-        ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-
-        if (isBoxMode) {
-          const padX = Math.max(6, Math.round(bigFs * 0.22));
-          const padY = Math.max(3, Math.round(bigFs * 0.12));
-          const boxW = lastWidth + padX * 2;
-          const boxH = bigFs * 1.18;
-          ctx.save();
-          ctx.fillStyle = st.highlight.color || '#FFE600';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-          ctx.shadowBlur = 8;
-          ctx.beginPath();
-          ctx.roundRect ? ctx.roundRect(-padX, -boxH / 2, boxW, boxH, 6) : ctx.rect(-padX, -boxH / 2, boxW, boxH);
-          ctx.fill();
-          ctx.restore();
-
-          ctx.fillStyle = st.highlight.textColor || '#111111';
-          ctx.fillText(lastTxt, 0, 0);
-        } else {
-          ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-          ctx.shadowBlur = Math.round(base * 0.02) + 8;
-          ctx.strokeStyle = kRole.outlineColor || '#000000';
-          ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
-          ctx.strokeText(lastTxt, 0, 0);
-          ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
-          ctx.fillText(lastTxt, 0, 0);
-        }
+        ctx.fillStyle = st.highlight.color || '#FFE600';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(lastX - padX, -boxH / 2, boxW, boxH, 6) : ctx.rect(lastX - padX, -boxH / 2, boxW, boxH);
+        ctx.fill();
         ctx.restore();
+
+        ctx.fillStyle = st.highlight.textColor || '#111111';
+        ctx.fillText(lastTxt, lastX, 0);
+      } else {
+        ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
+        ctx.shadowBlur = Math.round(base * 0.02) + 8;
+        ctx.strokeStyle = kRole.outlineColor || '#000000';
+        ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
+        ctx.strokeText(lastTxt, lastX, 0);
+        ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
+        ctx.fillText(lastTxt, lastX, 0);
       }
     } else {
       // Single last word on line 2 (BIG, centered)
-      const lastPop = getWordPop(lastWord, t, showAll, st.animation);
-      if (lastPop.opacity > 0.01) {
+      ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
+      ctx.textAlign = 'center';
+      if (isBoxMode) {
+        const padX = Math.max(8, Math.round(bigFs * 0.24));
+        const boxW = lastWidth + padX * 2;
+        const boxH = bigFs * 1.18;
         ctx.save();
-        ctx.translate(lastPop.dx || 0, lastPop.dy || 0);
-        ctx.scale(lastPop.scale || 1, lastPop.scale || 1);
-        ctx.globalAlpha = Math.max(0, Math.min(1, lastPop.opacity));
-        ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-        ctx.textAlign = 'center';
-        if (isBoxMode) {
-          const padX = Math.max(8, Math.round(bigFs * 0.24));
-          const boxW = lastWidth + padX * 2;
-          const boxH = bigFs * 1.18;
-          ctx.save();
-          ctx.fillStyle = st.highlight.color || '#FFE600';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-          ctx.shadowBlur = 8;
-          ctx.beginPath();
-          ctx.roundRect ? ctx.roundRect(-boxW / 2, -boxH / 2, boxW, boxH, 6) : ctx.rect(-boxW / 2, -boxH / 2, boxW, boxH);
-          ctx.fill();
-          ctx.restore();
-
-          ctx.fillStyle = st.highlight.textColor || '#111111';
-          ctx.fillText(lastTxt, 0, 0);
-        } else {
-          ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-          ctx.shadowBlur = Math.round(base * 0.02) + 8;
-          ctx.strokeStyle = kRole.outlineColor || '#000000';
-          ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
-          ctx.strokeText(lastTxt, 0, 0);
-          ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
-          ctx.fillText(lastTxt, 0, 0);
-        }
+        ctx.fillStyle = st.highlight.color || '#FFE600';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(-boxW / 2, -boxH / 2, boxW, boxH, 6) : ctx.rect(-boxW / 2, -boxH / 2, boxW, boxH);
+        ctx.fill();
         ctx.restore();
+
+        ctx.fillStyle = st.highlight.textColor || '#111111';
+        ctx.fillText(lastTxt, 0, 0);
+      } else {
+        ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
+        ctx.shadowBlur = Math.round(base * 0.02) + 8;
+        ctx.strokeStyle = kRole.outlineColor || '#000000';
+        ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
+        ctx.strokeText(lastTxt, 0, 0);
+        ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
+        ctx.fillText(lastTxt, 0, 0);
       }
     }
     ctx.restore();
@@ -2188,33 +2131,73 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     let lastVoiceoverData = null;
 
     btnGenerateVoiceover.addEventListener('click', async () => {
-      const text = voiceoverText.value.trim();
+      // 1. Auto-prefill text from captions if empty
+      let text = (voiceoverText && voiceoverText.value.trim()) || '';
+      if (!text && S.captions && S.captions.length > 0) {
+        text = S.captions.map(c => c.text).join(' ');
+        if (voiceoverText) voiceoverText.value = text;
+      }
+
       if (!text) {
+        showToast('Please upload a video or type your script first!');
         voiceoverStatus.textContent = 'Write or paste your voiceover script first.';
         return;
       }
+
       btnGenerateVoiceover.disabled = true;
-      btnGenerateVoiceover.textContent = 'Generating voice…';
-      voiceoverStatus.textContent = 'Synthesizing realistic creator voiceover…';
+      btnGenerateVoiceover.textContent = '⏳ Generating Voiceover...';
+      voiceoverStatus.textContent = 'Synthesizing neural Hindi voice & applying to video...';
+
       try {
         const groqKey = (groqApiKeyInput && groqApiKeyInput.value.trim()) || '';
         const res = await fetch('/api/voiceover', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: voiceoverVoice.value, groq_api_key: groqKey })
+          body: JSON.stringify({
+            text,
+            voice: voiceoverVoice.value,
+            filename: S.filename,
+            video_filename: S.filename,
+            groq_api_key: groqKey
+          })
         });
+
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Voiceover could not be generated');
+
         lastVoiceoverData = data;
         S.voiceoverFilename = data.filename;
-        btnReplaceVoiceover.classList.remove('active');
-        btnReplaceVoiceover.textContent = '✓ Apply to Video';
+
+        // Auto-update captions to match the new voice
+        if (data.captions && data.captions.length > 0) {
+          S.captions = normalizeCaptions(data.captions);
+          renderCaptionsList();
+          renderTimeline();
+        }
+
+        // Reload video player with the new voiceover!
+        if (S.filename) {
+          vid.src = '/video/' + encodeURIComponent(S.filename) + '?t=' + Date.now();
+          vid.load();
+        }
+
         voiceoverAudio.src = '/video/' + encodeURIComponent(data.filename);
         voiceoverAudio.classList.remove('hidden');
+
+        btnReplaceVoiceover.classList.add('active');
+        btnReplaceVoiceover.textContent = '✓ Voiceover Active';
         btnReplaceVoiceover.disabled = false;
-        voiceoverStatus.textContent = 'Voiceover generated! Preview audio above, then click Apply to Video.';
-        voiceoverAudio.play().catch(() => {});
+
+        voiceoverStatus.textContent = '🎉 Voiceover generated & applied to your video!';
+        showToast('🎉 Voiceover generated & applied to your video!');
+
+        // Start playback so user immediately hears the new voice!
+        setTimeout(() => {
+          vid.play().catch(() => {});
+        }, 300);
+
       } catch (err) {
-        voiceoverStatus.textContent = err.message;
+        voiceoverStatus.textContent = 'Error: ' + err.message;
+        showToast('Voiceover error: ' + err.message);
       } finally {
         btnGenerateVoiceover.disabled = false;
         btnGenerateVoiceover.textContent = '🔊 Generate Voiceover';

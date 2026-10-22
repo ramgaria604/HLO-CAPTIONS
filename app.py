@@ -1317,6 +1317,23 @@ def generate_voiceover():
         if not out_path.exists() or out_path.stat().st_size == 0:
             return err("Voiceover generation produced an empty file.", 502)
 
+        # Directly replace video audio with new voiceover if video_filename provided
+        video_filename = data.get("video_filename") or data.get("filename")
+        if video_filename:
+            try:
+                vid_path = WORK / safe_name(video_filename)
+                if vid_path.exists():
+                    tmp_v = WORK / f"temp_{video_filename}"
+                    subprocess.run([
+                        ffmpeg_path(), "-y", "-i", str(vid_path), "-i", str(out_path),
+                        "-c:v", "copy", "-map", "0:v:0", "-map", "1:a:0",
+                        "-shortest", str(tmp_v)
+                    ], capture_output=True, check=True)
+                    if tmp_v.exists() and tmp_v.stat().st_size > 0:
+                        tmp_v.replace(vid_path)
+            except Exception as fe:
+                print("Note: FFmpeg replace audio note:", fe)
+
         # Transcribe the generated voiceover with Whisper to produce synchronized captions
         words = []
         try:
@@ -1350,6 +1367,26 @@ def generate_voiceover():
         except Exception as e:
             print("Note: voiceover auto-transcription skipped:", e)
 
+        # Fallback word-timing if groq transcription was not run
+        if not words:
+            try:
+                probe_res = subprocess.run([
+                    ffmpeg_path(), "-i", str(out_path)
+                ], capture_output=True, text=True)
+                dur_match = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)", probe_res.stderr)
+                total_dur = 4.0
+                if dur_match:
+                    h, m, s = dur_match.groups()
+                    total_dur = float(h)*3600 + float(m)*60 + float(s)
+                
+                toks = text.split()
+                if toks:
+                    w_dur = total_dur / len(toks)
+                    for idx, t in enumerate(toks):
+                        words.append((idx * w_dur, (idx + 1) * w_dur, t))
+            except Exception:
+                pass
+
         captions = []
         if words:
             caps = stylelib.build_captions(words, 3, 1)
@@ -1359,7 +1396,8 @@ def generate_voiceover():
             filename=filename,
             voice=voice_key,
             voice_label=cfg.get("label"),
-            captions=captions
+            captions=captions,
+            video_updated=bool(video_filename)
         )
     except Exception as exc:
         return err(f"Could not generate voiceover: {str(exc)[:250]}", 502)
