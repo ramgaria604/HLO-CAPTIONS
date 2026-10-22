@@ -4,6 +4,7 @@
  * Add your own: copy any block, change id/name/colours. Sizes are fractions of min(width,height).
  */
 import type {Preset, Role} from './CaptionPresets';
+import {FX} from './fx';
 import type {Fx} from './fx';
 
 const W = {colors: ['#FFFFFF']};
@@ -56,4 +57,7 @@ export const EXTRA: Record<string, Preset> = Object.fromEntries([
   P('script_duo', 'Script + Chrome', {layout: 'stack', pos: 0.55, keyWords: 1, big: R({font: 'Poppins', size: 0.13, fill: {colors: ['#FFFFFF', '#7C8AA3']}, fx: chrome(['#FFFFFF', '#C9D3E3', '#7C8AA3', '#E6ECF7']), shadow: sh('rgba(0,0,0,.5)', 0.03, 0.05)}), small: R({font: 'Great Vibes', weight: 400, size: 0.13, glow: {color: '#FFD98A', blur: 0.045}})}),
   P('minimal_sub', 'Minimal Pro', {anim: 'fade', pos: 0.82, wordsPerCaption: 5, big: R({font: 'Inter', weight: 800, size: 0.06, fill: {colors: ['#FFFFFF', '#E6DCFF'], angle: 180}, shadow: sh('rgba(0,0,0,.55)', 0.035, 0.08)})}),
   P('twilight_blend', 'Twilight (soft-light)', {layout: 'stack', pos: 0.55, keyWords: 1, blend: 'soft-light', big: R({font: 'Poppins', weight: 900, size: 0.16, fill: {colors: ['#FFB75E', '#FF5E9C', '#6A5CFF'], angle: 120}}), small: R({font: 'Inter', weight: 500, size: 0.05, lower: true})}),
+  P('real_estate_1', 'Real Estate 1', {layout: 'scatter', anim: 'slide', pos: 0.63, wordsPerCaption: 4, keyWords: 1, behind: 'none', gap: 0.025, smallDx: [-0.15], big: R({font: 'Montserrat', weight: 900, size: 0.16, track: -0.025, fill: {colors: ['#35D8CE', '#139DA6', '#075B70', '#0E8995']}, fx: FX.teal, shadow: sh('#04323D', 0.008)}), small: R({font: 'Inter', weight: 400, italic: true, size: 0.048, lower: true})}),
+  P('real_estate_2', 'Real Estate 2', {layout: 'stack', anim: 'slide', pos: 0.55, wordsPerCaption: 5, keyWords: 1, keyLeading: 3, behind: 'none', gap: 0.02, big: R({font: 'Montserrat', weight: 900, size: 0.128, track: -0.04, fill: {colors: ['#F12CB8', '#B523C4', '#6C2CAC'], angle: 90}, glow: {color: '#FF9EE6', blur: 0.025}}), small: R({font: 'Great Vibes', weight: 400, size: 0.105, fill: {colors: ['#FFF5FD']}, glow: {color: '#FFB5E8', blur: 0.025}})}),
+  P('real_estate_3', 'Real Estate 3', {layout: 'scatter', anim: 'slide', pos: 0.60, wordsPerCaption: 6, keyWords: 2, behind: 'none', gap: 0.025, smallDx: [-0.12, 0.12], big: R({font: 'Montserrat', weight: 900, size: 0.15, track: -0.025, fill: {colors: ['#FF6200', '#FF5A00', '#F04A06', '#D6300A']}, fx: FX.orange, shadow: sh('#9A1408', 0.008)}), small: R({font: 'Inter', weight: 500, size: 0.05, fill: {colors: ['#FFFFFF']}})}),
 ].map((p) => [p.id, p]));

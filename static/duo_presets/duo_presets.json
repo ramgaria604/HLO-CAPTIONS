@@ -3836,5 +3836,74 @@
     }
    }
   }
+ },
+ {
+  "id": "real_estate_1",
+  "name": "Real Estate 1",
+  "category": "real-estate",
+  "mode": "emphasis",
+  "layout": "stack",
+  "anim": "slide-up",
+  "blend": "normal",
+  "behindRule": "none",
+  "overGraphics": false,
+  "wordsPerPage": 4,
+  "maxKeys": 1,
+  "estateVariant": "teal",
+  "previewWord": "GORGEOUS",
+  "posX": 0.5,
+  "posY": 0.63,
+  "subtitleY": 0.565,
+  "lineGap": 0.9,
+  "roles": {
+   "base": {"font":"Inter","size":52,"weight":400,"bold":false,"italic":true,"color":"#FFFFFF","outline":0,"outlineColor":"#000000","shadow":0,"shadowColor":"#000000","glow":0,"glowColor":"#FFFFFF","track":0,"upper":false,"layer":"front","enter":"slide-up","dx":-14,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"solid","colors":["#FFFFFF"],"angle":90,"hi":"#FFFFFF","lo":"#000000","speed":1}},
+   "accent": {"font":"Montserrat","size":172,"weight":900,"bold":true,"italic":false,"color":"#19BDB5","outline":0,"outlineColor":"#000000","shadow":2,"shadowColor":"#04323D","glow":0,"glowColor":"#FFFFFF","track":-0.025,"upper":false,"layer":"front","enter":"slide-up","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"liquid","colors":["#35D8CE","#139DA6","#075B70","#0E8995","#35D8CE"],"angle":90,"hi":"#73F4E7","lo":"#064654","speed":1}}
+  }
+ },
+ {
+  "id": "real_estate_2",
+  "name": "Real Estate 2",
+  "category": "real-estate",
+  "mode": "emphasis",
+  "layout": "stack",
+  "anim": "slide-up",
+  "blend": "normal",
+  "behindRule": "none",
+  "overGraphics": false,
+  "wordsPerPage": 5,
+  "maxKeys": 1,
+  "estateVariant": "magenta-script",
+  "previewWord": "TONIGHT",
+  "posX": 0.5,
+  "posY": 0.55,
+  "subtitleY": 0.665,
+  "lineGap": 0.9,
+  "roles": {
+   "base": {"font":"Great Vibes","size":128,"weight":400,"bold":false,"italic":false,"color":"#FFF5FD","outline":0,"outlineColor":"#000000","shadow":1,"shadowColor":"#8E1D76","glow":10,"glowColor":"#FFB5E8","track":0,"upper":false,"layer":"front","enter":"slide-up","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"solid","colors":["#FFF5FD"],"angle":90,"hi":"#FFFFFF","lo":"#000000","speed":1}},
+   "accent": {"font":"Montserrat","size":146,"weight":900,"bold":true,"italic":false,"color":"#D526AF","outline":0,"outlineColor":"#000000","shadow":1,"shadowColor":"#64104F","glow":8,"glowColor":"#FF9EE6","track":-0.035,"upper":false,"layer":"front","enter":"slide-up","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"gradient","colors":["#F12CB8","#B523C4","#6C2CAC"],"angle":0,"hi":"#FFFFFF","lo":"#000000","speed":1}}
+  }
+ },
+ {
+  "id": "real_estate_3",
+  "name": "Real Estate 3",
+  "category": "real-estate",
+  "mode": "emphasis",
+  "layout": "stack",
+  "anim": "slide-up",
+  "blend": "normal",
+  "behindRule": "none",
+  "overGraphics": false,
+  "wordsPerPage": 6,
+  "maxKeys": 2,
+  "estateVariant": "orange-scatter",
+  "previewWord": "REAL ESTATE",
+  "posX": 0.5,
+  "posY": 0.6,
+  "subtitleY": 0.68,
+  "lineGap": 0.84,
+  "roles": {
+   "base": {"font":"Inter","size":54,"weight":500,"bold":false,"italic":false,"color":"#FFFFFF","outline":0,"outlineColor":"#000000","shadow":0,"shadowColor":"#000000","glow":0,"glowColor":"#FFFFFF","track":0,"upper":false,"layer":"front","enter":"slide-up","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"solid","colors":["#FFFFFF"],"angle":90,"hi":"#FFFFFF","lo":"#000000","speed":1}},
+   "accent": {"font":"Montserrat","size":170,"weight":900,"bold":true,"italic":false,"color":"#FF5A00","outline":0.003,"outlineColor":"#9A1408","shadow":2,"shadowColor":"#9A1408","glow":0,"glowColor":"#FFFFFF","track":-0.025,"upper":false,"layer":"front","enter":"slide-up","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"grunge","colors":["#FF6200","#FF5A00","#F04A06","#D6300A"],"angle":90,"hi":"#FF8A3A","lo":"#BE1A0A","speed":1}}
+  }
  }
 ]

@@ -1513,7 +1513,13 @@ def export_worker(job_id, d):
                 remotion_words = []
                 for c in caps:
                     for w in c.get("words", []):
-                        remotion_words.append((round(float(w[0]), 3), round(float(w[1]), 3), str(w[2])))
+                        if isinstance(w, dict):
+                            ws = w.get("s", w.get("start", 0))
+                            we = w.get("e", w.get("end", ws))
+                            wt = w.get("t", w.get("word", ""))
+                        else:
+                            ws, we, wt = w[0], w[1], w[2]
+                        remotion_words.append((round(float(ws), 3), round(float(we), 3), str(wt)))
 
                 remotion_graphics = []
                 raw_graphics = d.get("graphics", [])

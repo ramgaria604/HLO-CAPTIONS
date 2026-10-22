@@ -872,7 +872,7 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
   const subtitleY = H * (st.subtitlePosition || 0.72);
   const heroY = H * (st.depthAccentY || st.position || 0.42);
 
-  function drawLine(items, y, maxWidth, fallbackRole) {
+  function drawLine(items, y, maxWidth, fallbackRole, offsetX = 0) {
     if (!items.length) return;
     const measured = [];
     ctx.save();
@@ -890,7 +890,7 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       total += width + size * 0.10;
     }
     const fit = Math.min(1, maxWidth / Math.max(1, total));
-    ctx.translate(W / 2, y);
+    ctx.translate(W / 2 + offsetX, y);
     ctx.scale(fit, 1);
     let x = -total / 2;
     for (const item of measured) {
@@ -914,6 +914,53 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       x += item.width + item.size * 0.10;
     }
     ctx.restore();
+  }
+
+  // Three Real Estate reference looks. Every caption stays on the foreground
+  // canvas; the varying baselines recreate the layered editorial compositions.
+  if (st.estateVariant === 'teal') {
+    const hero = words[words.length - 1];
+    const heroAnim = getWordPop(hero, t, showAll, st.roles?.accent?.enter || st.animation);
+    drawLine([{word: hero, role: st.key || {}, anim: heroAnim}], heroY, W * 0.92, st.key || {});
+    const small = words.slice(0, -1).map(word => ({
+      word, role: subtitleRole,
+      anim: getWordPop(word, t, showAll, st.roles?.base?.enter || st.animation)
+    }));
+    drawLine(small, subtitleY, W * 0.84, subtitleRole, -W * 0.15);
+    return;
+  }
+
+  if (st.estateVariant === 'magenta-script') {
+    const split = Math.max(1, words.length - 2);
+    const headline = words.slice(0, split).map(word => ({
+      word, role: st.key || {},
+      anim: getWordPop(word, t, showAll, st.roles?.accent?.enter || st.animation)
+    }));
+    const script = words.slice(split).map(word => ({
+      word, role: subtitleRole,
+      anim: getWordPop(word, t, showAll, st.roles?.base?.enter || st.animation)
+    }));
+    drawLine(headline, heroY, W * 0.92, st.key || {});
+    drawLine(script, subtitleY, W * 0.92, subtitleRole);
+    return;
+  }
+
+  if (st.estateVariant === 'orange-scatter') {
+    const emphasized = words.filter(word => word.key).slice(0, 2);
+    if (emphasized.length === 2) {
+      const small = words.filter(word => !emphasized.includes(word)).map(word => ({
+        word, role: subtitleRole,
+        anim: getWordPop(word, t, showAll, st.roles?.base?.enter || st.animation)
+      }));
+      const heroItems = emphasized.map(word => ({
+        word, role: st.key || {},
+        anim: getWordPop(word, t, showAll, st.roles?.accent?.enter || st.animation)
+      }));
+      drawLine([heroItems[0]], heroY - H * 0.075, W * 0.92, st.key || {}, -W * 0.09);
+      drawLine(small, subtitleY, W * 0.84, subtitleRole, -W * 0.12);
+      drawLine([heroItems[1]], heroY + H * 0.09, W * 0.92, st.key || {}, W * 0.12);
+      return;
+    }
   }
 
   if (mode === 'highlight') {
