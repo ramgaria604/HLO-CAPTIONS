@@ -745,17 +745,10 @@ def ts(sec):
 
 
 def _lines(words, layout):
-    if layout == "line":
+    if layout == "line" or len(words) <= 3:
         return [words]
-    lines, cur = [], []
-    for w in words:
-        if cur and cur[-1]["key"] != w["key"]:
-            lines.append(cur)
-            cur = []
-        cur.append(w)
-    if cur:
-        lines.append(cur)
-    return lines
+    mid = (len(words) + 1) // 2
+    return [words[:mid], words[mid:]]
 
 
 def _chunk_text(words, style, W, H, layer, ev_start):

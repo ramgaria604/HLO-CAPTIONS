@@ -165,22 +165,22 @@ function getWordPop(w, t, showAll, anim) {
   if (typeof w.s === 'number') {
     const dt = t - w.s;
 
-    // Word not yet reached in the line: pre-reveal hidden
+    // Word not yet reached in speech: hidden
     if (dt < 0) {
-      return { visible: false, scale: 0.96, dx: -8, dy: 0, opacity: 0.0 };
+      return { visible: false, scale: 0.96, dx: -6, dy: 0, opacity: 0.0 };
     }
 
-    // Word is currently being spoken: gentle left-to-right fade in & subtle slide over 0.22s
-    if (dt < 0.22) {
-      const p = Math.max(0, Math.min(1, dt / 0.22));
+    // Word is currently being spoken: gentle left-to-right fade in & subtle slide over 0.18s
+    if (dt < 0.18) {
+      const p = Math.max(0, Math.min(1, dt / 0.18));
       const ease = 1 - Math.pow(1 - p, 2);
-      const dx = -8 * (1 - ease);
+      const dx = -6 * (1 - ease);
       const scale = 0.96 + 0.04 * ease;
       const opacity = Math.max(0, Math.min(1, ease));
       return { visible: true, scale, dx, dy, opacity };
     }
 
-    // Word finished: stays fully opaque, crisp and clear until caption finishes
+    // Word already spoken: stays fully visible and stable until the caption finishes
     return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
   }
 
@@ -555,37 +555,21 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
   const kRole = st.key || {}, fRole = st.filler || {};
   const cY = H * (st.position || 0.68);
 
-  // 1. Split into 2 lines
-  let line1 = [], line2 = [];
-  if (words.length === 1) {
-    line2 = [words[0]];
-  } else if (words.length === 2) {
-    line1 = [words[0]];
-    line2 = [words[1]];
-  } else if (words.length === 3) {
-    line1 = [words[0], words[1]];
-    line2 = [words[2]];
-  } else if (words.length === 4) {
-    line1 = [words[0], words[1]];
-    line2 = [words[2], words[3]];
+  // 1. Line splitting: 1-3 words stay on 1 single punchy line; 4+ words split cleanly in half
+  let lines = [];
+  if (words.length <= 3) {
+    lines = [words];
   } else {
-    const splitIdx = Math.max(1, Math.floor(words.length / 2));
-    line1 = words.slice(0, splitIdx);
-    line2 = words.slice(splitIdx);
+    const mid = Math.ceil(words.length / 2);
+    lines = [words.slice(0, mid), words.slice(mid)];
   }
 
-  // 2. Word sizing: small words + one BIG word at last
-  let smallFs = Math.max(14, Math.round(base * (fRole.size || 0.072)));
-  let bigFs = Math.max(20, Math.round(base * (kRole.size || 0.12)));
-  const leading = 1.12;
-  const keyItalic = kRole.italic ? 'italic ' : '';
-  const fillerItalic = fRole.italic ? 'italic ' : '';
-  const keyWeight = kRole.bold !== false ? 900 : 700;
-  const fillerWeight = fRole.bold ? 700 : 500;
-  const keyFontFam = (kRole.font ? `"${kRole.font}", ` : "") + '"Montserrat", "Poppins", sans-serif';
-  const fillerFontFam = (fRole.font ? `"${fRole.font}", ` : "") + '"Montserrat", "Poppins", sans-serif';
+  // 2. Consistent typography settings (no arbitrary mismatched font sizes on same baseline)
+  let fs = Math.max(18, Math.round(base * (st.fontSize || fRole.size || 0.082)));
+  const leading = 1.18;
+  const fontFam = (kRole.font ? `"${kRole.font}", ` : (fRole.font ? `"${fRole.font}", ` : "")) + '"Montserrat", "Poppins", sans-serif';
 
-  // 3. Different combinations of colours
+  // 3. Color styling
   let smallColor = fRole.color || '#FFFFFF';
   let bigColor = (st.highlight && st.highlight.color) || kRole.color || st.highlightColor || '#FFE600';
   let glowColor = kRole.glow || bigColor;
@@ -599,205 +583,122 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     glowColor = combo.glow;
   }
 
-  // Animation calculation
-  const anim1 = line1.length ? getWordPop(line1[0], t, showAll, st.animation) : { visible: false, scale: 1 };
-  const lastWord = line2[line2.length - 1];
-  const anim2 = getWordPop(lastWord, t, showAll, st.animation);
-
-  const txt1 = line1.map(w => (fRole.upper !== false ? w.t.toUpperCase() : w.t)).join(' ');
-  const earlyWords = line2.slice(0, -1);
-  const earlyTxt = earlyWords.map(w => (fRole.upper !== false ? w.t.toUpperCase() : w.t)).join(' ');
-  const lastTxt = lastWord ? (kRole.upper !== false ? lastWord.t.toUpperCase() : lastWord.t) : '';
-
-  // Scale both caption lines together so even long phrases stay within the safe frame.
+  // 4. Measure words per line & calculate safe auto-fit scale
   ctx.save();
-  ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
-  const line1Width = line1.length ? ctx.measureText(txt1).width : 0;
-  const earlyWidth = earlyWords.length ? ctx.measureText(earlyTxt).width : 0;
-  ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-  const lastWidth = lastTxt ? ctx.measureText(lastTxt).width : 0;
+  ctx.font = `800 ${fs}px ${fontFam}`;
+  let maxLineWidth = 0;
+  const measuredLines = lines.map(lineWords => {
+    let lineWidth = 0;
+    const wordObjs = lineWords.map((w, idx) => {
+      const isKey = Boolean(w.key);
+      const isUpper = isKey ? (kRole.upper !== false) : (fRole.upper !== false);
+      const txt = isUpper ? w.t.toUpperCase() : w.t;
+      ctx.font = `${isKey ? 900 : 800} ${fs}px ${fontFam}`;
+      const width = ctx.measureText(txt).width;
+      const spaceWidth = (idx < lineWords.length - 1) ? ctx.measureText(' ').width : 0;
+      lineWidth += width + spaceWidth;
+      return { w, txt, isKey, width, spaceWidth };
+    });
+    if (lineWidth > maxLineWidth) maxLineWidth = lineWidth;
+    return { wordObjs, lineWidth };
+  });
   ctx.restore();
-  const naturalLine2Width = earlyWords.length ? earlyWidth + smallFs * 0.42 + lastWidth : lastWidth;
-  const fitScale = Math.min(1, W * 0.84 / Math.max(1, line1Width, naturalLine2Width));
-  smallFs = Math.max(11, Math.floor(smallFs * fitScale));
-  bigFs = Math.max(16, Math.floor(bigFs * fitScale));
-  const topPad = line1.length ? smallFs * leading * 0.72 : 0;
-  const bottomPad = bigFs * leading * 0.65;
-  const anchorY = Math.max(topPad + 8, Math.min(H - bottomPad - 8, cY));
-  const y1 = line1.length ? (anchorY - topPad) : anchorY;
-  const y2 = line1.length ? (anchorY + bottomPad) : anchorY;
 
-  let totalW2 = 0, startX = 0, lastX = 0;
-  if (line2.length) {
-    if (earlyWords.length) {
-      ctx.save();
-      ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
-      const earlyW = ctx.measureText(earlyTxt).width;
-      ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-      const lastW = ctx.measureText(lastTxt).width;
-      ctx.restore();
-      const gapW = smallFs * 0.42;
-      totalW2 = earlyW + gapW + lastW;
-      startX = -totalW2 / 2;
-      lastX = startX + earlyW + gapW;
-    }
+  // If text width exceeds 84% safe screen width, scale font size down proportionally
+  const fitScale = Math.min(1.0, (W * 0.84) / Math.max(1, maxLineWidth));
+  if (fitScale < 1.0) {
+    fs = Math.max(14, Math.floor(fs * fitScale));
   }
 
-  // --- Background Pill backing (e.g. terminal_type or retro_tv) ---
+  // Vertical placement
+  const lineH = fs * leading;
+  const totalH = lines.length * lineH;
+  const startY = cY - (totalH / 2) + (lineH / 2);
+
+  // Background pill backing if requested by preset
   if (st.pill) {
-    const totalBoxW = Math.max(line1Width, naturalLine2Width) + smallFs * 1.5;
-    const totalBoxH = (y2 - y1) + bigFs * 1.4;
-    const pillY = (y1 + y2) / 2;
+    const boxW = Math.min(W * 0.92, maxLineWidth * fitScale + fs * 1.6);
+    const boxH = totalH + fs * 0.8;
     ctx.save();
     ctx.fillStyle = st.pill;
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(W / 2 - totalBoxW / 2, pillY - totalBoxH / 2, totalBoxW, totalBoxH, 10) : ctx.rect(W / 2 - totalBoxW / 2, pillY - totalBoxH / 2, totalBoxW, totalBoxH);
+    ctx.roundRect ? ctx.roundRect(W / 2 - boxW / 2, cY - boxH / 2, boxW, boxH, 12) : ctx.rect(W / 2 - boxW / 2, cY - boxH / 2, boxW, boxH);
     ctx.fill();
     ctx.restore();
   }
 
-  // --- PASS 1: Natural, Crisp Non-Overlapping Canvas Typography ---
-  // Line 1: Small words
-  if (line1.length) {
+  // 5. Render words line by line with left-to-right fade-in animation
+  measuredLines.forEach((mLine, lineIdx) => {
+    const lineY = startY + lineIdx * lineH;
+
+    // Recalculate word measurements with final font size
     ctx.save();
-    ctx.translate(W / 2 + (anim1.dx || 0), y1 + (anim1.dy || 0));
-    ctx.scale(anim1.scale || 1, anim1.scale || 1);
-    if (typeof anim1.opacity === 'number') ctx.globalAlpha = anim1.opacity;
-    ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-    ctx.shadowBlur = Math.round(base * 0.02) + 6;
-    ctx.strokeStyle = fRole.outlineColor || '#000000';
-    ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
-    ctx.strokeText(txt1, 0, 0);
-    ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
-    ctx.fillText(txt1, 0, 0);
+    ctx.font = `800 ${fs}px ${fontFam}`;
+    const scaledSpaceWidth = ctx.measureText(' ').width;
+    let actualLineWidth = 0;
+    mLine.wordObjs.forEach((wo, idx) => {
+      ctx.font = `${wo.isKey ? 900 : 800} ${fs}px ${fontFam}`;
+      wo.width = ctx.measureText(wo.txt).width;
+      wo.spaceWidth = (idx < mLine.wordObjs.length - 1) ? scaledSpaceWidth : 0;
+      actualLineWidth += wo.width + wo.spaceWidth;
+    });
     ctx.restore();
-  }
 
-  // Line 2: Small earlier words + BIG LAST WORD
-  if (line2.length) {
-    ctx.save();
-    ctx.translate(W / 2 + (anim2.dx || 0), y2 + (anim2.dy || 0));
-    ctx.scale(anim2.scale || 1, anim2.scale || 1);
-    if (typeof anim2.opacity === 'number') ctx.globalAlpha = anim2.opacity;
-    ctx.textBaseline = 'middle';
+    let curX = (W - actualLineWidth) / 2;
 
-    const isBoxMode = st.highlight && st.highlight.mode === 'box';
+    mLine.wordObjs.forEach(wo => {
+      const anim = getWordPop(wo.w, t, showAll, st.animation);
 
-    if (earlyWords.length) {
-      // Earlier words (small)
-      ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
-      ctx.textAlign = 'left';
-      ctx.shadowColor = fRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-      ctx.shadowBlur = Math.round(base * 0.02) + 6;
-      ctx.strokeStyle = fRole.outlineColor || '#000000';
-      ctx.lineWidth = Math.max(2, Math.round(smallFs * 0.15));
-      ctx.strokeText(earlyTxt, startX, 0);
-      ctx.fillStyle = canvasRolePaint(ctx, fRole, smallColor, base);
-      ctx.fillText(earlyTxt, startX, 0);
-
-      // BIG last word
-      ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-      if (isBoxMode) {
-        const padX = Math.max(6, Math.round(bigFs * 0.22));
-        const padY = Math.max(3, Math.round(bigFs * 0.12));
-        const boxW = lastWidth + padX * 2;
-        const boxH = bigFs * 1.18;
+      // Only draw if word has started fading in or showAll
+      if (anim.visible && anim.opacity > 0.01) {
         ctx.save();
-        ctx.fillStyle = st.highlight.color || '#FFE600';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(lastX - padX, -boxH / 2, boxW, boxH, 6) : ctx.rect(lastX - padX, -boxH / 2, boxW, boxH);
-        ctx.fill();
+        const wordCenterX = curX + wo.width / 2;
+        ctx.translate(wordCenterX + (anim.dx || 0), lineY + (anim.dy || 0));
+        ctx.scale(anim.scale || 1, anim.scale || 1);
+        ctx.globalAlpha = Math.max(0, Math.min(1, anim.opacity));
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const isBoxMode = wo.isKey && st.highlight && st.highlight.mode === 'box';
+        ctx.font = `${wo.isKey ? (kRole.italic ? 'italic ' : '') + '900' : (fRole.italic ? 'italic ' : '') + '800'} ${fs}px ${fontFam}`;
+
+        if (isBoxMode) {
+          const padX = Math.max(6, Math.round(fs * 0.22));
+          const boxW = wo.width + padX * 2;
+          const boxH = fs * 1.20;
+          ctx.save();
+          ctx.fillStyle = st.highlight.color || '#FFE600';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.roundRect ? ctx.roundRect(-boxW / 2, -boxH / 2, boxW, boxH, 6) : ctx.rect(-boxW / 2, -boxH / 2, boxW, boxH);
+          ctx.fill();
+          ctx.restore();
+
+          ctx.fillStyle = st.highlight.textColor || '#111111';
+          ctx.fillText(wo.txt, 0, 0);
+        } else {
+          // Glow / Shadow
+          ctx.shadowColor = wo.isKey ? (kRole.shadowColor || 'rgba(0, 0, 0, 0.90)') : (fRole.shadowColor || 'rgba(0, 0, 0, 0.90)');
+          ctx.shadowBlur = Math.round(base * 0.02) + (wo.isKey ? 8 : 5);
+
+          // Outline stroke
+          ctx.strokeStyle = wo.isKey ? (kRole.outlineColor || '#000000') : (fRole.outlineColor || '#000000');
+          ctx.lineWidth = Math.max(2, Math.round(fs * (wo.isKey ? 0.17 : 0.14)));
+          ctx.strokeText(wo.txt, 0, 0);
+
+          // Fill text
+          ctx.fillStyle = wo.isKey ? canvasRolePaint(ctx, kRole, bigColor, base) : canvasRolePaint(ctx, fRole, smallColor, base);
+          ctx.fillText(wo.txt, 0, 0);
+        }
+
         ctx.restore();
-
-        ctx.fillStyle = st.highlight.textColor || '#111111';
-        ctx.fillText(lastTxt, lastX, 0);
-      } else {
-        ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-        ctx.shadowBlur = Math.round(base * 0.02) + 8;
-        ctx.strokeStyle = kRole.outlineColor || '#000000';
-        ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
-        ctx.strokeText(lastTxt, lastX, 0);
-        ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
-        ctx.fillText(lastTxt, lastX, 0);
       }
-    } else {
-      // Single last word on line 2 (BIG, centered)
-      ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-      ctx.textAlign = 'center';
-      if (isBoxMode) {
-        const padX = Math.max(8, Math.round(bigFs * 0.24));
-        const boxW = lastWidth + padX * 2;
-        const boxH = bigFs * 1.18;
-        ctx.save();
-        ctx.fillStyle = st.highlight.color || '#FFE600';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(-boxW / 2, -boxH / 2, boxW, boxH, 6) : ctx.rect(-boxW / 2, -boxH / 2, boxW, boxH);
-        ctx.fill();
-        ctx.restore();
 
-        ctx.fillStyle = st.highlight.textColor || '#111111';
-        ctx.fillText(lastTxt, 0, 0);
-      } else {
-        ctx.shadowColor = kRole.shadowColor || 'rgba(0, 0, 0, 0.90)';
-        ctx.shadowBlur = Math.round(base * 0.02) + 8;
-        ctx.strokeStyle = kRole.outlineColor || '#000000';
-        ctx.lineWidth = Math.max(3, Math.round(bigFs * 0.18));
-        ctx.strokeText(lastTxt, 0, 0);
-        ctx.fillStyle = canvasRolePaint(ctx, kRole, bigColor, base);
-        ctx.fillText(lastTxt, 0, 0);
-      }
-    }
-    ctx.restore();
-  }
-
-  // --- PASS 2: Optical 10% Screen Blend (Gentle glow accent) ---
-  ctx.save();
-  const blendMode = ['screen', 'soft-light', 'overlay', 'lighter'].includes(st.blendMode) ? st.blendMode : 'screen';
-  ctx.globalCompositeOperation = blendMode;
-  ctx.globalAlpha = blendMode === 'screen' ? 0.10 : 0.08;
-  ctx.shadowColor = glowColor;
-  ctx.shadowBlur = Math.round(base * 0.07);
-  ctx.fillStyle = glowColor;
-
-  if (line1.length) {
-    ctx.save();
-    ctx.translate(W / 2 + (anim1.dx || 0), y1 + (anim1.dy || 0));
-    ctx.scale(anim1.scale || 1, anim1.scale || 1);
-    if (typeof anim1.opacity === 'number') ctx.globalAlpha *= anim1.opacity;
-    ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(txt1, 0, 0);
-    ctx.restore();
-  }
-
-  if (line2.length && !(st.highlight && st.highlight.mode === 'box')) {
-    ctx.save();
-    ctx.translate(W / 2 + (anim2.dx || 0), y2 + (anim2.dy || 0));
-    ctx.scale(anim2.scale || 1, anim2.scale || 1);
-    if (typeof anim2.opacity === 'number') ctx.globalAlpha *= anim2.opacity;
-    ctx.textBaseline = 'middle';
-    if (earlyWords.length) {
-      ctx.font = `${fillerItalic}${fillerWeight} ${smallFs}px ${fillerFontFam}`;
-      ctx.textAlign = 'left';
-      ctx.fillText(earlyTxt, startX, 0);
-      ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-      ctx.fillText(lastTxt, lastX, 0);
-    } else {
-      ctx.font = `${keyItalic}${keyWeight} ${bigFs}px ${keyFontFam}`;
-      ctx.textAlign = 'center';
-      ctx.fillText(lastTxt, 0, 0);
-    }
-    ctx.restore();
-  }
-  ctx.restore();
+      // Advance X by this word's exact measured width plus a natural space
+      curX += wo.width + wo.spaceWidth;
+    });
+  });
 }
 
 function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, capId) {
@@ -2130,34 +2031,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     voiceoverVoice.addEventListener('change', () => { S.voiceoverVoice = voiceoverVoice.value; });
     let lastVoiceoverData = null;
 
-    btnGenerateVoiceover.addEventListener('click', async () => {
-      // 1. Auto-prefill text from captions if empty
+    async function generateVoiceoverAction() {
+      // 1. Auto-prefill text from script or captions, or use viral creator default
       let text = (voiceoverText && voiceoverText.value.trim()) || '';
       if (!text && S.captions && S.captions.length > 0) {
         text = S.captions.map(c => c.text).join(' ');
-        if (voiceoverText) voiceoverText.value = text;
       }
-
       if (!text) {
-        showToast('Please upload a video or type your script first!');
-        voiceoverStatus.textContent = 'Write or paste your voiceover script first.';
-        return;
+        text = 'नमस्ते दोस्तों! आज मैं आपको बताने वाला हूँ एक ऐसा सीक्रेट जो आपकी ज़िंदगी बदल देगा।';
       }
+      if (voiceoverText) voiceoverText.value = text;
 
       btnGenerateVoiceover.disabled = true;
       btnGenerateVoiceover.textContent = '⏳ Generating Voiceover...';
       voiceoverStatus.textContent = 'Synthesizing neural Hindi voice & applying to video...';
 
       try {
-        const groqKey = (groqApiKeyInput && groqApiKeyInput.value.trim()) || '';
         const res = await fetch('/api/voiceover', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text,
-            voice: voiceoverVoice.value,
+            voice: voiceoverVoice ? voiceoverVoice.value : 'madhur_creator',
             filename: S.filename,
-            video_filename: S.filename,
-            groq_api_key: groqKey
+            video_filename: S.filename
           })
         });
 
@@ -2192,16 +2088,28 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
         // Start playback so user immediately hears the new voice!
         setTimeout(() => {
-          vid.play().catch(() => {});
+          if (S.filename) {
+            vid.currentTime = 0;
+            vid.play().catch(() => {});
+          } else {
+            voiceoverAudio.currentTime = 0;
+            voiceoverAudio.play().catch(() => {});
+          }
         }, 300);
 
+        return data;
       } catch (err) {
         voiceoverStatus.textContent = 'Error: ' + err.message;
         showToast('Voiceover error: ' + err.message);
+        throw err;
       } finally {
         btnGenerateVoiceover.disabled = false;
         btnGenerateVoiceover.textContent = '🔊 Generate Voiceover';
       }
+    }
+
+    btnGenerateVoiceover.addEventListener('click', () => {
+      generateVoiceoverAction().catch(() => {});
     });
 
     btnReplaceVoiceover.addEventListener('click', () => {
@@ -2261,12 +2169,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     // Voice Pack Cards & Instant Generate Buttons
     $$('.btn-pack-generate').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const vKey = btn.getAttribute('data-voice') || 'madhur_creator';
         if (voiceoverVoice) voiceoverVoice.value = vKey;
         $$('.voice-pack-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-voice') === vKey));
-        btnGenerateVoiceover.click();
+        
+        btn.textContent = '⏳ Generating...';
+        btn.disabled = true;
+        try {
+          await generateVoiceoverAction();
+          btn.textContent = '✓ Ready!';
+        } catch (err) {
+          btn.textContent = '⚡ Generate';
+        } finally {
+          setTimeout(() => {
+            if (btn) {
+              btn.disabled = false;
+              btn.textContent = '⚡ Generate';
+            }
+          }, 3000);
+        }
       });
     });
 
