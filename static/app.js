@@ -156,9 +156,9 @@ function getWordPop(w, t, showAll, anim) {
 
     if (anim === 'slide-right-soft') {
       if (dt < 0) return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
-      const p = Math.max(0, Math.min(1, dt / 0.30));
+      const p = Math.max(0, Math.min(1, dt / 0.40));
       const ease = 1 - Math.pow(1 - p, 3);
-      return { visible: true, scale: 1.0, dx: -12 * (1 - ease), dy: 0, opacity: 0.72 + 0.28 * ease };
+      return { visible: true, scale: 1.0, dx: -9 * (1 - ease), dy: 0, opacity: 0.15 + 0.85 * ease };
     }
 
     if (anim === 'slide-up' || anim === 'slide-down' || anim === 'slide-left' || anim === 'slide-right' || (typeof anim === 'string' && anim.startsWith('slide'))) {
@@ -938,34 +938,33 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
   }
 
   if (st.estateVariant === 'magenta-script') {
-    const split = Math.max(1, words.length - 2);
-    const headline = words.slice(0, split).map(word => ({
-      word, role: st.key || {},
-      anim: getWordPop(word, t, showAll, st.roles?.accent?.enter || st.animation)
-    }));
-    const script = words.slice(split).map(word => ({
+    const hero = words[words.length - 1];
+    const small = words.slice(0, -1).map(word => ({
       word, role: subtitleRole,
       anim: getWordPop(word, t, showAll, st.roles?.base?.enter || st.animation)
     }));
+    const headline = [{
+      word: hero, role: st.key || {},
+      anim: getWordPop(hero, t, showAll, st.roles?.accent?.enter || st.animation)
+    }];
     drawLine(headline, heroY, W * 0.92, st.key || {});
-    drawLine(script, subtitleY, W * 0.92, subtitleRole);
+    drawLine(small, subtitleY, W * 0.92, subtitleRole);
     return;
   }
 
   if (st.estateVariant === 'orange-scatter') {
-    const emphasized = words.filter(word => word.key).slice(0, 2);
-    if (emphasized.length === 2) {
-      const small = words.filter(word => !emphasized.includes(word)).map(word => ({
+    if (words.length) {
+      const hero = words[words.length - 1];
+      const small = words.slice(0, -1).map(word => ({
         word, role: subtitleRole,
         anim: getWordPop(word, t, showAll, st.roles?.base?.enter || st.animation)
       }));
-      const heroItems = emphasized.map(word => ({
-        word, role: st.key || {},
-        anim: getWordPop(word, t, showAll, st.roles?.accent?.enter || st.animation)
-      }));
-      drawLine([heroItems[0]], heroY - H * 0.075, W * 0.92, st.key || {}, -W * 0.09);
+      const heroItem = {
+        word: hero, role: st.key || {},
+        anim: getWordPop(hero, t, showAll, st.roles?.accent?.enter || st.animation)
+      };
       drawLine(small, subtitleY, W * 0.84, subtitleRole, -W * 0.12);
-      drawLine([heroItems[1]], heroY + H * 0.09, W * 0.92, st.key || {}, W * 0.12);
+      drawLine([heroItem], heroY + H * 0.055, W * 0.92, st.key || {}, W * 0.08);
       return;
     }
   }

@@ -80,7 +80,7 @@ export type Preset = {
   behind?: 'none' | 'first' | 'all';  // which BIG words go behind the speaker (needs personSrc): first = only the first big word (like the orange reference)
   behindPerson?: boolean;        // legacy flag
   smallDx?: number[];            // x-offsets of the small-word runs in 'scatter' layout (fraction of width, negative = left)
-  keyLeading?: number;           // mark the first N words before the final two as large headline text
+  keyLast?: boolean;             // use only the final spoken word as the large headline
   gap?: number;                  // space between words in em (default 0.12; neon uses 0.02)
   blend?: string;                // CSS mix-blend-mode so the captions melt into the video: overlay | soft-light | hard-light | screen | multiply | difference | color-dodge
 };
@@ -163,15 +163,14 @@ const score = (w: string) => {
   return c.length + (/\d/.test(c) ? 4 : 0);
 };
 type Chunk = {start: number; end: number; words: Word[]};
-function makeChunks(words: Word[], per: number, nKeys: number, keyLeading = 0): Chunk[] {
+function makeChunks(words: Word[], per: number, nKeys: number, keyLast = false): Chunk[] {
   const out: Chunk[] = [];
   let cur: Word[] = [];
   const flush = () => {
     if (!cur.length) return;
     const keys = cur.map((w, i) => [score(w.t), i]).sort((a, b) => b[0] - a[0] || a[1] - b[1])
       .filter((x) => x[0] >= 4).slice(0, nKeys).map((x) => x[1]);
-    const leadingCount = keyLeading ? Math.max(1, cur.length - 2) : 0;
-    const ws = cur.map((w, i) => ({...w, key: keyLeading ? i < leadingCount : w.key ?? (keys.includes(i) || i === cur.length - 1)}));
+    const ws = cur.map((w, i) => ({...w, key: keyLast ? i === cur.length - 1 : w.key ?? (keys.includes(i) || i === cur.length - 1)}));
     out.push({start: ws[0].s, end: ws[ws.length - 1].e, words: ws});
     cur = [];
   };
@@ -224,7 +223,7 @@ function animStyle(anim: Anim, age: number, fps: number, em: number): React.CSSP
   if (anim === 'pop') { const s = spring({frame: age, fps, config: {damping: 11, stiffness: 170}}); return {opacity: Math.min(1, age / 2), transform: `scale(${0.55 + 0.45 * s})`}; }
   if (anim === 'bounce') { const s = spring({frame: age, fps, config: {damping: 6, stiffness: 200, mass: 0.6}}); const settle = interpolate(age, [0, 18], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); return {opacity: Math.min(1, age / 2), transform: `scale(${0.3 + 0.7 * s}) translateY(${(1 - settle) * -0.25 * em}px)`}; }
   if (anim === 'slide') { const p = interpolate(age, [0, 12], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: eased, transform: `translateY(${(1 - eased) * 0.4 * em}px)`}; }
-  if (anim === 'slideRightSoft') { const p = interpolate(age, [0, 9], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: 0.72 + 0.28 * eased, transform: `translateX(${(1 - eased) * -0.12 * em}px)`}; }
+  if (anim === 'slideRightSoft') { const p = interpolate(age, [0, 14], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: 0.15 + 0.85 * eased, transform: `translateX(${(1 - eased) * -0.10 * em}px)`}; }
   if (anim === 'glitch') { const j = age < 8 ? (age % 2 ? 1 : -1) * 0.06 * em : 0; return {opacity: age < 8 && age % 3 === 0 ? 0.4 : 1, transform: `translateX(${j}px)`}; }
   if (anim === 'rise') { const p = interpolate(age, [0, 18], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}); const eased = 1 - Math.pow(1 - p, 3); return {opacity: eased, transform: `translateY(${(1 - eased) * 0.6 * em}px)`}; }
   if (anim === 'flip') { const s = spring({frame: age, fps, config: {damping: 12, stiffness: 120}}); return {opacity: Math.min(1, age / 3), transform: `perspective(${em * 8}px) rotateX(${(1 - s) * 85}deg)`}; }
@@ -279,7 +278,7 @@ export const PremiumCaptions: React.FC<{words: Word[]; presetId?: string; preset
   const {fps, width, height} = useVideoConfig();
   const t = frame / fps;
   const base = Math.min(width, height);
-  const chunks = useMemo(() => makeChunks(words, p.wordsPerCaption, p.keyWords, p.keyLeading), [words, p]);
+  const chunks = useMemo(() => makeChunks(words, p.wordsPerCaption, p.keyWords, p.keyLast), [words, p]);
   const ci = chunks.findIndex((c) => t >= c.start - 0.02 && t < c.end);
   if (ci < 0) return null;
   const chunk = chunks[ci];
