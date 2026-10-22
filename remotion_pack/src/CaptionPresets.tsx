@@ -285,7 +285,11 @@ export const PremiumCaptions: React.FC<{words: Word[]; presetId?: string; preset
 
   const emOf = (r: Role, line: Word[]) => {
     let est = 0;
-    for (const w of line) est += w.t.length * r.size * base * (r.upper ? 0.68 : 0.58) + r.size * base * 0.25;
+    for (const w of line) {
+      const wordRole = roleOf(w);
+      est += w.t.length * wordRole.size * base * (wordRole.upper ? 0.68 : 0.58) + wordRole.size * base * 0.25;
+      est += wordRole.size * base * (p.gap ?? 0.12) * 2;
+    }
     return r.size * base * Math.max(0.45, Math.min(1, (0.92 * width) / (est || 1)));
   };
   const roleOf = (w: Word) => (w.key ? p.big : p.small);
@@ -296,7 +300,7 @@ export const PremiumCaptions: React.FC<{words: Word[]; presetId?: string; preset
     const r0 = roleOf(line[0]);
     const em = emOf(r0, line);
     return (
-      <div style={{textAlign: 'center', transform: `translateX(${dx * width}px)`, marginTop: mt}}>
+      <div style={{textAlign: 'center', whiteSpace: 'nowrap', transform: `translateX(${dx * width}px)`, marginTop: mt}}>
         {line.map((w, i) => <WordView key={i} w={w} p={p} hidden={hiddenIn(w)} role={roleOf(w)} em={roleOf(w).size * base * (em / (r0.size * base))} anchor={chunk.start} />)}
       </div>
     );

@@ -155,7 +155,7 @@ function getWordPop(w, t, showAll, anim) {
     const dt = t - w.s;
 
     if (anim === 'slide-right-soft') {
-      if (dt < 0) return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1 };
+      if (dt < 0) return { visible: true, scale: 1.0, dx: -9, dy: 0, opacity: 0 };
       const p = Math.max(0, Math.min(1, dt / 0.40));
       const ease = 1 - Math.pow(1 - p, 3);
       return { visible: true, scale: 1.0, dx: -9 * (1 - ease), dy: 0, opacity: 0.15 + 0.85 * ease };
@@ -883,7 +883,6 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
     if (!items.length) return;
     const measured = [];
     ctx.save();
-    let total = 0;
     for (const item of items) {
       const role = item.role || fallbackRole;
       const size = Math.max(14, Math.round(base * (role.size || 0.07)));
@@ -894,8 +893,9 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       const label = role.upper ? item.word.t.toUpperCase() : item.word.t;
       const width = ctx.measureText(label).width;
       measured.push({ ...item, role, size, font, label, width });
-      total += width + size * 0.10;
     }
+    let total = measured.reduce((sum, item) => sum + item.width, 0);
+    for (let i = 0; i < measured.length - 1; i++) total += Math.max(measured[i].size, measured[i + 1].size) * 0.12;
     const fit = Math.min(1, maxWidth / Math.max(1, total));
     ctx.translate(W / 2 + offsetX, y);
     ctx.scale(fit, 1);
@@ -918,55 +918,25 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       ctx.fillStyle = canvasRolePaint(ctx, role, role.color || '#FFFFFF', base);
       ctx.fillText(item.label, 0, 0);
       ctx.restore();
-      x += item.width + item.size * 0.10;
+      if (item !== measured[measured.length - 1]) {
+        const next = measured[measured.indexOf(item) + 1];
+        x += item.width + Math.max(item.size, next.size) * 0.12;
+      }
     }
     ctx.restore();
   }
 
-  // Three Real Estate reference looks. Every caption stays on the foreground
-  // canvas; the varying baselines recreate the layered editorial compositions.
-  if (st.estateVariant === 'teal') {
-    const hero = words[words.length - 1];
-    const heroAnim = getWordPop(hero, t, showAll, st.roles?.accent?.enter || st.animation);
-    drawLine([{word: hero, role: st.key || {}, anim: heroAnim}], heroY, W * 0.92, st.key || {});
-    const small = words.slice(0, -1).map(word => ({
-      word, role: subtitleRole,
-      anim: getWordPop(word, t, showAll, st.roles?.base?.enter || st.animation)
-    }));
-    drawLine(small, subtitleY, W * 0.84, subtitleRole, -W * 0.15);
+  // Keep each Real Estate caption in one measured line. Only its final word
+  // gets the large accent treatment; earlier words flow naturally before it.
+  if (st.estateVariant && words.length) {
+    const items = words.map((word, index) => {
+      const isFinal = index === words.length - 1;
+      const role = isFinal ? (st.key || {}) : subtitleRole;
+      const enter = isFinal ? st.roles?.accent?.enter : st.roles?.base?.enter;
+      return {word, role, anim: getWordPop(word, t, showAll, enter || st.animation)};
+    });
+    drawLine(items, heroY, W * 0.92, subtitleRole);
     return;
-  }
-
-  if (st.estateVariant === 'magenta-script') {
-    const hero = words[words.length - 1];
-    const small = words.slice(0, -1).map(word => ({
-      word, role: subtitleRole,
-      anim: getWordPop(word, t, showAll, st.roles?.base?.enter || st.animation)
-    }));
-    const headline = [{
-      word: hero, role: st.key || {},
-      anim: getWordPop(hero, t, showAll, st.roles?.accent?.enter || st.animation)
-    }];
-    drawLine(headline, heroY, W * 0.92, st.key || {});
-    drawLine(small, subtitleY, W * 0.92, subtitleRole);
-    return;
-  }
-
-  if (st.estateVariant === 'orange-scatter') {
-    if (words.length) {
-      const hero = words[words.length - 1];
-      const small = words.slice(0, -1).map(word => ({
-        word, role: subtitleRole,
-        anim: getWordPop(word, t, showAll, st.roles?.base?.enter || st.animation)
-      }));
-      const heroItem = {
-        word: hero, role: st.key || {},
-        anim: getWordPop(hero, t, showAll, st.roles?.accent?.enter || st.animation)
-      };
-      drawLine(small, subtitleY, W * 0.84, subtitleRole, -W * 0.12);
-      drawLine([heroItem], heroY + H * 0.055, W * 0.92, st.key || {}, W * 0.08);
-      return;
-    }
   }
 
   if (mode === 'highlight') {

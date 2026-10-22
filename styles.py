@@ -779,6 +779,10 @@ def _chunk_text(words, style, W, H, layer, ev_start):
 def build_depth_ass(captions, style, W, H):
     """Return a large behind-person keyword and readable foreground subtitle."""
     base = clean_style(style)
+    if base.get("estateVariant"):
+        line_style = copy.deepcopy(base)
+        line_style["layout"] = "line"
+        return build_ass(captions, line_style, W, H), ""
     if base.get("isSpecial") and base.get("mode") == "highlight":
         line_style = copy.deepcopy(base)
         line_style["layout"] = "line"
