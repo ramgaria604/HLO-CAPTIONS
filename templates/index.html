@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Montserrat:wght@700;800;900&family=Poppins:wght@600;700;800;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=3.05">
+  <link rel="stylesheet" href="/static/style.css?v=3.10">
 </head>
 <body>
 
@@ -25,7 +25,16 @@
         <span>HLO CAPTIONS AI</span>
       </div>
       <h1 class="hero-title">Add Viral Captions to <span class="gradient-text">Any Video</span></h1>
-      <p class="hero-subtitle">Upload a video → captions follow the voice → choose a style → export.</p>
+      <p class="hero-subtitle">Choose a Duo style, add your video, then generate voice-synced captions.</p>
+
+      <section class="duo-front-picker" aria-labelledby="duoFrontTitle">
+        <div class="duo-front-heading">
+          <div><h2 id="duoFrontTitle">Choose your caption style</h2><p>31 Duo presets · tap one to preview it</p></div>
+          <span id="duoPresetCount" class="duo-count">31 STYLES</span>
+        </div>
+        <div id="duoPresetGrid" class="duo-front-grid" aria-label="Duo caption presets"></div>
+        <p class="duo-selected-line">Selected: <strong id="duoSelectedName">Loading presets…</strong></p>
+      </section>
 
       <!-- Dropzone Card -->
       <div class="upload-card" id="dropZone">
@@ -48,6 +57,7 @@
           </svg>
           Select Video
         </button>
+        <p id="selectedMediaName" class="selected-media-name hidden"></p>
 
         <!-- Language Selector -->
         <div class="lang-row">
@@ -68,6 +78,11 @@
           <summary>✍️ Have a written script? Paste it here for 100% precision</summary>
           <textarea id="scriptInput" class="script-textarea" placeholder="Paste your video's exact spoken words here..."></textarea>
         </details>
+
+        <button type="button" class="btn-generate-home" id="btnGenerateCaptions">
+          <span>Generate captions</span><span aria-hidden="true">→</span>
+        </button>
+        <p class="generate-hint">Your selected style will be ready in the editor.</p>
 
         <!-- Upload Progress Indicator -->
         <div id="uploadProgressBox" class="progress-box hidden">
@@ -478,7 +493,6 @@
   <!-- Notification Toast -->
   <div id="toastNotification" class="toast-notification hidden"></div>
 
-  <script src="/static/duo_presets/duo_presets_loader.js"></script>
-  <script src="/static/app.js?v=3.09"></script>
+  <script src="/static/app.js?v=3.10"></script>
 </body>
 </html>

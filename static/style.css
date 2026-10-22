@@ -172,7 +172,7 @@ button {
   overflow-y: auto;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 20px;
   background: radial-gradient(circle at 50% 20%, #1c1836 0%, #0a0b12 70%);
 }
@@ -184,6 +184,7 @@ button {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  padding: 18px 0;
 }
 
 .brand-badge {
@@ -1539,3 +1540,31 @@ button {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
+
+/* Landing page Duo preset selector */
+.duo-front-picker { width: 100%; margin: 8px 0 20px; padding: 18px; border: 1px solid rgba(255,255,255,.09); border-radius: 20px; background: linear-gradient(145deg,rgba(25,27,43,.94),rgba(13,14,23,.94)); box-shadow: 0 18px 50px rgba(0,0,0,.22); text-align: left; }
+.duo-front-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:13px; }
+.duo-front-heading h2 { margin:0; color:#fff; font-size:16px; font-weight:800; letter-spacing:-.02em; }
+.duo-front-heading p { margin:4px 0 0; color:#9b9bad; font-size:11px; }
+.duo-count { flex:none; padding:6px 8px; border:1px solid rgba(156,113,255,.24); border-radius:999px; background:rgba(131,89,255,.12); color:#c7aaff; font-size:9px; font-weight:800; letter-spacing:.08em; }
+.duo-front-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; max-height:350px; overflow-y:auto; overscroll-behavior:contain; padding:1px 3px 2px 1px; scrollbar-color:#46415a transparent; scrollbar-width:thin; }
+.duo-front-card { min-width:0; padding:0; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:13px; background:#10111b; color:inherit; text-align:left; cursor:pointer; transition:border-color .18s,transform .18s,box-shadow .18s; }
+.duo-front-card:hover { transform:translateY(-2px); border-color:rgba(178,145,255,.55); }
+.duo-front-card[aria-pressed="true"] { border-color:#a978ff; box-shadow:0 0 0 2px rgba(169,120,255,.23),0 8px 25px rgba(110,65,208,.18); }
+.duo-card-art { position:relative; display:flex; height:86px; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; padding:10px 7px 7px; background:radial-gradient(ellipse at 50% 100%,rgba(114,84,191,.23),transparent 65%),linear-gradient(145deg,#232439,#141521 60%,#20202d); }
+.duo-card-art::after { position:absolute; inset:auto 0 0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent); content:""; }
+.duo-card-tag { position:absolute; top:6px; left:6px; max-width:calc(100% - 12px); padding:3px 5px; border-radius:4px; background:rgba(0,0,0,.3); color:#c5c2d5; font-size:7px; font-weight:800; letter-spacing:.08em; }
+.duo-card-small { position:relative; z-index:1; max-width:100%; overflow:hidden; color:#f4f0ff; font-family:Montserrat,Inter,sans-serif; font-size:9px; font-weight:800; letter-spacing:.08em; white-space:nowrap; text-overflow:ellipsis; }
+.duo-card-big { position:relative; z-index:1; display:block; max-width:100%; overflow:hidden; margin-top:-1px; font-size:clamp(19px,6vw,32px); font-weight:900; line-height:1.04; letter-spacing:-.045em; text-align:center; text-overflow:ellipsis; text-shadow:0 4px 15px rgba(0,0,0,.24); white-space:nowrap; }
+.duo-card-name { display:block; overflow:hidden; padding:8px 8px 9px; color:#e7e5f1; font-size:10px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+.duo-selected-line { margin:11px 1px 0; color:#9897a8; font-size:10px; }
+.duo-selected-line strong { color:#d6c7ff; font-weight:700; }
+.duo-empty { grid-column:1/-1; color:#aaa; font-size:12px; }
+.selected-media-name { max-width:100%; overflow:hidden; margin:10px 0 0; color:#c6b2ff; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.btn-generate-home { display:flex; width:100%; align-items:center; justify-content:space-between; margin-top:17px; padding:14px 17px; border:1px solid rgba(212,192,255,.25); border-radius:12px; background:linear-gradient(105deg,#7b45e8,#b04bd9 56%,#ec579a); box-shadow:0 8px 25px rgba(130,64,210,.25); color:#fff; font:800 14px Inter,sans-serif; cursor:pointer; transition:filter .15s,transform .15s; }
+.btn-generate-home:hover { filter:brightness(1.08); transform:translateY(-1px); }
+.btn-generate-home:disabled { cursor:wait; opacity:.78; }
+.generate-hint { margin:7px 0 0; color:#9291a2; font-size:10px; text-align:center; }
+.generate-spinner { width:15px; height:15px; border:2px solid rgba(255,255,255,.38); border-top-color:white; border-radius:50%; animation:duo-spin .7s linear infinite; }
+@keyframes duo-spin { to { transform:rotate(360deg); } }
+@media (min-width:560px) { .duo-front-grid { grid-template-columns:repeat(3,minmax(0,1fr)); max-height:390px; } }

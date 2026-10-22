@@ -427,6 +427,7 @@ def load_presets():
                     "highlightColor": accent_color,
                     "isSpecial": True,
                     "isDuo": True,
+                    "roles": roles,
                     "previewWord": p.get("name", "").replace("Duo ·", "").strip().upper()[:16],
                     "badge": "DUO ⚡",
                     "key": {
@@ -554,6 +555,8 @@ def clean_style(s):
         "id": s.get("id", "custom"),
         "name": _text(s.get("name"), "Custom", 40),
         "category": s.get("category", "all"),
+        "isDuo": bool(s.get("isDuo", False)),
+        "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
         "layout": s.get("layout") if s.get("layout") in ("stack", "line") else "stack",
         "animation": s.get("animation") if s.get("animation") in ("pop", "highlight", "none") else "pop",
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",

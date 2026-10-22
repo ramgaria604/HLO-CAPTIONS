@@ -27,6 +27,7 @@
     vidVolume: 1.0,
     exportJobId: null,
     exportTimer: null,
+    generateAfterPicker: false,
   };
 
   // --- DOM Elements ---
@@ -37,6 +38,8 @@
   const dropZone = $('dropZone');
   const fileInput = $('fileInput');
   const btnSelectFile = $('btnSelectFile');
+  const btnGenerateCaptions = $('btnGenerateCaptions');
+  const selectedMediaName = $('selectedMediaName');
   const langSelect = $('langSelect');
   const scriptInput = $('scriptInput');
   const uploadProgressBox = $('uploadProgressBox');
@@ -1000,13 +1003,68 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   // LOAD PRESETS FROM SERVER + MERGE LOCAL CS_PRESETS (DUO PACK)
   // ==========================================================================
+  function renderDuoFrontPresets() {
+    const grid = $('duoPresetGrid');
+    if (!grid) return;
+    const duo = S.presets.filter(p => p.isDuo);
+    grid.replaceChildren();
+    const count = $('duoPresetCount');
+    const selectedName = $('duoSelectedName');
+    if (count) count.textContent = `${duo.length} STYLES`;
+    if (!duo.length) {
+      grid.innerHTML = '<p class="duo-empty">Duo styles could not load. Refresh the page to try again.</p>';
+      return;
+    }
+    duo.forEach((preset) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'duo-front-card';
+      card.setAttribute('aria-pressed', String(S.style?.id === preset.id));
+      card.setAttribute('aria-label', `Choose ${preset.name}`);
+      const art = document.createElement('span');
+      art.className = 'duo-card-art';
+      const tag = document.createElement('span');
+      tag.className = 'duo-card-tag';
+      tag.textContent = preset.depthAccent ? 'BEHIND SUBJECT' : 'FRONT CAPTION';
+      const small = document.createElement('span');
+      small.className = 'duo-card-small';
+      small.textContent = 'SOME MOMENTS';
+      const big = document.createElement('strong');
+      big.className = 'duo-card-big';
+      big.textContent = preset.previewWord || preset.name.replace(/^Duo\s*[·-]\s*/i, '').toUpperCase();
+      const paint = preset.key?.keyGradient || preset.key?.color || preset.highlightColor || '#8B5CF6';
+      big.style.color = preset.key?.color || preset.highlightColor || '#8B5CF6';
+      if (paint.startsWith('linear-gradient(')) {
+        big.style.backgroundImage = paint;
+        big.style.webkitBackgroundClip = 'text';
+        big.style.backgroundClip = 'text';
+        big.style.color = 'transparent';
+      }
+      big.style.fontFamily = `'${preset.key?.font || 'Montserrat'}', sans-serif`;
+      art.append(tag, small, big);
+      const label = document.createElement('span');
+      label.className = 'duo-card-name';
+      label.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+      card.append(art, label);
+      card.addEventListener('click', () => {
+        applyPreset(preset, false);
+        if (selectedName) selectedName.textContent = label.textContent;
+      });
+      grid.append(card);
+    });
+    if (selectedName) {
+      const selected = duo.find(p => p.id === S.style?.id) || duo[0];
+      selectedName.textContent = selected.name.replace(/^Duo\s*[·-]\s*/i, '');
+    }
+  }
+
   async function loadPresets() {
     try {
       const res = await fetch('/api/presets');
       const data = await res.json();
       S.presets = data.presets || [];
 
-      // Merge any local Duo or custom saved presets from localStorage
+      // Merge locally saved custom presets. Server supplied Duo presets are authoritative.
       try {
         const stored = JSON.parse(localStorage.getItem('cs_presets') || '[]');
         if (Array.isArray(stored) && stored.length > 0) {
@@ -1020,8 +1078,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         }
       } catch(e) {}
 
+      S.presets.sort((a, b) => Number(Boolean(b.isDuo)) - Number(Boolean(a.isDuo)));
+      renderDuoFrontPresets();
       if (S.presets.length > 0) {
-        const initial = S.presets.find(p => p.id === 'yellow_box' || p.id === 'box_pop') || S.presets[0];
+        const initial = S.presets.find(p => p.isDuo) || S.presets[0];
         applyPreset(initial, false);
       }
       renderPresetsTab('all');
@@ -1036,6 +1096,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         position: 0.75,
         fontScale: 1.0,
       }, false);
+      renderDuoFrontPresets();
     }
   }
 
@@ -1065,6 +1126,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       S.file = null;
       S.filename = '';
       S.captions = [];
+      fileInput.value = '';
+      selectedMediaName.textContent = '';
+      selectedMediaName.classList.add('hidden');
+      btnGenerateCaptions.disabled = false;
+      btnGenerateCaptions.innerHTML = '<span>Generate captions</span><span aria-hidden="true">→</span>';
+      uploadError.classList.add('hidden');
       uploadProgressBox.classList.add('hidden');
       uploadProgressBar.style.width = '0%';
       showView('viewUpload');
@@ -1077,7 +1144,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function setupUploadHandlers() {
     btnSelectFile.addEventListener('click', (e) => {
       e.stopPropagation();
+      S.generateAfterPicker = false;
       fileInput.click();
+    });
+
+    btnGenerateCaptions.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!S.file) {
+        S.generateAfterPicker = true;
+        fileInput.click();
+        return;
+      }
+      processSelectedFile(S.file);
     });
 
     dropZone.addEventListener('click', (e) => {
@@ -1089,8 +1167,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
-      if (file) handleFileSelected(file);
+      fileInput.value = '';
+      if (file) {
+        stageSelectedFile(file);
+        if (S.generateAfterPicker) {
+          S.generateAfterPicker = false;
+          processSelectedFile(file);
+        }
+      }
     });
+    fileInput.addEventListener('cancel', () => { S.generateAfterPicker = false; });
 
     ['dragenter', 'dragover'].forEach(evt => {
       dropZone.addEventListener(evt, (e) => {
@@ -1108,14 +1194,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     dropZone.addEventListener('drop', (e) => {
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (file) handleFileSelected(file);
+      if (file) stageSelectedFile(file);
     });
 
   }
 
-  async function handleFileSelected(file) {
+  function stageSelectedFile(file) {
     S.file = file;
     headerFileName.textContent = file.name;
+    selectedMediaName.textContent = 'Ready: ' + file.name;
+    selectedMediaName.classList.remove('hidden');
+    uploadError.classList.add('hidden');
 
     // Instant local zero-latency video preview stream
     try {
@@ -1127,6 +1216,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
 
     uploadError.classList.add('hidden');
+    uploadProgressBox.classList.add('hidden');
+    btnGenerateCaptions.disabled = false;
+    btnGenerateCaptions.innerHTML = '<span>Generate captions</span><span aria-hidden="true">→</span>';
+  }
+
+  async function processSelectedFile(file) {
+    if (!file || btnGenerateCaptions.disabled) return;
+    S.file = file;
+    btnGenerateCaptions.disabled = true;
+    btnGenerateCaptions.innerHTML = '<span>Generating captions…</span><span class="generate-spinner" aria-hidden="true"></span>';
     uploadProgressBox.classList.remove('hidden');
     uploadProgressBar.style.width = '5%';
     uploadPercent.textContent = '5%';
@@ -1202,8 +1301,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         filename: S.filename,
         language: lang,
         lang: lang,
-        wordsPerCaption: 3,
-        maxKeys: 1,
+        wordsPerCaption: Number(S.style?.wordsPerCaption) || 3,
+        maxKeys: Number(S.style?.maxKeys) || 1,
       };
 
       if (pastedScript.length > 0) {
@@ -1276,6 +1375,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     uploadError.textContent = msg;
     uploadError.classList.remove('hidden');
     uploadProgressBox.classList.add('hidden');
+    btnGenerateCaptions.disabled = false;
+    btnGenerateCaptions.innerHTML = '<span>Try generating again</span><span aria-hidden="true">↻</span>';
   }
 
   function normalizeCaptions(raw) {
@@ -1675,8 +1776,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   function applyPreset(preset, showGenToast = false) {
     S.style = Object.assign({}, preset, {
-      fontScale: S.style?.fontScale || 1.0,
-      position: S.style?.position !== undefined ? S.style.position : (preset.position || 0.75),
+      fontScale: 1.0,
+      position: Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75,
       highlightColor: preset.highlightColor || preset.key?.color || '#FFE600',
       fontFamily: preset.key?.font || 'Poppins',
       textCase: S.style?.textCase || 'upper'
@@ -1685,6 +1786,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (selectedPresetName) {
       selectedPresetName.textContent = preset.name || 'Template';
     }
+    const frontSelectedName = $('duoSelectedName');
+    if (frontSelectedName && preset.isDuo) frontSelectedName.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+    $$('.duo-front-card').forEach(card => {
+      card.setAttribute('aria-pressed', String(card.getAttribute('aria-label') === `Choose ${preset.name}`));
+    });
 
     if (selectFont && preset.key?.font) {
       selectFont.value = preset.key.font;
@@ -1798,6 +1904,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         $$('#posButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
         if (!S.style) S.style = {};
         S.style.position = parseFloat(btn.getAttribute('data-pos'));
+        if (S.style.isDuo || S.style.isSpecial) {
+          S.style.depthAccentY = Math.max(0.20, Math.min(0.62, S.style.position));
+          S.style.subtitlePosition = Math.max(0.58, Math.min(0.90, S.style.position + 0.20));
+        }
         renderCanvas();
       });
     });
@@ -1905,10 +2015,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const basePosition = Number.isFinite(originalPosition) ? originalPosition : 0.72;
       const moveKey = (key, fallback) => {
         const current = Number(S.style[key]);
-        S.style[key] = Math.max(0.08, Math.min(0.92, (Number.isFinite(current) ? current : fallback) + delta));
+        const [min, max] = key === 'depthAccentY' ? [0.20, 0.62] : key === 'subtitlePosition' ? [0.58, 0.90] : [0.10, 0.95];
+        S.style[key] = Math.max(min, Math.min(max, (Number.isFinite(current) ? current : fallback) + delta));
       };
       moveKey('position', basePosition);
-      if (S.style.depthAccent || S.style.isSpecial) {
+      if (S.style.depthAccent || S.style.isSpecial || S.style.isDuo) {
         const depthFallback = S.style.depthAccent ? 0.41 : (basePosition || 0.42);
         moveKey('depthAccentY', Number(S.style.depthAccentY) || depthFallback);
         moveKey('subtitlePosition', S.style.subtitlePosition || 0.76);
