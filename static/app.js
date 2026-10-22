@@ -28,6 +28,8 @@
     vidVolume: 1.0,
     exportJobId: null,
     exportTimer: null,
+    exportPayload: null,
+    exportRecovered: false,
     generateAfterPicker: false,
   };
 
@@ -2258,25 +2260,58 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         aspect: 'original',
         speed: 1.0
       };
-
-      const res = await fetch('/api/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Server rejected export request');
-      }
-
-      const data = await res.json();
-      S.exportJobId = data.job;
-
+      S.exportPayload = payload;
+      S.exportRecovered = false;
+      S.exportJobId = await queueExport(payload);
       pollExportStatus(S.exportJobId);
 
     } catch (err) {
       showExportError(err.message);
+    }
+  }
+
+  async function queueExport(payload) {
+    const res = await fetch('/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Server rejected export request');
+    return data.job;
+  }
+
+  async function restoreUploadedVideo() {
+    if (!S.file) throw new Error('The uploaded video is no longer available. Select the video again, then export.');
+
+    exportProgressText.textContent = 'Restoring your uploaded video...';
+    exportProgressDetail.textContent = 'The server restarted, so the selected video is being uploaded again.';
+    const formData = new FormData();
+    formData.append('video', S.file);
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not re-upload the selected video. Please try selecting it again.');
+    S.filename = data.filename;
+    S.probe = {
+      width: data.width || S.probe.width,
+      height: data.height || S.probe.height,
+      fps: data.fps || S.probe.fps,
+      duration: data.duration || S.probe.duration
+    };
+  }
+
+  async function recoverMissingVideoAndRetry() {
+    if (S.exportRecovered || !S.exportPayload) return false;
+    S.exportRecovered = true;
+    try {
+      await restoreUploadedVideo();
+      S.exportPayload.filename = S.filename;
+      S.exportJobId = await queueExport(S.exportPayload);
+      pollExportStatus(S.exportJobId);
+      return true;
+    } catch (err) {
+      showExportError(err.message);
+      return true;
     }
   }
 
@@ -2302,6 +2337,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           showExportComplete(data.download);
         } else if (data.status === 'error') {
           clearInterval(S.exportTimer);
+          if (/video (file )?not found|upload it again/i.test(data.message || '') && await recoverMissingVideoAndRetry()) {
+            return;
+          }
           showExportError(data.message || 'Render failed on server.');
         }
       } catch (e) {
