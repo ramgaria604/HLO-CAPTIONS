@@ -1279,7 +1279,7 @@ def upload_audio():
 
 
 VOICE_PRESETS = {
-    "special_voice": {"voice": "hi-IN-MadhurNeural", "rate": "+45%", "pitch": "-1Hz", "label": "⭐ Special Voice (Viral Reel Creator)"},
+    "special_voice": {"voice": "hi-IN-MadhurNeural", "rate": "+10%", "pitch": "-1Hz", "label": "⭐ Special Voice (Viral Reel Creator)"},
     "madhur_creator": {"voice": "hi-IN-MadhurNeural", "rate": "+8%", "pitch": "-1Hz", "label": "🔥 Viral Reel Storyteller (Madhur)"},
     "madhur_fast": {"voice": "hi-IN-MadhurNeural", "rate": "+18%", "pitch": "+0Hz", "label": "⚡ High-Retention Fast Reel (Madhur)"},
     "swara_soft": {"voice": "hi-IN-SwaraNeural", "rate": "-2%", "pitch": "+0Hz", "label": "🌸 Soft & Emotional Aesthetic (Swara)"},

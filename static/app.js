@@ -194,12 +194,16 @@ function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind
   const leading = st.leading || 0.88;
   const cY = H * (st.position || 0.38);
 
-  const l1Words = words.filter(w => !w.key);
-  const l2Words = words.filter(w => w.key);
-  const hasBoth = l1Words.length > 0 && l2Words.length > 0;
-
-  const line1 = hasBoth ? l1Words : words.slice(0, Math.ceil(words.length / 2));
-  const line2 = hasBoth ? l2Words : words.slice(Math.ceil(words.length / 2));
+  // Preserve exact chronological reading order (never scramble words by key)
+  let line1 = [], line2 = [];
+  if (words.length <= 3) {
+    line1 = words;
+    line2 = [];
+  } else {
+    const mid = Math.ceil(words.length / 2);
+    line1 = words.slice(0, mid);
+    line2 = words.slice(mid);
+  }
 
   const y1 = line2.length ? (cY - (fSize * leading) / 2) : cY;
   const y2 = line1.length ? (cY + (kSize * leading) / 2) : cY;
@@ -435,12 +439,16 @@ function drawChromeStudioPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBe
   const fSize = Math.max(14, Math.round(base * (fRole.size || 0.065)));
   const cY = H * (st.position || 0.42);
 
-  const l1Words = words.filter(w => w.key);
-  const l2Words = words.filter(w => !w.key);
-  const hasBoth = l1Words.length > 0 && l2Words.length > 0;
-
-  const keyWords = hasBoth ? l1Words : words.slice(0, 1);
-  const subWords = hasBoth ? l2Words : words.slice(1);
+  // Preserve exact chronological reading order
+  let keyWords = [], subWords = [];
+  if (words.length <= 2) {
+    keyWords = words.slice(0, 1);
+    subWords = words.slice(1);
+  } else {
+    const mid = Math.ceil(words.length / 2);
+    keyWords = words.slice(0, mid);
+    subWords = words.slice(mid);
+  }
 
   const y1 = cY - kSize * 0.35;
   const y2 = cY + fSize * 1.5;
@@ -564,24 +572,16 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     lines = [words.slice(0, mid), words.slice(mid)];
   }
 
-  // 2. Consistent typography settings (no arbitrary mismatched font sizes on same baseline)
-  let fs = Math.max(18, Math.round(base * (st.fontSize || fRole.size || 0.082)));
+  // 2. Preserve each preset's authentic designer font and typography
+  const presetFont = st.fontFamily || st.font || (kRole && kRole.font) || (fRole && fRole.font) || 'Montserrat';
+  const fontFam = `"${presetFont}", "Poppins", sans-serif`;
+  let fs = Math.max(18, Math.round(base * (st.fontSize || fRole.size || kRole.size || 0.082)));
   const leading = 1.18;
-  const fontFam = (kRole.font ? `"${kRole.font}", ` : (fRole.font ? `"${fRole.font}", ` : "")) + '"Montserrat", "Poppins", sans-serif';
 
-  // 3. Color styling
-  let smallColor = fRole.color || '#FFFFFF';
+  // 3. Preserve each preset's authentic colors, highlights & gradients
+  let smallColor = fRole.color || st.color || '#FFFFFF';
   let bigColor = (st.highlight && st.highlight.color) || kRole.color || st.highlightColor || '#FFE600';
-  let glowColor = kRole.glow || bigColor;
-
-  const hasExplicitColor = !!(kRole.keyGradient || (st.highlight && st.highlight.color) || (kRole.color && kRole.color !== '#FFFFFF' && kRole.color !== 'white'));
-  if (!hasExplicitColor) {
-    const hash = Math.abs((words[0]?.t || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + (words.length * 5));
-    const combo = VIRAL_COMBOS[hash % VIRAL_COMBOS.length];
-    smallColor = combo.small;
-    bigColor = combo.big;
-    glowColor = combo.glow;
-  }
+  let glowColor = kRole.glow || st.glow || bigColor;
 
   // 4. Measure words per line & calculate safe auto-fit scale
   ctx.save();
@@ -645,6 +645,8 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     ctx.restore();
 
     let curX = (W - actualLineWidth) / 2;
+    if (st.align === 'left') curX = W * 0.09;
+    else if (st.align === 'right') curX = W * 0.91 - actualLineWidth;
 
     mLine.wordObjs.forEach(wo => {
       const anim = getWordPop(wo.w, t, showAll, st.animation);
