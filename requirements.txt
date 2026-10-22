@@ -4,3 +4,5 @@ requests>=2.31
 SpeechRecognition>=3.10
 gunicorn>=21.2.0
 faster-whisper>=1.0,<2.0; python_version < "3.13"
+
+edge-tts>=7.0.0
