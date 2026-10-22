@@ -25,6 +25,8 @@
     drawerFullscreen: false,
     bgmFilename: '',
     bgmVolume: 0.3,
+    voiceoverFilename: '',
+    voiceoverVoice: 'hannah',
     vidVolume: 1.0,
     exportJobId: null,
     exportTimer: null,
@@ -117,6 +119,12 @@
   const bgmFilename = $('bgmFilename');
   const inputBgmVol = $('inputBgmVol');
   const valBgmVol = $('valBgmVol');
+  const voiceoverText = $('voiceoverText');
+  const voiceoverVoice = $('voiceoverVoice');
+  const btnGenerateVoiceover = $('btnGenerateVoiceover');
+  const btnReplaceVoiceover = $('btnReplaceVoiceover');
+  const voiceoverStatus = $('voiceoverStatus');
+  const voiceoverAudio = $('voiceoverAudio');
 
   // Modals
   const modalTemplates = $('modalTemplates');
@@ -1220,6 +1228,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       vid.src = '';
       S.file = null;
       S.filename = '';
+      S.voiceoverFilename = '';
+      btnReplaceVoiceover.classList.remove('active');
+      btnReplaceVoiceover.textContent = 'Replace original audio';
+      btnReplaceVoiceover.disabled = true;
+      voiceoverAudio.removeAttribute('src');
+      voiceoverAudio.classList.add('hidden');
+      voiceoverStatus.textContent = 'Generated audio stays private to this video project.';
       S.captions = [];
       fileInput.value = '';
       selectedMediaName.textContent = '';
@@ -1267,10 +1282,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       fileInput.value = '';
       if (file) {
         stageSelectedFile(file);
-        if (S.generateAfterPicker) {
-          S.generateAfterPicker = false;
-          processSelectedFile(file);
-        }
+        S.generateAfterPicker = false;
+        processSelectedFile(file);
       }
     });
     fileInput.addEventListener('cancel', () => { S.generateAfterPicker = false; });
@@ -1292,7 +1305,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     dropZone.addEventListener('drop', (e) => {
       if (dropZone.classList.contains('is-uploading')) return;
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (file) stageSelectedFile(file);
+      if (file) {
+        stageSelectedFile(file);
+        processSelectedFile(file);
+      }
     });
 
   }
@@ -2076,8 +2092,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       fd.append('file', file);
 
       try {
-        const res = await fetch('/api/upload_audio', { method: 'POST', body: fd });
+        fd.append('audio', file);
+        const res = await fetch('/api/upload-audio', { method: 'POST', body: fd });
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Audio upload failed');
         S.bgmFilename = data.filename || file.name;
         bgmFilename.textContent = file.name;
         showToast('🎵 Audio added!');
@@ -2090,6 +2108,44 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const val = parseInt(e.target.value, 10);
       valBgmVol.textContent = val + '%';
       S.bgmVolume = val / 100;
+    });
+
+    voiceoverVoice.addEventListener('change', () => { S.voiceoverVoice = voiceoverVoice.value; });
+    btnGenerateVoiceover.addEventListener('click', async () => {
+      const text = voiceoverText.value.trim();
+      if (!text) {
+        voiceoverStatus.textContent = 'Write or paste a short voiceover script first.';
+        return;
+      }
+      btnGenerateVoiceover.disabled = true;
+      btnGenerateVoiceover.textContent = 'Generating soft voice…';
+      voiceoverStatus.textContent = 'Creating your voiceover…';
+      try {
+        const res = await fetch('/api/voiceover', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: voiceoverVoice.value })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Voiceover could not be generated');
+        S.voiceoverFilename = data.filename;
+        btnReplaceVoiceover.classList.remove('active');
+        btnReplaceVoiceover.textContent = 'Replace original audio';
+        voiceoverAudio.src = '/video/' + encodeURIComponent(data.filename);
+        voiceoverAudio.classList.remove('hidden');
+        btnReplaceVoiceover.disabled = false;
+        voiceoverStatus.textContent = 'Voiceover ready. Preview it, then select Replace original audio to use it in your export.';
+      } catch (err) {
+        voiceoverStatus.textContent = err.message;
+      } finally {
+        btnGenerateVoiceover.disabled = false;
+        btnGenerateVoiceover.textContent = 'Generate voiceover';
+      }
+    });
+    btnReplaceVoiceover.addEventListener('click', () => {
+      if (!S.voiceoverFilename) return;
+      showToast('Voiceover will replace the original audio on export.');
+      btnReplaceVoiceover.classList.add('active');
+      btnReplaceVoiceover.textContent = '✓ Replacing original audio';
     });
   }
 
@@ -2320,6 +2376,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         aspect: 'original',
         speed: 1.0
       };
+      if (S.voiceoverFilename && btnReplaceVoiceover.classList.contains('active')) {
+        payload.voiceover = S.voiceoverFilename;
+        payload.replaceOriginalAudio = true;
+      }
+      if (S.bgmFilename) {
+        payload.bgMusic = S.bgmFilename;
+        payload.musicVol = Math.round(S.bgmVolume * 100);
+      }
       S.exportPayload = payload;
       S.exportRecovered = false;
       S.exportJobId = await queueExport(payload);

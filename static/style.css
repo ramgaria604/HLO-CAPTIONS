@@ -1237,6 +1237,20 @@ button {
   gap: 12px;
 }
 
+.voiceover-help, .voiceover-status {
+  color: var(--text-muted, #9aa3b2);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 8px 0 10px;
+}
+.voiceover-text { min-height: 92px; width: 100%; resize: vertical; box-sizing: border-box; }
+.voiceover-label { display: block; margin: 10px 0 6px; font-size: 12px; color: var(--text-muted, #9aa3b2); }
+.voiceover-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.voiceover-actions .btn-subaction { flex: 1 1 150px; justify-content: center; }
+.voiceover-actions button:disabled { opacity: .48; cursor: not-allowed; }
+.voiceover-actions button.active { border-color: #58e1ad; color: #58e1ad; }
+.voiceover-audio { display: block; width: 100%; margin-top: 12px; }
+
 .bgm-row {
   display: flex;
   align-items: center;

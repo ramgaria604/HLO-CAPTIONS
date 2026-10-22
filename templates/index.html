@@ -39,7 +39,7 @@
 
       <!-- Dropzone Card -->
       <div class="upload-card" id="dropZone">
-        <input type="file" id="fileInput" accept="video/*,audio/*" class="file-input-hidden">
+        <input type="file" id="fileInput" accept="video/*" class="file-input-hidden">
         
         <div class="video-picker-group" id="videoPickerGroup">
           <div class="upload-icon-circle">
@@ -340,6 +340,27 @@
           <!-- TAB 4: AUDIO -->
           <div id="tabAudio" class="tab-pane hidden">
             <div class="audio-panel">
+              <div class="control-card voiceover-card">
+                <div class="control-header">
+                  <label>AI Voiceover</label>
+                  <span class="val-badge">3 soft voices</span>
+                </div>
+                <p class="voiceover-help">Write up to 200 characters, choose a voice, and preview it before replacing the video audio.</p>
+                <textarea id="voiceoverText" class="script-textarea voiceover-text" maxlength="200" placeholder="Type up to 200 characters…"></textarea>
+                <label class="voiceover-label" for="voiceoverVoice">Voice style</label>
+                <select id="voiceoverVoice" class="styled-select">
+                  <option value="hannah" selected>Hannah · warm and soft</option>
+                  <option value="autumn">Autumn · warm and gentle</option>
+                  <option value="troy">Troy · calm and clear</option>
+                </select>
+                <div class="voiceover-actions">
+                  <button id="btnGenerateVoiceover" class="btn-subaction">Generate voiceover</button>
+                  <button id="btnReplaceVoiceover" class="btn-subaction" disabled>Replace original audio</button>
+                </div>
+                <audio id="voiceoverAudio" class="voiceover-audio hidden" controls></audio>
+                <p id="voiceoverStatus" class="voiceover-status" aria-live="polite">Generated audio stays private to this video project.</p>
+              </div>
+
               <div class="control-card">
                 <div class="control-header">
                   <label>Original Video Volume</label>

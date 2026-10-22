@@ -1278,6 +1278,42 @@ def upload_audio():
     return jsonify(filename=name, original_name=secure_filename(f.filename))
 
 
+@app.post("/api/voiceover")
+def generate_voiceover():
+    """Generate a short, natural English voiceover without exposing the API key."""
+    data = request.get_json(silent=True) or {}
+    text = str(data.get("text", "")).strip()
+    voice = str(data.get("voice", "hannah")).strip().lower()
+    if not text:
+        return err("Enter the words you want spoken.")
+    if len(text) > 200:
+        return err("Voiceover scripts are limited to 200 characters per generation.")
+    if voice not in {"hannah", "autumn", "troy"}:
+        return err("Choose one of the available voice styles.")
+    api_key = (os.environ.get("GROQ_API_KEY") or "").strip()
+    if not api_key:
+        return err("Voiceover is not configured on the server yet. Add GROQ_API_KEY in the server environment settings.", 503)
+    try:
+        import requests
+        response = requests.post(
+            "https://api.groq.com/openai/v1/audio/speech",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": "canopylabs/orpheus-v1-english", "input": text,
+                  "voice": voice, "response_format": "wav"},
+            timeout=120,
+        )
+        if not response.ok:
+            detail = " ".join(response.text.split())[:350]
+            return err(f"Voiceover provider error ({response.status_code}): {detail}", 502)
+        if not response.content:
+            return err("The voiceover provider returned an empty audio file.", 502)
+        filename = f"voiceover_{uuid.uuid4().hex[:12]}.wav"
+        (WORK / filename).write_bytes(response.content)
+        return jsonify(filename=filename, voice=voice)
+    except Exception as exc:
+        return err(f"Could not generate voiceover: {str(exc)[:250]}", 502)
+
+
 @app.post("/api/broll/suggest")
 def broll_suggest():
     d = request.get_json(force=True)
@@ -1704,31 +1740,61 @@ def export_worker(job_id, d):
                 base_filter = base_filter + f";{final_v}{effect_chain}[vpost]"
                 final_v = "[vpost]"
 
-            args += ["-filter_complex", base_filter, "-map", final_v, "-map", "0:a?"]
+            # Optional generated voiceover replaces the source audio. BGM can
+            # still be mixed underneath it, while source audio remains the
+            # default when replacement is not selected.
+            replace_audio = bool(d.get("replaceOriginalAudio"))
+            voice_file = None
+            voice_input_index = None
+            if replace_audio and d.get("voiceover"):
+                try:
+                    voice_file = WORK / safe_name(d.get("voiceover"))
+                except FileNotFoundError:
+                    raise RuntimeError("Generated voiceover was not found. Generate it again before exporting.")
+                if not voice_file.exists():
+                    raise RuntimeError("Generated voiceover was not found. Generate it again before exporting.")
+                voice_input_index = sum(1 for arg in args if arg == "-i")
+                args += ["-i", str(voice_file)]
 
-            # Speed adjustment
-            if speed != 1.0:
-                inv = 1.0 / speed
-                args += ["-filter:a", f"atempo={speed}"]
-
-            # Background music mixing
+            music_file = None
+            music_input_index = None
             bg_music = d.get("bgMusic")
-            if bg_music and (WORK / bg_music).exists():
+            if bg_music:
+                try:
+                    candidate = WORK / safe_name(bg_music)
+                    if candidate.exists():
+                        music_file = candidate
+                        music_input_index = sum(1 for arg in args if arg == "-i")
+                        args += ["-stream_loop", "-1", "-i", str(music_file)]
+                except FileNotFoundError:
+                    music_file = None
+
+            audio_filters = []
+            audio_labels = []
+            if voice_file:
+                audio_filters.append(f"[{voice_input_index}:a]aresample=48000,apad,atrim=0:{cur_duration:.3f},asetpts=PTS-STARTPTS[voiceaudio]")
+                audio_labels.append("[voiceaudio]")
+            elif info["has_audio"]:
+                audio_filters.append(f"[0:a]aresample=48000,apad,atrim=0:{cur_duration:.3f},asetpts=PTS-STARTPTS[sourceaudio]")
+                audio_labels.append("[sourceaudio]")
+
+            if music_file:
                 music_vol = max(0, min(100, int(d.get("musicVol", 30)))) / 100.0
-                voice_vol = max(50, min(150, int(d.get("voiceVol", 100)))) / 100.0
-                # Add music as additional input and mix
-                args_new = []
-                # Insert music input before -filter_complex
-                fc_idx = args.index("-filter_complex")
-                args_new = args[:fc_idx]
-                args_new += ["-i", str(WORK / bg_music), "-stream_loop", "-1"]
-                # Modify to mix audio
-                old_fc = args[fc_idx + 1]
-                args_new += ["-filter_complex", old_fc]
-                args_new += args[fc_idx + 2:]
-                # Replace simple audio map with mixed audio
-                # We'll use a simple approach: mix in post
-                args = args_new
+                audio_filters.append(f"[{music_input_index}:a]aresample=48000,volume={music_vol:.3f},atrim=0:{cur_duration:.3f},asetpts=PTS-STARTPTS[musicaudio]")
+                audio_labels.append("[musicaudio]")
+
+            if len(audio_labels) == 2:
+                audio_filters.append(f"{''.join(audio_labels)}amix=inputs=2:duration=longest:normalize=0,alimiter=limit=0.95[aout]")
+                audio_map = "[aout]"
+            elif audio_labels:
+                audio_map = audio_labels[0]
+            else:
+                audio_map = None
+
+            full_filter = base_filter + (";" + ";".join(audio_filters) if audio_filters else "")
+            args += ["-filter_complex", full_filter, "-map", final_v]
+            if audio_map:
+                args += ["-map", audio_map]
 
             # Video codec settings
             if d.get("format") == "webm":
