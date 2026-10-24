@@ -606,6 +606,13 @@
   <!-- Notification Toast -->
   <div id="toastNotification" class="toast-notification hidden"></div>
 
-  <script src="/static/app.js?v=3.19"></script>
+  <script type="module">
+    import * as Layout from '/static/layout/layout.js';
+    window.layoutStack = Layout.layoutStack;
+    window.renderLines = Layout.renderLines;
+    window.measureInk = Layout.measureInk;
+    window.checkLayout = Layout.checkLayout;
+  </script>
+  <script src="/static/app.js?v=3.20"></script>
 </body>
 </html>

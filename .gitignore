@@ -30,3 +30,5 @@ node_modules/
 static/vendor/
 src_tscaps/
 
+
+layout_fix_pack_extracted/

@@ -18,7 +18,7 @@
  * Render:  npx remotion render Captioned out.mp4 --props=props.json
  */
 import React, {useMemo} from 'react';
-import {AbsoluteFill, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {AbsoluteFill, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig, delayRender, continueRender} from 'remotion';
 import {loadFont as fPoppins} from '@remotion/google-fonts/Poppins';
 import {loadFont as fInter} from '@remotion/google-fonts/Inter';
 import {loadFont as fGreat} from '@remotion/google-fonts/GreatVibes';
@@ -71,7 +71,7 @@ type Anim = 'pop' | 'bounce' | 'slide' | 'slideRightSoft' | 'fade' | 'glitch' | 
 type Highlight = {mode: 'color' | 'box' | 'underline' | 'wipe'; color: string; textColor?: string; wipe?: [string, string]};
 export type Preset = {
   id: string; name: string;
-  layout: 'stack' | 'line' | 'scatter' | 'echo';
+  layout: 'stack' | 'line' | 'scatter' | 'echo'; inkGap?: number;
   anim: Anim; reveal: 'cumulative' | 'all';
   pos: number; wordsPerCaption: number; keyWords: number;
   big: Role; small: Role;
@@ -234,7 +234,7 @@ function animStyle(anim: Anim, age: number, fps: number, em: number, slideFrames
 // ---------------------------------------------------------------- one word
 const WordView: React.FC<{w: Word; p: Preset; role: Role; em: number; anchor: number; hidden?: boolean}> = ({w, p, role, em, anchor, hidden}) => {
   const frame = useCurrentFrame();
-  const {fps, width, height} = useVideoConfig();
+  const {fps, width, height} = useVideoConfig, delayRender, continueRender();
   const t = frame / fps;
   const sf = (p.reveal === 'all' ? anchor : w.s) * fps;
   const age = frame - sf;
@@ -276,10 +276,44 @@ const WordView: React.FC<{w: Word; p: Preset; role: Role; em: number; anchor: nu
 };
 
 // ---------------------------------------------------------------- the caption block
+
+function measureInk(text: string, font: string, size: number, weight: number, italic: boolean, track: number) {
+  const cv = document.createElement('canvas').getContext('2d')!;
+  cv.font = `${italic ? 'italic ' : ''}${weight} ${size}px "${font}", sans-serif`;
+  const m = cv.measureText(text);
+  const n = Math.max(0, text.length - 1);
+  return {
+    width: m.width + track * size * n,
+    asc: m.actualBoundingBoxAscent,
+    desc: m.actualBoundingBoxDescent,
+    fA: m.fontBoundingBoxAscent,
+    fD: m.fontBoundingBoxDescent
+  };
+}
+
+function layoutStackLines(lines: Array<{text: string; font: string; size: number; weight: number; italic: boolean; track: number}>, W: number, H: number, posX = 0.5, posY = 0.5, inkGap = 0.03, maxWidth = 0.90) {
+  const out = lines.map((l) => {
+    const e = measureInk(l.text, l.font, l.size, l.weight, l.italic, l.track);
+    const s = e.width ? Math.min(1, maxWidth * W / e.width) : 1;
+    return {...l, size: l.size * s, scale: s, width: e.width * s, asc: e.asc * s, desc: e.desc * s, fA: e.fA * s, fD: e.fD * s};
+  });
+  const gaps = out.slice(1).map((o, i) => Math.max(-0.2, inkGap) * Math.max(out[i].size, o.size));
+  const total = out.reduce((a, o) => a + o.asc + o.desc, 0) + gaps.reduce((a, g) => a + g, 0);
+  let y = posY * H - total / 2;
+  return out.map((o, i) => {
+    if (i) y += gaps[i - 1];
+    const inkTop = y;
+    const baseline = y + o.asc;
+    const inkBottom = baseline + o.desc;
+    y = inkBottom;
+    return {...o, inkTop, baseline, inkBottom, x: posX * W};
+  });
+}
+
 export const PremiumCaptions: React.FC<{words: Word[]; presetId?: string; preset?: Preset; layer?: 'all' | 'behind' | 'front'}> = ({words, presetId = 'neon_duo', preset, layer = 'all'}) => {
   const p = preset ?? PRESETS[presetId];
   const frame = useCurrentFrame();
-  const {fps, width, height} = useVideoConfig();
+  const {fps, width, height} = useVideoConfig, delayRender, continueRender();
   const t = frame / fps;
   const base = Math.min(width, height);
   const chunks = useMemo(() => makeChunks(words, p.wordsPerCaption, p.keyWords, p.keyLast), [words, p]);
@@ -333,6 +367,34 @@ export const PremiumCaptions: React.FC<{words: Word[]; presetId?: string; preset
   } else if (p.layout === 'scatter') {
     const dxs = [-0.14, 0.12, -0.04, 0.1];
     body = runs.map((l, i) => <Line key={i} line={l} dx={l[0].key ? 0 : (p.smallDx ? p.smallDx[i % p.smallDx.length] : dxs[i % dxs.length])} mt={i ? -0.2 * roleOf(l[0]).size * base : 0} />);
+  } else if (p.layout === 'stack' && runs.length >= 2) {
+    const linesInput = runs.map((runWords) => {
+      const r = roleOf(runWords[0]);
+      const text = runWords.map(w => r.upper ? w.t.toUpperCase() : r.lower ? w.t.toLowerCase() : w.t).join(' ');
+      return {
+        text,
+        font: r.font,
+        size: r.size * base,
+        weight: r.weight,
+        italic: Boolean(r.italic),
+        track: r.track ?? 0
+      };
+    });
+    const lay = layoutStackLines(linesInput, width, height, 0.5, p.pos ?? 0.5, p.inkGap ?? 0.03, 0.90);
+    body = (
+      <div style={{position: 'relative', width: '100%', height}}>
+        {lay.map((o, i) => {
+          const runWords = runs[i];
+          const LH = Math.ceil(o.size * 1.6);
+          const offset = LH / 2 + (o.fA - o.fD) / 2;
+          return (
+            <div key={i} style={{position: 'absolute', left: o.x + 'px', top: (o.baseline - offset) + 'px', transform: 'translateX(-50%)', whiteSpace: 'nowrap', lineHeight: LH + 'px', height: LH + 'px'}}>
+              <Line line={runWords} />
+            </div>
+          );
+        })}
+      </div>
+    );
   } else body = runs.map((l, i) => <Line key={i} line={l} mt={i ? -0.12 * roleOf(l[0]).size * base : 0} />);
 
   return (

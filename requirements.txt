@@ -6,3 +6,4 @@ gunicorn>=21.2.0
 faster-whisper>=1.0,<2.0; python_version < "3.13"
 
 edge-tts>=7.0.0
+fonttools>=4.40.0

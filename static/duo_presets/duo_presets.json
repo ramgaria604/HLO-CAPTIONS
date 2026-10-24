@@ -16,6 +16,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.046,
   "posCycle": [
    0.2,
    0.52
@@ -139,6 +140,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.03,
   "posCycle": [
    0.14,
    0.48
@@ -264,6 +266,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.03,
   "posCycle": [
    0.14,
    0.5
@@ -385,6 +388,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.053,
   "posCycle": [
    0.2,
    0.5
@@ -508,6 +512,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.055,
   "posCycle": [
    0.16,
    0.5
@@ -631,6 +636,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.052,
   "posCycle": [
    0.15,
    0.5
@@ -749,6 +755,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.053,
   "posCycle": [
    0.18,
    0.5
@@ -875,6 +882,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.059,
   "posCycle": [
    0.2,
    0.55
@@ -997,6 +1005,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.054,
   "posCycle": [
    0.16,
    0.5
@@ -1120,6 +1129,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.052,
   "posCycle": [
    0.15,
    0.5
@@ -1243,6 +1253,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.053,
   "posCycle": [
    0.18,
    0.5
@@ -1364,6 +1375,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.03,
   "posCycle": [
    0.15,
    0.5
@@ -1486,6 +1498,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.03,
   "posCycle": [
    0.14,
    0.48
@@ -1646,6 +1659,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.083,
   "posCycle": [
    0.7,
    0.8
@@ -1800,6 +1814,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.03,
   "posCycle": [
    0.15,
    0.5
@@ -1956,6 +1971,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.062,
   "posCycle": [],
   "roles": {
    "base": {
@@ -2074,6 +2090,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.076,
   "posCycle": [],
   "roles": {
    "base": {
@@ -2193,6 +2210,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.088,
   "posCycle": [],
   "roles": {
    "base": {
@@ -2315,6 +2333,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.076,
   "posCycle": [],
   "roles": {
    "base": {
@@ -2433,6 +2452,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.076,
   "posCycle": [],
   "roles": {
    "base": {
@@ -2551,6 +2571,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.05,
   "posCycle": [],
   "roles": {
    "base": {
@@ -2669,6 +2690,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.062,
   "posCycle": [],
   "roles": {
    "base": {
@@ -2788,6 +2810,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.03,
   "posCycle": [],
   "roles": {
    "base": {
@@ -2906,6 +2929,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.065,
   "posCycle": [],
   "roles": {
    "base": {
@@ -3024,6 +3048,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.05,
   "posCycle": [],
   "roles": {
    "base": {
@@ -3142,6 +3167,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.053,
   "posCycle": [
    0.16,
    0.5
@@ -3263,6 +3289,7 @@
   "lineGap": 0.86,
   "autoMin": 4,
   "keyRule": "last",
+  "inkGap": 0.059,
   "posCycle": [
    0.18,
    0.54
@@ -3386,6 +3413,7 @@
   "lineGap": 1.05,
   "autoMin": 4,
   "keyRule": "auto",
+  "inkGap": 0.03,
   "posCycle": [],
   "roles": {
    "base": {
@@ -3503,6 +3531,7 @@
   "lineGap": 1.05,
   "autoMin": 4,
   "keyRule": "auto",
+  "inkGap": 0.03,
   "posCycle": [],
   "roles": {
    "base": {
@@ -3620,6 +3649,7 @@
   "lineGap": 1.05,
   "autoMin": 4,
   "keyRule": "auto",
+  "inkGap": 0.03,
   "posCycle": [],
   "roles": {
    "base": {
@@ -3737,6 +3767,7 @@
   "lineGap": 1.05,
   "autoMin": 4,
   "keyRule": "auto",
+  "inkGap": 0.03,
   "posCycle": [],
   "roles": {
    "base": {
@@ -3835,78 +3866,6 @@
      "speed": 1
     }
    }
-  }
- },
- {
-  "id": "real_estate_1",
-  "name": "Real Estate 1",
-  "category": "real-estate",
-  "mode": "emphasis",
-  "layout": "line",
-  "anim": "slide-right-soft",
-  "blend": "normal",
-  "behindRule": "none",
-  "overGraphics": false,
-  "wordsPerPage": 4,
-  "maxKeys": 0,
-  "estateVariant": "teal",
-  "wordGap": 0.12,
-  "previewWord": "GORGEOUS",
-  "posX": 0.5,
-  "posY": 0.63,
-  "subtitleY": 0.565,
-  "lineGap": 0.9,
-  "roles": {
-   "base": {"font":"Montserrat","size":74,"weight":700,"bold":true,"italic":false,"color":"#FFFFFF","outline":0,"outlineColor":"#000000","shadow":0,"shadowColor":"#000000","glow":0,"glowColor":"#FFFFFF","track":-0.01,"upper":false,"layer":"front","enter":"slide-right-soft","dx":-14,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"solid","colors":["#FFFFFF"],"angle":90,"hi":"#FFFFFF","lo":"#000000","speed":1}},
-   "accent": {"font":"Montserrat","size":108,"weight":900,"bold":true,"italic":false,"color":"#19BDB5","outline":0,"outlineColor":"#000000","shadow":0,"shadowColor":"#04323D","glow":0,"glowColor":"#FFFFFF","track":-0.025,"upper":false,"layer":"behind","enter":"slide-right-soft","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"liquid","colors":["#35D8CE","#139DA6","#075B70","#0E8995","#35D8CE"],"angle":90,"hi":"#73F4E7","lo":"#064654","speed":1}}
-  }
- },
- {
-  "id": "real_estate_2",
-  "name": "Real Estate 2",
-  "category": "real-estate",
-  "mode": "emphasis",
-  "layout": "line",
-  "anim": "slide-right-soft",
-  "blend": "normal",
-  "behindRule": "none",
-  "overGraphics": false,
-  "wordsPerPage": 4,
-  "maxKeys": 0,
-  "estateVariant": "magenta-script",
-  "wordGap": 0.12,
-  "previewWord": "TONIGHT",
-  "posX": 0.5,
-  "posY": 0.63,
-  "subtitleY": 0.665,
-  "lineGap": 0.9,
-  "roles": {
-   "base": {"font":"Montserrat","size":74,"weight":700,"bold":true,"italic":false,"color":"#FFFFFF","outline":0,"outlineColor":"#000000","shadow":0,"shadowColor":"#000000","glow":0,"glowColor":"#FFFFFF","track":-0.01,"upper":false,"layer":"front","enter":"slide-right-soft","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"solid","colors":["#FFFFFF"],"angle":90,"hi":"#FFFFFF","lo":"#000000","speed":1}},
-   "accent": {"font":"Montserrat","size":108,"weight":900,"bold":true,"italic":false,"color":"#D526AF","outline":0,"outlineColor":"#000000","shadow":0,"shadowColor":"#000000","glow":0,"glowColor":"#FFFFFF","track":-0.025,"upper":false,"layer":"behind","enter":"slide-right-soft","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"gradient","colors":["#F12CB8","#B523C4","#6C2CAC"],"angle":0,"hi":"#FFFFFF","lo":"#000000","speed":1}}
-  }
- },
- {
-  "id": "real_estate_3",
-  "name": "Real Estate 3",
-  "category": "real-estate",
-  "mode": "emphasis",
-  "layout": "line",
-  "anim": "slide-right-soft",
-  "blend": "normal",
-  "behindRule": "none",
-  "overGraphics": false,
-  "wordsPerPage": 4,
-  "maxKeys": 0,
-  "estateVariant": "orange-scatter",
-  "wordGap": 0.12,
-  "previewWord": "REAL ESTATE",
-  "posX": 0.5,
-  "posY": 0.63,
-  "subtitleY": 0.68,
-  "lineGap": 0.84,
-  "roles": {
-   "base": {"font":"Montserrat","size":74,"weight":700,"bold":true,"italic":false,"color":"#FFFFFF","outline":0,"outlineColor":"#000000","shadow":0,"shadowColor":"#000000","glow":0,"glowColor":"#FFFFFF","track":-0.01,"upper":false,"layer":"front","enter":"slide-right-soft","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"solid","colors":["#FFFFFF"],"angle":90,"hi":"#FFFFFF","lo":"#000000","speed":1}},
-   "accent": {"font":"Montserrat","size":108,"weight":900,"bold":true,"italic":false,"color":"#FF5A00","outline":0,"outlineColor":"#9A1408","shadow":0,"shadowColor":"#9A1408","glow":0,"glowColor":"#FFFFFF","track":-0.025,"upper":false,"layer":"behind","enter":"slide-right-soft","dx":0,"dy":0,"rotate":0,"opacity":1,"fill":{"type":"grunge","colors":["#FF6200","#FF5A00","#F04A06","#D6300A"],"angle":90,"hi":"#FF8A3A","lo":"#BE1A0A","speed":1}}
   }
  }
 ]

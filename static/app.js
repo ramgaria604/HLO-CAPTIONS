@@ -165,22 +165,32 @@ function getWordPop(w, t, showAll, anim) {
   if (typeof w.s === 'number') {
     const dt = t - w.s;
 
-    // Word not yet reached in speech: hidden
+    // Word not yet reached in speech: hidden, keep layout position
     if (dt < 0) {
-      return { visible: false, scale: 0.96, dx: -6, dy: 0, opacity: 0.0 };
+      return { visible: false, scale: 1.0, dx: 0, dy: 0, opacity: 0.0 };
     }
 
-    // Word is currently being spoken: gentle left-to-right fade in & subtle slide over 0.18s
-    if (dt < 0.18) {
-      const p = Math.max(0, Math.min(1, dt / 0.18));
-      const ease = 1 - Math.pow(1 - p, 2);
-      const dx = -6 * (1 - ease);
-      const scale = 0.96 + 0.04 * ease;
-      const opacity = Math.max(0, Math.min(1, ease));
-      return { visible: true, scale, dx, dy, opacity };
+    const dur = 0.20;
+    if (dt < dur) {
+      const p = Math.max(0, Math.min(1, dt / dur));
+      const ease = 1 - Math.pow(1 - p, 3);
+      let dx = 0, dy = 0, scale = 1.0;
+      const enterAnim = anim || 'pop';
+      if (enterAnim === 'slide-up') {
+        dy = 24 * (1 - ease);
+      } else if (enterAnim === 'slide-down') {
+        dy = -24 * (1 - ease);
+      } else if (enterAnim === 'slide-left') {
+        dx = 24 * (1 - ease);
+      } else if (enterAnim === 'slide-right') {
+        dx = -24 * (1 - ease);
+      } else if (enterAnim === 'pop' || enterAnim === 'bounce') {
+        scale = 0.88 + 0.12 * ease;
+      }
+      return { visible: true, scale, dx, dy, opacity: ease };
     }
 
-    // Word already spoken: stays fully visible and stable until the caption finishes
+    // Word already spoken: stays fully visible and stable at exactly (0,0)
     return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
   }
 
@@ -944,6 +954,162 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
   drawLine(subtitles, subtitleY, W * 0.86, subtitleRole);
 }
 
+function getLayoutStackFn() {
+  if (typeof window !== 'undefined' && typeof window.layoutStack === 'function') {
+    return window.layoutStack;
+  }
+  return function(lines, {W = 1080, H = 1920, posX = .5, posY = .5, inkGap = .03, maxWidth = .9} = {}) {
+    const cv = document.createElement('canvas').getContext('2d');
+    const fontStr = (l, size) => `${l.italic ? 'italic ' : ''}${l.weight} ${size}px "${l.font}"`;
+    const measureInk = (l, size = l.size) => {
+      cv.font = fontStr(l, size); const t = l.text, m = cv.measureText(t), n = Math.max(0, t.length - 1);
+      return {width: m.width + (l.track || 0) * size * n, asc: m.actualBoundingBoxAscent, desc: m.actualBoundingBoxDescent, fA: m.fontBoundingBoxAscent, fD: m.fontBoundingBoxDescent};
+    };
+    const out = lines.map((l) => { const e = measureInk(l), s = e.width ? Math.min(1, maxWidth * W / e.width) : 1; return {...l, size: l.size * s, scale: s, width: e.width * s, asc: e.asc * s, desc: e.desc * s, fA: e.fA * s, fD: e.fD * s}; });
+    const gaps = out.slice(1).map((o, i) => Math.max(-.2, inkGap) * Math.max(out[i].size, o.size));
+    const total = out.reduce((a, o) => a + o.asc + o.desc, 0) + gaps.reduce((a, g) => a + g, 0); let y = posY * H - total / 2;
+    out.forEach((o, i) => { if (i) y += gaps[i - 1]; o.inkTop = y; o.baseline = y + o.asc; o.inkBottom = o.baseline + o.desc; y = o.inkBottom; o.x = posX * W; o.gapAbove = i ? gaps[i - 1] : 0; });
+    return out;
+  };
+}
+
+function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
+  if (!words || !words.length) return;
+  const roles = st.roles || {};
+  const baseRole = roles.base || st.filler || {};
+  const capId = (cap && (cap.index != null ? cap.index : cap.id)) || 1;
+  const alt = (st.accent2 || roles.accent2) && (Math.max(0, Number(capId) - 1) % 2 === 1);
+  const accentRole = (alt && (roles.accent2 || st.accent2)) || roles.accent || st.key || {};
+  const uppercase = Boolean(st.uppercase != null ? st.uppercase : accentRole.upper);
+  const inkGap = typeof st.inkGap === 'number' ? st.inkGap : 0.03;
+  const posX = typeof st.posX === 'number' ? st.posX : 0.5;
+  let posY = typeof st.posY === 'number' ? st.posY : 0.5;
+  if (Array.isArray(st.posCycle) && st.posCycle.length > 0) {
+    const idx = Math.max(0, Number(capId) - 1) % st.posCycle.length;
+    posY = st.posCycle[idx];
+  }
+
+  // 1. Line runs: small words line, big word line
+  let smallWords = [];
+  let bigWords = [];
+  if (words.length <= 1) {
+    bigWords = words;
+  } else {
+    smallWords = words.slice(0, -1);
+    bigWords = [words[words.length - 1]];
+  }
+
+  const up = (txt) => uppercase ? txt.toUpperCase() : txt;
+  const smallText = smallWords.map(w => up(w.t)).join(' ');
+  const bigText = bigWords.map(w => up(w.t)).join(' ');
+
+  const scale = Math.min(W / 1080, H / 1920) * (Number(st.fontScale) || 1);
+  const getRolePx = (r, defaultPx) => {
+    const s = Number(r.size) || defaultPx;
+    return s > 1 ? s * scale : s * H;
+  };
+
+  const lineDescriptors = [];
+  if (smallWords.length > 0) {
+    lineDescriptors.push({
+      text: smallText,
+      font: baseRole.font || 'Poppins',
+      size: Math.max(14, getRolePx(baseRole, 62)),
+      weight: baseRole.weight || (baseRole.bold ? 700 : 500),
+      italic: Boolean(baseRole.italic),
+      track: Number(baseRole.track) || 0,
+      isHero: false,
+      role: baseRole,
+      words: smallWords
+    });
+  }
+  if (bigWords.length > 0) {
+    lineDescriptors.push({
+      text: bigText,
+      font: accentRole.font || 'Montserrat',
+      size: Math.max(18, getRolePx(accentRole, 190)),
+      weight: accentRole.weight || (accentRole.bold ? 900 : 800),
+      italic: Boolean(accentRole.italic),
+      track: Number(accentRole.track) || 0,
+      isHero: true,
+      role: accentRole,
+      words: bigWords
+    });
+  }
+
+  const layoutFn = getLayoutStackFn();
+  const lay = layoutFn(lineDescriptors, {
+    W, H,
+    posX, posY,
+    inkGap,
+    maxWidth: 0.90
+  });
+
+  lay.forEach((o) => {
+    const isBehindPerson = o.isHero && (o.role.layer === 'behind' || st.behindPerson || st.depthAccent);
+    const targetCtx = (isBehindPerson && ctxBehind) ? ctxBehind : ctxFore;
+    if (!targetCtx) return;
+
+    targetCtx.save();
+    const fontStr = `${o.italic ? 'italic ' : ''}${o.weight} ${o.size}px "${o.font}", sans-serif`;
+    targetCtx.font = fontStr;
+    if ('letterSpacing' in targetCtx) targetCtx.letterSpacing = `${(o.track || 0) * o.size}px`;
+
+    // Space between words must be at least 0.16 * font size; never negative margin
+    const minSpace = 0.16 * o.size;
+    const spaceWidth = Math.max(minSpace, targetCtx.measureText(' ').width);
+    const wordObjs = o.words.map((w) => {
+      const txt = up(w.t);
+      const wWidth = targetCtx.measureText(txt).width;
+      return { w, txt, width: wWidth };
+    });
+
+    const totalLineWidth = wordObjs.reduce((sum, wo) => sum + wo.width, 0) + Math.max(0, wordObjs.length - 1) * spaceWidth;
+    let curX = o.x - totalLineWidth / 2;
+
+    wordObjs.forEach((wo) => {
+      const anim = getWordPop(wo.w, t, showAll, o.role.enter || st.animation);
+
+      // Keep word place in line - if not yet arrived, opacity is 0 (do not shift/re-layout)
+      if (anim.opacity > 0) {
+        targetCtx.save();
+        // Slide / enter animation ends at exactly translate(0, 0).
+        // Role dx/dy is NOT applied to lines of stack layout.
+        targetCtx.translate(curX + (anim.dx || 0), o.baseline + (anim.dy || 0));
+        targetCtx.scale(anim.scale || 1, anim.scale || 1);
+        targetCtx.globalAlpha *= (typeof anim.opacity === 'number' ? anim.opacity : 1.0);
+        targetCtx.textBaseline = 'alphabetic';
+        targetCtx.textAlign = 'left';
+
+        // Outlines & shadows
+        if (o.role.outline > 0) {
+          targetCtx.lineJoin = 'round';
+          targetCtx.lineWidth = Math.max(1, o.role.outline * (o.size / 70));
+          targetCtx.strokeStyle = o.role.outlineColor || '#000000';
+          targetCtx.strokeText(wo.txt, 0, 0);
+        }
+        if (o.role.shadow > 0) {
+          targetCtx.shadowColor = o.role.shadowColor || 'rgba(0,0,0,0.6)';
+          targetCtx.shadowBlur = Math.max(1, o.role.shadow * (o.size / 70));
+          targetCtx.shadowOffsetY = Math.max(1, o.role.shadow * (o.size / 70) * 0.5);
+        }
+
+        // Fill paint
+        if (!o.role.keyGradient && o.role.fill && o.role.fill.colors && o.role.fill.colors.length > 1) {
+          o.role.keyGradient = `linear-gradient(${o.role.fill.angle || 90}deg, ${o.role.fill.colors.join(',')})`;
+        }
+        targetCtx.fillStyle = canvasRolePaint(targetCtx, o.role, o.role.color || '#FFFFFF', o.size);
+        targetCtx.fillText(wo.txt, 0, 0);
+        targetCtx.restore();
+      }
+
+      curX += wo.width + spaceWidth;
+    });
+
+    targetCtx.restore();
+  });
+}
+
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
   if (!ctxFore) return;
   const base = Math.min(W, H) * Math.max(0.6, Math.min(1.5, Number(st.fontScale) || 1));
@@ -951,7 +1117,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   const offsetX = (Number(st.offsetX) || 0) * W;
   ctxFore.save(); ctxFore.translate(offsetX, 0);
   if (ctxBehind && ctxBehind !== ctxFore) { ctxBehind.save(); ctxBehind.translate(offsetX, 0); }
-  if (st.isSpecial && st.depthAccent) {
+  if ((st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
+    drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll);
+  } else if (st.isSpecial && st.depthAccent) {
     drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, cap.id);
   } else if (st.isSpecial) {
     drawSpecialFrontPass(ctxFore, words, t, st, W, H, base, showAll, cap.id);

@@ -1,0 +1,35 @@
+<!doctype html><meta charset="utf-8"><title>Layout test - gaps & overlaps</title>
+<style>
+body{margin:0;background:#12151c;color:#e8ecf4;font:13px Inter,Arial,sans-serif;padding:12px}h1{font-size:17px;margin:0 0 6px}#sum{font-size:15px;font-weight:800;margin:0 0 10px}
+#g{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}.c{background:#1b212d;border:1px solid #2b3446;border-radius:10px;overflow:hidden}.c.fail{border-color:#ff5d6c}
+.s{position:relative;width:190px;height:338px;overflow:hidden;background:linear-gradient(160deg,#6b4a3a,#243a52)}.big{position:absolute;left:0;top:0;width:1080px;height:1920px;transform:scale(.17593);transform-origin:0 0}
+.big .box{position:absolute;border:3px solid rgba(255,255,0,.8);pointer-events:none}.n{padding:6px 8px;font-size:11.5px}.n b{display:block}.ok{color:#3ddc97}.no{color:#ff8a95}
+</style><h1>Layout test: every preset, caption 1 and caption 2 (yellow boxes = real letter areas)</h1><div id="sum">running…</div><div id="g"></div>
+<script type="module">
+import {layoutStack,renderLines,checkLayout} from './static/layout/layout.js';
+import {fxBackground} from './static/layout/fx.js';
+const list=await (await fetch(location.search.includes('presets=')?new URLSearchParams(location.search).get('presets'):'./duo_presets.json')).json();
+const fonts=[...new Set(list.flatMap(p=>Object.values(p.roles).map(r=>r.font)))];
+const lk=document.createElement('link');lk.rel='stylesheet';lk.href='https://fonts.googleapis.com/css2?'+fonts.map(f=>`family=${f.replace(/ /g,'+')}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700`).join('&')+'&display=swap';document.head.appendChild(lk);
+await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,2500))]);
+const CAPS=[{small:'Some homes get',big:'seen'},{small:'A few get',big:'remembered'}];
+let pass=0,total=0;
+function cssFor(r){const c={color:r.color};const f=r.fill,t=f&&f.type;if(t&&!['solid','gradient'].includes(t)){let s=(f.colors.length?f.colors:[r.color]).slice();if(t==='chrome')while(s.length<4)s.push(s[s.length-1]);Object.assign(c,fxBackground({kind:t,stops:s,hi:f.hi,lo:f.lo,speed:f.speed},30))}else if(t==='gradient'&&f.colors.length>1)Object.assign(c,{backgroundImage:`linear-gradient(${f.angle}deg,${f.colors.join(',')})`,WebkitBackgroundClip:'text',backgroundClip:'text',color:'transparent',WebkitTextFillColor:'transparent'});return c}
+for(const p of list){ if(p.mode!=='emphasis')continue; for(let n=0;n<2;n++){
+  const cap=CAPS[n],big=(p.roles.accent2&&n%2)?p.roles.accent2:p.roles.accent,sm=p.roles.base,up=t=>p.uppercase?t.toUpperCase():t;
+  const mk=(r,t)=>({text:up(t),font:r.font,size:r.size,weight:r.weight,italic:r.italic,track:r.track});
+  const posY=p.posCycle&&p.posCycle.length?p.posCycle[n%p.posCycle.length]:p.posY;
+  const lay=layoutStack([mk(sm,cap.small),mk(big,cap.big)],{W:1080,H:1920,posX:p.posX,posY,inkGap:p.inkGap??.03});
+  const c=document.createElement('div');c.className='c';const s=document.createElement('div');s.className='s';const bg=document.createElement('div');bg.className='big';s.appendChild(bg);c.appendChild(s);
+  renderLines(lay,bg,(o,i)=>cssFor(i?big:sm));
+  lay.forEach(o=>{const b=document.createElement('div');b.className='box';Object.assign(b.style,{left:(o.x-o.width/2)+'px',width:o.width+'px',top:o.inkTop+'px',height:(o.inkBottom-o.inkTop)+'px'});bg.appendChild(b)});
+  // DOM check: where did the baselines really land?
+  const sc=s.getBoundingClientRect().height/1920,top=bg.getBoundingClientRect().top;
+  const issues=checkLayout(lay,{W:1080});
+  [...bg.querySelectorAll('.baseline-marker')].forEach((m,i)=>{const real=(m.getBoundingClientRect().bottom-top)/sc;if(Math.abs(real-lay[i].baseline)>2.5)issues.push(`line ${i+1} baseline is ${real.toFixed(1)}px but should be ${lay[i].baseline.toFixed(1)}px`)});
+  total++;if(!issues.length)pass++;else c.classList.add('fail');
+  c.insertAdjacentHTML('beforeend',`<div class="n"><b>${p.name.replace('Duo · ','')} · caption ${n+1}</b>${issues.length?`<span class="no">${issues.join('<br>')}</span>`:'<span class="ok">OK · gap '+(lay[1].inkTop-lay[0].inkBottom).toFixed(0)+'px · size '+Math.round(lay[1].size)+'</span>'}</div>`);
+  document.getElementById('g').appendChild(c);
+}}
+document.getElementById('sum').innerHTML=`<span class="${pass===total?'ok':'no'}">${pass} of ${total} passed</span> ${pass===total?'':'(red cards need fixing)'}`;window.__result={pass,total};
+</script>

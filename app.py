@@ -50,6 +50,12 @@ except Exception as _e:
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1500 * 1024 * 1024
 
+try:
+    from preset_maker_routes import bp as preset_maker_bp
+    app.register_blueprint(preset_maker_bp)
+except Exception as _e:
+    print("Warning: preset_maker_routes import error:", _e)
+
 
 @app.errorhandler(413)
 def request_entity_too_large(e):
@@ -242,6 +248,16 @@ def run_ffmpeg(args, job, duration, base=0.0, span=100.0):
 @app.get("/")
 def index():
     return render_template("index.html")
+
+
+@app.get("/layout_test.html")
+def layout_test_page():
+    return send_from_directory(BASE, "layout_test.html")
+
+
+@app.get("/duo_presets.json")
+def duo_presets_json():
+    return send_from_directory(BASE / "static" / "duo_presets", "duo_presets.json")
 
 
 @app.get("/fonts/<path:name>")

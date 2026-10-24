@@ -4,7 +4,37 @@ import json
 import os
 import re
 
-from fonts_util import resolve
+from pathlib import Path
+from fonts_util import resolve, FONTS_DIR
+import ink_layout
+from fontTools.ttLib import TTFont
+
+
+
+def find_font_file(role):
+    if not isinstance(role, dict):
+        role = {}
+    font = (role.get("font") or "Poppins").replace(" ", "")
+    weight = role.get("weight", 700 if role.get("bold") else 400)
+    italic = bool(role.get("italic"))
+    candidates = [
+        f"{font}-{weight}{'-italic' if italic else ''}.ttf",
+        f"{font}-{weight}.ttf",
+        f"{font}-Regular.ttf" if weight == 400 else f"{font}-Bold.ttf",
+        f"{font}.ttf",
+    ]
+    for c in candidates:
+        p = FONTS_DIR / c
+        if p.exists():
+            return str(p)
+    for p in FONTS_DIR.glob("*.ttf"):
+        p_name = p.stem.lower().replace("-", "").replace(" ", "")
+        if font.lower() in p_name and str(weight) in p_name:
+            return str(p)
+    for p in FONTS_DIR.glob("*.ttf"):
+        if font.lower() in p.stem.lower().replace("-", "").replace(" ", ""):
+            return str(p)
+    return str(FONTS_DIR / "Poppins-700.ttf")
 
 STOP = set("""a an the and or but if so to of in on at for from by with as is are was were be been being am i you he she it
 we they me my your his her its our their this that these those there here do does did done have has had will would can could
@@ -377,8 +407,11 @@ def load_presets():
                     "animation": accent.get("enter", "slide-up"),
                     "wordsPerCaption": int(p.get("wordsPerPage", 3)),
                     "maxKeys": 1,
-                    "position": (float(p.get("posY", 0.52)) if accent.get("layer") == "behind"
-                                  else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48))),
+                    "position": float(p.get("posY", 0.52)),
+                    "posX": float(p.get("posX", 0.5)),
+                    "posY": float(p.get("posY", 0.52)),
+                    "inkGap": float(p.get("inkGap", 0.03)),
+                    "uppercase": bool(p.get("uppercase", False)),
                     "posCycle": p.get("posCycle"),
                     "behindPerson": accent.get("layer") == "behind",
                     "depthAccent": accent.get("layer") == "behind",
@@ -721,6 +754,11 @@ def clean_style(s):
         "fill": s.get("fill"),
         "roles": s.get("roles"),
         "isSpecial": s.get("isSpecial"),
+        "isDuo": s.get("isDuo"),
+        "inkGap": float(s.get("inkGap", 0.03)) if s.get("inkGap") is not None else 0.03,
+        "posX": float(s.get("posX", 0.5)),
+        "posY": float(s.get("posY", 0.5)),
+        "uppercase": bool(s.get("uppercase", False)),
     }
 
 
@@ -888,9 +926,176 @@ def _chunk_text(words, style, W, H, layer, ev_start):
     return "\\N".join(out_lines)
 
 
+def build_stack_ass(captions, style, W, H, layer_filter="all"):
+    r"""
+    Renders stack-layout captions (e.g. Duo presets) using ink_layout.layout_stack
+    with real glyph bounding box measurement, \an2\pos(x, ass_y), and exact inkGap.
+    """
+    style = clean_style(style)
+    roles = style.get("roles") or {}
+    base_role = roles.get("base") or style.get("filler") or {}
+    accent_role_def = roles.get("accent") or style.get("key") or {}
+    accent2_role_def = roles.get("accent2") or style.get("accent2")
+    uppercase = bool(style.get("uppercase", True if accent_role_def.get("upper") else False))
+    ink_gap = float(style.get("inkGap", 0.03))
+    pos_x = float(style.get("posX", 0.5))
+    pos_cycle = style.get("posCycle") or []
+
+    header = (
+        "[Script Info]\nScriptType: v4.00+\n"
+        f"PlayResX: {W}\nPlayResY: {H}\nWrapStyle: 2\nScaledBorderAndShadow: yes\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, "
+        "Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, "
+        "MarginR, MarginV, Encoding\n"
+        "Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,2,0,0,0,1\n\n"
+        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
+
+    caps = sorted((c for c in captions if c.get("words")), key=lambda c: c["start"])
+    rows = []
+
+    for cap_idx, c in enumerate(caps):
+        words = list(c["words"])
+        if not words:
+            continue
+        ev_start = min(w["s"] for w in words)
+        ev_end = max(c["end"], max(w["e"] for w in words))
+        if cap_idx + 1 < len(caps):
+            ev_end = min(ev_end, caps[cap_idx + 1]["start"])
+        ev_end = max(ev_end, ev_start + 0.25)
+
+        alt = bool(accent2_role_def) and (cap_idx % 2 == 1)
+        accent_role = accent2_role_def if alt else accent_role_def
+
+        if len(words) <= 1:
+            small_words = []
+            big_words = words
+        else:
+            small_words = words[:-1]
+            big_words = [words[-1]]
+
+        up = lambda t: t.upper() if uppercase else t
+        small_text = " ".join(up(w["t"]) for w in small_words)
+        big_text = " ".join(up(w["t"]) for w in big_words)
+
+        base_font_file = find_font_file(base_role)
+        accent_font_file = find_font_file(accent_role)
+
+        scale_h = H / 1920.0
+        small_size = float(base_role.get("size", 62))
+        if small_size <= 1.0:
+            small_size = small_size * H
+        else:
+            small_size = small_size * scale_h
+
+        big_size = float(accent_role.get("size", 190))
+        if big_size <= 1.0:
+            big_size = big_size * H
+        else:
+            big_size = big_size * scale_h
+
+        if pos_cycle and len(pos_cycle) > 0:
+            pos_y = float(pos_cycle[cap_idx % len(pos_cycle)])
+        else:
+            pos_y = float(style.get("posY", 0.5))
+
+        lines_in = []
+        if small_words:
+            lines_in.append({
+                "text": small_text,
+                "font_file": base_font_file,
+                "size": small_size,
+                "track": float(base_role.get("track", 0.0)),
+                "words": small_words,
+                "role": base_role,
+                "is_hero": False
+            })
+        if big_words:
+            lines_in.append({
+                "text": big_text,
+                "font_file": accent_font_file,
+                "size": big_size,
+                "track": float(accent_role.get("track", 0.0)),
+                "words": big_words,
+                "role": accent_role,
+                "is_hero": True
+            })
+
+        lay = ink_layout.layout_stack(lines_in, W, H, pos_x=pos_x, pos_y=pos_y, ink_gap=ink_gap)
+
+        for line_idx, o in enumerate(lay):
+            if layer_filter == "depth" and not o["is_hero"]:
+                continue
+            if layer_filter == "subtitle" and o["is_hero"]:
+                continue
+
+            tt = TTFont(o["font_file"], lazy=True)
+            upem = tt["head"].unitsPerEm
+            ratio = (tt["OS/2"].usWinAscent + tt["OS/2"].usWinDescent) / upem
+            ass_fs = o["size"] * ratio
+            fsp = o["track"] * o["size"]
+            font_name = tt["name"].getDebugName(1) or Path(o["font_file"]).stem
+
+            r = o["role"]
+            col = r.get("color") or ("#FFE600" if o["is_hero"] else "#FFFFFF")
+            bold = 1 if (r.get("bold") or r.get("weight", 500) >= 700) else 0
+            italic = 1 if r.get("italic") else 0
+            outline_val = float(r.get("outline", 0))
+            outline_px = max(0.0, outline_val * (o["size"] / 70.0))
+            outline_col = r.get("outlineColor", "#000000")
+            shad_val = float(r.get("shadow", 0))
+            shad_px = max(0.0, shad_val * (o["size"] / 70.0))
+            shad_col = r.get("shadowColor", "#000000")
+
+            tags = [
+                r"\an2",
+                f"\\pos({o['x']:.1f},{o['ass_y']:.1f})",
+                f"\\fn{font_name}",
+                f"\\fs{ass_fs:.1f}",
+                f"\\fsp{fsp:.2f}",
+                f"\\b{bold}",
+                f"\\i{italic}",
+                f"\\1c{_c(col)}",
+            ]
+            if outline_px > 0:
+                tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
+            else:
+                tags.append(r"\bord0")
+            if shad_px > 0:
+                tags += [f"\\shad{shad_px:.1f}", f"\\4c{_c(shad_col)}"]
+            else:
+                tags.append(r"\shad0")
+
+            # Word-by-word reveal:
+            line_parts = []
+            for wi, w in enumerate(o["words"]):
+                txt = up(w["t"])
+                reveal_ms = max(0, int(round((w["s"] - ev_start) * 1000)))
+                w_tags = []
+                if reveal_ms > 30:
+                    w_tags.append(r"\alpha&HFF&")
+                    w_tags.append(f"\\t({reveal_ms},{reveal_ms + 1},\\alpha&H00&)")
+                line_parts.append("{" + "".join(w_tags) + "}" + _esc(txt))
+                if wi < len(o["words"]) - 1:
+                    line_parts.append(" ")
+
+            text_body = "".join(line_parts)
+            dialogue_line = (
+                f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
+                f"{{{ ''.join(tags) }}}{text_body}"
+            )
+            rows.append(dialogue_line)
+
+    return header + "\n".join(rows) + "\n"
+
+
+
 def build_depth_ass(captions, style, W, H):
     """Return a large behind-person keyword and readable foreground subtitle."""
     base = clean_style(style)
+    if base.get("layout") == "stack" or base.get("isDuo") or (base.get("isSpecial") and base.get("mode") == "emphasis"):
+        return build_stack_ass(captions, base, W, H, layer_filter="depth"), build_stack_ass(captions, base, W, H, layer_filter="subtitle")
     if base.get("estateVariant"):
         line_style = copy.deepcopy(base)
         line_style["layout"] = "line"
@@ -968,6 +1173,8 @@ def build_depth_ass(captions, style, W, H):
 def build_ass(captions, style, W, H):
     """captions: list of {'start','end','words':[{'t','key','s','e'}]} already on the OUTPUT timeline."""
     style = clean_style(style)
+    if style.get("layout") == "stack" or style.get("isDuo") or (style.get("isSpecial") and style.get("mode") == "emphasis"):
+        return build_stack_ass(captions, style, W, H, layer_filter="all")
     x = max(0, min(W, int(W * (0.5 + style.get("offsetX", 0.0)))))
     y = int(H * style["position"])
     has_glow = not style.get("isSpecial") and any(style[k]["glowSize"] > 0 for k in ("key", "filler"))
