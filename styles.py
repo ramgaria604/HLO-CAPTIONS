@@ -544,6 +544,10 @@ def load_presets():
                     accent.get("layer") == "behind" or
                     "(behind)" in str(p.get("name", "")).lower()
                 )
+                accent_sz = float(accent.get("size", 175))
+                base_sz = float(base.get("size", 62))
+                font_span = (accent_sz + base_sz) * 0.5 / 1920.0 + 0.008
+                top_y = round(0.28 - font_span, 3)
 
                 duo_item = {
                     "id": p["id"],
@@ -560,8 +564,9 @@ def load_presets():
                     "behindPerson": is_behind,
                     "depthAccent": is_behind,
                     "depthAccentSize": round(accent.get("size", 160) / 1080.0, 3),
+                    "topY": top_y if is_behind else 0.21,
                     "depthAccentY": 0.28 if is_behind else preset_y,
-                    "subtitlePosition": 0.70 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))),
+                    "subtitlePosition": 0.72 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))),
                     "subtitleSize": round(base.get("size", 62) / 1080.0, 3),
                     "blend": p.get("blend", "screen"),
                     "blendMode": p.get("blend", "screen"),
@@ -1013,8 +1018,10 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         )
 
         if is_behind:
-            top_y = float(style.get("topY", 0.16))
-            hero_y = float(style.get("depthAccentY", 0.30))
+            hero_y = float(style.get("depthAccentY", 0.28))
+            font_span = (big_size + small_size) * 0.5 / H + 0.008
+            default_top = round(hero_y - font_span, 3)
+            top_y = float(style.get("topY", default_top))
             sub_y = float(style.get("subtitlePosition", 0.72))
 
             # Distribute words across 3 lines: Top (above head), Hero (behind head), Bottom (front below)

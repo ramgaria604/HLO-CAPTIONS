@@ -1008,8 +1008,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   let lay;
 
   if (isBehindPreset) {
-    const topY = typeof st.topY === 'number' ? st.topY : 0.16;
-    const heroY = typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.30;
+    const heroY = typeof st.depthAccentY === 'number' ? (st.depthAccentY === 0.30 ? 0.28 : st.depthAccentY) : 0.28;
+    const accentPx = getRolePx(accentRole, 180);
+    const basePx = getRolePx(baseRole, 60);
+    const fontSpan = (accentPx + basePx) * 0.5 / H + 0.008;
+    const defaultTop = Math.max(0.08, Number((heroY - fontSpan).toFixed(3)));
+    const topY = (typeof st.topY === 'number' && st.topY !== 0.16) ? st.topY : defaultTop;
     const subY = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.72;
 
     let topWords = [];
@@ -2095,8 +2099,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const valHeroYBadge = $('valHeroYBadge');
     const valBottomYBadge = $('valBottomYBadge');
 
-    const topPct = Math.round((Number(S.style?.topY) || 0.16) * 100);
-    const heroPct = Math.round((Number(S.style?.depthAccentY) || 0.30) * 100);
+    const topPct = Math.round((Number(S.style?.topY) || 0.21) * 100);
+    const heroPct = Math.round((Number(S.style?.depthAccentY) || 0.28) * 100);
     const botPct = Math.round((Number(S.style?.subtitlePosition) || 0.72) * 100);
 
     if (inputTopY) inputTopY.value = topPct;
@@ -2116,9 +2120,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     );
     S.style = Object.assign({}, preset, {
       fontScale: 1.0,
-      position: isBehind ? 0.30 : (Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75),
-      topY: isBehind ? (Number.isFinite(Number(preset.topY)) ? Number(preset.topY) : 0.16) : 0.16,
-      depthAccentY: isBehind ? (Number.isFinite(Number(preset.depthAccentY)) ? Number(preset.depthAccentY) : 0.30) : 0.30,
+      position: isBehind ? 0.28 : (Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75),
+      topY: isBehind ? (Number.isFinite(Number(preset.topY)) ? Number(preset.topY) : 0.21) : 0.21,
+      depthAccentY: isBehind ? (Number.isFinite(Number(preset.depthAccentY)) ? Number(preset.depthAccentY) : 0.28) : 0.28,
       subtitlePosition: isBehind ? (Number.isFinite(Number(preset.subtitlePosition)) ? Number(preset.subtitlePosition) : 0.72) : 0.72,
       behindPerson: isBehind,
       depthAccent: isBehind,
@@ -2578,8 +2582,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       let lineLabel = 'captions';
 
       if (isBehindPreset) {
-        const topY = typeof S.style.topY === 'number' ? S.style.topY : 0.16;
-        const heroY = typeof S.style.depthAccentY === 'number' ? S.style.depthAccentY : 0.30;
+        const topY = typeof S.style.topY === 'number' ? S.style.topY : 0.21;
+        const heroY = typeof S.style.depthAccentY === 'number' ? S.style.depthAccentY : 0.28;
         const subY = typeof S.style.subtitlePosition === 'number' ? S.style.subtitlePosition : 0.72;
 
         const dTop = Math.abs(clickNormY - topY);
@@ -2626,18 +2630,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
       if (drag.isBehindPreset) {
         if (drag.targetKey === 'topY') {
-          const cur = Number(S.style.topY) || 0.16;
-          const heroLimit = (Number(S.style.depthAccentY) || 0.30) - 0.04;
+          const cur = Number(S.style.topY) || 0.21;
+          const heroLimit = (Number(S.style.depthAccentY) || 0.28) - 0.035;
           S.style.topY = Math.max(0.04, Math.min(heroLimit, cur + delta));
         } else if (drag.targetKey === 'depthAccentY') {
-          const cur = Number(S.style.depthAccentY) || 0.30;
-          const topLimit = (Number(S.style.topY) || 0.16) + 0.04;
+          const cur = Number(S.style.depthAccentY) || 0.28;
+          const topLimit = (Number(S.style.topY) || 0.21) + 0.035;
           const subLimit = (Number(S.style.subtitlePosition) || 0.72) - 0.04;
           S.style.depthAccentY = Math.max(topLimit, Math.min(subLimit, cur + delta));
           S.style.position = S.style.depthAccentY;
         } else if (drag.targetKey === 'subtitlePosition') {
           const cur = Number(S.style.subtitlePosition) || 0.72;
-          const heroLimit = (Number(S.style.depthAccentY) || 0.30) + 0.04;
+          const heroLimit = (Number(S.style.depthAccentY) || 0.28) + 0.04;
           S.style.subtitlePosition = Math.max(heroLimit, Math.min(0.96, cur + delta));
         }
         syncBehindSliders();
