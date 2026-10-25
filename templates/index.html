@@ -276,7 +276,107 @@
           <div id="tabStyle" class="tab-pane hidden">
             <div class="style-options-grid">
               
-              <!-- Font Size -->
+              <!-- 1. Motion & Entrance Animation -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>🎬 Text Motion & Animation</label>
+                  <span id="valAnimName" class="val-badge">Pop & Bounce</span>
+                </div>
+                <div class="anim-grid" id="animGrid">
+                  <button type="button" class="btn-anim-choice active" data-anim="pop">
+                    <span class="anim-icon">💥</span>
+                    <span class="anim-label">Pop</span>
+                  </button>
+                  <button type="button" class="btn-anim-choice" data-anim="slide-up">
+                    <span class="anim-icon">⬆️</span>
+                    <span class="anim-label">Slide Up</span>
+                  </button>
+                  <button type="button" class="btn-anim-choice" data-anim="slide-down">
+                    <span class="anim-icon">⬇️</span>
+                    <span class="anim-label">Slide Down</span>
+                  </button>
+                  <button type="button" class="btn-anim-choice" data-anim="slide-left">
+                    <span class="anim-icon">⬅️</span>
+                    <span class="anim-label">Slide Left</span>
+                  </button>
+                  <button type="button" class="btn-anim-choice" data-anim="slide-right">
+                    <span class="anim-icon">➡️</span>
+                    <span class="anim-label">Slide Right</span>
+                  </button>
+                  <button type="button" class="btn-anim-choice" data-anim="fade">
+                    <span class="anim-icon">✨</span>
+                    <span class="anim-label">Soft Fade</span>
+                  </button>
+                  <button type="button" class="btn-anim-choice" data-anim="zoom">
+                    <span class="anim-icon">🔍</span>
+                    <span class="anim-label">Zoom In</span>
+                  </button>
+                  <button type="button" class="btn-anim-choice" data-anim="none">
+                    <span class="anim-icon">⏹️</span>
+                    <span class="anim-label">Static</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 2. Highlight Word Color -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>🎨 Highlight Word Color</label>
+                  <span id="valHighlightColor" class="val-badge" style="background:#FFE600; color:#000;">#FFE600</span>
+                </div>
+                <div class="color-picker-row">
+                  <div class="color-swatches" id="colorSwatches">
+                    <button type="button" class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Viral Yellow"></button>
+                    <button type="button" class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan Neon"></button>
+                    <button type="button" class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
+                    <button type="button" class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>
+                    <button type="button" class="swatch" style="--c:#10B981" data-color="#10B981" title="Neon Green"></button>
+                    <button type="button" class="swatch" style="--c:#FF8A00" data-color="#FF8A00" title="Sunset Orange"></button>
+                    <button type="button" class="swatch" style="--c:#FFFFFF" data-color="#FFFFFF" title="Clean White"></button>
+                  </div>
+                  <label class="custom-color-wrap" title="Pick any custom color">
+                    <input type="color" id="inputCustomHighlight" class="custom-color-input" value="#FFE600">
+                    <span class="custom-color-label">Custom</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 3. Base Subtitle Color -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>🔤 Base Subtitle Color</label>
+                  <span id="valBaseColor" class="val-badge" style="background:#FFFFFF; color:#000;">#FFFFFF</span>
+                </div>
+                <div class="color-picker-row">
+                  <div class="color-swatches" id="baseColorSwatches">
+                    <button type="button" class="swatch active" style="--c:#FFFFFF" data-color="#FFFFFF" title="White"></button>
+                    <button type="button" class="swatch" style="--c:#E2E8F0" data-color="#E2E8F0" title="Light Silver"></button>
+                    <button type="button" class="swatch" style="--c:#FFFDD0" data-color="#FFFDD0" title="Warm Cream"></button>
+                    <button type="button" class="swatch" style="--c:#FFE600" data-color="#FFE600" title="Yellow"></button>
+                    <button type="button" class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan"></button>
+                    <button type="button" class="swatch" style="--c:#1E293B" data-color="#1E293B" title="Dark Slate"></button>
+                  </div>
+                  <label class="custom-color-wrap" title="Pick any custom base color">
+                    <input type="color" id="inputCustomBaseColor" class="custom-color-input" value="#FFFFFF">
+                    <span class="custom-color-label">Custom</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 4. Text Outline / Stroke -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>🖋️ Outline / Stroke</label>
+                  <span id="valOutlineBadge" class="val-badge">Solid Black</span>
+                </div>
+                <div class="btn-group" id="outlineButtonGroup">
+                  <button type="button" class="btn-toggle active" data-outline="black">Black Outline</button>
+                  <button type="button" class="btn-toggle" data-outline="glow">Colored Glow</button>
+                  <button type="button" class="btn-toggle" data-outline="none">No Outline</button>
+                </div>
+              </div>
+
+              <!-- 5. Caption Size -->
               <div class="control-card">
                 <div class="control-header">
                   <label>Caption Size</label>
@@ -285,35 +385,19 @@
                 <input type="range" id="inputFontSize" min="60" max="180" value="100" class="styled-slider">
               </div>
 
-              <!-- Position -->
+              <!-- 6. Screen Position -->
               <div class="control-card">
                 <div class="control-header">
                   <label>Screen Position</label>
                 </div>
                 <div class="btn-group" id="posButtonGroup">
-                  <button class="btn-toggle" data-pos="0.25">Top</button>
-                  <button class="btn-toggle" data-pos="0.50">Middle</button>
-                  <button class="btn-toggle active" data-pos="0.75">Bottom</button>
+                  <button type="button" class="btn-toggle" data-pos="0.25">Top</button>
+                  <button type="button" class="btn-toggle" data-pos="0.50">Middle</button>
+                  <button type="button" class="btn-toggle active" data-pos="0.75">Bottom</button>
                 </div>
               </div>
 
-              <!-- Highlight Color -->
-              <div class="control-card">
-                <div class="control-header">
-                  <label>Active Word Color</label>
-                </div>
-                <div class="color-swatches" id="colorSwatches">
-                  <button class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Yellow"></button>
-                  <button class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan"></button>
-                  <button class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
-                  <button class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>
-                  <button class="swatch" style="--c:#10B981" data-color="#10B981" title="Neon Green"></button>
-                  <button class="swatch" style="--c:#FFFFFF" data-color="#FFFFFF" title="Pure White"></button>
-                  <button class="swatch" style="--c:#FF8A00" data-color="#FF8A00" title="Orange"></button>
-                </div>
-              </div>
-
-              <!-- Font Family -->
+              <!-- 7. Font Family -->
               <div class="control-card">
                 <div class="control-header">
                   <label>Font Family</label>
@@ -329,20 +413,19 @@
                 </select>
               </div>
 
-              <!-- Letter Casing -->
+              <!-- 8. Letter Casing -->
               <div class="control-card">
                 <div class="control-header">
                   <label>Text Case</label>
                 </div>
                 <div class="btn-group" id="caseButtonGroup">
-                  <button class="btn-toggle active" data-case="upper">ALL CAPS</button>
-                  <button class="btn-toggle" data-case="normal">Normal</button>
+                  <button type="button" class="btn-toggle active" data-case="upper">ALL CAPS</button>
+                  <button type="button" class="btn-toggle" data-case="normal">Normal</button>
                 </div>
               </div>
 
             </div>
           </div>
-
           <!-- TAB 4: AUDIO -->
           <div id="tabAudio" class="tab-pane hidden">
             <div class="audio-panel">

@@ -1327,24 +1327,39 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             r = o["role"]
             grad_colors = None
             if o["is_hero"]:
-                grad_colors = get_gradient_colors(r, style)
-                if not grad_colors:
-                    hl_col = style.get("highlightColor") or (style.get("highlight") or {}).get("color")
-                    r_col = r.get("color")
-                    if r_col and isinstance(r_col, str) and r_col.startswith("#"):
-                        col = r_col
-                    elif hl_col and isinstance(hl_col, str) and hl_col.startswith("#"):
-                        col = hl_col
-                    else:
-                        col = "#FFE600"
+                user_hl = style.get("highlightColor") or (style.get("highlight") or {}).get("color")
+                if user_hl and style.get("_customColorActive"):
+                    grad_colors = None
+                    col = user_hl
+                else:
+                    grad_colors = get_gradient_colors(r, style)
+                    if not grad_colors:
+                        r_col = r.get("color")
+                        if user_hl and isinstance(user_hl, str) and user_hl.startswith("#"):
+                            col = user_hl
+                        elif r_col and isinstance(r_col, str) and r_col.startswith("#"):
+                            col = r_col
+                        else:
+                            col = "#FFE600"
             else:
-                col = r.get("color") or "#FFFFFF"
+                col = style.get("baseColor") or r.get("color") or "#FFFFFF"
 
             bold = 1 if (r.get("bold") or r.get("weight", 500) >= 700) else 0
             italic = 1 if r.get("italic") else 0
-            outline_val = float(r.get("outline", 0))
-            outline_px = max(0.0, outline_val * (o["size"] / 70.0))
-            outline_col = r.get("outlineColor", "#000000")
+            outline_mode = style.get("outlineMode")
+            if outline_mode == "none":
+                outline_px = 0.0
+                outline_col = "#000000"
+            elif outline_mode == "glow":
+                outline_px = max(2.0, o["size"] * 0.05)
+                outline_col = style.get("highlightColor", "#FFE600")
+            elif outline_mode == "black":
+                outline_px = max(2.5, o["size"] * 0.06)
+                outline_col = "#000000"
+            else:
+                outline_val = float(r.get("outline", 0))
+                outline_px = max(0.0, outline_val * (o["size"] / 70.0))
+                outline_col = r.get("outlineColor", "#000000")
 
             base_tags = [
                 r"\an2",
@@ -1372,6 +1387,15 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 if anim_name not in ("none", "static") and reveal_ms > 30:
                     w_tags.append(r"\alpha&HFF&")
                     w_tags.append(f"\\t({reveal_ms},{reveal_ms + 1},\\alpha&H00&)")
+                    if anim_name in ("pop", "bounce"):
+                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 90},\\fscx114\\fscy114)")
+                        w_tags.append(f"\\t({reveal_ms + 90},{reveal_ms + 180},\\fscx100\\fscy100)")
+                    elif anim_name == "slide-up":
+                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 1},\\fscy85)")
+                        w_tags.append(f"\\t({reveal_ms + 1},{reveal_ms + 180},\\fscy100)")
+                    elif anim_name == "zoom":
+                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 1},\\fscx70\\fscy70)")
+                        w_tags.append(f"\\t({reveal_ms + 1},{reveal_ms + 190},\\fscx100\\fscy100)")
                 line_parts.append("{" + "".join(w_tags) + "}" + _esc(txt))
                 if wi < len(o["words"]) - 1:
                     line_parts.append(" ")

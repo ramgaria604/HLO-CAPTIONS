@@ -177,17 +177,23 @@ function getWordPop(w, t, showAll, anim) {
       let dx = 0, dy = 0, scale = 1.0;
       const enterAnim = anim || 'pop';
       if (enterAnim === 'slide-up') {
-        dy = 24 * (1 - ease);
+        dy = 28 * (1 - ease);
       } else if (enterAnim === 'slide-down') {
-        dy = -24 * (1 - ease);
+        dy = -28 * (1 - ease);
       } else if (enterAnim === 'slide-left') {
-        dx = 24 * (1 - ease);
+        dx = 32 * (1 - ease);
       } else if (enterAnim === 'slide-right') {
-        dx = -24 * (1 - ease);
+        dx = -32 * (1 - ease);
+      } else if (enterAnim === 'fade') {
+        scale = 1.0;
       } else if (enterAnim === 'pop' || enterAnim === 'bounce') {
-        scale = 0.88 + 0.12 * ease;
+        scale = 0.84 + 0.16 * ease;
+      } else if (enterAnim === 'zoom') {
+        scale = 0.50 + 0.50 * ease;
+      } else if (enterAnim === 'none' || enterAnim === 'static') {
+        scale = 1.0;
       }
-      return { visible: true, scale, dx, dy, opacity: ease };
+      return { visible: true, scale, dx, dy, opacity: (enterAnim === 'none' || enterAnim === 'static') ? 1.0 : ease };
     }
 
     // Word already spoken: stays fully visible and stable at exactly (0,0)
@@ -613,8 +619,8 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
   const leading = 1.18;
 
   // 3. Preserve each preset's authentic colors, highlights & gradients
-  let smallColor = fRole.color || st.color || '#FFFFFF';
-  let bigColor = (st.highlight && st.highlight.color) || kRole.color || st.highlightColor || '#FFE600';
+  let smallColor = st.baseColor || fRole.color || st.color || '#FFFFFF';
+  let bigColor = st.highlightColor || (st.highlight && st.highlight.color) || kRole.color || '#FFE600';
   let glowColor = kRole.glow || st.glow || bigColor;
 
   // 4. Measure words per line & calculate safe auto-fit scale
@@ -1183,7 +1189,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     let curX = o.x - totalLineWidth / 2;
 
     wordObjs.forEach((wo) => {
-      const anim = getWordPop(wo.w, t, showAll, o.role.enter || st.animation);
+      const anim = getWordPop(wo.w, t, showAll, st.animation || o.role.enter || 'pop');
 
       // Keep word place in line - if not yet arrived, opacity is 0 (do not shift/re-layout)
       if (anim.opacity > 0) {
@@ -1197,10 +1203,21 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         targetCtx.textAlign = 'left';
 
         // Outlines & shadows
-        if (o.role.outline > 0) {
+        let outlineWidth = 0;
+        let outlineColor = '#000000';
+        if (st.outlineMode === 'none') {
+          outlineWidth = 0;
+        } else if (st.outlineMode === 'glow') {
+          outlineWidth = Math.max(2, Math.round(o.size * 0.05));
+          outlineColor = st.highlightColor || '#FFE600';
+        } else {
+          outlineWidth = Math.max(1, (o.role.outline || 3) * (o.size / 70));
+          outlineColor = o.role.outlineColor || '#000000';
+        }
+        if (outlineWidth > 0) {
           targetCtx.lineJoin = 'round';
-          targetCtx.lineWidth = Math.max(1, o.role.outline * (o.size / 70));
-          targetCtx.strokeStyle = o.role.outlineColor || '#000000';
+          targetCtx.lineWidth = outlineWidth;
+          targetCtx.strokeStyle = outlineColor;
           targetCtx.strokeText(wo.txt, 0, 0);
         }
         if (o.role.shadow > 0) {
@@ -1218,7 +1235,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
             o.role.keyGradient = `linear-gradient(${o.role.fill.angle || 90}deg, ${fillColors.join(',')})`;
           }
         }
-        const basePaintColor = o.isHero ? (o.role.color || st.highlightColor || '#FF6200') : (o.role.color || '#FFFFFF');
+        const basePaintColor = o.isHero ? (st.highlightColor || o.role.color || '#FFE600') : (st.baseColor || o.role.color || '#FFFFFF');
         const wordBox = { x: 0, y: -o.size * 0.85, w: wo.width, h: o.size * 0.85 };
         targetCtx.fillStyle = canvasRolePaint(targetCtx, o.role, basePaintColor, o.size, wordBox);
         targetCtx.fillText(wo.txt, 0, 0);
@@ -2357,41 +2374,122 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
     });
 
+    // 1. Text Motion & Animation Chooser
+    const valAnimName = $('valAnimName');
+    $$('#animGrid .btn-anim-choice').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#animGrid .btn-anim-choice').forEach(b => b.classList.toggle('active', b === btn));
+        const anim = btn.getAttribute('data-anim') || 'pop';
+        if (!S.style) S.style = {};
+        S.style.animation = anim;
+        S.style.anim = anim;
+        if (S.style.roles?.accent) S.style.roles.accent.enter = anim;
+        if (S.style.roles?.base) S.style.roles.base.enter = anim;
+        const label = btn.querySelector('.anim-label')?.textContent || anim;
+        if (valAnimName) valAnimName.textContent = label;
+        showToast('🎬 Animation: ' + label + ' applied');
+        renderCanvas();
+      });
+    });
+
+    // 2. Highlight Word Color (Swatches + Custom Picker)
+    const valHighlightColor = $('valHighlightColor');
+    const inputCustomHighlight = $('inputCustomHighlight');
+
+    function setHighlightColor(color) {
+      if (!S.style) S.style = {};
+      S.style.highlightColor = color;
+      S.style._customColorActive = true;
+      if (!S.style.key) S.style.key = {};
+      S.style.key.color = color;
+      if (!S.style.roles) S.style.roles = {};
+      if (!S.style.roles.accent) S.style.roles.accent = {};
+      S.style.roles.accent.color = color;
+      delete S.style.roles.accent.keyGradient;
+      delete S.style.roles.accent.textGradient;
+      delete S.style.roles.accent.fill;
+      if (S.style.roles.accent2) {
+        S.style.roles.accent2.color = color;
+        delete S.style.roles.accent2.keyGradient;
+        delete S.style.roles.accent2.textGradient;
+        delete S.style.roles.accent2.fill;
+      }
+      delete S.style.keyGradient;
+      delete S.style.secondaryGradient;
+      delete S.style.textGradient;
+      delete S.style.fill;
+      delete S.style.multiColorGradients;
+      if (S.style.big && S.style.big.fill) delete S.style.big.fill;
+      if (S.style.small && S.style.small.fill) delete S.style.small.fill;
+
+      if (valHighlightColor) {
+        valHighlightColor.textContent = color;
+        valHighlightColor.style.background = color;
+        valHighlightColor.style.color = (color === '#FFFFFF' || color.toLowerCase() === '#ffe600') ? '#000' : '#fff';
+      }
+      if (inputCustomHighlight) inputCustomHighlight.value = color;
+      renderCanvas();
+    }
+
     $$('#colorSwatches .swatch').forEach(swatch => {
       swatch.addEventListener('click', () => {
         $$('#colorSwatches .swatch').forEach(s => s.classList.toggle('active', s === swatch));
-        const color = swatch.getAttribute('data-color');
+        setHighlightColor(swatch.getAttribute('data-color'));
+      });
+    });
+
+    if (inputCustomHighlight) {
+      inputCustomHighlight.addEventListener('input', (e) => {
+        $$('#colorSwatches .swatch').forEach(s => s.classList.remove('active'));
+        setHighlightColor(e.target.value);
+      });
+    }
+
+    // 3. Base Subtitle Color (Swatches + Custom Picker)
+    const valBaseColor = $('valBaseColor');
+    const inputCustomBaseColor = $('inputCustomBaseColor');
+
+    function setBaseColor(color) {
+      if (!S.style) S.style = {};
+      S.style.baseColor = color;
+      if (!S.style.roles) S.style.roles = {};
+      if (!S.style.roles.base) S.style.roles.base = {};
+      S.style.roles.base.color = color;
+      if (S.style.filler) S.style.filler.color = color;
+
+      if (valBaseColor) {
+        valBaseColor.textContent = color;
+        valBaseColor.style.background = color;
+        valBaseColor.style.color = (color === '#FFFFFF' || color.toLowerCase() === '#fffdd0' || color.toLowerCase() === '#ffe600') ? '#000' : '#fff';
+      }
+      if (inputCustomBaseColor) inputCustomBaseColor.value = color;
+      renderCanvas();
+    }
+
+    $$('#baseColorSwatches .swatch').forEach(swatch => {
+      swatch.addEventListener('click', () => {
+        $$('#baseColorSwatches .swatch').forEach(s => s.classList.toggle('active', s === swatch));
+        setBaseColor(swatch.getAttribute('data-color'));
+      });
+    });
+
+    if (inputCustomBaseColor) {
+      inputCustomBaseColor.addEventListener('input', (e) => {
+        $$('#baseColorSwatches .swatch').forEach(s => s.classList.remove('active'));
+        setBaseColor(e.target.value);
+      });
+    }
+
+    // 4. Text Outline / Stroke
+    const valOutlineBadge = $('valOutlineBadge');
+    $$('#outlineButtonGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#outlineButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        const mode = btn.getAttribute('data-outline') || 'black';
         if (!S.style) S.style = {};
-        S.style.highlightColor = color;
-        if (!S.style.key) S.style.key = {};
-        S.style.key.color = color;
-        if (!S.style.roles) S.style.roles = {};
-        if (!S.style.roles.accent) S.style.roles.accent = {};
-        S.style.roles.accent.color = color;
-        delete S.style.roles.accent.keyGradient;
-        delete S.style.roles.accent.textGradient;
-        delete S.style.roles.accent.fill;
-        if (S.style.roles.accent2) {
-          S.style.roles.accent2.color = color;
-          delete S.style.roles.accent2.keyGradient;
-          delete S.style.roles.accent2.textGradient;
-          delete S.style.roles.accent2.fill;
-        }
-        if (S.style.key) {
-          S.style.key.color = color;
-          delete S.style.key.keyGradient;
-          delete S.style.key.fill;
-        }
-        delete S.style.keyGradient;
-        delete S.style.secondaryGradient;
-        delete S.style.textGradient;
-        delete S.style.fill;
-        delete S.style.multiColorGradients;
-        if (S.style.big && S.style.big.fill) {
-          delete S.style.big.fill;
-        }
-        if (S.style.small && S.style.small.fill) {
-          delete S.style.small.fill;
+        S.style.outlineMode = mode;
+        if (valOutlineBadge) {
+          valOutlineBadge.textContent = mode === 'glow' ? 'Colored Glow' : (mode === 'none' ? 'No Outline' : 'Solid Black');
         }
         renderCanvas();
       });
@@ -2413,44 +2511,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         renderCanvas();
       });
     });
-
-    const inputTopY = $('inputTopY');
-    const inputHeroY = $('inputHeroY');
-    const inputBottomY = $('inputBottomY');
-    const valTopYBadge = $('valTopYBadge');
-    const valHeroYBadge = $('valHeroYBadge');
-    const valBottomYBadge = $('valBottomYBadge');
-
-    if (inputTopY) {
-      inputTopY.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        if (valTopYBadge) valTopYBadge.textContent = val + '%';
-        if (!S.style) S.style = {};
-        S.style.topY = val / 100;
-        renderCanvas();
-      });
-    }
-
-    if (inputHeroY) {
-      inputHeroY.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        if (valHeroYBadge) valHeroYBadge.textContent = val + '%';
-        if (!S.style) S.style = {};
-        S.style.depthAccentY = val / 100;
-        S.style.position = S.style.depthAccentY;
-        renderCanvas();
-      });
-    }
-
-    if (inputBottomY) {
-      inputBottomY.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        if (valBottomYBadge) valBottomYBadge.textContent = val + '%';
-        if (!S.style) S.style = {};
-        S.style.subtitlePosition = val / 100;
-        renderCanvas();
-      });
-    }
   }
 
   // ==========================================================================
