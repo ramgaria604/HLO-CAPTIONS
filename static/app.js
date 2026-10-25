@@ -1008,12 +1008,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   let lay;
 
   if (isBehindPreset) {
-    const heroY = typeof st.depthAccentY === 'number' ? (st.depthAccentY >= 0.24 ? 0.18 : st.depthAccentY) : 0.18;
+    const heroY = typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.25;
     const accentPx = getRolePx(accentRole, 230);
     const basePx = getRolePx(baseRole, 60);
     const fontSpan = (accentPx + basePx) * 0.5 / H + 0.008;
     const defaultTop = Math.max(0.02, Number((heroY - fontSpan).toFixed(3)));
-    const topY = (typeof st.topY === 'number' && st.topY <= 0.15) ? st.topY : defaultTop;
+    const topY = typeof st.topY === 'number' ? st.topY : defaultTop;
     const subY = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.72;
 
     let topWords = [];

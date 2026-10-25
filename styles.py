@@ -1196,7 +1196,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         )
 
         if is_behind:
-            hero_y = float(style.get("depthAccentY", 0.18))
+            hero_y = float(style.get("depthAccentY", 0.25))
             font_span = (big_size + small_size) * 0.5 / H + 0.008
             default_top = round(hero_y - font_span, 3)
             top_y = float(style.get("topY", default_top))
@@ -1368,56 +1368,30 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             text_body = "".join(line_parts)
 
             if grad_colors and len(grad_colors) > 1:
-                angle = get_gradient_angle(r, style) % 360.0
-                is_horizontal = (45.0 <= angle <= 135.0) or (225.0 <= angle <= 315.0)
-                is_reversed = (225.0 <= angle <= 315.0) or (angle > 315.0 or angle < 45.0)
+                # Sliced multi-color downwards vertical gradient blend
+                y_top = o.get("ink_top")
+                y_bottom = o.get("ink_bottom")
+                if y_top is None or y_bottom is None or y_bottom <= y_top:
+                    y_top = o["ass_y"] - ass_fs * 0.95
+                    y_bottom = o["ass_y"] + ass_fs * 0.25
+                pad_y = max(1.0, o["size"] * 0.03)
+                y_top = max(0, int(math.floor(y_top - pad_y)))
+                y_bottom = min(H, int(math.ceil(y_bottom + pad_y)))
+                span_h = max(1, y_bottom - y_top)
 
                 N_SLICES = 24
-                if is_horizontal:
-                    half_w = float(o.get("width", W * 0.85)) / 2.0
-                    x_center = float(o.get("x", W / 2.0))
-                    pad_x = max(2.0, o["size"] * 0.05)
-                    x_left = max(0, int(math.floor(x_center - half_w - pad_x)))
-                    x_right = min(W, int(math.ceil(x_center + half_w + pad_x)))
-                    span_w = max(1, x_right - x_left)
-
-                    for k in range(N_SLICES):
-                        frac = (k + 0.5) / N_SLICES
-                        t_mid = (1.0 - frac) if is_reversed else frac
-                        slice_col = _interpolate_gradient_color(grad_colors, t_mid)
-                        s_left = int(x_left + (k / N_SLICES) * span_w)
-                        s_right = int(math.ceil(x_left + ((k + 1) / N_SLICES) * span_w)) + 1
-                        slice_clip = f"\\clip({s_left},0,{s_right},{H})"
-                        slice_tags = base_tags + [f"\\1c{slice_col}", slice_clip]
-                        dialogue_line = (
-                            f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
-                            f"{{{ ''.join(slice_tags) }}}{text_body}"
-                        )
-                        rows.append(dialogue_line)
-                else:
-                    y_top = o.get("ink_top")
-                    y_bottom = o.get("ink_bottom")
-                    if y_top is None or y_bottom is None or y_bottom <= y_top:
-                        y_top = o["ass_y"] - ass_fs * 0.95
-                        y_bottom = o["ass_y"] + ass_fs * 0.25
-                    pad_y = max(2.0, o["size"] * 0.04)
-                    y_top = max(0, int(math.floor(y_top - pad_y)))
-                    y_bottom = min(H, int(math.ceil(y_bottom + pad_y)))
-                    span_h = max(1, y_bottom - y_top)
-
-                    for k in range(N_SLICES):
-                        frac = (k + 0.5) / N_SLICES
-                        t_mid = (1.0 - frac) if is_reversed else frac
-                        slice_col = _interpolate_gradient_color(grad_colors, t_mid)
-                        s_top = int(y_top + (k / N_SLICES) * span_h)
-                        s_bot = int(math.ceil(y_top + ((k + 1) / N_SLICES) * span_h)) + 1
-                        slice_clip = f"\\clip(0,{s_top},{W},{s_bot})"
-                        slice_tags = base_tags + [f"\\1c{slice_col}", slice_clip]
-                        dialogue_line = (
-                            f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
-                            f"{{{ ''.join(slice_tags) }}}{text_body}"
-                        )
-                        rows.append(dialogue_line)
+                for k in range(N_SLICES):
+                    t_mid = (k + 0.5) / N_SLICES
+                    slice_col = _interpolate_gradient_color(grad_colors, t_mid)
+                    s_top = int(y_top + (k / N_SLICES) * span_h)
+                    s_bot = int(math.ceil(y_top + ((k + 1) / N_SLICES) * span_h)) + 1
+                    slice_clip = f"\\clip(0,{s_top},{W},{s_bot})"
+                    slice_tags = base_tags + [f"\\1c{slice_col}", slice_clip]
+                    dialogue_line = (
+                        f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
+                        f"{{{ ''.join(slice_tags) }}}{text_body}"
+                    )
+                    rows.append(dialogue_line)
             else:
                 tags = base_tags + [f"\\1c{_c(col)}"]
                 dialogue_line = (
