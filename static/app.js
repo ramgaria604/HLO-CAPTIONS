@@ -1022,16 +1022,16 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
     if (words.length >= 3) {
       let keyIdx = words.findIndex(w => w.key);
-      if (keyIdx === -1) {
+      if (keyIdx <= 0 || keyIdx >= words.length - 1) {
         keyIdx = words.length === 3 ? 1 : words.length - 2;
       }
       topWords = words.slice(0, keyIdx);
       heroWords = [words[keyIdx]];
       bottomWords = words.slice(keyIdx + 1);
     } else if (words.length === 2) {
-      topWords = [];
-      heroWords = [words[0]];
-      bottomWords = [words[1]];
+      topWords = [words[0]];
+      heroWords = [words[1]];
+      bottomWords = [];
     } else {
       topWords = [];
       heroWords = words;

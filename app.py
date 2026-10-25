@@ -1617,9 +1617,8 @@ def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None,
         parts.append(f"[base{i}][b{i}]overlay=enable='between(t,{s:.3f},{e:.3f})':eof_action=pass[base{i + 1}]")
     last = f"base{len(brolls)}"
     if ass_name and person_name:
-        # Put only the hero keyword behind the person cutout.
-        parts.append(f"color=c=black@0.0:s={W}x{H}:r={fps},format=rgba,ass={ass_name}:fontsdir=fonts[captions]")
-        parts.append(f"[{last}][captions]overlay=shortest=1:format=auto[captioned]")
+        # Behind person mode: hero keyword on background, person cutout on top, front subtitles on top of person
+        parts.append(f"[{last}]ass={ass_name}:fontsdir=fonts[captioned]")
         person_input = 1 + len(brolls)
         parts.append(f"[{person_input}:v]fps={fps},scale={W}:{H},setsar=1,format=rgba[person]")
         parts.append("[captioned][person]overlay=shortest=1:format=auto[subject]")
@@ -1628,8 +1627,7 @@ def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None,
     else:
         parts.append(f"[{last}]null[subject]")
     if front_ass_name:
-        parts.append(f"color=c=black@0.0:s={W}x{H}:r={fps},format=rgba,ass={front_ass_name}:fontsdir=fonts[frontcaps]")
-        parts.append("[subject][frontcaps]overlay=shortest=1:format=auto[vout]")
+        parts.append(f"[subject]ass={front_ass_name}:fontsdir=fonts[vout]")
     else:
         parts.append("[subject]null[vout]")
     return ";".join(parts)
@@ -1893,6 +1891,13 @@ def export_worker(job_id, d):
                 except Exception as pe:
                     print("Person mask skipped:", pe)
                     person_name = None
+
+            if ass_name and is_behind_preset and not person_name:
+                # If person cutout could not be generated, render all 3 layers cleanly in one ASS file so no text is skipped
+                ass_name = f"{job_id}.ass"
+                (WORK / ass_name).write_text(stylelib.build_stack_ass(caps, st, W, H, layer_filter="all"), encoding="utf-8")
+                temp.append(WORK / ass_name)
+                front_ass_name = None
 
             # Build the final filter chain with effects
             job["message"] = "Adding captions, effects and b-roll..."

@@ -1031,15 +1031,15 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     if kw.get("key"):
                         key_idx = ki
                         break
-                if key_idx == -1:
+                if key_idx <= 0 or key_idx >= len(words) - 1:
                     key_idx = 1 if len(words) == 3 else len(words) - 2
                 top_w = words[:key_idx]
                 hero_w = [words[key_idx]]
                 bottom_w = words[key_idx + 1:]
             elif len(words) == 2:
-                top_w = []
-                hero_w = [words[0]]
-                bottom_w = [words[1]]
+                top_w = [words[0]]
+                hero_w = [words[1]]
+                bottom_w = []
             else:
                 top_w = []
                 hero_w = words
@@ -1156,11 +1156,13 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 
             # Word-by-word reveal:
             line_parts = []
+            anim_name = str(style.get("animation") or style.get("anim") or "pop").lower()
+            ev_dur_ms = max(250, int(round((ev_end - ev_start) * 1000)))
             for wi, w in enumerate(o["words"]):
                 txt = up(w["t"])
-                reveal_ms = max(0, int(round((w["s"] - ev_start) * 1000)))
+                reveal_ms = max(0, min(ev_dur_ms - 80, int(round((w["s"] - ev_start) * 1000))))
                 w_tags = []
-                if reveal_ms > 30:
+                if anim_name not in ("none", "static") and reveal_ms > 30:
                     w_tags.append(r"\alpha&HFF&")
                     w_tags.append(f"\\t({reveal_ms},{reveal_ms + 1},\\alpha&H00&)")
                 line_parts.append("{" + "".join(w_tags) + "}" + _esc(txt))
