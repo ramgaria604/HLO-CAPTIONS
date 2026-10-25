@@ -156,14 +156,22 @@ def make_person_webm(ffmpeg, video, out_path, width, height, fps=30, on_progress
             if on_progress and i % 15 == 0:
                 on_progress(100.0 * i / total)
     finally:
-        if p.stdin:
+        cap.release()
+        stderr = b""
+        try:
+            if p.stdin and not p.stdin.closed:
+                try:
+                    p.stdin.close()
+                except Exception:
+                    pass
+            stderr = p.stderr.read() if p.stderr else b""
+            p.wait()
+        except Exception:
             try:
-                p.stdin.close()
+                p.kill()
             except Exception:
                 pass
-        stderr = p.communicate()[1]
-        p.wait()
-        cap.release()
+            p.wait()
 
     if p.returncode != 0:
         err_msg = stderr.decode("utf-8", errors="ignore") if stderr else f"exit code {p.returncode}"
