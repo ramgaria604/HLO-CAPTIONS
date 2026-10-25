@@ -33,6 +33,8 @@
     exportPayload: null,
     exportRecovered: false,
     generateAfterPicker: false,
+  user: null,
+  currentProjectId: null,
   aspect: 'original',
   chunkMode: '3',
   autoEmojis: 'above',
@@ -1292,6 +1294,321 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   // INITIALIZATION
   // ==========================================================================
+
+  // ==========================================================================
+  // AUTHENTICATION & PROJECT SAVE / LOAD SUITE
+  // ==========================================================================
+  function syncUserUI() {
+    const user = S.user;
+    const homePill = $('homeUserPill');
+    const homeAvatar = $('homeUserAvatar');
+    const homeName = $('homeUserName');
+    const btnHomeLogin = $('btnHomeLogin');
+
+    const editorPill = $('editorUserPill');
+    const editorAvatar = $('editorUserAvatar');
+    const editorName = $('editorUserName');
+    const btnEditorLogin = $('btnEditorLogin');
+
+    if (user && user.name) {
+      if (homePill) homePill.classList.remove('hidden');
+      if (btnHomeLogin) btnHomeLogin.classList.add('hidden');
+      if (homeAvatar) homeAvatar.src = user.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.id || 'creator'}`;
+      if (homeName) homeName.textContent = user.name.split(' ')[0];
+
+      if (editorPill) editorPill.classList.remove('hidden');
+      if (btnEditorLogin) btnEditorLogin.classList.add('hidden');
+      if (editorAvatar) editorAvatar.src = user.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.id || 'creator'}`;
+      if (editorName) editorName.textContent = user.name.split(' ')[0];
+    } else {
+      if (homePill) homePill.classList.add('hidden');
+      if (btnHomeLogin) btnHomeLogin.classList.remove('hidden');
+
+      if (editorPill) editorPill.classList.add('hidden');
+      if (btnEditorLogin) btnEditorLogin.classList.remove('hidden');
+    }
+  }
+
+  function setupAuthHandlers() {
+    try {
+      const stored = localStorage.getItem('cs_user');
+      if (stored) S.user = JSON.parse(stored);
+    } catch (_) {}
+    syncUserUI();
+
+    const modalLogin = $('modalLogin');
+    const btnCloseLogin = $('btnCloseLoginModal');
+    const btnHomeLogin = $('btnHomeLogin');
+    const btnEditorLogin = $('btnEditorLogin');
+    const btnHomeLogout = $('btnHomeLogout');
+    const btnEditorLogout = $('btnEditorLogout');
+    const btnGoogleAuth = $('btnGoogleAuth');
+    const quickLoginForm = $('quickLoginForm');
+
+    const openLogin = () => { if (modalLogin) modalLogin.classList.remove('hidden'); };
+    const closeLogin = () => { if (modalLogin) modalLogin.classList.add('hidden'); };
+
+    if (btnHomeLogin) btnHomeLogin.addEventListener('click', openLogin);
+    if (btnEditorLogin) btnEditorLogin.addEventListener('click', openLogin);
+    if (btnCloseLogin) btnCloseLogin.addEventListener('click', closeLogin);
+
+    const logout = () => {
+      S.user = null;
+      try { localStorage.removeItem('cs_user'); } catch (_) {}
+      syncUserUI();
+      showToast('👋 Logged out');
+    };
+    if (btnHomeLogout) btnHomeLogout.addEventListener('click', logout);
+    if (btnEditorLogout) btnEditorLogout.addEventListener('click', logout);
+
+    if (quickLoginForm) {
+      quickLoginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = ($('inputLoginName') && $('inputLoginName').value.trim()) || 'Creator';
+        const email = ($('inputLoginEmail') && $('inputLoginEmail').value.trim()) || '';
+        try {
+          const res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email })
+          });
+          const data = await res.json();
+          if (data.ok && data.user) {
+            S.user = data.user;
+            try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
+            syncUserUI();
+            closeLogin();
+            showToast('🎉 Welcome, ' + S.user.name + '!');
+          }
+        } catch (err) {
+          showToast('Login error: ' + err.message);
+        }
+      });
+    }
+
+    if (btnGoogleAuth) {
+      btnGoogleAuth.addEventListener('click', () => {
+        if (window.google && window.google.accounts && window.google.accounts.id) {
+          window.google.accounts.id.prompt();
+        } else {
+          const name = prompt('Enter your name or creator handle:');
+          if (name && name.trim()) {
+            const email = prompt('Enter your email (optional):') || '';
+            fetch('/api/auth/google', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: name.trim(), email: email.trim() })
+            }).then(r => r.json()).then(data => {
+              if (data.ok && data.user) {
+                S.user = data.user;
+                try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
+                syncUserUI();
+                closeLogin();
+                showToast('🎉 Welcome, ' + S.user.name + '!');
+              }
+            });
+          }
+        }
+      });
+    }
+
+    try {
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        window.google.accounts.id.initialize({
+          client_id: '928374928374-demo.apps.googleusercontent.com',
+          callback: handleGoogleCredentialResponse,
+          auto_select: false
+        });
+      }
+    } catch (_) {}
+  }
+
+  function handleGoogleCredentialResponse(response) {
+    if (!response || !response.credential) return;
+    try {
+      const base64Url = response.credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      const payload = JSON.parse(jsonPayload);
+
+      fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name,
+          picture: payload.picture
+        })
+      }).then(r => r.json()).then(data => {
+        if (data.ok && data.user) {
+          S.user = data.user;
+          try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
+          syncUserUI();
+          const modalLogin = $('modalLogin');
+          if (modalLogin) modalLogin.classList.add('hidden');
+          showToast('🎉 Signed in as ' + S.user.name);
+        }
+      });
+    } catch (e) {
+      console.warn('Google credential decode error:', e);
+    }
+  }
+
+  function setupProjectHandlers() {
+    const btnSave = $('btnSaveProject');
+    const btnHomeProjects = $('btnHomeProjects');
+    const btnEditorProjects = $('btnEditorProjects');
+    const modalProjects = $('modalProjects');
+    const btnCloseProjects = $('btnCloseProjectsModal');
+
+    const openProjectsModal = async () => {
+      if (!modalProjects) return;
+      modalProjects.classList.remove('hidden');
+      renderProjectsList();
+    };
+
+    if (btnHomeProjects) btnHomeProjects.addEventListener('click', openProjectsModal);
+    if (btnEditorProjects) btnEditorProjects.addEventListener('click', openProjectsModal);
+    if (btnCloseProjects) btnCloseProjects.addEventListener('click', () => modalProjects.classList.add('hidden'));
+
+    if (btnSave) {
+      btnSave.addEventListener('click', async () => {
+        if (!S.captions || !S.captions.length) {
+          showToast('⚠️ No captions to save yet!');
+          return;
+        }
+
+        const defaultName = S.filename ? S.filename.replace(/\.[^/.]+$/, '') : 'Untitled Project';
+        const projName = prompt('Enter a name for this project:', defaultName) || defaultName;
+
+        btnSave.disabled = true;
+        btnSave.textContent = '⏳ Saving...';
+
+        try {
+          const payload = {
+            id: S.currentProjectId || ('proj_' + Date.now()),
+            name: projName,
+            filename: S.filename,
+            captions: S.captions,
+            style: S.style,
+            aspect: S.aspect,
+            watermark: S.watermark,
+            user_id: S.user ? S.user.id : null,
+            user_email: S.user ? S.user.email : null
+          };
+
+          const res = await fetch('/api/project/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (data.ok) {
+            S.currentProjectId = data.id;
+            showToast('💾 Project "' + data.name + '" saved successfully!');
+          }
+        } catch (err) {
+          showToast('Save failed: ' + err.message);
+        } finally {
+          btnSave.disabled = false;
+          btnSave.textContent = '💾 Save';
+        }
+      });
+    }
+  }
+
+  async function renderProjectsList() {
+    const list = $('projectsList');
+    if (!list) return;
+    list.innerHTML = '<p style="color:#94a3b8; text-align:center; padding:20px;">Loading projects...</p>';
+
+    try {
+      const url = S.user ? `/api/project/list?user_id=${encodeURIComponent(S.user.id)}` : '/api/project/list';
+      const res = await fetch(url);
+      const data = await res.json();
+      const projs = data.projects || [];
+
+      if (!projs.length) {
+        list.innerHTML = `
+          <div style="text-align:center; padding:30px 10px; color:#94a3b8;">
+            <div style="font-size:32px; margin-bottom:8px;">📁</div>
+            <strong style="color:#fff; display:block; margin-bottom:4px;">No saved projects yet</strong>
+            <p style="font-size:12px;">Create captions for a video and click "💾 Save" in the top bar!</p>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = '';
+      projs.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'project-card';
+        const dateStr = p.updated ? new Date(p.updated * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        card.innerHTML = `
+          <div class="project-info">
+            <div class="project-title">${escapeHtml(p.name)}</div>
+            <div class="project-meta">📄 ${p.lines || 0} lines &bull; ${escapeHtml(p.filename || 'video')} &bull; ${dateStr}</div>
+          </div>
+          <div class="project-actions">
+            <button type="button" class="btn-open-proj">Open</button>
+            <button type="button" class="btn-del-proj" title="Delete project">&times;</button>
+          </div>
+        `;
+
+        card.querySelector('.btn-open-proj').addEventListener('click', async () => {
+          loadProject(p.id);
+        });
+
+        card.querySelector('.btn-del-proj').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (confirm(`Delete project "${p.name}"?`)) {
+            await fetch(`/api/project/${encodeURIComponent(p.id)}`, { method: 'DELETE' });
+            showToast('🗑️ Project deleted');
+            renderProjectsList();
+          }
+        });
+
+        list.appendChild(card);
+      });
+    } catch (err) {
+      list.innerHTML = `<p style="color:#ef4444; padding:20px;">Error loading projects: ${err.message}</p>`;
+    }
+  }
+
+  async function loadProject(pid) {
+    try {
+      showToast('⏳ Loading project...');
+      const res = await fetch(`/api/project/${encodeURIComponent(pid)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Project not found');
+
+      S.currentProjectId = data.id;
+      if (data.captions) S.captions = normalizeCaptions(data.captions);
+      if (data.style) S.style = data.style;
+      if (data.aspect) S.aspect = data.aspect;
+      if (data.watermark) S.watermark = data.watermark;
+      if (data.filename) {
+        S.filename = data.filename;
+        headerFileName.textContent = data.filename;
+      }
+
+      viewUpload.classList.add('hidden');
+      viewEditor.classList.remove('hidden');
+
+      renderCaptionsList();
+      renderTimeline();
+      renderCanvas();
+
+      const modalProjects = $('modalProjects');
+      if (modalProjects) modalProjects.classList.add('hidden');
+
+      showToast(`✓ Opened project "${data.name}"!`);
+    } catch (err) {
+      showToast('Error opening project: ' + err.message);
+    }
+  }
+
   async function init() {
     setupUploadHandlers();
     setupTransportHandlers();
@@ -1303,6 +1620,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     setupCanvasSizing();
     setupCaptionDragging();
     startKeepAliveHeartbeat();
+    setupAuthHandlers();
+    setupProjectHandlers();
 
     await loadPresets();
   }

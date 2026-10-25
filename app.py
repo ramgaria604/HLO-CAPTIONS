@@ -28,6 +28,8 @@ WORK = BASE / "work"
 WORK.mkdir(exist_ok=True)
 PROJECTS_DIR = WORK / "projects"
 PROJECTS_DIR.mkdir(exist_ok=True)
+USERS_DIR = WORK / "users"
+USERS_DIR.mkdir(exist_ok=True)
 CONFIG = BASE / "config.json"
 ALLOWED = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".3gp", ".ts", ".flv", ".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"}
 ALLOWED_AUDIO = {".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"}
@@ -913,14 +915,42 @@ def serve_video(filename):
     return send_from_directory(WORK, safe)
 
 
-# ------------------------------------------------------------------ Project Save & Load
+# ------------------------------------------------------------------ Auth & Project Save/Load
+@app.post("/api/auth/google")
+def auth_google():
+    d = request.get_json(force=True)
+    email = (d.get("email") or "").strip().lower()
+    name = (d.get("name") or "").strip() or (email.split("@")[0] if email else "Creator")
+    user_id = d.get("id") or (re.sub(r"\W", "_", email) if email else f"user_{uuid.uuid4().hex[:8]}")
+    picture = d.get("picture") or f"https://api.dicebear.com/7.x/bottts/svg?seed={user_id}"
+
+    user_data = {
+        "id": user_id,
+        "email": email,
+        "name": name,
+        "picture": picture,
+        "created_at": time.time(),
+        "last_login": time.time()
+    }
+    user_file = USERS_DIR / f"{user_id}.json"
+    if user_file.exists():
+        try:
+            existing = json.loads(user_file.read_text(encoding="utf-8"))
+            user_data["created_at"] = existing.get("created_at", user_data["created_at"])
+        except Exception:
+            pass
+    user_file.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
+    return jsonify(ok=True, user=user_data)
+
+
 @app.post("/api/project/save")
 def project_save():
     d = request.get_json(force=True)
-    name = d.get("name", "My Project").strip() or "Untitled Project"
+    name = (d.get("name") or "").strip() or "My Caption Project"
     pid = d.get("id") or f"proj_{uuid.uuid4().hex[:8]}"
     d["id"] = pid
     d["name"] = name
+    d["updated"] = time.time()
     p_file = PROJECTS_DIR / f"{pid}.json"
     p_file.write_text(json.dumps(d, indent=2), encoding="utf-8")
     return jsonify(ok=True, id=pid, name=name)
@@ -928,15 +958,20 @@ def project_save():
 
 @app.get("/api/project/list")
 def project_list():
+    user_id = request.args.get("user_id")
     projs = []
     for p in PROJECTS_DIR.glob("*.json"):
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
+            # If user_id requested, filter to user
+            if user_id and data.get("user_id") and data.get("user_id") != user_id:
+                continue
             projs.append({
                 "id": data.get("id", p.stem),
                 "name": data.get("name", p.stem),
                 "filename": data.get("filename"),
-                "updated": p.stat().st_mtime
+                "lines": len(data.get("captions", [])),
+                "updated": data.get("updated", p.stat().st_mtime)
             })
         except Exception:
             pass
@@ -950,6 +985,18 @@ def project_load(pid):
     if not p_file.exists():
         return err("Project not found.", 404)
     return jsonify(json.loads(p_file.read_text(encoding="utf-8")))
+
+
+@app.delete("/api/project/<pid>")
+def project_delete(pid):
+    p_file = PROJECTS_DIR / f"{pid}.json"
+    if p_file.exists():
+        try:
+            p_file.unlink()
+            return jsonify(ok=True)
+        except Exception as e:
+            return err(str(e), 500)
+    return err("Project not found.", 404)
 
 
 # ------------------------------------------------------------------ upload / transcribe
