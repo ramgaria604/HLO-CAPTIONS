@@ -40,10 +40,15 @@ if str(REMOTION_PY) not in sys.path:
     sys.path.insert(0, str(REMOTION_PY))
 
 try:
+    import mask as mask_lib
+except Exception as _me:
+    print("Warning: mask_lib import error:", _me)
+    mask_lib = None
+
+try:
     import premium_render
     import palette as palette_lib
     import director as director_lib
-    import mask as mask_lib
 except Exception as _e:
     print("Warning: Remotion python modules import error:", _e)
 
