@@ -111,7 +111,7 @@ def make_person_webm(ffmpeg, video, out_path, width, height, fps=30, on_progress
     cap = cv2.VideoCapture(str(video))
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
 
-    scale = min(1.0, 720.0 / max(width, height))
+    scale = min(1.0, 480.0 / max(width, height))
     proc_w = int(round(width * scale / 2.0)) * 2
     proc_h = int(round(height * scale / 2.0)) * 2
 
@@ -125,7 +125,8 @@ def make_person_webm(ffmpeg, video, out_path, width, height, fps=30, on_progress
         "-pix_fmt", "yuva420p",
         "-deadline", "realtime",
         "-cpu-used", "8",
-        "-crf", "32",
+        "-threads", "2",
+        "-crf", "36",
         "-b:v", "0",
         str(out_path)
     ]
@@ -141,12 +142,15 @@ def make_person_webm(ffmpeg, video, out_path, width, height, fps=30, on_progress
                 break
             frame = cv2.resize(frame, (proc_w, proc_h))
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            m = segment_fn(rgb)
-            if prev is not None:
-                m = 0.55 * m + 0.45 * prev
-            prev = m
-            m = cv2.GaussianBlur(m, (7, 7), 0)
-            alpha = (np.clip((m - 0.4) / 0.2, 0, 1) * 255).astype("uint8")
+            if i % 2 == 0 or prev is None:
+                m = segment_fn(rgb)
+                if prev is not None:
+                    m = 0.6 * m + 0.4 * prev
+                prev = m
+            else:
+                m = prev
+            blur = cv2.GaussianBlur(m, (5, 5), 0)
+            alpha = (np.clip((blur - 0.4) / 0.2, 0, 1) * 255).astype("uint8")
             p.stdin.write(np.dstack([rgb, alpha]).tobytes())
             i += 1
             if on_progress and i % 15 == 0:

@@ -330,7 +330,7 @@ def status():
             seg_info = f"error_{e}"
 
     return jsonify(
-        build="2026-10-26_v3_ready",
+        build="2026-10-26_v4_perf",
         ffmpeg=ff,
         ass=ass_ok,
         whisper=speech_ok,
@@ -695,7 +695,21 @@ REMOTION_PRESET_META = [
     },
 ]
 
-REMOTION_PRESET_IDS = {p["id"] for p in stylelib.PRESETS}
+REMOTION_PRESET_IDS = {p["id"] for p in REMOTION_PRESET_META}
+
+
+def is_remotion_available():
+    try:
+        remotion_bin = REMOTION_DIR / "node_modules" / ".bin" / ("remotion.cmd" if sys.platform == "win32" else "remotion")
+        if remotion_bin.exists():
+            return True
+        import shutil
+        if shutil.which("remotion"):
+            return True
+        npx = shutil.which("npx") or shutil.which("npx.cmd")
+        return bool(npx and (REMOTION_DIR / "package.json").exists() and (REMOTION_DIR / "node_modules").exists())
+    except Exception:
+        return False
 
 
 @app.get("/api/remotion/presets")
@@ -1758,8 +1772,14 @@ def export_worker(job_id, d):
                 b["file"] = path.name
             preset_id = d.get("preset_id") or (d.get("style", {}) or {}).get("preset_id") or (d.get("style", {}) or {}).get("id")
             requested_engine = d.get("engine", "auto")
+            is_behind = bool(
+                d.get("behindPerson") or
+                d.get("behind_person") or
+                (d.get("style") or {}).get("behindPerson") or
+                (d.get("style") or {}).get("behind_person")
+            )
             is_remotion = requested_engine == "remotion" or (
-                requested_engine != "ffmpeg" and (bool(d.get("is_remotion")) or preset_id in REMOTION_PRESET_IDS)
+                requested_engine != "ffmpeg" and is_remotion_available() and (bool(d.get("is_remotion")) or (preset_id in REMOTION_PRESET_IDS and not is_behind))
             )
 
             if is_remotion:
@@ -1918,13 +1938,14 @@ def export_worker(job_id, d):
                     job["message"] = "AI Depth Cutout: Separating speaker for behind-person captions..."
                     person_name = f"person_{job_id}.webm"
                     person_path = WORK / person_name
-                    mask_lib.make_person_webm(
-                        ffmpeg_path(), WORK / current, person_path, W, H, fps=30,
-                        on_progress=lambda p: job.update(
-                            message=f"AI Depth Cutout: Separating speaker ({int(p)}%)...",
-                            progress=round(10 + p * 0.45, 1)
+                    if not person_path.exists():
+                        mask_lib.make_person_webm(
+                            ffmpeg_path(), WORK / current, person_path, W, H, fps=30,
+                            on_progress=lambda p: job.update(
+                                message=f"AI Depth Cutout: Separating speaker ({int(p)}%)...",
+                                progress=round(10 + p * 0.45, 1)
+                            )
                         )
-                    )
                     if person_path.exists():
                         temp.append(person_path)
                     else:

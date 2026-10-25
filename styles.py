@@ -205,7 +205,7 @@ def caption_words(cap):
     if isinstance(supplied, list) and supplied and all(isinstance(item, dict) for item in supplied):
         out = []
         for item in supplied:
-            text = str(item.get("t", item.get("word", ""))).replace("*", "")
+            text = str(item.get("t") or item.get("word") or item.get("text") or "").replace("*", "")
             if not text:
                 continue
             start = float(item.get("s", item.get("start", cap.get("start", 0))))
@@ -1140,15 +1140,32 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
 
-    caps = sorted((c for c in captions if c.get("words")), key=lambda c: c["start"])
+    norm_caps = []
+    for c in captions:
+        w_list = c.get("words", [])
+        if not w_list:
+            continue
+        clean_w = []
+        for w in w_list:
+            t = str(w.get("t") or w.get("word") or w.get("text") or "").replace("*", "")
+            s = float(w.get("s", w.get("start", c.get("start", 0))))
+            e = float(w.get("e", w.get("end", c.get("end", s))))
+            clean_w.append({"t": t, "key": bool(w.get("key")), "s": s, "e": e})
+        norm_caps.append({
+            "start": float(c.get("start", 0)),
+            "end": float(c.get("end", 0)),
+            "words": clean_w,
+            "text": c.get("text", "")
+        })
+    caps = sorted(norm_caps, key=lambda c: c["start"])
     rows = []
 
     for cap_idx, c in enumerate(caps):
         words = list(c["words"])
         if not words:
             continue
-        ev_start = min(w["s"] for w in words)
-        ev_end = max(c["end"], max(w["e"] for w in words))
+        ev_start = min(float(w.get("s", w.get("start", c["start"]))) for w in words)
+        ev_end = max(c["end"], max(float(w.get("e", w.get("end", c["end"]))) for w in words))
         if cap_idx + 1 < len(caps):
             ev_end = min(ev_end, caps[cap_idx + 1]["start"])
         ev_end = max(ev_end, ev_start + 0.25)
@@ -1164,8 +1181,8 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             big_words = [words[-1]]
 
         up = lambda t: t.upper() if uppercase else t
-        small_text = " ".join(up(w["t"]) for w in small_words)
-        big_text = " ".join(up(w["t"]) for w in big_words)
+        small_text = " ".join(up(str(w.get("t") or w.get("word") or w.get("text") or "")) for w in small_words)
+        big_text = " ".join(up(str(w.get("t") or w.get("word") or w.get("text") or "")) for w in big_words)
 
         base_font_file = find_font_file(base_role)
         accent_font_file = find_font_file(accent_role)
@@ -1537,7 +1554,24 @@ def build_ass(captions, style, W, H):
         "Style: Cap,Arial,40,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1\n\n"
         "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
-    caps = sorted((c for c in captions if c.get("words")), key=lambda c: c["start"])
+    norm_caps = []
+    for c in captions:
+        w_list = c.get("words", [])
+        if not w_list:
+            continue
+        clean_w = []
+        for w in w_list:
+            t = str(w.get("t") or w.get("word") or w.get("text") or "").replace("*", "")
+            s = float(w.get("s", w.get("start", c.get("start", 0))))
+            e = float(w.get("e", w.get("end", c.get("end", s))))
+            clean_w.append({"t": t, "key": bool(w.get("key")), "s": s, "e": e})
+        norm_caps.append({
+            "start": float(c.get("start", 0)),
+            "end": float(c.get("end", 0)),
+            "words": clean_w,
+            "text": c.get("text", "")
+        })
+    caps = sorted(norm_caps, key=lambda c: c["start"])
     rows = []
     for i, c in enumerate(caps):
         words = []
