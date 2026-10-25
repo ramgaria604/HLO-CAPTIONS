@@ -20,103 +20,31 @@
 
   <!-- ======================== VIEW 1: UPLOAD SCREEN ======================== -->
   <main id="viewUpload" class="view active">
-    <header class="home-nav-bar">
+    <div class="upload-container">
+      <!-- Centered Brand Badge -->
       <div class="brand-badge">
         <span class="brand-dot"></span>
         <span>HLO CAPTIONS AI</span>
       </div>
-      <div class="home-nav-actions">
-        <button type="button" id="btnToggleSidebar" class="btn-sidebar-toggle" aria-label="Open sidebar menu">
-          <span class="sidebar-toggle-burger">☰</span>
-          <span id="sidebarToggleText" class="sidebar-toggle-text">📁 My Projects & Sign In</span>
-        </button>
-      </div>
-    </header>
 
-    <!-- Floating Side Tab for Quick Access -->
-    <button type="button" id="floatingSideTab" class="floating-side-tab" title="Open My Projects & Sign In Sidebar">
-      <span class="floating-tab-icon">📁</span>
-      <span class="floating-tab-text">Projects & Account</span>
-      <span class="floating-tab-arrow">‹</span>
-    </button>
-
-    <!-- ======================== HOME SIDEBAR (MY PROJECTS & SIGN IN) ======================== -->
-    <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
-    <aside id="homeSidebar" class="home-sidebar" aria-label="Projects and Account Sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-brand">
-          <span class="brand-dot"></span>
-          <span>HLO CAPTIONS AI</span>
-        </div>
-        <button type="button" id="btnCloseSidebar" class="sidebar-close-btn" aria-label="Close sidebar">&times;</button>
-      </div>
-
-      <div class="sidebar-body">
-        <!-- 1. SIGN IN / ACCOUNT SECTION -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">👤 Account & Profile</div>
-          
-          <!-- Logged out state -->
-          <div id="sidebarLoggedOutCard" class="sidebar-card">
-            <p class="sidebar-card-hint">Sign in with Google to save your video projects, custom fonts, and access them anytime.</p>
-            <button type="button" id="btnHomeLogin" class="btn-google-large">
-              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-              <span>Sign In with Google</span>
-            </button>
-          </div>
-
-          <!-- Logged in state -->
-          <div id="homeUserPill" class="sidebar-user-card hidden">
-            <img id="homeUserAvatar" class="sidebar-avatar-img" src="" alt="Avatar">
-            <div class="sidebar-user-details">
-              <span class="sidebar-user-welcome">Signed in as</span>
-              <strong id="homeUserName" class="sidebar-user-name">Creator</strong>
-              <span class="sidebar-role-badge">Creator Pro ✨</span>
-            </div>
-            <button type="button" id="btnHomeLogout" class="sidebar-btn-logout" title="Log out">Sign Out</button>
-          </div>
-        </div>
-
-        <!-- 2. MY PROJECTS SECTION -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">📁 Workspace</div>
-          <button type="button" id="btnHomeProjects" class="sidebar-nav-tile">
-            <div class="sidebar-tile-icon">📂</div>
-            <div class="sidebar-tile-content">
-              <strong class="sidebar-tile-title">My Saved Projects</strong>
-              <span class="sidebar-tile-desc">Open previous caption drafts & videos</span>
-            </div>
-            <span class="sidebar-tile-chevron">→</span>
-          </button>
-        </div>
-
-        <!-- 3. EXPORT CREDITS & VIP COUPONS -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">🎟️ Export Credits</div>
-          <div class="sidebar-credit-box">
-            <div class="sidebar-credit-row">
-              <span>Remaining Credits:</span>
-              <span id="sidebarCreditsCount" class="sidebar-credit-pill">1 Free Export</span>
-            </div>
-            <p class="sidebar-credit-note">Want 10 Free Exports? DM us on Instagram to receive your VIP coupon code in seconds!</p>
-            <button type="button" id="btnSidebarOpenCoupon" class="btn-sidebar-coupon">
-              🎁 Redeem / Get Coupon
-            </button>
-          </div>
-        </div>
-
-        <!-- 4. FOOTER & SOCIAL -->
-        <div class="sidebar-footer">
-          <a href="https://instagram.com/hlocaptions" target="_blank" rel="noopener noreferrer" class="sidebar-footer-link">
-            📸 Follow @hlocaptions on Instagram
-          </a>
-          <div class="sidebar-version-tag">Hlo Captions Pro v3.30</div>
-        </div>
-      </div>
-    </aside>
-    <div class="upload-container">
       <h1 class="hero-title">Add Viral Captions to <span class="gradient-text">Any Video</span></h1>
       <p class="hero-subtitle">Upload your video below to auto-transcribe & burn voice-synced captions.</p>
+
+      <!-- Centered Account & Projects Bar -->
+      <div class="home-action-bar">
+        <button type="button" id="btnHomeProjects" class="nav-pill-btn" title="View your saved projects">
+          📁 My Projects
+        </button>
+        <div id="homeUserPill" class="user-profile-pill hidden">
+          <img id="homeUserAvatar" class="user-avatar" src="" alt="Avatar">
+          <span id="homeUserName" class="user-name">Creator</span>
+          <button type="button" id="btnHomeLogout" class="btn-logout-icon" title="Log out">&times;</button>
+        </div>
+        <button type="button" id="btnHomeLogin" class="btn-google-login">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+          <span>Sign In</span>
+        </button>
+      </div>
 
       <!-- PRIORITY 1: UPLOAD CARD -->
       <div class="upload-card" id="dropZone">

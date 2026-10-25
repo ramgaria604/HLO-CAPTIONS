@@ -1331,8 +1331,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const homeAvatar = $('homeUserAvatar');
     const homeName = $('homeUserName');
     const btnHomeLogin = $('btnHomeLogin');
-    const sidebarLoggedOutCard = $('sidebarLoggedOutCard');
-    const sidebarToggleText = $('sidebarToggleText');
 
     const editorPill = $('editorUserPill');
     const editorAvatar = $('editorUserAvatar');
@@ -1341,9 +1339,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     if (user && user.name) {
       if (homePill) homePill.classList.remove('hidden');
-      if (sidebarLoggedOutCard) sidebarLoggedOutCard.classList.add('hidden');
       if (btnHomeLogin) btnHomeLogin.classList.add('hidden');
-      if (sidebarToggleText) sidebarToggleText.textContent = `👤 ${user.name.split(' ')[0]} · Projects`;
       if (homeAvatar) homeAvatar.src = user.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.id || 'creator'}`;
       if (homeName) homeName.textContent = user.name.split(' ')[0];
 
@@ -1353,9 +1349,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (editorName) editorName.textContent = user.name.split(' ')[0];
     } else {
       if (homePill) homePill.classList.add('hidden');
-      if (sidebarLoggedOutCard) sidebarLoggedOutCard.classList.remove('hidden');
       if (btnHomeLogin) btnHomeLogin.classList.remove('hidden');
-      if (sidebarToggleText) sidebarToggleText.textContent = '📁 My Projects & Sign In';
 
       if (editorPill) editorPill.classList.add('hidden');
       if (btnEditorLogin) btnEditorLogin.classList.remove('hidden');
@@ -1789,46 +1783,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
   }
 
-  // ==========================================================================
-  // SIDEBAR CONTROLLER (MY PROJECTS, ACCOUNT & COUPONS)
-  // ==========================================================================
-  function setupSidebarHandlers() {
-    const sidebar = $('homeSidebar');
-    const backdrop = $('sidebarBackdrop');
-    const btnToggle = $('btnToggleSidebar');
-    const btnClose = $('btnCloseSidebar');
-    const floatingTab = $('floatingSideTab');
-    const btnSidebarCoupon = $('btnSidebarOpenCoupon');
-
-    const openSidebar = () => {
-      if (sidebar) sidebar.classList.add('open');
-      if (backdrop) backdrop.classList.remove('hidden');
-    };
-    const closeSidebar = () => {
-      if (sidebar) sidebar.classList.remove('open');
-      if (backdrop) backdrop.classList.add('hidden');
-    };
-
-    if (btnToggle) btnToggle.addEventListener('click', openSidebar);
-    if (floatingTab) floatingTab.addEventListener('click', openSidebar);
-    if (btnClose) btnClose.addEventListener('click', closeSidebar);
-    if (backdrop) backdrop.addEventListener('click', closeSidebar);
-
-    if (btnSidebarCoupon) {
-      btnSidebarCoupon.addEventListener('click', () => {
-        closeSidebar();
-        openCouponModal();
-      });
-    }
-
-    const btnHomeProjects = $('btnHomeProjects');
-    if (btnHomeProjects) {
-      btnHomeProjects.addEventListener('click', () => {
-        closeSidebar();
-      });
-    }
-  }
-
   async function init() {
     setupUploadHandlers();
     setupTransportHandlers();
@@ -1843,7 +1797,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     setupAuthHandlers();
     setupProjectHandlers();
     setupCouponHandlers();
-    setupSidebarHandlers();
 
     await loadPresets();
   }
