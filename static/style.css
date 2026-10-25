@@ -2900,3 +2900,386 @@ button {
   opacity: 0.35;
   pointer-events: none;
 }
+
+
+/* ==========================================================================
+   HOME SIDEBAR & DOWNWARDS TEMPLATE SHOWCASE STYLES
+   ========================================================================== */
+
+/* Downwards Template Showcase */
+.template-showcase-section {
+  margin-top: 44px;
+  margin-bottom: 40px;
+  padding-top: 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.template-showcase-section .duo-front-heading h2 {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.template-showcase-section .duo-front-heading p {
+  color: #94a3b8;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+/* Home Sidebar Toggle in Navbar */
+.btn-sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f1f5f9;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.btn-sidebar-toggle:hover {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+}
+.sidebar-toggle-burger {
+  font-size: 15px;
+  color: #a5b4fc;
+  line-height: 1;
+}
+
+/* Floating Side Tab (Desktop & Tablet) */
+.floating-side-tab {
+  position: fixed;
+  top: 45%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-right: none;
+  border-radius: 999px 0 0 999px;
+  padding: 10px 14px;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.floating-side-tab:hover {
+  transform: translateY(-50%) translateX(-5px);
+  background: linear-gradient(135deg, rgba(49, 46, 129, 0.95), rgba(30, 27, 75, 0.95));
+  border-color: rgba(129, 140, 248, 0.6);
+  box-shadow: -6px 6px 24px rgba(99, 102, 241, 0.45);
+}
+.floating-tab-icon {
+  font-size: 15px;
+}
+.floating-tab-arrow {
+  color: #818cf8;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+@media (max-width: 768px) {
+  .floating-side-tab {
+    display: none;
+  }
+}
+
+/* Backdrop */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 9998;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
+/* Slide-out Sidebar Panel */
+.home-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 360px;
+  max-width: 90vw;
+  background: #0b0f19;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: -15px 0 45px rgba(0, 0, 0, 0.75);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+.home-sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 13.5px;
+  letter-spacing: 0.06em;
+  color: #fff;
+}
+.sidebar-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #94a3b8;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+.sidebar-close-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sidebar-section-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.sidebar-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px;
+}
+.sidebar-card-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.45;
+  margin: 0 0 12px 0;
+}
+
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.sidebar-avatar-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #6366f1;
+}
+.sidebar-user-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-user-welcome {
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+.sidebar-user-name {
+  font-size: 14px;
+  color: #fff;
+  font-weight: 700;
+}
+.sidebar-role-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 7px;
+  border-radius: 999px;
+  width: fit-content;
+  margin-top: 2px;
+}
+.sidebar-btn-logout {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sidebar-btn-logout:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fff;
+}
+
+/* Workspace Projects Tile */
+.sidebar-nav-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.sidebar-nav-tile:hover {
+  background: rgba(99, 102, 241, 0.14);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+}
+.sidebar-tile-icon {
+  font-size: 22px;
+}
+.sidebar-tile-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-tile-title {
+  color: #f1f5f9;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.sidebar-tile-desc {
+  color: #94a3b8;
+  font-size: 11.5px;
+}
+.sidebar-tile-chevron {
+  color: #6366f1;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+/* Export Credits Box */
+.sidebar-credit-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sidebar-credit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+.sidebar-credit-pill {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  font-weight: 800;
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.sidebar-credit-note {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0;
+}
+.btn-sidebar-coupon {
+  width: 100%;
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  border: none;
+  color: #fff;
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.25);
+}
+.btn-sidebar-coupon:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(236, 72, 153, 0.4);
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+}
+.sidebar-footer-link {
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s ease;
+}
+.sidebar-footer-link:hover {
+  color: #a78bfa;
+}
+.sidebar-version-tag {
+  font-size: 10.5px;
+  color: #64748b;
+  font-weight: 500;
+}
