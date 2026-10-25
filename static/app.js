@@ -543,16 +543,40 @@ const VIRAL_COMBOS = [
   { small: '#F0FDFA', big: '#10B981', glow: '#34D399' }, // Emerald Mint & Snow
 ];
 
-function canvasRolePaint(ctx, role, fallback, extent) {
+function canvasRolePaint(ctx, role, fallback, extent, box) {
   const gradientCss = role && (role.keyGradient || role.textGradient);
   if (!gradientCss || typeof gradientCss !== 'string') return fallback;
   const match = gradientCss.match(/linear-gradient\(\s*([-\d.]+)deg\s*,\s*(.+)\)/i);
   if (!match || !ctx.createLinearGradient) return fallback;
   const rawParts = match[2].split(/,(?![^()]*\))/).map(c => c.trim()).filter(Boolean);
   if (rawParts.length < 2) return rawParts[0] || fallback;
-  const radians = (parseFloat(match[1]) - 90) * Math.PI / 180;
-  const dx = Math.cos(radians) * extent / 2, dy = Math.sin(radians) * extent / 2;
-  const gradient = ctx.createLinearGradient(-dx, -dy, dx, dy);
+
+  const angle = parseFloat(match[1]);
+  const normAngle = ((angle % 360) + 360) % 360;
+
+  let x1, y1, x2, y2;
+  const w = box && typeof box.w === 'number' ? box.w : extent;
+  const h = box && typeof box.h === 'number' ? box.h : extent;
+  const bx = box && typeof box.x === 'number' ? box.x : 0;
+  const by = box && typeof box.y === 'number' ? box.y : 0;
+
+  const isHorizontal = (normAngle >= 45 && normAngle <= 135) || (normAngle >= 225 && normAngle <= 315);
+
+  if (isHorizontal) {
+    if (normAngle >= 225 && normAngle <= 315) {
+      x1 = bx + w; y1 = by + h / 2; x2 = bx; y2 = by + h / 2;
+    } else {
+      x1 = bx; y1 = by + h / 2; x2 = bx + w; y2 = by + h / 2;
+    }
+  } else {
+    if (normAngle >= 135 && normAngle <= 225) {
+      x1 = bx + w / 2; y1 = by; x2 = bx + w / 2; y2 = by + h;
+    } else {
+      x1 = bx + w / 2; y1 = by + h; x2 = bx + w / 2; y2 = by;
+    }
+  }
+
+  const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
   rawParts.forEach((part, index) => {
     const tokens = part.trim().split(/\s+/);
     let color = tokens[0];
@@ -700,7 +724,8 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
           ctx.strokeText(wo.txt, 0, 0);
 
           // Fill text
-          ctx.fillStyle = wo.isKey ? canvasRolePaint(ctx, kRole, bigColor, base) : canvasRolePaint(ctx, fRole, smallColor, base);
+          const wordBox = { x: -wo.width / 2, y: -fs / 2, w: wo.width, h: fs };
+          ctx.fillStyle = wo.isKey ? canvasRolePaint(ctx, kRole, bigColor, fs, wordBox) : canvasRolePaint(ctx, fRole, smallColor, fs, wordBox);
           ctx.fillText(wo.txt, 0, 0);
         }
 
@@ -1194,7 +1219,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           }
         }
         const basePaintColor = o.isHero ? (o.role.color || st.highlightColor || '#FF6200') : (o.role.color || '#FFFFFF');
-        targetCtx.fillStyle = canvasRolePaint(targetCtx, o.role, basePaintColor, o.size);
+        const wordBox = { x: 0, y: -o.size * 0.85, w: wo.width, h: o.size * 0.85 };
+        targetCtx.fillStyle = canvasRolePaint(targetCtx, o.role, basePaintColor, o.size, wordBox);
         targetCtx.fillText(wo.txt, 0, 0);
         targetCtx.restore();
       }
@@ -2380,6 +2406,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           delete S.style.roles.accent2.keyGradient;
           delete S.style.roles.accent2.textGradient;
           delete S.style.roles.accent2.fill;
+        }
+        if (S.style.key) {
+          S.style.key.color = color;
+          delete S.style.key.keyGradient;
+          delete S.style.key.fill;
+        }
+        delete S.style.keyGradient;
+        delete S.style.secondaryGradient;
+        delete S.style.textGradient;
+        delete S.style.fill;
+        delete S.style.multiColorGradients;
+        if (S.style.big && S.style.big.fill) {
+          delete S.style.big.fill;
+        }
+        if (S.style.small && S.style.small.fill) {
+          delete S.style.small.fill;
         }
         renderCanvas();
       });

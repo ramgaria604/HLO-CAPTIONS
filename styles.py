@@ -890,49 +890,47 @@ def get_gradient_colors(role, style):
         if len(valid) > 1:
             return valid
 
-    # 2. Roles accent fill dict
+    # 2. Direct role gradient strings
+    for grad_str in (role.get("keyGradient"), role.get("textGradient"), (role.get("fill") if isinstance(role.get("fill"), str) else None)):
+        if grad_str and isinstance(grad_str, str) and "linear-gradient" in grad_str.lower():
+            hexes = re.findall(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b", grad_str)
+            if len(hexes) > 1:
+                return [f"#{''.join(c*2 for c in h[1:])}" if len(h) == 4 else h for h in hexes]
+
+    # 3. Roles accent fill dict or gradient strings
     roles = style.get("roles") or {}
-    accent = roles.get("accent") or {}
-    if isinstance(accent, dict):
+    accent = roles.get("accent") if isinstance(roles.get("accent"), dict) else {}
+    if accent and (role.get("layer") == "behind" or role is accent or not role.get("color")):
         acc_fill = accent.get("fill") if isinstance(accent.get("fill"), dict) else {}
         acc_cols = acc_fill.get("colors")
         if acc_cols and isinstance(acc_cols, (list, tuple)):
             valid = [c for c in acc_cols if isinstance(c, str) and c.startswith("#")]
             if len(valid) > 1:
                 return valid
+        for grad_str in (accent.get("keyGradient"), accent.get("textGradient")):
+            if grad_str and isinstance(grad_str, str) and "linear-gradient" in grad_str.lower():
+                hexes = re.findall(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b", grad_str)
+                if len(hexes) > 1:
+                    return [f"#{''.join(c*2 for c in h[1:])}" if len(h) == 4 else h for h in hexes]
 
-    # 3. Big fill colors
-    big = style.get("big") or {}
-    if isinstance(big, dict):
-        big_fill = big.get("fill") if isinstance(big.get("fill"), dict) else {}
-        big_cols = big_fill.get("colors")
-        if big_cols and isinstance(big_cols, (list, tuple)):
-            valid = [c for c in big_cols if isinstance(c, str) and c.startswith("#")]
-            if len(valid) > 1:
-                return valid
+    # If role has an explicit color and had no gradient in role or accent, it is solid!
+    if role.get("color") and not (role.get("keyGradient") or role.get("fill")):
+        return None
 
-    # 4. multiColorGradients in style
-    mcg = style.get("multiColorGradients")
-    if mcg and isinstance(mcg, (list, tuple)):
-        valid = [c for c in mcg if isinstance(c, str) and c.startswith("#")]
-        if len(valid) > 1:
-            return valid
-
-    # 5. Gradient strings (role.keyGradient, role.textGradient, accent.keyGradient, style.keyGradient, etc.)
-    for grad_str in [
-        role.get("keyGradient"),
-        role.get("textGradient"),
-        accent.get("keyGradient"),
-        style.get("keyGradient"),
-        style.get("secondaryGradient"),
-        style.get("textGradient"),
-        (role.get("fill") if isinstance(role.get("fill"), str) else None),
-        (style.get("fill") if isinstance(style.get("fill"), str) else None)
-    ]:
+    # 4. Fallback for older presets without roles dict
+    for grad_str in (style.get("keyGradient"), style.get("secondaryGradient"), style.get("textGradient")):
         if grad_str and isinstance(grad_str, str) and "linear-gradient" in grad_str.lower():
             hexes = re.findall(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b", grad_str)
             if len(hexes) > 1:
                 return [f"#{''.join(c*2 for c in h[1:])}" if len(h) == 4 else h for h in hexes]
+
+    big = style.get("big") if isinstance(style.get("big"), dict) else {}
+    big_fill = big.get("fill") if isinstance(big.get("fill"), dict) else {}
+    big_cols = big_fill.get("colors")
+    if big_cols and isinstance(big_cols, (list, tuple)):
+        valid = [c for c in big_cols if isinstance(c, str) and c.startswith("#")]
+        if len(valid) > 1:
+            return valid
 
     return None
 
@@ -1333,11 +1331,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 if not grad_colors:
                     hl_col = style.get("highlightColor") or (style.get("highlight") or {}).get("color")
                     r_col = r.get("color")
-                    if r_col and isinstance(r_col, str) and r_col.startswith("#") and r_col.upper() not in ("#FFFFFF", "#FFF"):
-                        col = r_col
-                    elif hl_col and isinstance(hl_col, str) and hl_col.startswith("#") and hl_col.upper() not in ("#FFFFFF", "#FFF"):
-                        col = hl_col
-                    elif r_col and isinstance(r_col, str) and r_col.startswith("#"):
+                    if r_col and isinstance(r_col, str) and r_col.startswith("#"):
                         col = r_col
                     elif hl_col and isinstance(hl_col, str) and hl_col.startswith("#"):
                         col = hl_col
