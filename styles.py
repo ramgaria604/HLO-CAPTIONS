@@ -719,11 +719,11 @@ def clean_style(s):
         "karaokeDim": bool(s.get("karaokeDim", False)),
         "glowBloom": bool(s.get("glowBloom", False)),
         "blendMode": s.get("blendMode"),
-        "behindPerson": bool(s.get("behindPerson", False)),
-        "depthAccent": bool(s.get("depthAccent", False)),
+        "behindPerson": bool(s.get("behindPerson") or (isinstance(s.get("roles"), dict) and s["roles"].get("accent", {}).get("layer") == "behind") or ("(behind)" in str(s.get("name", "")).lower())),
+        "depthAccent": bool(s.get("depthAccent") or (isinstance(s.get("roles"), dict) and s["roles"].get("accent", {}).get("layer") == "behind") or ("(behind)" in str(s.get("name", "")).lower())),
         "depthAccentSize": float(_num(s.get("depthAccentSize"), 0.12, 0.34, 0.22)),
-        "depthAccentY": float(_num(s.get("depthAccentY"), 0.20, 0.82, 0.41)),
-        "subtitlePosition": float(_num(s.get("subtitlePosition"), 0.20, 0.90, 0.76)),
+        "depthAccentY": float(_num(s.get("depthAccentY"), 0.15, 0.45, 0.28)),
+        "subtitlePosition": float(_num(s.get("subtitlePosition"), 0.55, 0.90, 0.70)),
         "subtitleSize": float(_num(s.get("subtitleSize"), 0.035, 0.09, 0.058)),
         "fontScale": float(_num(s.get("fontScale"), 0.6, 1.5, 1.0)),
         "offsetX": float(_num(s.get("offsetX"), -0.10, 0.10, 0.0)),
@@ -1022,7 +1022,20 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 "is_hero": True
             })
 
-        lay = ink_layout.layout_stack(lines_in, W, H, pos_x=pos_x, pos_y=pos_y, ink_gap=ink_gap)
+        is_behind = bool(
+            style.get("behindPerson") or
+            style.get("depthAccent") or
+            (accent_role.get("layer") == "behind") or
+            ("(behind)" in str(style.get("name", "")).lower())
+        )
+        if is_behind and len(lines_in) >= 2:
+            hero_y = float(style.get("depthAccentY", 0.28))
+            sub_y = float(style.get("subtitlePosition", 0.70))
+            lay_sub = ink_layout.layout_stack([lines_in[0]], W, H, pos_x=pos_x, pos_y=sub_y, ink_gap=ink_gap)
+            lay_hero = ink_layout.layout_stack([lines_in[1]], W, H, pos_x=pos_x, pos_y=hero_y, ink_gap=ink_gap)
+            lay = lay_sub + lay_hero
+        else:
+            lay = ink_layout.layout_stack(lines_in, W, H, pos_x=pos_x, pos_y=pos_y, ink_gap=ink_gap)
 
         for line_idx, o in enumerate(lay):
             if layer_filter == "depth" and not o["is_hero"]:

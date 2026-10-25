@@ -1037,16 +1037,27 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     });
   }
 
+  const isBehindPreset = Boolean(
+    isBehind ||
+    st.behindPerson ||
+    st.depthAccent ||
+    (accentRole && accentRole.layer === 'behind') ||
+    (st.name && st.name.toLowerCase().includes('(behind)'))
+  );
   const layoutFn = getLayoutStackFn();
-  const lay = layoutFn(lineDescriptors, {
-    W, H,
-    posX, posY,
-    inkGap,
-    maxWidth: 0.90
-  });
+  let lay;
+  if (isBehindPreset && lineDescriptors.length >= 2) {
+    const heroY = typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.28;
+    const subY = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.70;
+    const laySub = layoutFn([lineDescriptors[0]], { W, H, posX, posY: subY, inkGap, maxWidth: 0.90 });
+    const layHero = layoutFn([lineDescriptors[1]], { W, H, posX, posY: heroY, inkGap, maxWidth: 0.90 });
+    lay = laySub.concat(layHero);
+  } else {
+    lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.90 });
+  }
 
   lay.forEach((o) => {
-    const isBehindPerson = o.isHero && (o.role.layer === 'behind' || st.behindPerson || st.depthAccent);
+    const isBehindPerson = o.isHero && (o.role.layer === 'behind' || st.behindPerson || st.depthAccent || isBehindPreset);
     const targetCtx = (isBehindPerson && ctxBehind) ? ctxBehind : ctxFore;
     if (!targetCtx) return;
 
@@ -1986,9 +1997,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function applyPreset(preset, showGenToast = false) {
+    const isBehind = Boolean(
+      preset.behindPerson ||
+      preset.depthAccent ||
+      (preset.roles && preset.roles.accent && preset.roles.accent.layer === 'behind') ||
+      (preset.name && preset.name.toLowerCase().includes('(behind)'))
+    );
     S.style = Object.assign({}, preset, {
       fontScale: 1.0,
-      position: Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75,
+      position: Number.isFinite(Number(preset.position)) ? Number(preset.position) : (isBehind ? 0.28 : 0.75),
+      depthAccentY: Number.isFinite(Number(preset.depthAccentY)) ? Number(preset.depthAccentY) : 0.28,
+      subtitlePosition: Number.isFinite(Number(preset.subtitlePosition)) ? Number(preset.subtitlePosition) : 0.70,
+      behindPerson: isBehind,
       highlightColor: preset.highlightColor || preset.key?.color || '#FFE600',
       fontFamily: preset.key?.font || 'Poppins',
       textCase: S.style?.textCase || 'upper'
@@ -2410,15 +2430,33 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         const [min, max] = key === 'depthAccentY' ? [0.20, 0.82] : key === 'subtitlePosition' ? [0.20, 0.90] : [0.10, 0.95];
         S.style[key] = Math.max(min, Math.min(max, (Number.isFinite(current) ? current : fallback) + delta));
       };
+      const isBehindPreset = Boolean(
+        S.style && (
+          S.style.behindPerson ||
+          S.style.depthAccent ||
+          (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
+          (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
+        )
+      );
       if (S.style.isDuo) {
-        const oldHero = Number(S.style.depthAccentY) || 0.20;
-        const oldSubtitle = Number(S.style.subtitlePosition) || oldHero + 0.06;
-        const lineGap = Math.max(0.055, Math.min(0.09, oldSubtitle - oldHero));
-        let nextHero = Math.max(0.20, Math.min(0.82, oldHero + delta));
-        if (nextHero + lineGap > 0.90) nextHero = 0.90 - lineGap;
-        S.style.depthAccentY = nextHero;
-        S.style.subtitlePosition = nextHero + lineGap;
-        S.style.position = nextHero;
+        if (isBehindPreset) {
+          const oldHero = Number(S.style.depthAccentY) || 0.28;
+          const oldSubtitle = Number(S.style.subtitlePosition) || 0.70;
+          const nextHero = Math.max(0.15, Math.min(0.45, oldHero + delta));
+          const nextSubtitle = Math.max(0.55, Math.min(0.90, oldSubtitle + delta));
+          S.style.depthAccentY = nextHero;
+          S.style.subtitlePosition = nextSubtitle;
+          S.style.position = nextHero;
+        } else {
+          const oldHero = Number(S.style.depthAccentY) || 0.20;
+          const oldSubtitle = Number(S.style.subtitlePosition) || oldHero + 0.06;
+          const lineGap = Math.max(0.055, Math.min(0.09, oldSubtitle - oldHero));
+          let nextHero = Math.max(0.20, Math.min(0.82, oldHero + delta));
+          if (nextHero + lineGap > 0.90) nextHero = 0.90 - lineGap;
+          S.style.depthAccentY = nextHero;
+          S.style.subtitlePosition = nextHero + lineGap;
+          S.style.position = nextHero;
+        }
       } else {
         moveKey('position', basePosition);
       }
@@ -2483,7 +2521,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       key: Boolean(w.key)
     }));
 
-    const isBehind = Boolean(S.style && S.style.behindPerson);
+    const isBehind = Boolean(
+      S.style && (
+        S.style.behindPerson ||
+        S.style.depthAccent ||
+        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
+        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
+      )
+    );
     drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false);
   }
 

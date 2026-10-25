@@ -1851,9 +1851,17 @@ def export_worker(job_id, d):
 
             ass_name = None
             front_ass_name = None
+            is_behind_preset = False
             if caps:
                 st = stylelib.clean_style(d.get("style"))
-                if st.get("isSpecial"):
+                is_behind_preset = bool(
+                    st.get("behindPerson") or
+                    st.get("depthAccent") or
+                    st.get("isSpecial") or
+                    (isinstance(st.get("roles"), dict) and st["roles"].get("accent", {}).get("layer") == "behind") or
+                    ("(behind)" in str(st.get("name", "")).lower())
+                )
+                if is_behind_preset:
                     ass_name = f"{job_id}_depth.ass"
                     depth_ass, subtitle_ass = stylelib.build_depth_ass(caps, st, W, H)
                     (WORK / ass_name).write_text(depth_ass, encoding="utf-8")
@@ -1869,8 +1877,7 @@ def export_worker(job_id, d):
 
             # Build a transparent person layer for presets that place captions behind the speaker.
             person_name = None
-            active_style = d.get("style") or {}
-            if ass_name and active_style.get("behindPerson"):
+            if ass_name and is_behind_preset:
                 try:
                     job["message"] = "Separating the speaker for behind-person captions..."
                     person_name = f"person_{job_id}.webm"
