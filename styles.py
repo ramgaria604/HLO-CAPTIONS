@@ -1368,38 +1368,65 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             text_body = "".join(line_parts)
 
             if grad_colors and len(grad_colors) > 1:
-                # Sliced multi-color downwards vertical gradient blend
-                y_top = o.get("ink_top")
-                y_bottom = o.get("ink_bottom")
-                if y_top is None or y_bottom is None or y_bottom <= y_top:
-                    y_top = o["ass_y"] - ass_fs * 0.95
-                    y_bottom = o["ass_y"] + ass_fs * 0.25
-                pad_y = max(1.0, o["size"] * 0.03)
-                y_top = max(0, int(math.floor(y_top - pad_y)))
-                y_bottom = min(H, int(math.ceil(y_bottom + pad_y)))
-                span_h = max(1, y_bottom - y_top)
-
-                # Ensure primary accent color is at top of letter so downwards blend is vibrant
-                primary_color = str(r.get("color") or style.get("highlightColor") or "").upper()
-                oriented_colors = list(grad_colors)
-                if primary_color and len(grad_colors) > 1 and grad_colors[-1].upper() == primary_color:
-                    oriented_colors = list(reversed(grad_colors))
+                angle = get_gradient_angle(r, style)
+                norm_angle = angle % 360.0
+                is_horizontal = (45.0 <= norm_angle <= 135.0) or (225.0 <= norm_angle <= 315.0)
 
                 N_SLICES = 24
-                for k in range(N_SLICES):
-                    # Power curve weighting: gives 80% of height to rich vibrant colors and restricts the lighter tone to a subtle 20% accent, matching preview
-                    t_linear = (k + 0.5) / N_SLICES
-                    t_mid = t_linear ** 2.0
-                    slice_col = _interpolate_gradient_color(oriented_colors, t_mid)
-                    s_top = int(y_top + (k / N_SLICES) * span_h)
-                    s_bot = int(math.ceil(y_top + ((k + 1) / N_SLICES) * span_h)) + 1
-                    slice_clip = f"\\clip(0,{s_top},{W},{s_bot})"
-                    slice_tags = base_tags + [f"\\1c{slice_col}", slice_clip]
-                    dialogue_line = (
-                        f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
-                        f"{{{ ''.join(slice_tags) }}}{text_body}"
-                    )
-                    rows.append(dialogue_line)
+                if is_horizontal:
+                    # Horizontal gradient (left-to-right matching canvas preview)
+                    # Slices vertically from x_left to x_right across the word width
+                    text_w = float(o.get("width") or (ass_fs * len(o.get("text", "")) * 0.6))
+                    pad_x = max(8.0, o["size"] * 0.05)
+                    x_left = max(0, int(math.floor(o["x"] - text_w / 2.0 - pad_x)))
+                    x_right = min(W, int(math.ceil(o["x"] + text_w / 2.0 + pad_x)))
+                    span_w = max(1, x_right - x_left)
+
+                    oriented_colors = list(grad_colors)
+                    if 225.0 <= norm_angle <= 315.0:
+                        oriented_colors = list(reversed(oriented_colors))
+
+                    for k in range(N_SLICES):
+                        t_mid = (k + 0.5) / N_SLICES
+                        slice_col = _interpolate_gradient_color(oriented_colors, t_mid)
+                        s_left = 0 if k == 0 else int(x_left + (k / N_SLICES) * span_w)
+                        s_right = W if k == N_SLICES - 1 else int(math.ceil(x_left + ((k + 1) / N_SLICES) * span_w)) + 1
+                        slice_clip = f"\\clip({s_left},0,{s_right},{H})"
+                        slice_tags = base_tags + [f"\\1c{slice_col}", slice_clip]
+                        dialogue_line = (
+                            f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
+                            f"{{{ ''.join(slice_tags) }}}{text_body}"
+                        )
+                        rows.append(dialogue_line)
+                else:
+                    # Vertical gradient (top-to-bottom for 180deg presets)
+                    y_top = o.get("ink_top")
+                    y_bottom = o.get("ink_bottom")
+                    if y_top is None or y_bottom is None or y_bottom <= y_top:
+                        y_top = o["ass_y"] - ass_fs * 0.95
+                        y_bottom = o["ass_y"] + ass_fs * 0.25
+                    pad_y = max(1.0, o["size"] * 0.03)
+                    y_top = max(0, int(math.floor(y_top - pad_y)))
+                    y_bottom = min(H, int(math.ceil(y_bottom + pad_y)))
+                    span_h = max(1, y_bottom - y_top)
+
+                    oriented_colors = list(grad_colors)
+                    if not (135.0 <= norm_angle <= 225.0):
+                        # angle ~ 0deg / 360deg flows upwards
+                        oriented_colors = list(reversed(oriented_colors))
+
+                    for k in range(N_SLICES):
+                        t_mid = (k + 0.5) / N_SLICES
+                        slice_col = _interpolate_gradient_color(oriented_colors, t_mid)
+                        s_top = 0 if k == 0 else int(y_top + (k / N_SLICES) * span_h)
+                        s_bot = H if k == N_SLICES - 1 else int(math.ceil(y_top + ((k + 1) / N_SLICES) * span_h)) + 1
+                        slice_clip = f"\\clip(0,{s_top},{W},{s_bot})"
+                        slice_tags = base_tags + [f"\\1c{slice_col}", slice_clip]
+                        dialogue_line = (
+                            f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
+                            f"{{{ ''.join(slice_tags) }}}{text_body}"
+                        )
+                        rows.append(dialogue_line)
             else:
                 tags = base_tags + [f"\\1c{_c(col)}"]
                 dialogue_line = (
