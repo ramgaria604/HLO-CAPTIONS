@@ -1185,8 +1185,13 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         }
 
         // Fill paint
-        if (!o.role.keyGradient && o.role.fill && o.role.fill.colors && o.role.fill.colors.length > 1) {
-          o.role.keyGradient = `linear-gradient(${o.role.fill.angle || 90}deg, ${o.role.fill.colors.join(',')})`;
+        if (!o.role.keyGradient && o.role.fill) {
+          const fillColors = (o.role.fill.colors && o.role.fill.colors.length > 1)
+            ? o.role.fill.colors
+            : (o.role.fill.type === 'holo' ? ['#FF5EDF', '#FFE45E', '#5EFFB1', '#5EC8FF', '#B65EFF'] : null);
+          if (fillColors) {
+            o.role.keyGradient = `linear-gradient(${o.role.fill.angle || 90}deg, ${fillColors.join(',')})`;
+          }
         }
         const basePaintColor = o.isHero ? (o.role.color || st.highlightColor || '#FF6200') : (o.role.color || '#FFFFFF');
         targetCtx.fillStyle = canvasRolePaint(targetCtx, o.role, basePaintColor, o.size);

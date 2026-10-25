@@ -1,6 +1,7 @@
 """Caption grouping, emphasis detection, style presets and the ASS caption builder."""
 import copy
 import json
+import math
 import os
 import re
 
@@ -773,6 +774,39 @@ def clean_style(s):
 
 
 # ---------------------------------------------------------------- ASS builder
+
+def _hex_to_rgb(h):
+    h = str(h).lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    if len(h) != 6:
+        return (255, 255, 255)
+    try:
+        return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+    except Exception:
+        return (255, 255, 255)
+
+
+def _rgb_to_ass(rgb):
+    return f"&H{rgb[2]:02X}{rgb[1]:02X}{rgb[0]:02X}&"
+
+
+def _interpolate_gradient_color(colors, t):
+    if not colors:
+        return "&HFFFFFF&"
+    if len(colors) == 1:
+        return _rgb_to_ass(_hex_to_rgb(colors[0]))
+    t = max(0.0, min(1.0, float(t)))
+    segments = len(colors) - 1
+    seg = min(int(t * segments), segments - 1)
+    seg_t = (t - seg / segments) * segments
+    c1 = _hex_to_rgb(colors[seg])
+    c2 = _hex_to_rgb(colors[seg + 1])
+    r = int(round(c1[0] + (c2[0] - c1[0]) * seg_t))
+    g = int(round(c1[1] + (c2[1] - c1[1]) * seg_t))
+    b = int(round(c1[2] + (c2[2] - c1[2]) * seg_t))
+    return _rgb_to_ass((r, g, b))
+
 def _c(hex_color):
     h = hex_color.lstrip("#")
     if len(h) == 6:
@@ -1132,23 +1166,29 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             font_name = tt["name"].getDebugName(1) or Path(o["font_file"]).stem
 
             r = o["role"]
+            grad_colors = None
             if o["is_hero"]:
-                hl_col = style.get("highlightColor")
-                r_col = r.get("color")
-                if hl_col and isinstance(hl_col, str) and hl_col.startswith("#") and hl_col.upper() not in ("#FFFFFF", "#FFF", "#000000", "#000") and hl_col.upper() != "#FFE600":
-                    col = hl_col
-                elif r_col and isinstance(r_col, str) and r_col.startswith("#") and r_col.upper() not in ("#FFFFFF", "#FFF"):
-                    col = r_col
-                elif hl_col and isinstance(hl_col, str) and hl_col.startswith("#") and hl_col.upper() not in ("#FFFFFF", "#FFF"):
-                    col = hl_col
-                elif r.get("fill") and isinstance(r["fill"], dict) and r["fill"].get("colors"):
-                    fill_colors = [c for c in r["fill"]["colors"] if isinstance(c, str) and c.upper() not in ("#FFFFFF", "#FFF", "#000000", "#000")]
-                    if fill_colors:
-                        col = fill_colors[len(fill_colors) // 2]
+                # Check for preset multi-color fill gradient
+                fill = r.get("fill") if isinstance(r.get("fill"), dict) else {}
+                raw_cols = fill.get("colors")
+                if not raw_cols and fill.get("type") == "holo":
+                    raw_cols = ["#FF5EDF", "#FFE45E", "#5EFFB1", "#5EC8FF", "#B65EFF"]
+                if raw_cols and isinstance(raw_cols, (list, tuple)):
+                    valid_cols = [c for c in raw_cols if isinstance(c, str) and c.startswith("#")]
+                    if len(valid_cols) > 1:
+                        grad_colors = valid_cols
+
+                if not grad_colors:
+                    hl_col = style.get("highlightColor")
+                    r_col = r.get("color")
+                    if hl_col and isinstance(hl_col, str) and hl_col.startswith("#") and hl_col.upper() not in ("#FFFFFF", "#FFF", "#000000", "#000") and hl_col.upper() != "#FFE600":
+                        col = hl_col
+                    elif r_col and isinstance(r_col, str) and r_col.startswith("#") and r_col.upper() not in ("#FFFFFF", "#FFF"):
+                        col = r_col
+                    elif hl_col and isinstance(hl_col, str) and hl_col.startswith("#") and hl_col.upper() not in ("#FFFFFF", "#FFF"):
+                        col = hl_col
                     else:
-                        col = r["fill"]["colors"][0]
-                else:
-                    col = r_col or hl_col or "#FF6200"
+                        col = r_col or hl_col or "#FF6200"
             else:
                 col = r.get("color") or "#FFFFFF"
 
@@ -1158,7 +1198,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             outline_px = max(0.0, outline_val * (o["size"] / 70.0))
             outline_col = r.get("outlineColor", "#000000")
 
-            tags = [
+            base_tags = [
                 r"\an2",
                 f"\\pos({o['x']:.1f},{o['ass_y']:.1f})",
                 f"\\fn{font_name}",
@@ -1166,13 +1206,12 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 f"\\fsp{fsp:.2f}",
                 f"\\b{bold}",
                 f"\\i{italic}",
-                f"\\1c{_c(col)}",
             ]
             if outline_px > 0:
-                tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
+                base_tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
             else:
-                tags.append(r"\bord0")
-            tags.append(r"\shad0")
+                base_tags.append(r"\bord0")
+            base_tags.append(r"\shad0")
 
             # Word-by-word reveal:
             line_parts = []
@@ -1190,11 +1229,39 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     line_parts.append(" ")
 
             text_body = "".join(line_parts)
-            dialogue_line = (
-                f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
-                f"{{{ ''.join(tags) }}}{text_body}"
-            )
-            rows.append(dialogue_line)
+
+            if grad_colors and len(grad_colors) > 1:
+                # Sliced multi-color vertical gradient blend
+                y_top = o.get("ink_top")
+                y_bottom = o.get("ink_bottom")
+                if y_top is None or y_bottom is None or y_bottom <= y_top:
+                    y_top = o["ass_y"] - ass_fs * 0.95
+                    y_bottom = o["ass_y"] + ass_fs * 0.25
+                pad = max(2.0, o["size"] * 0.04)
+                y_top = max(0, int(math.floor(y_top - pad)))
+                y_bottom = min(H, int(math.ceil(y_bottom + pad)))
+                span_h = max(1, y_bottom - y_top)
+
+                N_SLICES = 14
+                for k in range(N_SLICES):
+                    t_mid = (k + 0.5) / N_SLICES
+                    slice_col = _interpolate_gradient_color(grad_colors, t_mid)
+                    s_top = int(y_top + (k / N_SLICES) * span_h)
+                    s_bot = int(math.ceil(y_top + ((k + 1) / N_SLICES) * span_h)) + 1
+                    slice_clip = f"\\clip(0,{s_top},{W},{s_bot})"
+                    slice_tags = base_tags + [f"\\1c{slice_col}", slice_clip]
+                    dialogue_line = (
+                        f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
+                        f"{{{ ''.join(slice_tags) }}}{text_body}"
+                    )
+                    rows.append(dialogue_line)
+            else:
+                tags = base_tags + [f"\\1c{_c(col)}"]
+                dialogue_line = (
+                    f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
+                    f"{{{ ''.join(tags) }}}{text_body}"
+                )
+                rows.append(dialogue_line)
 
     return header + "\n".join(rows) + "\n"
 
