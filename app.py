@@ -1033,7 +1033,7 @@ def redeem_coupon():
         return err("Please enter a coupon code.")
     coupons = load_coupons()
     if code not in coupons:
-        return err("Invalid code! Follow @hlo.captions on Instagram and DM 'COUPON' to receive your 10-Export code in 10 seconds.", 400)
+        return err("Invalid code! Follow @hlocaptions on Instagram and DM 'COUPON' to receive your 10-Export code in 10 seconds.", 400)
 
     c_info = coupons[code]
     credits_to_add = c_info.get("credits", 10)
@@ -1048,7 +1048,7 @@ def redeem_coupon():
 
     user_key = f"{user_id}:{code}"
     if user_key in redeemed:
-        return err("You have already redeemed this code! DM @hlo.captions on Instagram if you need another pass.", 400)
+        return err("You have already redeemed this code! DM @hlocaptions on Instagram if you need another pass.", 400)
 
     redeemed[user_key] = time.time()
     try:
