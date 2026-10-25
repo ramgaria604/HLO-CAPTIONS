@@ -33,6 +33,12 @@
     exportPayload: null,
     exportRecovered: false,
     generateAfterPicker: false,
+  aspect: 'original',
+  chunkMode: '3',
+  autoEmojis: 'above',
+  autoSfx: true,
+  sfxVolume: 0.7,
+  watermark: { text: '', platform: 'instagram', position: 'bottom-right', opacity: 0.8 },
   };
 
   // --- DOM Elements ---
@@ -1790,11 +1796,34 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       renderCanvas();
     });
 
+    let lastSfxCapId = null;
     vid.addEventListener('timeupdate', () => {
       updateTransportUI();
       renderCanvas();
       syncTimelinePlayhead();
+
+      if (S.autoSfx !== false && !vid.paused) {
+        const curT = vid.currentTime || 0;
+        const curCap = S.captions.find(c => curT >= c.start && curT <= c.end);
+        if (curCap && curCap.id !== lastSfxCapId) {
+          lastSfxCapId = curCap.id;
+          const wordsStr = (curCap.text || '').toLowerCase();
+          if (['money', 'cash', 'crore', 'lakh', 'paisa', 'dollar'].some(k => wordsStr.includes(k))) {
+            playSfx('chaching');
+          } else if (['idea', 'secret', 'trick', 'hack', 'brain'].some(k => wordsStr.includes(k))) {
+            playSfx('ding');
+          } else if (['stop', 'danger', 'boom', 'alert'].some(k => wordsStr.includes(k))) {
+            playSfx('boom');
+          } else {
+            playSfx('pop');
+          }
+        } else if (!curCap) {
+          lastSfxCapId = null;
+        }
+      }
     });
+
+    setupAspectRatioHandlers();
 
     vid.addEventListener('loadedmetadata', () => {
       timeDuration.textContent = formatTime(vid.duration || 0);
@@ -1879,6 +1908,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function setupTimelineHandlers() {
+    $$('#chunkModeGroup .btn-chunk-mode').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const chunk = btn.getAttribute('data-chunk');
+        setChunkMode(chunk);
+      });
+    });
+
     timelineTrackWrap.addEventListener('click', (e) => {
       if (e.target.closest('.tl-handle') || e.target.closest('.timeline-block')) return;
       const rect = timelineTrackWrap.getBoundingClientRect();
@@ -2670,12 +2706,101 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         renderCanvas();
       });
     });
+
+    // Viral Auto-Emojis toggle
+    const valEmojiBadge = $('valEmojiBadge');
+    $$('#emojiButtonGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#emojiButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        const mode = btn.getAttribute('data-emoji') || 'above';
+        S.autoEmojis = mode;
+        if (valEmojiBadge) {
+          valEmojiBadge.textContent = mode === 'above' ? 'ON (Above Word)' : (mode === 'beside' ? 'ON (Beside Word)' : 'OFF');
+        }
+        showToast('🔥 Auto-Emojis: ' + (mode === 'off' ? 'Off' : 'Active'));
+        renderCanvas();
+      });
+    });
+
+    // Custom Font Upload
+    setupFontUploadHandler();
+
+    // Watermark setup
+    const inputWmText = $('inputWatermarkText');
+    const inputWmOpacity = $('inputWmOpacity');
+    const valWmOpacity = $('valWmOpacity');
+
+    if (inputWmText) {
+      inputWmText.addEventListener('input', (e) => {
+        if (!S.watermark) S.watermark = { position: 'bottom-right', opacity: 0.8, platform: 'instagram' };
+        S.watermark.text = e.target.value;
+        renderCanvas();
+      });
+    }
+
+    $$('#wmPlatformGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#wmPlatformGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        if (!S.watermark) S.watermark = { position: 'bottom-right', opacity: 0.8 };
+        S.watermark.platform = btn.getAttribute('data-platform') || 'instagram';
+        renderCanvas();
+      });
+    });
+
+    $$('#wmPosGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#wmPosGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        if (!S.watermark) S.watermark = { platform: 'instagram', opacity: 0.8 };
+        S.watermark.position = btn.getAttribute('data-pos') || 'bottom-right';
+        renderCanvas();
+      });
+    });
+
+    if (inputWmOpacity) {
+      inputWmOpacity.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (valWmOpacity) valWmOpacity.textContent = val + '%';
+        if (!S.watermark) S.watermark = { platform: 'instagram', position: 'bottom-right' };
+        S.watermark.opacity = val / 100;
+        renderCanvas();
+      });
+    }
   }
 
   // ==========================================================================
   // TAB 4: AUDIO CONTROLS
   // ==========================================================================
   function setupAudioHandlers() {
+    // SFX toggle
+    $$('#sfxToggleGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#sfxToggleGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        S.autoSfx = (btn.getAttribute('data-sfx') === 'on');
+        const badge = $('valSfxBadge');
+        if (badge) badge.textContent = S.autoSfx ? 'Auto Synced' : 'Muted';
+        showToast(S.autoSfx ? '🔊 Auto SFX enabled' : '🔇 Auto SFX muted');
+      });
+    });
+
+    // SFX sound buttons
+    $$('.btn-sfx-sound').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const snd = btn.getAttribute('data-sound');
+        playSfx(snd);
+      });
+    });
+
+    // SFX volume slider
+    const inputSfxVol = $('inputSfxVol');
+    const valSfxVol = $('valSfxVol');
+    if (inputSfxVol) {
+      inputSfxVol.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (valSfxVol) valSfxVol.textContent = val + '%';
+        S.sfxVolume = val / 100;
+      });
+    }
+
     inputVidVol.addEventListener('input', (e) => {
       const val = parseInt(e.target.value, 10);
       valVidVol.textContent = val + '%';
@@ -2974,6 +3099,443 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
   }
 
+
+  // ==========================================================================
+  // WEB AUDIO API SFX ENGINE & AUTO-EMOJIS & WATERMARK
+  // ==========================================================================
+  let audioCtx = null;
+  function getAudioContext() {
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) audioCtx = new AudioContextClass();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+    return audioCtx;
+  }
+
+  function playSfx(type) {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const vol = (S.sfxVolume !== undefined ? S.sfxVolume : 0.7);
+      if (vol <= 0) return;
+      const now = ctx.currentTime;
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(vol * 0.45, now);
+      masterGain.connect(ctx.destination);
+
+      if (type === 'pop') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(650, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.06);
+        gain.gain.setValueAtTime(1.0, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.06);
+      } else if (type === 'whoosh') {
+        const bufferSize = Math.floor(ctx.sampleRate * 0.12);
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(400, now);
+        filter.frequency.exponentialRampToValueAtTime(2400, now + 0.06);
+        filter.frequency.exponentialRampToValueAtTime(300, now + 0.12);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(1.0, now + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain);
+        noise.start(now);
+        noise.stop(now + 0.12);
+      } else if (type === 'ding') {
+        [1760, 3520].forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+          gain.gain.setValueAtTime(idx === 0 ? 0.8 : 0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.connect(gain);
+          gain.connect(masterGain);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        });
+      } else if (type === 'chaching') {
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.type = 'triangle';
+        osc2.type = 'sine';
+        osc1.frequency.setValueAtTime(1980, now);
+        osc1.frequency.setValueAtTime(2640, now + 0.05);
+        osc2.frequency.setValueAtTime(3960, now + 0.05);
+        gain.gain.setValueAtTime(0.7, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(masterGain);
+        osc1.start(now);
+        osc2.start(now + 0.05);
+        osc1.stop(now + 0.4);
+        osc2.stop(now + 0.4);
+      } else if (type === 'boom') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(110, now);
+        osc.frequency.exponentialRampToValueAtTime(38, now + 0.45);
+        gain.gain.setValueAtTime(1.0, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      }
+    } catch (_) {}
+  }
+
+  const EMOJI_DICT = {
+    money: '💰', cash: '💸', crore: '💰', lakh: '💸', paisa: '💰', paise: '💰', earning: '💵', dollar: '💵', rich: '🤑', profit: '📈', invest: '💼', price: '🏷️',
+    fire: '🔥', viral: '🔥', hot: '🔥', trending: '🔥', boom: '💥', aag: '🔥', crazy: '🤯', insane: '🤯', shock: '😱', wow: '✨',
+    idea: '💡', secret: '🤫', tip: '💡', trick: '✨', hack: '⚡', brain: '🧠', mind: '🧠', dimag: '🧠', soch: '💭', plan: '📋',
+    growth: '📈', grow: '🌱', scale: '🚀', views: '👀', followers: '👥', rocket: '🚀', reach: '🚀', success: '🏆', win: '🏆', winner: '🥇', jeet: '🏆',
+    stop: '🛑', danger: '⚠️', ruko: '🛑', warning: '⚠️', never: '🚫', mistake: '❌', galat: '❌', alert: '🚨',
+    love: '❤️', heart: '💖', like: '👍', subscribe: '🔔', follow: '👉', share: '🔗', best: '⭐', star: '⭐', top: '👑', king: '👑', no1: '🥇', number1: '🥇',
+    time: '⏳', fast: '⚡', speed: '⚡', jaldi: '⏱️', second: '⏱️', minute: '⏱️', hour: '⏰', today: '📅',
+    target: '🎯', goal: '🎯', focus: '👁️', real: '💯', sach: '💯', '100': '💯'
+  };
+
+  function getWordEmoji(rawWord) {
+    if (!rawWord) return null;
+    const clean = rawWord.toLowerCase().replace(/[^\w]/g, '');
+    if (EMOJI_DICT[clean]) return EMOJI_DICT[clean];
+    for (const [key, emoji] of Object.entries(EMOJI_DICT)) {
+      if (clean.includes(key)) return emoji;
+    }
+    return null;
+  }
+
+  function drawAutoEmojis(ctx, activeCap, words, t, st, W, H) {
+    if (S.autoEmojis === 'off') return;
+    if (!words || !words.length) return;
+
+    const curWord = words.find(w => t >= w.s && t <= w.e) || words[words.length - 1];
+    if (!curWord) return;
+
+    const emoji = getWordEmoji(curWord.t);
+    if (!emoji) return;
+
+    const progress = Math.max(0, Math.min(1, (t - curWord.s) / Math.max(0.1, curWord.e - curWord.s)));
+    const scale = 1.0 + Math.sin(progress * Math.PI) * 0.28;
+    const emojiSize = Math.max(26, Math.min(54, Math.round(H * 0.045 * (Number(st.fontScale) || 1))));
+
+    const subY = (Number(st.subtitlePosition) || 0.75) * H;
+    const isBeside = S.autoEmojis === 'beside';
+
+    ctx.save();
+    ctx.font = `${emojiSize}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const emojiY = isBeside ? subY : subY - emojiSize * 1.15;
+    const emojiX = W / 2;
+
+    ctx.translate(emojiX, emojiY);
+    ctx.scale(scale, scale);
+    ctx.fillText(emoji, 0, 0);
+    ctx.restore();
+  }
+
+  function drawWatermark(ctx, W, H) {
+    const wm = S.watermark;
+    if (!wm || !wm.text || !wm.text.trim()) return;
+    const text = wm.text.trim();
+    const opacity = typeof wm.opacity === 'number' ? wm.opacity : 0.8;
+    const pos = wm.position || 'bottom-right';
+    const platform = wm.platform || 'instagram';
+
+    let icon = '';
+    if (platform === 'instagram') icon = '📷 ';
+    else if (platform === 'youtube') icon = '▶️ ';
+    else if (platform === 'tiktok') icon = '🎵 ';
+    else if (platform === 'twitter') icon = '𝕏 ';
+
+    const label = icon + text;
+    const fontSize = Math.max(12, Math.min(20, Math.round(H * 0.02)));
+
+    ctx.save();
+    ctx.font = `700 ${fontSize}px "Poppins", sans-serif`;
+    ctx.textBaseline = 'middle';
+    const metrics = ctx.measureText(label);
+    const padX = 10;
+    const padY = 6;
+    const boxW = metrics.width + padX * 2;
+    const boxH = fontSize + padY * 2;
+    const margin = 20;
+
+    let x = margin;
+    let y = margin;
+    if (pos === 'top-right') {
+      x = W - boxW - margin;
+      y = margin;
+    } else if (pos === 'bottom-left') {
+      x = margin;
+      y = H - boxH - margin;
+    } else if (pos === 'bottom-right') {
+      x = W - boxW - margin;
+      y = H - boxH - margin;
+    }
+
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = 1;
+    const r = 8;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, boxW, boxH, r);
+    else ctx.rect(x, y, boxW, boxH);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, x + padX, y + boxH / 2);
+    ctx.restore();
+  }
+
+  function setChunkMode(mode) {
+    S.chunkMode = mode;
+    $$('.btn-chunk-mode').forEach(b => b.classList.toggle('active', b.getAttribute('data-chunk') === String(mode)));
+
+    const allWords = [];
+    S.captions.forEach(c => {
+      (c.words || []).forEach(w => {
+        allWords.push({
+          t: w.t || w.word || '',
+          s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
+          e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
+          key: Boolean(w.key)
+        });
+      });
+    });
+
+    if (!allWords.length) return;
+
+    const newCaps = [];
+    let cur = [];
+
+    const flush = () => {
+      if (!cur.length) return;
+      const start = cur[0].s;
+      const end = cur[cur.length - 1].e;
+      const text = cur.map(w => w.t).join(' ');
+      if (!cur.some(w => w.key)) cur[cur.length - 1].key = true;
+      newCaps.push({
+        id: newCaps.length + 1,
+        start: Math.round(start * 100) / 100,
+        end: Math.round(end * 100) / 100,
+        text: text,
+        words: cur.map(w => ({ ...w }))
+      });
+      cur = [];
+    };
+
+    if (mode === '1' || mode === 1) {
+      allWords.forEach(w => {
+        cur = [w];
+        flush();
+      });
+    } else if (mode === 'sentence') {
+      allWords.forEach((w, idx) => {
+        cur.push(w);
+        const isPunct = /[.!?]$/.test(w.t);
+        const hasGap = (idx < allWords.length - 1) && (allWords[idx + 1].s - w.e > 0.6);
+        if (isPunct || hasGap || cur.length >= 7) {
+          flush();
+        }
+      });
+      flush();
+    } else {
+      const per = 3;
+      allWords.forEach(w => {
+        cur.push(w);
+        if (cur.length >= per) flush();
+      });
+      flush();
+    }
+
+    S.captions = newCaps;
+    renderCaptionsList();
+    renderTimeline();
+    renderCanvas();
+    showToast(`⚡ Chunks: ${mode === '1' ? '1 Word' : (mode === 'sentence' ? 'Sentence' : '2-3 Words')} applied!`);
+  }
+
+  function generateViralHooks() {
+    const fullText = S.captions.map(c => c.text).join(' ');
+    const words = fullText.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const topicWord = words.find(w => !['this', 'that', 'with', 'from', 'have', 'what', 'your', 'about'].includes(w)) || 'secret';
+
+    const hooks = [
+      {
+        badge: '🔥 HIGH CURIOSITY',
+        text: `Wait until the very end, especially if you care about ${topicWord}! 🤫`
+      },
+      {
+        badge: '🛑 STOP SCROLLING',
+        text: `Stop scrolling! 99% of people are doing this completely wrong ❌`
+      },
+      {
+        badge: '🚀 VIRAL VALUE',
+        text: `Nobody is talking about this crazy ${topicWord} hack in 2026... 💡`
+      }
+    ];
+
+    const list = $('hooksList');
+    if (!list) return;
+    list.innerHTML = '';
+    hooks.forEach(h => {
+      const card = document.createElement('div');
+      card.className = 'hook-card';
+      card.innerHTML = `
+        <div class="hook-info">
+          <span class="hook-badge">${h.badge}</span>
+          <div class="hook-text">${h.text}</div>
+        </div>
+        <button type="button" class="btn-insert-hook">+ Insert at 0s-3s</button>
+      `;
+      card.querySelector('.btn-insert-hook').addEventListener('click', () => {
+        insertHookCaption(h.text);
+        $('modalHooks').classList.add('hidden');
+      });
+      list.appendChild(card);
+    });
+
+    $('modalHooks').classList.remove('hidden');
+  }
+
+  function insertHookCaption(text) {
+    const hookWords = text.split(' ').map((t, idx, arr) => {
+      const dur = 2.8 / arr.length;
+      return {
+        t: t,
+        s: Math.round((idx * dur) * 100) / 100,
+        e: Math.round(((idx + 1) * dur) * 100) / 100,
+        key: idx === arr.length - 1 || idx === 0
+      };
+    });
+
+    S.captions.forEach(c => {
+      if (c.start < 2.8) {
+        const shift = 2.85 - c.start;
+        c.start = Math.round((c.start + shift) * 100) / 100;
+        c.end = Math.round((c.end + shift) * 100) / 100;
+        (c.words || []).forEach(w => {
+          w.s = Math.round((w.s + shift) * 100) / 100;
+          w.e = Math.round((w.e + shift) * 100) / 100;
+        });
+      }
+    });
+
+    const hookCap = {
+      id: Date.now(),
+      start: 0.0,
+      end: 2.8,
+      text: text,
+      words: hookWords
+    };
+
+    S.captions.unshift(hookCap);
+    S.captions.sort((a, b) => a.start - b.start);
+    vid.currentTime = 0.05;
+    renderCaptionsList();
+    renderTimeline();
+    renderCanvas();
+    showToast('🚀 Viral Hook inserted at 0.0s - 2.8s!');
+  }
+
+  function setupFontUploadHandler() {
+    const btnUpload = $('btnUploadFont');
+    const inputFont = $('inputCustomFont');
+    if (!btnUpload || !inputFont) return;
+
+    btnUpload.addEventListener('click', () => inputFont.click());
+    inputFont.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      btnUpload.textContent = '⏳ Uploading font...';
+      try {
+        const buffer = await file.arrayBuffer();
+        const familyName = file.name.replace(/\.[^/.]+$/, '');
+        const fontFace = new FontFace(familyName, buffer);
+        await fontFace.load();
+        document.fonts.add(fontFace);
+
+        const selectFont = $('selectFont');
+        if (selectFont) {
+          let opt = Array.from(selectFont.options).find(o => o.value === familyName);
+          if (!opt) {
+            opt = document.createElement('option');
+            opt.value = familyName;
+            opt.textContent = `${familyName} (Custom)`;
+            selectFont.appendChild(opt);
+          }
+          selectFont.value = familyName;
+          if (!S.style) S.style = {};
+          S.style.font = familyName;
+          S.style.fontFamily = familyName;
+        }
+
+        const fd = new FormData();
+        fd.append('file', file);
+        fetch('/api/upload_font', { method: 'POST', body: fd }).catch(err => console.warn('Font upload backend warn:', err));
+
+        btnUpload.textContent = '✓ Font Loaded: ' + familyName;
+        setTimeout(() => { btnUpload.textContent = '📁 Upload Custom Font (.ttf/.otf)'; }, 3500);
+        showToast('🎨 Custom font ' + familyName + ' applied!');
+        renderCanvas();
+      } catch (err) {
+        btnUpload.textContent = '❌ Upload failed';
+        setTimeout(() => { btnUpload.textContent = '📁 Upload Custom Font (.ttf/.otf)'; }, 3000);
+        showToast('Error loading font: ' + err.message);
+      }
+    });
+  }
+
+  function setupAspectRatioHandlers() {
+    const stage = $('stage');
+    $$('#aspectRatioBar .btn-aspect').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#aspectRatioBar .btn-aspect').forEach(b => b.classList.toggle('active', b === btn));
+        const aspect = btn.getAttribute('data-aspect') || 'original';
+        S.aspect = aspect;
+
+        if (stage) {
+          stage.classList.remove('aspect-9-16', 'aspect-1-1', 'aspect-16-9');
+          if (aspect === '9:16') stage.classList.add('aspect-9-16');
+          else if (aspect === '1:1') stage.classList.add('aspect-1-1');
+          else if (aspect === '16:9') stage.classList.add('aspect-16-9');
+        }
+
+        setupCanvasSizing();
+        renderCanvas();
+        showToast('📐 Ratio: ' + (btn.textContent.trim()) + ' selected');
+      });
+    });
+  }
+
   function renderCanvas() {
     const dpr = window.devicePixelRatio || 1;
     const w = captionCanvas.width / dpr;
@@ -2983,11 +3545,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
     ctx.scale(dpr, dpr);
 
-    if (!S.captions.length) return;
+    if (!S.captions.length) {
+      drawWatermark(ctx, w, h);
+      return;
+    }
 
     const t = vid.currentTime || 0;
     const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
-    if (!activeCap) return;
+    if (!activeCap) {
+      drawWatermark(ctx, w, h);
+      return;
+    }
 
     const words = (activeCap.words || []).map(w => ({
       t: w.t || w.word || '',
@@ -3005,12 +3573,28 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       )
     );
     drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false);
+    drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+    drawWatermark(ctx, w, h);
   }
 
   // ==========================================================================
   // MODALS HANDLERS (FULL TEMPLATES, SCRIPT SYNC, EXPORT)
   // ==========================================================================
   function setupModalHandlers() {
+    const btnViralHooks = $('btnViralHooks');
+    const modalHooks = $('modalHooks');
+    const btnCloseHooksModal = $('btnCloseHooksModal');
+
+    if (btnViralHooks) {
+      btnViralHooks.addEventListener('click', generateViralHooks);
+    }
+    if (btnCloseHooksModal && modalHooks) {
+      btnCloseHooksModal.addEventListener('click', () => modalHooks.classList.add('hidden'));
+      modalHooks.addEventListener('click', (e) => {
+        if (e.target === modalHooks) modalHooks.classList.add('hidden');
+      });
+    }
+
     btnOpenFullTemplates.addEventListener('click', () => {
       modalTemplates.classList.remove('hidden');
       renderFullTemplatesGrid('');
@@ -3224,8 +3808,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         style: S.style,
         preset_id: S.style?.id || 'yellow_box',
         quality: 'balanced',
-        aspect: 'original',
-        speed: 1.0
+        aspect: S.aspect || 'original',
+        speed: 1.0,
+        watermark: S.watermark,
+        auto_sfx: Boolean(S.autoSfx !== false)
       };
       if (S.voiceoverFilename && btnReplaceVoiceover.classList.contains('active')) {
         payload.voiceover = S.voiceoverFilename;

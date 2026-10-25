@@ -164,6 +164,15 @@
             <svg id="iconMuted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           </button>
         </div>
+
+        <!-- Aspect Ratio Bar -->
+        <div class="aspect-ratio-bar" id="aspectRatioBar">
+          <span class="aspect-label">Aspect:</span>
+          <button type="button" class="btn-aspect active" data-aspect="original" title="Original video ratio">Original</button>
+          <button type="button" class="btn-aspect" data-aspect="9:16" title="9:16 Reels & Shorts">📱 9:16 Reel</button>
+          <button type="button" class="btn-aspect" data-aspect="1:1" title="1:1 Square Feed">🔲 1:1 Square</button>
+          <button type="button" class="btn-aspect" data-aspect="16:9" title="16:9 YouTube">🖥️ 16:9 YT</button>
+        </div>
       </section>
 
       <!-- VISUAL TIMELINE PANEL -->
@@ -253,6 +262,14 @@
                 <span id="captionCountBadge">0 lines</span>
               </div>
               <div class="captions-actions">
+                <div class="chunk-mode-group" id="chunkModeGroup" title="Word Chunking Mode">
+                  <button type="button" class="btn-chunk-mode" data-chunk="1" title="1 Word at a time (MrBeast style)">⚡ 1 Word</button>
+                  <button type="button" class="btn-chunk-mode active" data-chunk="3" title="2-3 Words (Hormozi style)">🔥 2-3 Words</button>
+                  <button type="button" class="btn-chunk-mode" data-chunk="sentence" title="Full sentence">🎬 Sentence</button>
+                </div>
+                <button type="button" id="btnViralHooks" class="btn-subaction btn-viral-hooks" title="Viral hook suggestions for first 3 seconds">
+                  💡 Viral Hooks
+                </button>
                 <button id="btnAddCaption" class="btn-subaction">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   <span>Add Line</span>
@@ -310,6 +327,10 @@
                   <button type="button" class="btn-anim-choice" data-anim="zoom">
                     <span class="anim-icon">🔍</span>
                     <span class="anim-label">Zoom In</span>
+                  </button>
+                  <button type="button" class="btn-anim-choice" data-anim="karaoke">
+                    <span class="anim-icon">🎙️</span>
+                    <span class="anim-label">Karaoke</span>
                   </button>
                   <button type="button" class="btn-anim-choice" data-anim="none">
                     <span class="anim-icon">⏹️</span>
@@ -411,6 +432,12 @@
                   <option value="Inter">Inter (Clean Clean)</option>
                   <option value="Space Mono">Space Mono (Tech)</option>
                 </select>
+                <div class="font-upload-row">
+                  <button type="button" id="btnUploadFont" class="btn-subaction">
+                    📁 Upload Custom Font (.ttf/.otf)
+                  </button>
+                  <input type="file" id="inputCustomFont" accept=".ttf,.otf,.woff,.woff2" class="file-input-hidden">
+                </div>
               </div>
 
               <!-- 8. Letter Casing -->
@@ -421,6 +448,55 @@
                 <div class="btn-group" id="caseButtonGroup">
                   <button type="button" class="btn-toggle active" data-case="upper">ALL CAPS</button>
                   <button type="button" class="btn-toggle" data-case="normal">Normal</button>
+                </div>
+              </div>
+
+              <!-- 9. Viral Auto-Emojis -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>🔥 Viral Auto-Emojis</label>
+                  <span id="valEmojiBadge" class="val-badge">ON (Above Word)</span>
+                </div>
+                <div class="btn-group" id="emojiButtonGroup">
+                  <button type="button" class="btn-toggle active" data-emoji="above">Above Word</button>
+                  <button type="button" class="btn-toggle" data-emoji="beside">Beside Word</button>
+                  <button type="button" class="btn-toggle" data-emoji="off">Off</button>
+                </div>
+              </div>
+
+              <!-- 10. Creator Social Watermark / Handle -->
+              <div class="control-card watermark-card">
+                <div class="control-header">
+                  <label>🏷️ Creator Social Watermark</label>
+                  <span id="valWatermarkBadge" class="val-badge">Corner Badge</span>
+                </div>
+                <div class="watermark-inputs">
+                  <div class="watermark-text-row">
+                    <input type="text" id="inputWatermarkText" class="styled-input" placeholder="@yourhandle or Channel Name" maxlength="40">
+                  </div>
+                  <div class="watermark-sub-row">
+                    <label class="sub-label">Icon:</label>
+                    <div class="btn-group" id="wmPlatformGroup">
+                      <button type="button" class="btn-toggle active" data-platform="instagram">📷 IG</button>
+                      <button type="button" class="btn-toggle" data-platform="youtube">▶️ YT</button>
+                      <button type="button" class="btn-toggle" data-platform="tiktok">🎵 TikTok</button>
+                      <button type="button" class="btn-toggle" data-platform="none">None</button>
+                    </div>
+                  </div>
+                  <div class="watermark-sub-row">
+                    <label class="sub-label">Position:</label>
+                    <div class="btn-group" id="wmPosGroup">
+                      <button type="button" class="btn-toggle" data-pos="top-left">Top L</button>
+                      <button type="button" class="btn-toggle" data-pos="top-right">Top R</button>
+                      <button type="button" class="btn-toggle" data-pos="bottom-left">Bot L</button>
+                      <button type="button" class="btn-toggle active" data-pos="bottom-right">Bot R</button>
+                    </div>
+                  </div>
+                  <div class="control-header" style="margin-top:8px;">
+                    <label>Watermark Opacity</label>
+                    <span id="valWmOpacity" class="val-badge">80%</span>
+                  </div>
+                  <input type="range" id="inputWmOpacity" min="20" max="100" value="80" class="styled-slider">
                 </div>
               </div>
 
@@ -549,6 +625,31 @@
                 <p id="voiceoverStatus" class="voiceover-status" aria-live="polite">Click Generate to preview the voice, then Replace to apply it to your video.</p>
               </div>
 
+              <!-- Viral Sound Effects (SFX) -->
+              <div class="control-card sfx-card">
+                <div class="control-header">
+                  <label>🔊 Viral Sound Effects (SFX)</label>
+                  <span id="valSfxBadge" class="val-badge">Auto Synced</span>
+                </div>
+                <p class="voiceover-help">Punchy sound effects trigger when keywords and animations pop.</p>
+                <div class="btn-group" id="sfxToggleGroup" style="margin-bottom:10px;">
+                  <button type="button" class="btn-toggle active" data-sfx="on">Auto SFX: ON</button>
+                  <button type="button" class="btn-toggle" data-sfx="off">Auto SFX: OFF</button>
+                </div>
+                <div class="sfx-buttons-row">
+                  <button type="button" class="btn-sfx-sound" data-sound="pop">💥 Pop</button>
+                  <button type="button" class="btn-sfx-sound" data-sound="whoosh">💨 Whoosh</button>
+                  <button type="button" class="btn-sfx-sound" data-sound="ding">🔔 Ding</button>
+                  <button type="button" class="btn-sfx-sound" data-sound="chaching">💰 Cha-Ching</button>
+                  <button type="button" class="btn-sfx-sound" data-sound="boom">💣 Boom</button>
+                </div>
+                <div class="control-header" style="margin-top:10px;">
+                  <label>SFX Volume</label>
+                  <span id="valSfxVol" class="val-badge">70%</span>
+                </div>
+                <input type="range" id="inputSfxVol" min="0" max="100" value="70" class="styled-slider">
+              </div>
+
               <div class="control-card">
                 <div class="control-header">
                   <label>Original Video Volume</label>
@@ -644,6 +745,25 @@
       <div class="modal-footer">
         <button id="btnCancelScript" class="btn-secondary">Cancel</button>
         <button id="btnApplyScript" class="btn-primary">Apply & Sync Script</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ======================== MODAL: VIRAL HOOK GENERATOR ======================== -->
+  <div id="modalHooks" class="modal-backdrop hidden">
+    <div class="modal-card modal-medium">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">💡 Viral Hook Generator</h2>
+          <p class="modal-desc">The first 3 seconds decide 80% of video retention. Click any hook to insert it at 0s-3s.</p>
+        </div>
+        <button id="btnCloseHooksModal" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body" id="hooksModalBody">
+        <div class="hooks-list" id="hooksList">
+          <!-- Dynamic hook cards -->
+        </div>
       </div>
     </div>
   </div>

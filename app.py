@@ -297,6 +297,32 @@ def fonts_css():
     return _FONTS_CSS_CACHE, 200, {"Content-Type": "text/css"}
 
 
+@app.post("/api/upload_font")
+def upload_font():
+    if "file" not in request.files:
+        return err("No font file provided.")
+    f = request.files["file"]
+    if not f.filename:
+        return err("No selected file.")
+    ext = Path(f.filename).suffix.lower()
+    if ext not in (".ttf", ".otf", ".woff", ".woff2"):
+        return err("Supported font formats: .ttf, .otf, .woff, .woff2")
+    fname = secure_filename(f.filename)
+    dest = FONTS_DIR / fname
+    f.save(dest)
+    global _FONTS_CSS_CACHE, _FONTLIST_CACHE
+    _FONTS_CSS_CACHE = None
+    _FONTLIST_CACHE = None
+    from PIL import ImageFont
+    family = dest.stem
+    try:
+        family, _ = ImageFont.truetype(str(dest), 20).getname()
+    except Exception:
+        pass
+    sync_fonts()
+    return jsonify(success=True, family=family, filename=fname, url=f"/fonts/{fname}")
+
+
 LAST_MASK_ERROR = None
 
 @app.get("/api/status")
@@ -1907,6 +1933,37 @@ def export_worker(job_id, d):
                     (WORK / ass_name).write_text(stylelib.build_ass(caps, st, W, H), encoding="utf-8")
                 front_ass_name = None
                 person_name = None
+
+            # Watermark injection
+            wm = d.get("watermark") or {}
+            wm_text = (wm.get("text") or "").strip()
+            if wm_text:
+                wm_pos = wm.get("position", "bottom-right")
+                wm_opacity = float(wm.get("opacity", 0.8))
+                wm_platform = wm.get("platform", "none")
+                prefix = ""
+                if wm_platform == "instagram":
+                    prefix = "IG: "
+                elif wm_platform == "youtube":
+                    prefix = "YT: "
+                elif wm_platform == "tiktok":
+                    prefix = "TT: "
+                elif wm_platform == "twitter":
+                    prefix = "X: "
+                full_wm = f"{prefix}{wm_text}"
+                align_map = {"top-left": 7, "top-right": 9, "bottom-left": 1, "bottom-right": 3}
+                an = align_map.get(wm_pos, 3)
+                alpha_val = max(0, min(255, int((1.0 - wm_opacity) * 255)))
+                alpha_hex = f"{alpha_val:02X}"
+                if not ass_name:
+                    ass_name = f"{job_id}.ass"
+                    temp.append(WORK / ass_name)
+                    header = f"[Script Info]\nScriptType: v4.00+\nPlayResX: {W}\nPlayResY: {H}\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Poppins,24,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,0,{an},25,25,25,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+                    (WORK / ass_name).write_text(header, encoding="utf-8")
+                fs = max(18, int(H * 0.022))
+                wm_line = f"Dialogue: 1,0:00:00.00,9:59:59.00,Default,,0,0,0,,{{\\an{an}\\alpha&H{alpha_hex}&\\fs{fs}\\bord2\\3c&H000000&\\b1}}{full_wm}\n"
+                with open(WORK / ass_name, "a", encoding="utf-8") as af:
+                    af.write(wm_line)
 
             # Build the final filter chain with effects
             job["message"] = "Adding captions, effects and b-roll..."
