@@ -4,18 +4,21 @@ import subprocess
 from pathlib import Path
 
 MODEL_PATH = Path(__file__).resolve().parent / "models" / "selfie_segmenter.tflite"
+LAST_INIT_ERROR = None
 
 
 def get_segmenter():
+    global LAST_INIT_ERROR
     import mediapipe as mp
 
-    # 1. Try modern MediaPipe Tasks API (MediaPipe >= 0.10.x / 1.x)
+    # 1. Try modern MediaPipe Tasks API with model_asset_buffer (100% reliable in Linux/Gunicorn)
     if MODEL_PATH.exists():
         try:
             from mediapipe.tasks import python as mp_python
             from mediapipe.tasks.python import vision as mp_vision
 
-            base_options = mp_python.BaseOptions(model_asset_path=str(MODEL_PATH))
+            model_bytes = MODEL_PATH.read_bytes()
+            base_options = mp_python.BaseOptions(model_asset_buffer=model_bytes)
             options = mp_vision.ImageSegmenterOptions(
                 base_options=base_options,
                 running_mode=mp_vision.RunningMode.IMAGE,
@@ -26,13 +29,16 @@ def get_segmenter():
             def segment_frame_tasks(rgb_frame):
                 mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
                 res = task_segmenter.segment(mp_img)
-                # category_mask numpy array: 1 = person, 0 = background
                 mask_np = res.category_mask.numpy_view()
                 return mask_np.astype("float32")
 
+            LAST_INIT_ERROR = "Tasks_Ready"
             return segment_frame_tasks
         except Exception as e:
+            LAST_INIT_ERROR = f"Tasks_Error_{type(e).__name__}_{e}"
             print("Modern ImageSegmenter init error:", e)
+    else:
+        LAST_INIT_ERROR = f"Model_NotFound_at_{MODEL_PATH}"
 
     # 2. Try legacy solutions API (MediaPipe < 0.10)
     try:
@@ -42,8 +48,10 @@ def get_segmenter():
             def segment_frame_legacy(rgb_frame):
                 return legacy_seg.process(rgb_frame).segmentation_mask
 
+            LAST_INIT_ERROR = "Legacy_Ready"
             return segment_frame_legacy
     except Exception as e:
+        LAST_INIT_ERROR += f"_Legacy_Error_{type(e).__name__}_{e}"
         print("Legacy selfie_segmentation error:", e)
 
     return None
@@ -58,13 +66,11 @@ def make_person_webm(ffmpeg, video, out_path, width, height, fps=30, on_progress
 
     segment_fn = get_segmenter()
     if segment_fn is None:
-        raise RuntimeError("No MediaPipe selfie segmenter could be initialized. Please check models/selfie_segmenter.tflite.")
+        raise RuntimeError(f"No MediaPipe selfie segmenter could be initialized: {LAST_INIT_ERROR}")
 
     cap = cv2.VideoCapture(str(video))
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
 
-    # Optimal processing resolution (e.g. 406x720 or 540x960)
-    # MediaPipe natively uses 256x256, so processing at 720p max uses 75% less RAM and runs 5x faster.
     scale = min(1.0, 720.0 / max(width, height))
     proc_w = int(round(width * scale / 2.0)) * 2
     proc_h = int(round(height * scale / 2.0)) * 2

@@ -325,7 +325,7 @@ def status():
     if mask_lib:
         try:
             fn = mask_lib.get_segmenter()
-            seg_info = "ready" if fn else "failed_to_load"
+            seg_info = "ready" if fn else f"failed_{getattr(mask_lib, 'LAST_INIT_ERROR', 'unknown')}"
         except Exception as e:
             seg_info = f"error_{e}"
 
