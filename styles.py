@@ -258,11 +258,14 @@ def load_presets():
         if isinstance(small_fill, str):
             small_fill = small_fill.split()
 
+        hl_color = p.get("highlightColor") or (p.get("highlight") or {}).get("color")
+        key_color = fill_colors[0] if (fill_colors and fill_colors[0].upper() not in ("#FFFFFF", "#FFF")) else (hl_color or (fill_colors[0] if fill_colors else "#FFE600"))
+
         key_role = role(
             font=big.get("font", "Montserrat"),
             fallback=big.get("fallback", "Arial"),
             size=big.get("size", 0.12),
-            color=fill_colors[0] if fill_colors else "#FFFFFF",
+            color=key_color,
             bold=big.get("weight", 800) >= 700,
             italic=bool(big.get("italic", False)),
             upper=bool(big.get("upper", False)),
@@ -671,7 +674,7 @@ def _text(v, default, n=60):
 
 def clean_role(r, d):
     r = r or {}
-    return {
+    out = {
         "font": _text(r.get("font"), d["font"]), "fallback": _text(r.get("fallback"), d["fallback"]),
         "size": _num(r.get("size"), 0.02, 0.30, d["size"]),
         "color": _hex(r.get("color"), d["color"]),
@@ -683,6 +686,15 @@ def clean_role(r, d):
         "track": float(_num(r.get("track"), -0.5, 0.5, 0.0)),
         "italic": bool(r.get("italic")), "bold": bool(r.get("bold")), "upper": bool(r.get("upper")),
     }
+    if "keyGradient" in r:
+        out["keyGradient"] = r["keyGradient"]
+    if "textGradient" in r:
+        out["textGradient"] = r["textGradient"]
+    if "fill" in r:
+        out["fill"] = r["fill"]
+    if "layer" in r:
+        out["layer"] = r["layer"]
+    return out
 
 
 def clean_style(s):
@@ -807,8 +819,73 @@ def _interpolate_gradient_color(colors, t):
     b = int(round(c1[2] + (c2[2] - c1[2]) * seg_t))
     return _rgb_to_ass((r, g, b))
 
+def get_gradient_colors(role, style):
+    if not isinstance(role, dict):
+        role = {}
+    if not isinstance(style, dict):
+        style = {}
+
+    # 1. Direct role fill dict
+    fill = role.get("fill") if isinstance(role.get("fill"), dict) else {}
+    raw_cols = fill.get("colors")
+    if not raw_cols and fill.get("type") == "holo":
+        raw_cols = ["#FF5EDF", "#FFE45E", "#5EFFB1", "#5EC8FF", "#B65EFF"]
+    if raw_cols and isinstance(raw_cols, (list, tuple)):
+        valid = [c for c in raw_cols if isinstance(c, str) and c.startswith("#")]
+        if len(valid) > 1:
+            return valid
+
+    # 2. Roles accent fill dict
+    roles = style.get("roles") or {}
+    accent = roles.get("accent") or {}
+    if isinstance(accent, dict):
+        acc_fill = accent.get("fill") if isinstance(accent.get("fill"), dict) else {}
+        acc_cols = acc_fill.get("colors")
+        if acc_cols and isinstance(acc_cols, (list, tuple)):
+            valid = [c for c in acc_cols if isinstance(c, str) and c.startswith("#")]
+            if len(valid) > 1:
+                return valid
+
+    # 3. Big fill colors
+    big = style.get("big") or {}
+    if isinstance(big, dict):
+        big_fill = big.get("fill") if isinstance(big.get("fill"), dict) else {}
+        big_cols = big_fill.get("colors")
+        if big_cols and isinstance(big_cols, (list, tuple)):
+            valid = [c for c in big_cols if isinstance(c, str) and c.startswith("#")]
+            if len(valid) > 1:
+                return valid
+
+    # 4. multiColorGradients in style
+    mcg = style.get("multiColorGradients")
+    if mcg and isinstance(mcg, (list, tuple)):
+        valid = [c for c in mcg if isinstance(c, str) and c.startswith("#")]
+        if len(valid) > 1:
+            return valid
+
+    # 5. Gradient strings (role.keyGradient, role.textGradient, accent.keyGradient, style.keyGradient, etc.)
+    for grad_str in [
+        role.get("keyGradient"),
+        role.get("textGradient"),
+        accent.get("keyGradient"),
+        style.get("keyGradient"),
+        style.get("secondaryGradient"),
+        style.get("textGradient"),
+        (role.get("fill") if isinstance(role.get("fill"), str) else None),
+        (style.get("fill") if isinstance(style.get("fill"), str) else None)
+    ]:
+        if grad_str and isinstance(grad_str, str) and "linear-gradient" in grad_str.lower():
+            hexes = re.findall(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b", grad_str)
+            if len(hexes) > 1:
+                return [f"#{''.join(c*2 for c in h[1:])}" if len(h) == 4 else h for h in hexes]
+
+    return None
+
+
 def _c(hex_color):
-    h = hex_color.lstrip("#")
+    h = str(hex_color or "").strip().lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
     if len(h) == 6:
         return f"&H{h[4:6]}{h[2:4]}{h[0:2]}&".upper()
     return "&HFFFFFF&"
@@ -875,11 +952,23 @@ def _chunk_text(words, style, W, H, layer, ev_start):
             end_ms = max(reveal + 60, int(round((w["e"] - ev_start) * 1000)))
 
             # Multi-color assignment
-            w_color = r["color"]
-            if palette:
-                if w["key"]:
-                    w_color = r["color"] if r["color"] != "#FFFFFF" else palette[-1]
+            if w["key"]:
+                hl = (style.get("highlight") or {}).get("color") or style.get("highlightColor")
+                if r.get("color") and r.get("color").upper() not in ("#FFFFFF", "#FFF"):
+                    w_color = r["color"]
+                elif hl and isinstance(hl, str) and hl.startswith("#") and hl.upper() not in ("#FFFFFF", "#FFF"):
+                    w_color = hl
+                elif r.get("color"):
+                    w_color = r["color"]
+                elif hl:
+                    w_color = hl
                 else:
+                    w_color = "#FFE600"
+                if palette and w_color == "#FFFFFF":
+                    w_color = palette[-1]
+            else:
+                w_color = r.get("color") or "#FFFFFF"
+                if palette:
                     w_color = palette[word_idx % len(palette)]
             word_idx += 1
 
@@ -1168,27 +1257,20 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             r = o["role"]
             grad_colors = None
             if o["is_hero"]:
-                # Check for preset multi-color fill gradient
-                fill = r.get("fill") if isinstance(r.get("fill"), dict) else {}
-                raw_cols = fill.get("colors")
-                if not raw_cols and fill.get("type") == "holo":
-                    raw_cols = ["#FF5EDF", "#FFE45E", "#5EFFB1", "#5EC8FF", "#B65EFF"]
-                if raw_cols and isinstance(raw_cols, (list, tuple)):
-                    valid_cols = [c for c in raw_cols if isinstance(c, str) and c.startswith("#")]
-                    if len(valid_cols) > 1:
-                        grad_colors = valid_cols
-
+                grad_colors = get_gradient_colors(r, style)
                 if not grad_colors:
-                    hl_col = style.get("highlightColor")
+                    hl_col = style.get("highlightColor") or (style.get("highlight") or {}).get("color")
                     r_col = r.get("color")
-                    if hl_col and isinstance(hl_col, str) and hl_col.startswith("#") and hl_col.upper() not in ("#FFFFFF", "#FFF", "#000000", "#000") and hl_col.upper() != "#FFE600":
-                        col = hl_col
-                    elif r_col and isinstance(r_col, str) and r_col.startswith("#") and r_col.upper() not in ("#FFFFFF", "#FFF"):
+                    if r_col and isinstance(r_col, str) and r_col.startswith("#") and r_col.upper() not in ("#FFFFFF", "#FFF"):
                         col = r_col
                     elif hl_col and isinstance(hl_col, str) and hl_col.startswith("#") and hl_col.upper() not in ("#FFFFFF", "#FFF"):
                         col = hl_col
+                    elif r_col and isinstance(r_col, str) and r_col.startswith("#"):
+                        col = r_col
+                    elif hl_col and isinstance(hl_col, str) and hl_col.startswith("#"):
+                        col = hl_col
                     else:
-                        col = r_col or hl_col or "#FF6200"
+                        col = "#FFE600"
             else:
                 col = r.get("color") or "#FFFFFF"
 
@@ -1270,7 +1352,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 def build_depth_ass(captions, style, W, H):
     """Return a large behind-person keyword and readable foreground subtitle."""
     base = clean_style(style)
-    if base.get("layout") == "stack" or base.get("isDuo") or (base.get("isSpecial") and base.get("mode") == "emphasis"):
+    if (base.get("behindPerson") or base.get("depthAccent") or base.get("layout") == "stack" or base.get("isDuo") or (base.get("isSpecial") and base.get("mode") == "emphasis")):
         return build_stack_ass(captions, base, W, H, layer_filter="depth"), build_stack_ass(captions, base, W, H, layer_filter="subtitle")
     if base.get("estateVariant"):
         line_style = copy.deepcopy(base)
@@ -1349,7 +1431,8 @@ def build_depth_ass(captions, style, W, H):
 def build_ass(captions, style, W, H):
     """captions: list of {'start','end','words':[{'t','key','s','e'}]} already on the OUTPUT timeline."""
     style = clean_style(style)
-    if style.get("layout") == "stack" or style.get("isDuo") or (style.get("isSpecial") and style.get("mode") == "emphasis"):
+    has_gradient = bool(get_gradient_colors(style.get("key") or {}, style))
+    if style.get("layout") == "stack" or style.get("isDuo") or (style.get("isSpecial") and style.get("mode") == "emphasis") or has_gradient:
         return build_stack_ass(captions, style, W, H, layer_filter="all")
     x = max(0, min(W, int(W * (0.5 + style.get("offsetX", 0.0)))))
     y = int(H * style["position"])
