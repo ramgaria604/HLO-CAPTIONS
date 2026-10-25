@@ -1346,6 +1346,18 @@ def upload_audio():
 _DEFAULT_ELEVEN_KEY = "".join(["sk_", "e4a39bb7e4c806920b15", "e7b5bf610c505a3504fc210d4b3b"])
 
 VOICE_PRESETS = {
+    "eleven_bunty": {
+        "provider": "elevenlabs",
+        "voice_id": "FZkK3TvQ0pjyDmT8fzIW",
+        "label": "🚀 ElevenLabs Bunty (Reel King - High Retention)",
+        "fallback_voice": "hi-IN-MadhurNeural"
+    },
+    "bunty": {
+        "provider": "elevenlabs",
+        "voice_id": "FZkK3TvQ0pjyDmT8fzIW",
+        "label": "🚀 ElevenLabs Bunty (Reel King - High Retention)",
+        "fallback_voice": "hi-IN-MadhurNeural"
+    },
     "special_voice": {
         "provider": "elevenlabs",
         "voice_id": "IKne3meq5aSn9XLyUdCD",
@@ -1386,14 +1398,14 @@ def generate_voiceover():
     """Generate high-quality viral Hindi & human creator voiceover using neural TTS."""
     data = request.get_json(silent=True) or {}
     text = str(data.get("text", "")).strip()
-    voice_key = str(data.get("voice", "special_voice")).strip()
+    voice_key = str(data.get("voice", "eleven_bunty")).strip()
 
     if not text:
         text = "नमस्ते दोस्तों! आज मैं आपको बताने वाला हूँ एक ऐसा सीक्रेट जो आपकी ज़िंदगी बदल देगा।" 
     if len(text) > 4000:
         return err("Voiceover scripts are limited to 4,000 characters.")
 
-    cfg = VOICE_PRESETS.get(voice_key, VOICE_PRESETS["special_voice"])
+    cfg = VOICE_PRESETS.get(voice_key, VOICE_PRESETS["eleven_bunty"])
     filename = f"voiceover_{uuid.uuid4().hex[:12]}.mp3"
     out_path = WORK / filename
 
@@ -1841,27 +1853,6 @@ def export_worker(job_id, d):
                     })
 
                 person_name = None
-                if d.get("behindPerson") or (d.get("style") or {}).get("behindPerson") or preset_id in ("orange_pop", "ca_cutout", "dimension_story", "spatial_red", "spatial_white", "spatial_yellow"):
-                    try:
-                        job["message"] = f"Creating person cutout mask for {preset_id}..."
-                        person_webm_name = f"person_{job_id}.webm"
-                        person_path = remotion_public / person_webm_name
-                        mask_lib.make_person_webm(
-                            ffmpeg_path(),
-                            cur_video_path,
-                            person_path,
-                            W,
-                            H,
-                            fps=30,
-                            on_progress=lambda p: job.update(progress=round(base + p * 0.1, 1))
-                        )
-                        if person_path.exists():
-                            person_name = person_webm_name
-                            temp.append(person_path)
-                    except Exception as pe:
-                        print("Person mask skipped:", pe)
-                        job["message"] = f"Person cutout skipped ({pe}). Continuing render..."
-                        person_name = None
 
                 palette_choice = d.get("palette") or {"c1": "#FFE600", "c2": "#FF7A18", "text": "#FFFFFF"}
                 auto_color = bool(d.get("autoColor", False))
@@ -1907,61 +1898,15 @@ def export_worker(job_id, d):
             is_behind_preset = False
             if caps:
                 st = stylelib.clean_style(d.get("style"))
-                is_behind_preset = bool(
-                    d.get("behindPerson") or
-                    d.get("behind_person") or
-                    st.get("behindPerson") or
-                    st.get("behind_person") or
-                    st.get("depthAccent") or
-                    st.get("isSpecial") or
-                    (isinstance(st.get("roles"), dict) and st["roles"].get("accent", {}).get("layer") == "behind") or
-                    ("behind" in str(st.get("name", "")).lower())
-                )
-                if is_behind_preset:
-                    ass_name = f"{job_id}_depth.ass"
-                    depth_ass, subtitle_ass = stylelib.build_depth_ass(caps, st, W, H)
-                    (WORK / ass_name).write_text(depth_ass, encoding="utf-8")
-                    temp.append(WORK / ass_name)
-                    if subtitle_ass:
-                        front_ass_name = f"{job_id}_subtitle.ass"
-                        (WORK / front_ass_name).write_text(subtitle_ass, encoding="utf-8")
-                        temp.append(WORK / front_ass_name)
-                else:
-                    ass_name = f"{job_id}.ass"
-                    temp.append(WORK / ass_name)
-                    (WORK / ass_name).write_text(stylelib.build_ass(caps, st, W, H), encoding="utf-8")
-
-            # Build a transparent person layer for presets that place captions behind the speaker.
-            person_name = None
-            if ass_name and is_behind_preset:
-                try:
-                    job["message"] = "AI Depth Cutout: Separating speaker for behind-person captions..."
-                    person_name = f"person_{job_id}.webm"
-                    person_path = WORK / person_name
-                    if not person_path.exists():
-                        mask_lib.make_person_webm(
-                            ffmpeg_path(), WORK / current, person_path, W, H, fps=30,
-                            on_progress=lambda p: job.update(
-                                message=f"AI Depth Cutout: Separating speaker ({int(p)}%)...",
-                                progress=round(10 + p * 0.45, 1)
-                            )
-                        )
-                    if person_path.exists():
-                        temp.append(person_path)
-                    else:
-                        person_name = None
-                except Exception as pe:
-                    global LAST_MASK_ERROR
-                    LAST_MASK_ERROR = f"{type(pe).__name__}: {pe}"
-                    print("Person mask skipped:", pe)
-                    person_name = None
-
-            if ass_name and is_behind_preset and not person_name:
-                # If person cutout could not be generated, render all 3 layers cleanly in one ASS file so no text is skipped
+                # Streamlined fast ASS caption generation (behind-person cutout removed per user request)
                 ass_name = f"{job_id}.ass"
-                (WORK / ass_name).write_text(stylelib.build_stack_ass(caps, st, W, H, layer_filter="all"), encoding="utf-8")
                 temp.append(WORK / ass_name)
+                if st.get("layout") == "stack" or st.get("isDuo") or st.get("isSpecial"):
+                    (WORK / ass_name).write_text(stylelib.build_stack_ass(caps, st, W, H, layer_filter="all"), encoding="utf-8")
+                else:
+                    (WORK / ass_name).write_text(stylelib.build_ass(caps, st, W, H), encoding="utf-8")
                 front_ass_name = None
+                person_name = None
 
             # Build the final filter chain with effects
             job["message"] = "Adding captions, effects and b-roll..."

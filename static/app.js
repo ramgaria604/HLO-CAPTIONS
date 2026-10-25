@@ -2196,35 +2196,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function syncBehindSliders() {
-    const isBehind = Boolean(
-      S.style && (
-        S.style.behindPerson ||
-        S.style.depthAccent ||
-        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
-        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
-      )
-    );
-    const card = $('cardBehindLayers');
-    if (card) card.classList.toggle('hidden', !isBehind);
-    if (!isBehind) return;
-
-    const inputTopY = $('inputTopY');
-    const inputHeroY = $('inputHeroY');
-    const inputBottomY = $('inputBottomY');
-    const valTopYBadge = $('valTopYBadge');
-    const valHeroYBadge = $('valHeroYBadge');
-    const valBottomYBadge = $('valBottomYBadge');
-
-    const topPct = Math.round((Number(S.style?.topY) || 0.10) * 100);
-    const heroPct = Math.round((Number(S.style?.depthAccentY) || 0.18) * 100);
-    const botPct = Math.round((Number(S.style?.subtitlePosition) || 0.72) * 100);
-
-    if (inputTopY) inputTopY.value = topPct;
-    if (valTopYBadge) valTopYBadge.textContent = topPct + '%';
-    if (inputHeroY) inputHeroY.value = heroPct;
-    if (valHeroYBadge) valHeroYBadge.textContent = heroPct + '%';
-    if (inputBottomY) inputBottomY.value = botPct;
-    if (valBottomYBadge) valBottomYBadge.textContent = botPct + '%';
+    // Behind person removed per user request
   }
 
   function applyPreset(preset, showGenToast = false) {
@@ -2238,12 +2210,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.style = Object.assign({}, preset, {
       roles: clonedRoles || preset.roles,
       fontScale: 1.0,
-      position: isBehind ? 0.18 : (Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75),
-      topY: isBehind ? (Number.isFinite(Number(preset.topY)) ? Number(preset.topY) : 0.10) : 0.10,
-      depthAccentY: isBehind ? (Number.isFinite(Number(preset.depthAccentY)) ? Number(preset.depthAccentY) : 0.18) : 0.18,
-      subtitlePosition: isBehind ? (Number.isFinite(Number(preset.subtitlePosition)) ? Number(preset.subtitlePosition) : 0.72) : 0.72,
-      behindPerson: isBehind,
-      depthAccent: isBehind,
+      position: Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75,
+      posY: Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75,
+      behindPerson: false,
+      depthAccent: false,
       highlightColor: preset.highlightColor || preset.roles?.accent?.color || preset.key?.color || '#FFE600',
       fontFamily: preset.roles?.accent?.font || preset.key?.font || 'Poppins',
       textCase: S.style?.textCase || 'upper'
@@ -2666,7 +2636,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     $$('.btn-pack-generate').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const vKey = btn.getAttribute('data-voice') || 'special_voice';
+        const vKey = btn.getAttribute('data-voice') || 'eleven_bunty';
         if (voiceoverVoice) voiceoverVoice.value = vKey;
         $$('.voice-pack-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-voice') === vKey));
         
@@ -2690,7 +2660,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     $$('.voice-pack-card').forEach(card => {
       card.addEventListener('click', () => {
-        const vKey = card.getAttribute('data-voice') || 'special_voice';
+        const vKey = card.getAttribute('data-voice') || 'eleven_bunty';
         if (voiceoverVoice) voiceoverVoice.value = vKey;
         $$('.voice-pack-card').forEach(c => c.classList.toggle('active', c === card));
       });
@@ -2720,48 +2690,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const rect = stage.getBoundingClientRect();
       if (!rect.height) return;
 
-      const clickNormY = (event.clientY - rect.top) / rect.height;
-      const isBehindPreset = Boolean(
-        S.style && (
-          S.style.behindPerson ||
-          S.style.depthAccent ||
-          (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
-          (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
-        )
-      );
-
-      let targetKey = 'position';
-      let lineLabel = 'captions';
-
-      if (isBehindPreset) {
-        const topY = typeof S.style.topY === 'number' ? S.style.topY : 0.10;
-        const heroY = typeof S.style.depthAccentY === 'number' ? S.style.depthAccentY : 0.18;
-        const subY = typeof S.style.subtitlePosition === 'number' ? S.style.subtitlePosition : 0.72;
-
-        const dTop = Math.abs(clickNormY - topY);
-        const dHero = Math.abs(clickNormY - heroY);
-        const dSub = Math.abs(clickNormY - subY);
-
-        if (dTop <= dHero && dTop <= dSub) {
-          targetKey = 'topY';
-          lineLabel = 'Line 1 (Above Head)';
-        } else if (dHero <= dTop && dHero <= dSub) {
-          targetKey = 'depthAccentY';
-          lineLabel = 'Line 2 (Hero Behind Head)';
-        } else {
-          targetKey = 'subtitlePosition';
-          lineLabel = 'Line 3 (Front of Person Below)';
-        }
-      }
-
       drag = {
         id: event.pointerId,
         startY: event.clientY,
         lastY: event.clientY,
-        moved: false,
-        targetKey,
-        lineLabel,
-        isBehindPreset
+        moved: false
       };
     });
 
@@ -2780,38 +2713,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const delta = (event.clientY - drag.lastY) / rect.height;
       drag.lastY = event.clientY;
 
-      if (drag.isBehindPreset) {
-        if (drag.targetKey === 'topY') {
-          const cur = Number(S.style.topY) || 0.10;
-          const heroLimit = (Number(S.style.depthAccentY) || 0.18) - 0.035;
-          S.style.topY = Math.max(0.02, Math.min(heroLimit, cur + delta));
-        } else if (drag.targetKey === 'depthAccentY') {
-          const cur = Number(S.style.depthAccentY) || 0.18;
-          const subLimit = (Number(S.style.subtitlePosition) || 0.72) - 0.04;
-          const nextHero = Math.max(0.06, Math.min(subLimit, cur + delta));
-          S.style.depthAccentY = nextHero;
-          S.style.position = nextHero;
-          if (S.style.topY >= nextHero - 0.035) {
-            S.style.topY = Math.max(0.02, Number((nextHero - 0.07).toFixed(3)));
-          }
-        } else if (drag.targetKey === 'subtitlePosition') {
-          const cur = Number(S.style.subtitlePosition) || 0.72;
-          const heroLimit = (Number(S.style.depthAccentY) || 0.18) + 0.04;
-          S.style.subtitlePosition = Math.max(heroLimit, Math.min(0.96, cur + delta));
-        }
-        syncBehindSliders();
-        if (hint) {
-          const pct = Math.round((S.style[drag.targetKey] || 0) * 100);
-          hint.textContent = `↕ Moving ${drag.lineLabel}: ${pct}% · release to place`;
-        }
-      } else {
-        const cur = Number(S.style.position) || 0.75;
-        S.style.position = Math.max(0.10, Math.min(0.95, cur + delta));
-        if (hint) {
-          hint.textContent = `↕ Moving Captions: ${Math.round(S.style.position * 100)}% · release to place`;
-        }
-      }
+      const cur = Number(S.style.position || S.style.posY || 0.75);
+      const nextPos = Math.max(0.08, Math.min(0.92, cur + delta));
+      S.style.position = nextPos;
+      S.style.posY = nextPos;
 
+      if (hint) {
+        hint.textContent = '↕ Caption Position: ' + Math.round(nextPos * 100) + '% · release to place';
+      }
       renderCanvas();
     });
 
@@ -2820,7 +2729,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const moved = drag.moved;
       drag = null;
       stage.classList.remove('is-caption-dragging');
-      if (hint) hint.textContent = '✋ Touch or click any line to drag one-by-one · Top above head, Hero behind, Subtitle below';
+      if (hint) hint.textContent = '💡 Drag caption to move anywhere on video';
       if (moved) renderCanvas();
     };
     stage.addEventListener('pointerup', finish);
@@ -3030,45 +2939,31 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  function updateExportPipeline(step, statusText1, statusText2, statusText3) {
-    const s1 = $('stepCutout');
-    const s2 = $('stepCaptions');
-    const s3 = $('stepFinalize');
+  function updateExportPipeline(step, statusText1, statusText2) {
+    const s1 = $('stepCaptions');
+    const s2 = $('stepFinalize');
     const st1 = $('stepStatus1');
     const st2 = $('stepStatus2');
-    const st3 = $('stepStatus3');
 
-    if (!s1 || !s2 || !s3) return;
+    if (!s1 || !s2) return;
 
     s1.className = 'export-step-item';
     s2.className = 'export-step-item';
-    s3.className = 'export-step-item';
 
     if (step === 1) {
       s1.classList.add('active');
-      if (st1) st1.textContent = statusText1 || 'Processing...';
+      if (st1) st1.textContent = statusText1 || 'Rendering...';
       if (st2) st2.textContent = statusText2 || 'Queued';
-      if (st3) st3.textContent = statusText3 || 'Queued';
     } else if (step === 2) {
       s1.classList.add('completed');
       s2.classList.add('active');
       if (st1) st1.textContent = statusText1 || 'Done ✓';
-      if (st2) st2.textContent = statusText2 || 'Compositing...';
-      if (st3) st3.textContent = statusText3 || 'Queued';
+      if (st2) st2.textContent = statusText2 || 'Encoding MP4...';
     } else if (step === 3) {
       s1.classList.add('completed');
       s2.classList.add('completed');
-      s3.classList.add('active');
-      if (st1) st1.textContent = statusText1 || 'Done ✓';
-      if (st2) st2.textContent = statusText2 || 'Done ✓';
-      if (st3) st3.textContent = statusText3 || 'Encoding MP4...';
-    } else if (step === 4) {
-      s1.classList.add('completed');
-      s2.classList.add('completed');
-      s3.classList.add('completed');
       if (st1) st1.textContent = 'Done ✓';
       if (st2) st2.textContent = 'Done ✓';
-      if (st3) st3.textContent = 'Done ✓';
     }
   }
 
@@ -3079,10 +2974,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     exportDoneState.classList.add('hidden');
     exportErrorState.classList.add('hidden');
 
-    exportProgressBar.style.width = '3%';
-    exportPercent.textContent = '3%';
+    exportProgressBar.style.width = '5%';
+    exportPercent.textContent = '5%';
     exportProgressText.textContent = 'Initiating video render...';
-    exportProgressDetail.textContent = 'Preparing render pipeline and analyzing frames.';
+    exportProgressDetail.textContent = 'Applying selected style preset and burning captions.';
 
     if ('Notification' in window && Notification.permission === 'default') {
       try { Notification.requestPermission(); } catch (_) {}
@@ -3097,15 +2992,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (timerVal) timerVal.textContent = formatTimeElapsed(elapsedSec);
     }, 500);
 
-    const isBehindPerson = !!(S.style && S.style.behindPerson);
-    const aiBadge = $('exportAiBadge');
-    if (isBehindPerson) {
-      if (aiBadge) aiBadge.classList.remove('hidden');
-      updateExportPipeline(1, 'Isolating Person...', 'Queued', 'Queued');
-    } else {
-      if (aiBadge) aiBadge.classList.add('hidden');
-      updateExportPipeline(2, 'Skipped', 'Processing...', 'Queued');
-    }
+    updateExportPipeline(1, 'Burning Captions...', 'Queued');
 
     try {
       const payload = {
@@ -3198,31 +3085,21 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         exportProgressBar.style.width = pct + '%';
         exportPercent.textContent = pct + '%';
 
-        const isBehindPerson = !!(S.style && S.style.behindPerson);
-        const aiBadge = $('exportAiBadge');
-
         if (data.message) {
           exportProgressText.textContent = data.message;
-          const msg = data.message.toLowerCase();
-
-          if (msg.includes('separating speaker') || msg.includes('ai depth') || msg.includes('cutout') || msg.includes('isolating')) {
-            exportProgressDetail.textContent = 'Using neural vision to isolate the speaker so keywords appear behind them. Frame-by-frame depth analysis takes a few moments...';
-            if (aiBadge) aiBadge.classList.remove('hidden');
-            updateExportPipeline(1, 'Separating Person...', 'Queued', 'Queued');
-          } else if (msg.includes('compositing') || msg.includes('layering') || msg.includes('effects') || msg.includes('subtitles') || msg.includes('captions')) {
-            exportProgressDetail.textContent = 'Compositing depth layers: video background → hero keyword → speaker cutout → subtitles.';
-            if (aiBadge && !isBehindPerson) aiBadge.classList.add('hidden');
-            updateExportPipeline(2, isBehindPerson ? 'Done ✓' : 'Skipped', 'Compositing...', 'Queued');
-          } else if (msg.includes('encoding') || msg.includes('finalizing') || msg.includes('generating') || pct >= 80) {
+          if (pct >= 40) {
             exportProgressDetail.textContent = 'Baking in final crisp 1080p MP4 audio & video streams.';
-            updateExportPipeline(3, isBehindPerson ? 'Done ✓' : 'Skipped', 'Done ✓', 'Encoding MP4...');
+            updateExportPipeline(2, 'Done ✓', 'Encoding MP4...');
+          } else {
+            exportProgressDetail.textContent = 'Applying selected style preset and burning captions.';
+            updateExportPipeline(1, 'Burning Captions...', 'Queued');
           }
         }
 
         if (data.status === 'done' || data.download) {
           clearInterval(S.exportTimer);
           if (exportElapsedInterval) clearInterval(exportElapsedInterval);
-          updateExportPipeline(4);
+          updateExportPipeline(3);
           showExportComplete(data.download);
         } else if (data.status === 'error') {
           clearInterval(S.exportTimer);
