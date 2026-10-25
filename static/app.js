@@ -1009,25 +1009,31 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
   if (isBehindPreset) {
     const heroY = typeof st.depthAccentY === 'number' ? (st.depthAccentY >= 0.24 ? 0.18 : st.depthAccentY) : 0.18;
-    const accentPx = getRolePx(accentRole, 180);
+    const accentPx = getRolePx(accentRole, 230);
     const basePx = getRolePx(baseRole, 60);
     const fontSpan = (accentPx + basePx) * 0.5 / H + 0.008;
     const defaultTop = Math.max(0.02, Number((heroY - fontSpan).toFixed(3)));
-    const topY = (typeof st.topY === 'number' && st.topY <= 0.16) ? st.topY : defaultTop;
+    const topY = (typeof st.topY === 'number' && st.topY <= 0.15) ? st.topY : defaultTop;
     const subY = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.72;
 
     let topWords = [];
     let heroWords = [];
     let bottomWords = [];
 
+    // Strict chronological order: Line 1 (Top) plays FIRST, Line 2 (Hero Middle) plays SECOND, Line 3 (Bottom) plays THIRD
     if (words.length >= 3) {
-      let keyIdx = words.findIndex(w => w.key);
-      if (keyIdx <= 0 || keyIdx >= words.length - 1) {
-        keyIdx = words.length === 3 ? 1 : words.length - 2;
+      if (words.length === 3) {
+        topWords = [words[0]];
+        heroWords = [words[1]];
+        bottomWords = [words[2]];
+      } else {
+        const mid = Math.floor(words.length / 2);
+        let keyIdx = words.findIndex((w, i) => w.key && i > 0 && i < words.length - 1);
+        if (keyIdx === -1) keyIdx = mid;
+        topWords = words.slice(0, keyIdx);
+        heroWords = [words[keyIdx]];
+        bottomWords = words.slice(keyIdx + 1);
       }
-      topWords = words.slice(0, keyIdx);
-      heroWords = [words[keyIdx]];
-      bottomWords = words.slice(keyIdx + 1);
     } else if (words.length === 2) {
       topWords = [words[0]];
       heroWords = [words[1]];
@@ -1059,7 +1065,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const heroDesc = {
         text: heroWords.map(w => up(w.t)).join(' '),
         font: accentRole.font || 'Montserrat',
-        size: Math.max(18, getRolePx(accentRole, 185)),
+        size: Math.max(22, getRolePx(accentRole, 230)),
         weight: accentRole.weight || (accentRole.bold ? 900 : 800),
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || 0,
@@ -1201,7 +1207,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   const offsetX = (Number(st.offsetX) || 0) * W;
   ctxFore.save(); ctxFore.translate(offsetX, 0);
   if (ctxBehind && ctxBehind !== ctxFore) { ctxBehind.save(); ctxBehind.translate(offsetX, 0); }
-  if ((st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
+  if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
     drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll);
   } else if (st.isSpecial && st.depthAccent) {
     drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, cap.id);
@@ -2099,7 +2105,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const valHeroYBadge = $('valHeroYBadge');
     const valBottomYBadge = $('valBottomYBadge');
 
-    const topPct = Math.round((Number(S.style?.topY) || 0.11) * 100);
+    const topPct = Math.round((Number(S.style?.topY) || 0.10) * 100);
     const heroPct = Math.round((Number(S.style?.depthAccentY) || 0.18) * 100);
     const botPct = Math.round((Number(S.style?.subtitlePosition) || 0.72) * 100);
 
@@ -2121,7 +2127,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.style = Object.assign({}, preset, {
       fontScale: 1.0,
       position: isBehind ? 0.18 : (Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75),
-      topY: isBehind ? (Number.isFinite(Number(preset.topY)) ? Number(preset.topY) : 0.11) : 0.11,
+      topY: isBehind ? (Number.isFinite(Number(preset.topY)) ? Number(preset.topY) : 0.10) : 0.10,
       depthAccentY: isBehind ? (Number.isFinite(Number(preset.depthAccentY)) ? Number(preset.depthAccentY) : 0.18) : 0.18,
       subtitlePosition: isBehind ? (Number.isFinite(Number(preset.subtitlePosition)) ? Number(preset.subtitlePosition) : 0.72) : 0.72,
       behindPerson: isBehind,
@@ -2582,7 +2588,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       let lineLabel = 'captions';
 
       if (isBehindPreset) {
-        const topY = typeof S.style.topY === 'number' ? S.style.topY : 0.11;
+        const topY = typeof S.style.topY === 'number' ? S.style.topY : 0.10;
         const heroY = typeof S.style.depthAccentY === 'number' ? S.style.depthAccentY : 0.18;
         const subY = typeof S.style.subtitlePosition === 'number' ? S.style.subtitlePosition : 0.72;
 
@@ -2630,7 +2636,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
       if (drag.isBehindPreset) {
         if (drag.targetKey === 'topY') {
-          const cur = Number(S.style.topY) || 0.11;
+          const cur = Number(S.style.topY) || 0.10;
           const heroLimit = (Number(S.style.depthAccentY) || 0.18) - 0.035;
           S.style.topY = Math.max(0.02, Math.min(heroLimit, cur + delta));
         } else if (drag.targetKey === 'depthAccentY') {

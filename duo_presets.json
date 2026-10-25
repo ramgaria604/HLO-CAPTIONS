@@ -85,7 +85,7 @@
       },
       "accent": {
         "font": "Montserrat",
-        "size": 190.0,
+        "size": 230.0,
         "weight": 900,
         "bold": true,
         "italic": false,
@@ -123,8 +123,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.106,
-    "position": 0.18
+    "topY": 0.096,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_02",
@@ -212,7 +213,7 @@
       },
       "accent": {
         "font": "Poppins",
-        "size": 160.0,
+        "size": 230.0,
         "weight": 800,
         "bold": true,
         "italic": true,
@@ -252,8 +253,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.114,
-    "position": 0.18
+    "topY": 0.096,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_03",
@@ -341,7 +343,7 @@
       },
       "accent": {
         "font": "Poppins",
-        "size": 205.0,
+        "size": 230.0,
         "weight": 900,
         "bold": true,
         "italic": false,
@@ -377,8 +379,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.101,
-    "position": 0.18
+    "topY": 0.095,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_04",
@@ -466,7 +469,7 @@
       },
       "accent": {
         "font": "Playfair Display",
-        "size": 175.0,
+        "size": 230.0,
         "weight": 700,
         "bold": true,
         "italic": true,
@@ -504,8 +507,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.112,
-    "position": 0.18
+    "topY": 0.098,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_05",
@@ -593,7 +597,7 @@
       },
       "accent": {
         "font": "Anton",
-        "size": 200.0,
+        "size": 230.0,
         "weight": 400,
         "bold": false,
         "italic": false,
@@ -631,8 +635,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.1,
-    "position": 0.18
+    "topY": 0.092,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_06",
@@ -720,7 +725,7 @@
       },
       "accent": {
         "font": "Syne",
-        "size": 185.0,
+        "size": 230.0,
         "weight": 800,
         "bold": true,
         "italic": false,
@@ -753,8 +758,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.108,
-    "position": 0.18
+    "topY": 0.096,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_07",
@@ -842,7 +848,7 @@
       },
       "accent": {
         "font": "Fredoka",
-        "size": 175.0,
+        "size": 230.0,
         "weight": 700,
         "bold": true,
         "italic": false,
@@ -883,8 +889,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.11,
-    "position": 0.18
+    "topY": 0.095,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_08",
@@ -972,7 +979,7 @@
       },
       "accent": {
         "font": "Shrikhand",
-        "size": 170.0,
+        "size": 230.0,
         "weight": 400,
         "bold": false,
         "italic": false,
@@ -1009,8 +1016,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.112,
-    "position": 0.18
+    "topY": 0.096,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_09",
@@ -1098,7 +1106,7 @@
       },
       "accent": {
         "font": "Abril Fatface",
-        "size": 170.0,
+        "size": 230.0,
         "weight": 400,
         "bold": false,
         "italic": false,
@@ -1136,8 +1144,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.113,
-    "position": 0.18
+    "topY": 0.097,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_10",
@@ -1225,7 +1234,7 @@
       },
       "accent": {
         "font": "DM Serif Display",
-        "size": 185.0,
+        "size": 230.0,
         "weight": 400,
         "bold": false,
         "italic": true,
@@ -1263,8 +1272,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.104,
-    "position": 0.18
+    "topY": 0.092,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_11",
@@ -1352,7 +1362,7 @@
       },
       "accent": {
         "font": "Archivo Black",
-        "size": 175.0,
+        "size": 230.0,
         "weight": 400,
         "bold": false,
         "italic": false,
@@ -1388,8 +1398,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.105,
-    "position": 0.18
+    "topY": 0.09,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_12",
@@ -1477,7 +1488,7 @@
       },
       "accent": {
         "font": "Rubik",
-        "size": 185.0,
+        "size": 230.0,
         "weight": 900,
         "bold": true,
         "italic": false,
@@ -1514,8 +1525,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.11,
-    "position": 0.18
+    "topY": 0.098,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_13",
@@ -1603,7 +1615,7 @@
       },
       "accent": {
         "font": "Montserrat",
-        "size": 190.0,
+        "size": 230.0,
         "weight": 900,
         "bold": true,
         "italic": false,
@@ -1678,8 +1690,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.106,
-    "position": 0.18
+    "topY": 0.096,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_14",
@@ -1922,7 +1935,7 @@
       },
       "accent": {
         "font": "Playfair Display",
-        "size": 175.0,
+        "size": 230.0,
         "weight": 700,
         "bold": true,
         "italic": true,
@@ -1993,8 +2006,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.11,
-    "position": 0.18
+    "topY": 0.096,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_16",
@@ -3278,7 +3292,7 @@
       },
       "accent": {
         "font": "Playfair Display",
-        "size": 175.0,
+        "size": 230.0,
         "weight": 700,
         "bold": true,
         "italic": true,
@@ -3314,8 +3328,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.111,
-    "position": 0.18
+    "topY": 0.097,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_27",
@@ -3403,7 +3418,7 @@
       },
       "accent": {
         "font": "Alfa Slab One",
-        "size": 170.0,
+        "size": 230.0,
         "weight": 400,
         "bold": false,
         "italic": false,
@@ -3441,8 +3456,9 @@
     "depthAccent": true,
     "depthAccentY": 0.18,
     "subtitlePosition": 0.72,
-    "topY": 0.111,
-    "position": 0.18
+    "topY": 0.095,
+    "position": 0.18,
+    "depthAccentSize": 0.26
   },
   {
     "id": "duo_28",
