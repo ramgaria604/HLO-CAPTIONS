@@ -34,16 +34,16 @@ NODE_DIR = r"C:\Users\NIKHIL\AppData\Local\Programs\nodejs"
 if os.path.exists(NODE_DIR) and NODE_DIR not in os.environ.get("PATH", ""):
     os.environ["PATH"] = NODE_DIR + os.pathsep + os.environ.get("PATH", "")
 
-REMOTION_DIR = BASE / "remotion_pack"
-REMOTION_PY = REMOTION_DIR / "python"
-if str(REMOTION_PY) not in sys.path:
-    sys.path.insert(0, str(REMOTION_PY))
-
 try:
     import mask as mask_lib
 except Exception as _me:
     print("Warning: mask_lib import error:", _me)
     mask_lib = None
+
+REMOTION_DIR = BASE / "remotion_pack"
+REMOTION_PY = REMOTION_DIR / "python"
+if str(REMOTION_PY) not in sys.path:
+    sys.path.append(str(REMOTION_PY))
 
 try:
     import premium_render
@@ -330,7 +330,7 @@ def status():
             seg_info = f"error_{e}"
 
     return jsonify(
-        build="2026-10-26_v2_depth",
+        build="2026-10-26_v3_ready",
         ffmpeg=ff,
         ass=ass_ok,
         whisper=speech_ok,
