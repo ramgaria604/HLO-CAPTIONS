@@ -121,8 +121,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_02",
@@ -248,8 +249,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_03",
@@ -371,8 +373,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_04",
@@ -496,8 +499,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_05",
@@ -621,8 +625,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_06",
@@ -741,8 +746,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_07",
@@ -869,8 +875,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_08",
@@ -993,8 +1000,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_09",
@@ -1118,8 +1126,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_10",
@@ -1243,8 +1252,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_11",
@@ -1366,8 +1376,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_12",
@@ -1490,8 +1501,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_13",
@@ -1652,8 +1664,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_14",
@@ -1965,8 +1978,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_16",
@@ -3284,8 +3298,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_27",
@@ -3409,8 +3424,9 @@
     },
     "behindPerson": true,
     "depthAccent": true,
-    "depthAccentY": 0.28,
-    "subtitlePosition": 0.7
+    "depthAccentY": 0.3,
+    "subtitlePosition": 0.72,
+    "topY": 0.16
   },
   {
     "id": "duo_28",

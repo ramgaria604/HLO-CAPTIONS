@@ -989,54 +989,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     posY = st.posCycle[idx];
   }
 
-  // 1. Line runs: small words line, big word line
-  let smallWords = [];
-  let bigWords = [];
-  if (words.length <= 1) {
-    bigWords = words;
-  } else {
-    smallWords = words.slice(0, -1);
-    bigWords = [words[words.length - 1]];
-  }
-
-  const up = (txt) => uppercase ? txt.toUpperCase() : txt;
-  const smallText = smallWords.map(w => up(w.t)).join(' ');
-  const bigText = bigWords.map(w => up(w.t)).join(' ');
-
-  const scale = Math.min(W / 1080, H / 1920) * (Number(st.fontScale) || 1);
-  const getRolePx = (r, defaultPx) => {
-    const s = Number(r.size) || defaultPx;
-    return s > 1 ? s * scale : s * H;
-  };
-
-  const lineDescriptors = [];
-  if (smallWords.length > 0) {
-    lineDescriptors.push({
-      text: smallText,
-      font: baseRole.font || 'Poppins',
-      size: Math.max(14, getRolePx(baseRole, 62)),
-      weight: baseRole.weight || (baseRole.bold ? 700 : 500),
-      italic: Boolean(baseRole.italic),
-      track: Number(baseRole.track) || 0,
-      isHero: false,
-      role: baseRole,
-      words: smallWords
-    });
-  }
-  if (bigWords.length > 0) {
-    lineDescriptors.push({
-      text: bigText,
-      font: accentRole.font || 'Montserrat',
-      size: Math.max(18, getRolePx(accentRole, 190)),
-      weight: accentRole.weight || (accentRole.bold ? 900 : 800),
-      italic: Boolean(accentRole.italic),
-      track: Number(accentRole.track) || 0,
-      isHero: true,
-      role: accentRole,
-      words: bigWords
-    });
-  }
-
   const isBehindPreset = Boolean(
     isBehind ||
     st.behindPerson ||
@@ -1044,15 +996,132 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     (accentRole && accentRole.layer === 'behind') ||
     (st.name && st.name.toLowerCase().includes('(behind)'))
   );
+
+  const up = (txt) => uppercase ? txt.toUpperCase() : txt;
+  const scale = Math.min(W / 1080, H / 1920) * (Number(st.fontScale) || 1);
+  const getRolePx = (r, defaultPx) => {
+    const s = Number(r.size) || defaultPx;
+    return s > 1 ? s * scale : s * H;
+  };
+
   const layoutFn = getLayoutStackFn();
   let lay;
-  if (isBehindPreset && lineDescriptors.length >= 2) {
-    const heroY = isBehindPreset ? 0.28 : (typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.28);
-    const subY = isBehindPreset ? 0.70 : (typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.70);
-    const laySub = layoutFn([lineDescriptors[0]], { W, H, posX, posY: subY, inkGap, maxWidth: 0.90 });
-    const layHero = layoutFn([lineDescriptors[1]], { W, H, posX, posY: heroY, inkGap, maxWidth: 0.90 });
-    lay = laySub.concat(layHero);
+
+  if (isBehindPreset) {
+    const topY = typeof st.topY === 'number' ? st.topY : 0.16;
+    const heroY = typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.30;
+    const subY = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.72;
+
+    let topWords = [];
+    let heroWords = [];
+    let bottomWords = [];
+
+    if (words.length >= 3) {
+      let keyIdx = words.findIndex(w => w.key);
+      if (keyIdx === -1) {
+        keyIdx = words.length === 3 ? 1 : words.length - 2;
+      }
+      topWords = words.slice(0, keyIdx);
+      heroWords = [words[keyIdx]];
+      bottomWords = words.slice(keyIdx + 1);
+    } else if (words.length === 2) {
+      topWords = [];
+      heroWords = [words[0]];
+      bottomWords = [words[1]];
+    } else {
+      topWords = [];
+      heroWords = words;
+      bottomWords = [];
+    }
+
+    lay = [];
+    if (topWords.length > 0) {
+      const topDesc = {
+        text: topWords.map(w => up(w.t)).join(' '),
+        font: baseRole.font || 'Poppins',
+        size: Math.max(14, getRolePx(baseRole, 56)),
+        weight: baseRole.weight || (baseRole.bold ? 700 : 500),
+        italic: Boolean(baseRole.italic),
+        track: Number(baseRole.track) || 0,
+        isHero: false,
+        lineType: 'top',
+        role: baseRole,
+        words: topWords
+      };
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX, posY: topY, inkGap, maxWidth: 0.90 }));
+    }
+
+    if (heroWords.length > 0) {
+      const heroDesc = {
+        text: heroWords.map(w => up(w.t)).join(' '),
+        font: accentRole.font || 'Montserrat',
+        size: Math.max(18, getRolePx(accentRole, 185)),
+        weight: accentRole.weight || (accentRole.bold ? 900 : 800),
+        italic: Boolean(accentRole.italic),
+        track: Number(accentRole.track) || 0,
+        isHero: true,
+        lineType: 'hero',
+        role: accentRole,
+        words: heroWords
+      };
+      lay = lay.concat(layoutFn([heroDesc], { W, H, posX, posY: heroY, inkGap, maxWidth: 0.90 }));
+    }
+
+    if (bottomWords.length > 0) {
+      const bottomDesc = {
+        text: bottomWords.map(w => up(w.t)).join(' '),
+        font: baseRole.font || 'Poppins',
+        size: Math.max(14, getRolePx(baseRole, 58)),
+        weight: baseRole.weight || (baseRole.bold ? 700 : 500),
+        italic: Boolean(baseRole.italic),
+        track: Number(baseRole.track) || 0,
+        isHero: false,
+        lineType: 'bottom',
+        role: baseRole,
+        words: bottomWords
+      };
+      lay = lay.concat(layoutFn([bottomDesc], { W, H, posX, posY: subY, inkGap, maxWidth: 0.90 }));
+    }
   } else {
+    let smallWords = [];
+    let bigWords = [];
+    if (words.length <= 1) {
+      bigWords = words;
+    } else {
+      smallWords = words.slice(0, -1);
+      bigWords = [words[words.length - 1]];
+    }
+
+    const smallText = smallWords.map(w => up(w.t)).join(' ');
+    const bigText = bigWords.map(w => up(w.t)).join(' ');
+
+    const lineDescriptors = [];
+    if (smallWords.length > 0) {
+      lineDescriptors.push({
+        text: smallText,
+        font: baseRole.font || 'Poppins',
+        size: Math.max(14, getRolePx(baseRole, 62)),
+        weight: baseRole.weight || (baseRole.bold ? 700 : 500),
+        italic: Boolean(baseRole.italic),
+        track: Number(baseRole.track) || 0,
+        isHero: false,
+        role: baseRole,
+        words: smallWords
+      });
+    }
+    if (bigWords.length > 0) {
+      lineDescriptors.push({
+        text: bigText,
+        font: accentRole.font || 'Montserrat',
+        size: Math.max(18, getRolePx(accentRole, 190)),
+        weight: accentRole.weight || (accentRole.bold ? 900 : 800),
+        italic: Boolean(accentRole.italic),
+        track: Number(accentRole.track) || 0,
+        isHero: true,
+        role: accentRole,
+        words: bigWords
+      });
+    }
     lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.90 });
   }
 
@@ -2006,6 +2075,38 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     return card;
   }
 
+  function syncBehindSliders() {
+    const isBehind = Boolean(
+      S.style && (
+        S.style.behindPerson ||
+        S.style.depthAccent ||
+        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
+        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
+      )
+    );
+    const card = $('cardBehindLayers');
+    if (card) card.classList.toggle('hidden', !isBehind);
+    if (!isBehind) return;
+
+    const inputTopY = $('inputTopY');
+    const inputHeroY = $('inputHeroY');
+    const inputBottomY = $('inputBottomY');
+    const valTopYBadge = $('valTopYBadge');
+    const valHeroYBadge = $('valHeroYBadge');
+    const valBottomYBadge = $('valBottomYBadge');
+
+    const topPct = Math.round((Number(S.style?.topY) || 0.16) * 100);
+    const heroPct = Math.round((Number(S.style?.depthAccentY) || 0.30) * 100);
+    const botPct = Math.round((Number(S.style?.subtitlePosition) || 0.72) * 100);
+
+    if (inputTopY) inputTopY.value = topPct;
+    if (valTopYBadge) valTopYBadge.textContent = topPct + '%';
+    if (inputHeroY) inputHeroY.value = heroPct;
+    if (valHeroYBadge) valHeroYBadge.textContent = heroPct + '%';
+    if (inputBottomY) inputBottomY.value = botPct;
+    if (valBottomYBadge) valBottomYBadge.textContent = botPct + '%';
+  }
+
   function applyPreset(preset, showGenToast = false) {
     const isBehind = Boolean(
       preset.behindPerson ||
@@ -2015,9 +2116,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     );
     S.style = Object.assign({}, preset, {
       fontScale: 1.0,
-      position: isBehind ? 0.28 : (Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75),
-      depthAccentY: isBehind ? 0.28 : (Number.isFinite(Number(preset.depthAccentY)) ? Number(preset.depthAccentY) : 0.28),
-      subtitlePosition: isBehind ? 0.70 : (Number.isFinite(Number(preset.subtitlePosition)) ? Number(preset.subtitlePosition) : 0.70),
+      position: isBehind ? 0.30 : (Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75),
+      topY: isBehind ? (Number.isFinite(Number(preset.topY)) ? Number(preset.topY) : 0.16) : 0.16,
+      depthAccentY: isBehind ? (Number.isFinite(Number(preset.depthAccentY)) ? Number(preset.depthAccentY) : 0.30) : 0.30,
+      subtitlePosition: isBehind ? (Number.isFinite(Number(preset.subtitlePosition)) ? Number(preset.subtitlePosition) : 0.72) : 0.72,
       behindPerson: isBehind,
       depthAccent: isBehind,
       highlightColor: preset.highlightColor || preset.key?.color || '#FFE600',
@@ -2027,6 +2129,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (isBehind && Array.isArray(S.style.posCycle)) {
       delete S.style.posCycle;
     }
+    syncBehindSliders();
 
     if (selectedPresetName) {
       selectedPresetName.textContent = preset.name || 'Template';
@@ -2190,6 +2293,44 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         renderCanvas();
       });
     });
+
+    const inputTopY = $('inputTopY');
+    const inputHeroY = $('inputHeroY');
+    const inputBottomY = $('inputBottomY');
+    const valTopYBadge = $('valTopYBadge');
+    const valHeroYBadge = $('valHeroYBadge');
+    const valBottomYBadge = $('valBottomYBadge');
+
+    if (inputTopY) {
+      inputTopY.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (valTopYBadge) valTopYBadge.textContent = val + '%';
+        if (!S.style) S.style = {};
+        S.style.topY = val / 100;
+        renderCanvas();
+      });
+    }
+
+    if (inputHeroY) {
+      inputHeroY.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (valHeroYBadge) valHeroYBadge.textContent = val + '%';
+        if (!S.style) S.style = {};
+        S.style.depthAccentY = val / 100;
+        S.style.position = S.style.depthAccentY;
+        renderCanvas();
+      });
+    }
+
+    if (inputBottomY) {
+      inputBottomY.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (valBottomYBadge) valBottomYBadge.textContent = val + '%';
+        if (!S.style) S.style = {};
+        S.style.subtitlePosition = val / 100;
+        renderCanvas();
+      });
+    }
   }
 
   // ==========================================================================
@@ -2420,30 +2561,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     let drag = null;
     stage.addEventListener('pointerdown', (event) => {
       if (!S.captions.length || !S.style || event.target.closest('button')) return;
-      drag = { id: event.pointerId, startY: event.clientY, lastY: event.clientY, moved: false };
-    });
-
-    stage.addEventListener('pointermove', (event) => {
-      if (!drag || drag.id !== event.pointerId) return;
       const rect = stage.getBoundingClientRect();
       if (!rect.height) return;
-      if (!drag.moved && Math.abs(event.clientY - drag.startY) < 4) return;
-      if (!drag.moved) {
-        try { stage.setPointerCapture(event.pointerId); } catch (e) {}
-      }
-      drag.moved = true;
-      event.preventDefault();
-      stage.classList.add('is-caption-dragging');
-      if (hint) hint.textContent = '↕ Moving captions · release to place';
-      const delta = (event.clientY - drag.lastY) / rect.height;
-      drag.lastY = event.clientY;
-      const originalPosition = Number(S.style.position);
-      const basePosition = Number.isFinite(originalPosition) ? originalPosition : 0.72;
-      const moveKey = (key, fallback) => {
-        const current = Number(S.style[key]);
-        const [min, max] = key === 'depthAccentY' ? [0.20, 0.82] : key === 'subtitlePosition' ? [0.20, 0.90] : [0.10, 0.95];
-        S.style[key] = Math.max(min, Math.min(max, (Number.isFinite(current) ? current : fallback) + delta));
-      };
+
+      const clickNormY = (event.clientY - rect.top) / rect.height;
       const isBehindPreset = Boolean(
         S.style && (
           S.style.behindPerson ||
@@ -2452,33 +2573,86 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
         )
       );
-      if (S.style.isDuo) {
-        if (isBehindPreset) {
-          const oldHero = Number(S.style.depthAccentY) || 0.28;
-          const oldSubtitle = Number(S.style.subtitlePosition) || 0.70;
-          const nextHero = Math.max(0.15, Math.min(0.45, oldHero + delta));
-          const nextSubtitle = Math.max(0.55, Math.min(0.90, oldSubtitle + delta));
-          S.style.depthAccentY = nextHero;
-          S.style.subtitlePosition = nextSubtitle;
-          S.style.position = nextHero;
+
+      let targetKey = 'position';
+      let lineLabel = 'captions';
+
+      if (isBehindPreset) {
+        const topY = typeof S.style.topY === 'number' ? S.style.topY : 0.16;
+        const heroY = typeof S.style.depthAccentY === 'number' ? S.style.depthAccentY : 0.30;
+        const subY = typeof S.style.subtitlePosition === 'number' ? S.style.subtitlePosition : 0.72;
+
+        const dTop = Math.abs(clickNormY - topY);
+        const dHero = Math.abs(clickNormY - heroY);
+        const dSub = Math.abs(clickNormY - subY);
+
+        if (dTop <= dHero && dTop <= dSub) {
+          targetKey = 'topY';
+          lineLabel = 'Line 1 (Above Head)';
+        } else if (dHero <= dTop && dHero <= dSub) {
+          targetKey = 'depthAccentY';
+          lineLabel = 'Line 2 (Hero Behind Head)';
         } else {
-          const oldHero = Number(S.style.depthAccentY) || 0.20;
-          const oldSubtitle = Number(S.style.subtitlePosition) || oldHero + 0.06;
-          const lineGap = Math.max(0.055, Math.min(0.09, oldSubtitle - oldHero));
-          let nextHero = Math.max(0.20, Math.min(0.82, oldHero + delta));
-          if (nextHero + lineGap > 0.90) nextHero = 0.90 - lineGap;
-          S.style.depthAccentY = nextHero;
-          S.style.subtitlePosition = nextHero + lineGap;
-          S.style.position = nextHero;
+          targetKey = 'subtitlePosition';
+          lineLabel = 'Line 3 (Front of Person Below)';
+        }
+      }
+
+      drag = {
+        id: event.pointerId,
+        startY: event.clientY,
+        lastY: event.clientY,
+        moved: false,
+        targetKey,
+        lineLabel,
+        isBehindPreset
+      };
+    });
+
+    stage.addEventListener('pointermove', (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const rect = stage.getBoundingClientRect();
+      if (!rect.height) return;
+      if (!drag.moved && Math.abs(event.clientY - drag.startY) < 3) return;
+      if (!drag.moved) {
+        try { stage.setPointerCapture(event.pointerId); } catch (e) {}
+      }
+      drag.moved = true;
+      event.preventDefault();
+      stage.classList.add('is-caption-dragging');
+
+      const delta = (event.clientY - drag.lastY) / rect.height;
+      drag.lastY = event.clientY;
+
+      if (drag.isBehindPreset) {
+        if (drag.targetKey === 'topY') {
+          const cur = Number(S.style.topY) || 0.16;
+          const heroLimit = (Number(S.style.depthAccentY) || 0.30) - 0.04;
+          S.style.topY = Math.max(0.04, Math.min(heroLimit, cur + delta));
+        } else if (drag.targetKey === 'depthAccentY') {
+          const cur = Number(S.style.depthAccentY) || 0.30;
+          const topLimit = (Number(S.style.topY) || 0.16) + 0.04;
+          const subLimit = (Number(S.style.subtitlePosition) || 0.72) - 0.04;
+          S.style.depthAccentY = Math.max(topLimit, Math.min(subLimit, cur + delta));
+          S.style.position = S.style.depthAccentY;
+        } else if (drag.targetKey === 'subtitlePosition') {
+          const cur = Number(S.style.subtitlePosition) || 0.72;
+          const heroLimit = (Number(S.style.depthAccentY) || 0.30) + 0.04;
+          S.style.subtitlePosition = Math.max(heroLimit, Math.min(0.96, cur + delta));
+        }
+        syncBehindSliders();
+        if (hint) {
+          const pct = Math.round((S.style[drag.targetKey] || 0) * 100);
+          hint.textContent = `↕ Moving ${drag.lineLabel}: ${pct}% · release to place`;
         }
       } else {
-        moveKey('position', basePosition);
+        const cur = Number(S.style.position) || 0.75;
+        S.style.position = Math.max(0.10, Math.min(0.95, cur + delta));
+        if (hint) {
+          hint.textContent = `↕ Moving Captions: ${Math.round(S.style.position * 100)}% · release to place`;
+        }
       }
-      if (!S.style.isDuo && (S.style.depthAccent || S.style.isSpecial)) {
-        const depthFallback = S.style.depthAccent ? 0.41 : (basePosition || 0.42);
-        moveKey('depthAccentY', Number(S.style.depthAccentY) || depthFallback);
-        moveKey('subtitlePosition', S.style.subtitlePosition || 0.76);
-      }
+
       renderCanvas();
     });
 
@@ -2487,7 +2661,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const moved = drag.moved;
       drag = null;
       stage.classList.remove('is-caption-dragging');
-      if (hint) hint.textContent = '✋ Touch or click and drag captions to move · Voice-synced preview';
+      if (hint) hint.textContent = '✋ Touch or click any line to drag one-by-one · Top above head, Hero behind, Subtitle below';
       if (moved) renderCanvas();
     };
     stage.addEventListener('pointerup', finish);

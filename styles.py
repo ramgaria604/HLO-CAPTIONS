@@ -726,8 +726,9 @@ def clean_style(s):
         "behindPerson": bool(s.get("behindPerson") or (isinstance(s.get("roles"), dict) and s["roles"].get("accent", {}).get("layer") == "behind") or ("(behind)" in str(s.get("name", "")).lower())),
         "depthAccent": bool(s.get("depthAccent") or (isinstance(s.get("roles"), dict) and s["roles"].get("accent", {}).get("layer") == "behind") or ("(behind)" in str(s.get("name", "")).lower())),
         "depthAccentSize": float(_num(s.get("depthAccentSize"), 0.12, 0.34, 0.22)),
-        "depthAccentY": float(_num(s.get("depthAccentY"), 0.15, 0.45, 0.28)),
-        "subtitlePosition": float(_num(s.get("subtitlePosition"), 0.55, 0.90, 0.70)),
+        "topY": float(_num(s.get("topY"), 0.05, 0.40, 0.16)),
+        "depthAccentY": float(_num(s.get("depthAccentY"), 0.15, 0.50, 0.30)),
+        "subtitlePosition": float(_num(s.get("subtitlePosition"), 0.50, 0.95, 0.72)),
         "subtitleSize": float(_num(s.get("subtitleSize"), 0.035, 0.09, 0.058)),
         "fontScale": float(_num(s.get("fontScale"), 0.6, 1.5, 1.0)),
         "offsetX": float(_num(s.get("offsetX"), -0.10, 0.10, 0.0)),
@@ -1004,41 +1005,103 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         else:
             pos_y = float(style.get("posY", 0.5))
 
-        lines_in = []
-        if small_words:
-            lines_in.append({
-                "text": small_text,
-                "font_file": base_font_file,
-                "size": small_size,
-                "track": float(base_role.get("track", 0.0)),
-                "words": small_words,
-                "role": base_role,
-                "is_hero": False
-            })
-        if big_words:
-            lines_in.append({
-                "text": big_text,
-                "font_file": accent_font_file,
-                "size": big_size,
-                "track": float(accent_role.get("track", 0.0)),
-                "words": big_words,
-                "role": accent_role,
-                "is_hero": True
-            })
-
         is_behind = bool(
             style.get("behindPerson") or
             style.get("depthAccent") or
             (accent_role.get("layer") == "behind") or
             ("(behind)" in str(style.get("name", "")).lower())
         )
-        if is_behind and len(lines_in) >= 2:
-            hero_y = float(style.get("depthAccentY", 0.28))
-            sub_y = float(style.get("subtitlePosition", 0.70))
-            lay_sub = ink_layout.layout_stack([lines_in[0]], W, H, pos_x=pos_x, pos_y=sub_y, ink_gap=ink_gap)
-            lay_hero = ink_layout.layout_stack([lines_in[1]], W, H, pos_x=pos_x, pos_y=hero_y, ink_gap=ink_gap)
-            lay = lay_sub + lay_hero
+
+        if is_behind:
+            top_y = float(style.get("topY", 0.16))
+            hero_y = float(style.get("depthAccentY", 0.30))
+            sub_y = float(style.get("subtitlePosition", 0.72))
+
+            # Distribute words across 3 lines: Top (above head), Hero (behind head), Bottom (front below)
+            if len(words) >= 3:
+                key_idx = -1
+                for ki, kw in enumerate(words):
+                    if kw.get("key"):
+                        key_idx = ki
+                        break
+                if key_idx == -1:
+                    key_idx = 1 if len(words) == 3 else len(words) - 2
+                top_w = words[:key_idx]
+                hero_w = [words[key_idx]]
+                bottom_w = words[key_idx + 1:]
+            elif len(words) == 2:
+                top_w = []
+                hero_w = [words[0]]
+                bottom_w = [words[1]]
+            else:
+                top_w = []
+                hero_w = words
+                bottom_w = []
+
+            lay = []
+            if top_w:
+                top_txt = " ".join(up(w["t"]) for w in top_w)
+                desc_top = {
+                    "text": top_txt,
+                    "font_file": base_font_file,
+                    "size": small_size * 0.92,
+                    "track": float(base_role.get("track", 0.0)),
+                    "words": top_w,
+                    "role": base_role,
+                    "is_hero": False,
+                    "is_top": True
+                }
+                lay += ink_layout.layout_stack([desc_top], W, H, pos_x=pos_x, pos_y=top_y, ink_gap=ink_gap)
+
+            if hero_w:
+                hero_txt = " ".join(up(w["t"]) for w in hero_w)
+                desc_hero = {
+                    "text": hero_txt,
+                    "font_file": accent_font_file,
+                    "size": big_size,
+                    "track": float(accent_role.get("track", 0.0)),
+                    "words": hero_w,
+                    "role": accent_role,
+                    "is_hero": True,
+                    "is_top": False
+                }
+                lay += ink_layout.layout_stack([desc_hero], W, H, pos_x=pos_x, pos_y=hero_y, ink_gap=ink_gap)
+
+            if bottom_w:
+                bottom_txt = " ".join(up(w["t"]) for w in bottom_w)
+                desc_bottom = {
+                    "text": bottom_txt,
+                    "font_file": base_font_file,
+                    "size": small_size,
+                    "track": float(base_role.get("track", 0.0)),
+                    "words": bottom_w,
+                    "role": base_role,
+                    "is_hero": False,
+                    "is_top": False
+                }
+                lay += ink_layout.layout_stack([desc_bottom], W, H, pos_x=pos_x, pos_y=sub_y, ink_gap=ink_gap)
         else:
+            lines_in = []
+            if small_words:
+                lines_in.append({
+                    "text": small_text,
+                    "font_file": base_font_file,
+                    "size": small_size,
+                    "track": float(base_role.get("track", 0.0)),
+                    "words": small_words,
+                    "role": base_role,
+                    "is_hero": False
+                })
+            if big_words:
+                lines_in.append({
+                    "text": big_text,
+                    "font_file": accent_font_file,
+                    "size": big_size,
+                    "track": float(accent_role.get("track", 0.0)),
+                    "words": big_words,
+                    "role": accent_role,
+                    "is_hero": True
+                })
             lay = ink_layout.layout_stack(lines_in, W, H, pos_x=pos_x, pos_y=pos_y, ink_gap=ink_gap)
 
         for line_idx, o in enumerate(lay):

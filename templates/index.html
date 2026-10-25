@@ -282,6 +282,40 @@
                 <input type="range" id="inputFontSize" min="60" max="180" value="100" class="styled-slider">
               </div>
 
+              <!-- 3-Layer Position Adjuster for Behind Person -->
+              <div class="control-card" id="cardBehindLayers">
+                <div class="control-header">
+                  <label>Behind-Person 3-Layer Positions</label>
+                  <span class="val-badge" id="valBehindMode">3-Layer Active</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+                      <span>Line 1 (Above Head):</span>
+                      <strong id="valTopYBadge" style="color:var(--accent);">16%</strong>
+                    </div>
+                    <input type="range" id="inputTopY" min="5" max="35" value="16" class="styled-slider">
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+                      <span>Line 2 (Hero Behind Head):</span>
+                      <strong id="valHeroYBadge" style="color:var(--accent);">30%</strong>
+                    </div>
+                    <input type="range" id="inputHeroY" min="18" max="50" value="30" class="styled-slider">
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+                      <span>Line 3 (Front of Person Below):</span>
+                      <strong id="valBottomYBadge" style="color:var(--accent);">72%</strong>
+                    </div>
+                    <input type="range" id="inputBottomY" min="50" max="95" value="72" class="styled-slider">
+                  </div>
+                  <p style="font-size:11.5px; color:var(--text-muted); margin:0; line-height:1.4;">
+                    ✋ <strong>Touch & Drag One-by-One:</strong> Click and drag any line directly on the video to move it independently.
+                  </p>
+                </div>
+              </div>
+
               <!-- Position -->
               <div class="control-card">
                 <div class="control-header">
@@ -613,6 +647,6 @@
     window.measureInk = Layout.measureInk;
     window.checkLayout = Layout.checkLayout;
   </script>
-  <script src="/static/app.js?v=3.22"></script>
+  <script src="/static/app.js?v=3.23"></script>
 </body>
 </html>
