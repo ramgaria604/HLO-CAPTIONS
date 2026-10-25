@@ -286,22 +286,22 @@
               <div class="control-card" id="cardBehindLayers">
                 <div class="control-header">
                   <label>Behind-Person 3-Layer Positions</label>
-                  <span class="val-badge" id="valBehindMode">3-Layer Active</span>
+                  <span class="val-badge" id="valBehindMode" style="background:rgba(34,197,94,0.18); color:#22c55e; border:1px solid rgba(34,197,94,0.35);">✓ Behind Person ON</span>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
                   <div>
                     <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
                       <span>Line 1 (Above Head):</span>
-                      <strong id="valTopYBadge" style="color:var(--accent);">21%</strong>
+                      <strong id="valTopYBadge" style="color:var(--accent);">11%</strong>
                     </div>
-                    <input type="range" id="inputTopY" min="8" max="30" value="21" class="styled-slider">
+                    <input type="range" id="inputTopY" min="3" max="25" value="11" class="styled-slider">
                   </div>
                   <div>
                     <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
                       <span>Line 2 (Hero Behind Head):</span>
-                      <strong id="valHeroYBadge" style="color:var(--accent);">28%</strong>
+                      <strong id="valHeroYBadge" style="color:var(--accent);">18%</strong>
                     </div>
-                    <input type="range" id="inputHeroY" min="18" max="45" value="28" class="styled-slider">
+                    <input type="range" id="inputHeroY" min="8" max="35" value="18" class="styled-slider">
                   </div>
                   <div>
                     <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
@@ -647,6 +647,6 @@
     window.measureInk = Layout.measureInk;
     window.checkLayout = Layout.checkLayout;
   </script>
-  <script src="/static/app.js?v=3.24"></script>
+  <script src="/static/app.js?v=3.25"></script>
 </body>
 </html>

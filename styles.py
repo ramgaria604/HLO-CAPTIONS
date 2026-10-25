@@ -547,7 +547,7 @@ def load_presets():
                 accent_sz = float(accent.get("size", 175))
                 base_sz = float(base.get("size", 62))
                 font_span = (accent_sz + base_sz) * 0.5 / 1920.0 + 0.008
-                top_y = round(0.28 - font_span, 3)
+                top_y = round(0.18 - font_span, 3)
 
                 duo_item = {
                     "id": p["id"],
@@ -558,14 +558,14 @@ def load_presets():
                     "animation": accent.get("enter", "slide-up"),
                     "wordsPerCaption": int(p.get("wordsPerPage", 3)),
                     "maxKeys": int(p.get("maxKeys", 1)),
-                    "position": (0.28 if is_behind
+                    "position": (0.18 if is_behind
                                   else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48))),
                     "posCycle": None if is_behind else p.get("posCycle"),
                     "behindPerson": is_behind,
                     "depthAccent": is_behind,
                     "depthAccentSize": round(accent.get("size", 160) / 1080.0, 3),
-                    "topY": top_y if is_behind else 0.21,
-                    "depthAccentY": 0.28 if is_behind else preset_y,
+                    "topY": top_y if is_behind else 0.11,
+                    "depthAccentY": 0.18 if is_behind else preset_y,
                     "subtitlePosition": 0.72 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))),
                     "subtitleSize": round(base.get("size", 62) / 1080.0, 3),
                     "blend": p.get("blend", "screen"),
@@ -731,8 +731,8 @@ def clean_style(s):
         "behindPerson": bool(s.get("behindPerson") or (isinstance(s.get("roles"), dict) and s["roles"].get("accent", {}).get("layer") == "behind") or ("(behind)" in str(s.get("name", "")).lower())),
         "depthAccent": bool(s.get("depthAccent") or (isinstance(s.get("roles"), dict) and s["roles"].get("accent", {}).get("layer") == "behind") or ("(behind)" in str(s.get("name", "")).lower())),
         "depthAccentSize": float(_num(s.get("depthAccentSize"), 0.12, 0.34, 0.22)),
-        "topY": float(_num(s.get("topY"), 0.05, 0.40, 0.16)),
-        "depthAccentY": float(_num(s.get("depthAccentY"), 0.15, 0.50, 0.30)),
+        "topY": float(_num(s.get("topY"), 0.02, 0.40, 0.11)),
+        "depthAccentY": float(_num(s.get("depthAccentY"), 0.06, 0.50, 0.18)),
         "subtitlePosition": float(_num(s.get("subtitlePosition"), 0.50, 0.95, 0.72)),
         "subtitleSize": float(_num(s.get("subtitleSize"), 0.035, 0.09, 0.058)),
         "fontScale": float(_num(s.get("fontScale"), 0.6, 1.5, 1.0)),
@@ -1018,7 +1018,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         )
 
         if is_behind:
-            hero_y = float(style.get("depthAccentY", 0.28))
+            hero_y = float(style.get("depthAccentY", 0.18))
             font_span = (big_size + small_size) * 0.5 / H + 0.008
             default_top = round(hero_y - font_span, 3)
             top_y = float(style.get("topY", default_top))
