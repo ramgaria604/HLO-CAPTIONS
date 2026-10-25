@@ -3,22 +3,32 @@ import os
 import subprocess
 from pathlib import Path
 
-MODELS_DIR = Path(__file__).resolve().parent / "models"
-ONNX_MODEL_PATH = MODELS_DIR / "selfie_segmenter.onnx"
-TFLITE_MODEL_PATH = MODELS_DIR / "selfie_segmenter.tflite"
 LAST_INIT_ERROR = None
+
+
+def find_model(filename):
+    for candidate in [
+        Path(__file__).resolve().parent / "models" / filename,
+        Path.cwd() / "models" / filename,
+        Path("models") / filename
+    ]:
+        if candidate.exists():
+            return candidate
+    return Path(__file__).resolve().parent / "models" / filename
 
 
 def get_segmenter():
     global LAST_INIT_ERROR
+    errors = []
 
     # 1. Primary: OpenCV DNN with ONNX model
     # Pure CPU inference via OpenCV's built-in DNN engine.
     # Has ZERO OpenGL / GUI / X11 / libGLESv2 dependencies — 100% reliable on headless Linux / Render.
-    if ONNX_MODEL_PATH.exists():
+    onnx_path = find_model("selfie_segmenter.onnx")
+    if onnx_path.exists():
         try:
             import cv2
-            net = cv2.dnn.readNetFromONNX(str(ONNX_MODEL_PATH))
+            net = cv2.dnn.readNetFromONNX(str(onnx_path))
 
             def segment_frame_opencv(rgb_frame):
                 h, w = rgb_frame.shape[:2]
@@ -32,19 +42,20 @@ def get_segmenter():
             LAST_INIT_ERROR = "OpenCV_ONNX_Ready"
             return segment_frame_opencv
         except Exception as e:
-            LAST_INIT_ERROR = f"OpenCV_ONNX_Error_{type(e).__name__}_{e}"
+            errors.append(f"ONNX_{type(e).__name__}_{e}")
             print("OpenCV ONNX segmenter init error:", e)
     else:
-        LAST_INIT_ERROR = f"ONNX_NotFound_at_{ONNX_MODEL_PATH}"
+        errors.append(f"ONNX_NotFound_{onnx_path}")
 
     # 2. Secondary: MediaPipe Tasks API
-    if TFLITE_MODEL_PATH.exists():
+    tflite_path = find_model("selfie_segmenter.tflite")
+    if tflite_path.exists():
         try:
             import mediapipe as mp
             from mediapipe.tasks import python as mp_python
             from mediapipe.tasks.python import vision as mp_vision
 
-            model_bytes = TFLITE_MODEL_PATH.read_bytes()
+            model_bytes = tflite_path.read_bytes()
             base_options = mp_python.BaseOptions(model_asset_buffer=model_bytes)
             options = mp_vision.ImageSegmenterOptions(
                 base_options=base_options,
@@ -62,7 +73,7 @@ def get_segmenter():
             LAST_INIT_ERROR = "Tasks_Ready"
             return segment_frame_tasks
         except Exception as e:
-            LAST_INIT_ERROR += f"_Tasks_Error_{type(e).__name__}_{e}"
+            errors.append(f"Tasks_{type(e).__name__}_{e}")
             print("MediaPipe Tasks ImageSegmenter init error:", e)
 
     # 3. Tertiary: Legacy solutions API (MediaPipe < 0.10)
@@ -77,9 +88,10 @@ def get_segmenter():
             LAST_INIT_ERROR = "Legacy_Ready"
             return segment_frame_legacy
     except Exception as e:
-        LAST_INIT_ERROR += f"_Legacy_Error_{type(e).__name__}_{e}"
+        errors.append(f"Legacy_{type(e).__name__}_{e}")
         print("Legacy selfie_segmentation error:", e)
 
+    LAST_INIT_ERROR = " | ".join(errors) if errors else "No_Segmenter"
     return None
 
 

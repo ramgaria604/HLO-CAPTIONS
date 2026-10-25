@@ -330,6 +330,7 @@ def status():
             seg_info = f"error_{e}"
 
     return jsonify(
+        build="2026-10-26_v2_depth",
         ffmpeg=ff,
         ass=ass_ok,
         whisper=speech_ok,
