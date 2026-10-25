@@ -321,6 +321,14 @@ def status():
     except Exception as e:
         cv_info = f"error_{e}"
 
+    seg_info = "no_mask_lib"
+    if mask_lib:
+        try:
+            fn = mask_lib.get_segmenter()
+            seg_info = "ready" if fn else "failed_to_load"
+        except Exception as e:
+            seg_info = f"error_{e}"
+
     return jsonify(
         ffmpeg=ff,
         ass=ass_ok,
@@ -331,6 +339,7 @@ def status():
         fonts=user_families(),
         mediapipe=mp_info,
         opencv=cv_info,
+        segmenter=seg_info,
         last_mask_error=str(LAST_MASK_ERROR)
     )
 
