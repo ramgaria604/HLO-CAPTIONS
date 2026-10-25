@@ -2949,6 +2949,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     btnCloseExportModal.addEventListener('click', () => {
       modalExport.classList.add('hidden');
       if (S.exportTimer) clearInterval(S.exportTimer);
+      if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+      stopTitleFlash();
     });
 
     btnRetryExport.addEventListener('click', startExport);
@@ -2970,8 +2972,106 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   // ==========================================================================
-  // VIDEO EXPORT
+  // VIDEO EXPORT WITH REALTIME PIPELINE & COMPLETION NOTIFICATIONS
   // ==========================================================================
+  let titleFlashInterval = null;
+  let originalDocumentTitle = document.title;
+  let exportStartTime = 0;
+  let exportElapsedInterval = null;
+
+  function stopTitleFlash() {
+    if (titleFlashInterval) {
+      clearInterval(titleFlashInterval);
+      titleFlashInterval = null;
+    }
+    document.title = originalDocumentTitle;
+  }
+
+  function startTitleFlash() {
+    stopTitleFlash();
+    originalDocumentTitle = document.title;
+    let flash = false;
+    titleFlashInterval = setInterval(() => {
+      document.title = flash ? '🎬 (Video Ready!) Download Captions' : '✨ Hlo Captions';
+      flash = !flash;
+    }, 1000);
+    window.addEventListener('focus', stopTitleFlash, { once: true });
+    document.addEventListener('click', stopTitleFlash, { once: true });
+  }
+
+  function playSuccessChime() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        const startTime = ctx.currentTime + (i * 0.08);
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.55);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.6);
+      });
+    } catch (e) {
+      console.warn('Audio chime notice:', e);
+    }
+  }
+
+  function formatTimeElapsed(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function updateExportPipeline(step, statusText1, statusText2, statusText3) {
+    const s1 = $('stepCutout');
+    const s2 = $('stepCaptions');
+    const s3 = $('stepFinalize');
+    const st1 = $('stepStatus1');
+    const st2 = $('stepStatus2');
+    const st3 = $('stepStatus3');
+
+    if (!s1 || !s2 || !s3) return;
+
+    s1.className = 'export-step-item';
+    s2.className = 'export-step-item';
+    s3.className = 'export-step-item';
+
+    if (step === 1) {
+      s1.classList.add('active');
+      if (st1) st1.textContent = statusText1 || 'Processing...';
+      if (st2) st2.textContent = statusText2 || 'Queued';
+      if (st3) st3.textContent = statusText3 || 'Queued';
+    } else if (step === 2) {
+      s1.classList.add('completed');
+      s2.classList.add('active');
+      if (st1) st1.textContent = statusText1 || 'Done ✓';
+      if (st2) st2.textContent = statusText2 || 'Compositing...';
+      if (st3) st3.textContent = statusText3 || 'Queued';
+    } else if (step === 3) {
+      s1.classList.add('completed');
+      s2.classList.add('completed');
+      s3.classList.add('active');
+      if (st1) st1.textContent = statusText1 || 'Done ✓';
+      if (st2) st2.textContent = statusText2 || 'Done ✓';
+      if (st3) st3.textContent = statusText3 || 'Encoding MP4...';
+    } else if (step === 4) {
+      s1.classList.add('completed');
+      s2.classList.add('completed');
+      s3.classList.add('completed');
+      if (st1) st1.textContent = 'Done ✓';
+      if (st2) st2.textContent = 'Done ✓';
+      if (st3) st3.textContent = 'Done ✓';
+    }
+  }
+
   async function startExport() {
     vid.pause();
     modalExport.classList.remove('hidden');
@@ -2982,7 +3082,30 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     exportProgressBar.style.width = '3%';
     exportPercent.textContent = '3%';
     exportProgressText.textContent = 'Initiating video render...';
-    exportProgressDetail.textContent = 'Applying selected style preset and burning captions.';
+    exportProgressDetail.textContent = 'Preparing render pipeline and analyzing frames.';
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      try { Notification.requestPermission(); } catch (_) {}
+    }
+
+    if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+    exportStartTime = Date.now();
+    const timerVal = $('exportTimerVal');
+    if (timerVal) timerVal.textContent = '00:00';
+    exportElapsedInterval = setInterval(() => {
+      const elapsedSec = Math.floor((Date.now() - exportStartTime) / 1000);
+      if (timerVal) timerVal.textContent = formatTimeElapsed(elapsedSec);
+    }, 500);
+
+    const isBehindPerson = !!(S.style && S.style.behindPerson);
+    const aiBadge = $('exportAiBadge');
+    if (isBehindPerson) {
+      if (aiBadge) aiBadge.classList.remove('hidden');
+      updateExportPipeline(1, 'Isolating Person...', 'Queued', 'Queued');
+    } else {
+      if (aiBadge) aiBadge.classList.add('hidden');
+      updateExportPipeline(2, 'Skipped', 'Processing...', 'Queued');
+    }
 
     try {
       const payload = {
@@ -3074,23 +3197,36 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
         exportProgressBar.style.width = pct + '%';
         exportPercent.textContent = pct + '%';
+
+        const isBehindPerson = !!(S.style && S.style.behindPerson);
+        const aiBadge = $('exportAiBadge');
+
         if (data.message) {
           exportProgressText.textContent = data.message;
-          const aiBadge = $('exportAiBadge');
-          if (data.message.includes('Separating speaker') || data.message.includes('AI Depth') || data.message.includes('cutout')) {
+          const msg = data.message.toLowerCase();
+
+          if (msg.includes('separating speaker') || msg.includes('ai depth') || msg.includes('cutout') || msg.includes('isolating')) {
             exportProgressDetail.textContent = 'Using neural vision to isolate the speaker so keywords appear behind them. Frame-by-frame depth analysis takes a few moments...';
             if (aiBadge) aiBadge.classList.remove('hidden');
-          } else if (data.message.includes('effects') || data.message.includes('Adding captions') || data.message.includes('ready')) {
+            updateExportPipeline(1, 'Separating Person...', 'Queued', 'Queued');
+          } else if (msg.includes('compositing') || msg.includes('layering') || msg.includes('effects') || msg.includes('subtitles') || msg.includes('captions')) {
             exportProgressDetail.textContent = 'Compositing depth layers: video background → hero keyword → speaker cutout → subtitles.';
-            if (aiBadge) aiBadge.classList.add('hidden');
+            if (aiBadge && !isBehindPerson) aiBadge.classList.add('hidden');
+            updateExportPipeline(2, isBehindPerson ? 'Done ✓' : 'Skipped', 'Compositing...', 'Queued');
+          } else if (msg.includes('encoding') || msg.includes('finalizing') || msg.includes('generating') || pct >= 80) {
+            exportProgressDetail.textContent = 'Baking in final crisp 1080p MP4 audio & video streams.';
+            updateExportPipeline(3, isBehindPerson ? 'Done ✓' : 'Skipped', 'Done ✓', 'Encoding MP4...');
           }
         }
 
         if (data.status === 'done' || data.download) {
           clearInterval(S.exportTimer);
+          if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+          updateExportPipeline(4);
           showExportComplete(data.download);
         } else if (data.status === 'error') {
           clearInterval(S.exportTimer);
+          if (exportElapsedInterval) clearInterval(exportElapsedInterval);
           if (/video (file )?not found|upload it again/i.test(data.message || '') && await recoverMissingVideoAndRetry()) {
             return;
           }
@@ -3103,11 +3239,20 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function showExportComplete(filename) {
+    if (exportElapsedInterval) clearInterval(exportElapsedInterval);
     exportWorkingState.classList.add('hidden');
     exportDoneState.classList.remove('hidden');
 
-    // The export API already returns /download/<filename>. Avoid adding the
-    // route prefix twice, and point the preview at the matching video route.
+    const totalSec = exportStartTime > 0 ? Math.round((Date.now() - exportStartTime) / 1000) : 0;
+    const timeStr = totalSec >= 60
+      ? (Math.floor(totalSec / 60) + 'm ' + (totalSec % 60) + 's')
+      : (totalSec + 's');
+
+    const doneMeta = $('exportDoneMeta');
+    if (doneMeta) {
+      doneMeta.textContent = 'Completed in ' + timeStr + ' • 1080p high quality with full audio.';
+    }
+
     const file = String(filename || '').split('/').pop();
     const downloadUrl = String(filename || '').startsWith('/download/')
       ? filename
@@ -3117,9 +3262,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     exportPreviewVideo.src = '/video/' + encodeURIComponent(file);
     exportPreviewVideo.load();
+
+    playSuccessChime();
+    startTitleFlash();
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification('🎬 Your Captioned Video is Ready!', {
+          body: 'Render completed in ' + timeStr + '. Click here to download or preview!',
+          icon: '/static/favicon.ico'
+        });
+      } catch (_) {}
+    }
+
+    if (typeof showToast === 'function') {
+      showToast('🎉 Your video is ready to download!');
+    }
   }
 
   function showExportError(msg) {
+    if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+    stopTitleFlash();
     exportWorkingState.classList.add('hidden');
     exportErrorState.classList.remove('hidden');
     exportErrorMessage.textContent = msg;

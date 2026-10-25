@@ -1818,3 +1818,172 @@ button {
   0%, 100% { opacity: 0.85; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.04); }
 }
+
+/* ==========================================================================
+   ENHANCED EXPORT MODAL & STEP PIPELINE STYLES
+   ========================================================================== */
+.export-spinner-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.export-live-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #22c55e;
+  border: 2px solid #0f172a;
+  border-radius: 50%;
+  animation: pulseLiveDot 1.5s ease-in-out infinite;
+}
+@keyframes pulseLiveDot {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.4); opacity: 1; }
+}
+
+.export-steps-pipeline {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin: 18px 0 10px 0;
+}
+.export-step-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+.export-step-item.active {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+}
+.export-step-item.completed {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.45);
+}
+.step-num-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.export-step-item.active .step-num-badge {
+  background: var(--accent, #a855f7);
+  color: #fff;
+  animation: pulseBadge 1.4s ease-in-out infinite;
+}
+.export-step-item.completed .step-num-badge {
+  background: #22c55e;
+  color: #fff;
+}
+@keyframes pulseBadge {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.step-label-group {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.step-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-main, #ffffff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-status {
+  font-size: 10px;
+  color: var(--text-muted, #94a3b8);
+}
+.export-step-item.active .step-status {
+  color: #c084fc;
+  font-weight: 600;
+}
+.export-step-item.completed .step-status {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.export-timer-display {
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+.export-timer-display strong {
+  color: var(--accent, #a855f7);
+  font-weight: 700;
+}
+
+.export-wait-tip {
+  font-size: 11.5px;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 14px;
+  line-height: 1.4;
+  opacity: 0.85;
+}
+
+.success-icon-badge-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.success-icon-badge {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.45);
+  z-index: 2;
+  animation: bounceSuccess 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.success-pulse-ring {
+  position: absolute;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  border: 2px solid rgba(34, 197, 94, 0.5);
+  animation: pingRing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  z-index: 1;
+}
+@keyframes bounceSuccess {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes pingRing {
+  75%, 100% { transform: scale(1.6); opacity: 0; }
+}
+.export-done-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  background: linear-gradient(135deg, #ffffff, #a7f3d0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
