@@ -2086,3 +2086,109 @@ button {
   color: var(--text-muted, #94a3b8);
   letter-spacing: 0.3px;
 }
+
+/* ==========================================================================
+   INTERACTIVE RESIZABLE TIMELINE BLOCKS & TRIM HANDLES
+   ========================================================================== */
+.timeline-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+  padding: 0;
+  overflow: visible;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  min-width: 24px;
+}
+.timeline-block:active {
+  cursor: grabbing;
+}
+.timeline-block.is-resizing {
+  z-index: 30 !important;
+  border-color: #FFE600 !important;
+  box-shadow: 0 0 14px rgba(255, 230, 0, 0.6) !important;
+  background: rgba(255, 230, 0, 0.45) !important;
+}
+
+.tl-block-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4px;
+  font-weight: 600;
+  pointer-events: none;
+  font-size: 10px;
+}
+.tl-block-dur {
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 1px 4px;
+  border-radius: 4px;
+  margin-right: 6px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.tl-handle {
+  width: 14px;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ew-resize;
+  z-index: 10;
+  touch-action: none;
+}
+.tl-handle::after {
+  content: '';
+  width: 3px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 2px;
+  transition: all 0.15s ease;
+}
+.tl-handle:hover::after, .tl-handle.dragging::after {
+  background: #FFE600;
+  height: 18px;
+  width: 4px;
+  box-shadow: 0 0 6px rgba(255, 230, 0, 0.8);
+}
+.tl-handle-left {
+  left: -2px;
+}
+.tl-handle-right {
+  right: -2px;
+}
+
+/* Captions List Duration Buttons */
+.caption-dur-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.btn-time-step {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-muted, #94a3b8);
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-time-step:hover {
+  background: rgba(168, 85, 247, 0.25);
+  border-color: var(--accent, #a855f7);
+  color: #ffffff;
+}
+.btn-time-step:active {
+  transform: scale(0.95);
+}

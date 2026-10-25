@@ -1864,10 +1864,23 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   // ==========================================================================
-  // TIMELINE RENDERING & INTERACTION
+  // TIMELINE RENDERING & INTERACTIVE TRIM / RESIZE HANDLERS
   // ==========================================================================
+  function updateCaptionWordTimings(cap) {
+    if (!cap || !cap.words || !cap.words.length) return;
+    const dur = Math.max(0.1, cap.end - cap.start);
+    const wDur = dur / cap.words.length;
+    cap.words.forEach((w, i) => {
+      w.s = Math.round((cap.start + i * wDur) * 100) / 100;
+      w.start = w.s;
+      w.e = Math.round((cap.start + (i + 1) * wDur) * 100) / 100;
+      w.end = w.e;
+    });
+  }
+
   function setupTimelineHandlers() {
     timelineTrackWrap.addEventListener('click', (e) => {
+      if (e.target.closest('.tl-handle') || e.target.closest('.timeline-block')) return;
       const rect = timelineTrackWrap.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const pct = Math.max(0, Math.min(1, clickX / rect.width));
@@ -1905,19 +1918,141 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const widthPct = Math.max(2, ((cap.end - cap.start) / dur) * 100);
       block.style.left = leftPct + '%';
       block.style.width = widthPct + '%';
-      block.textContent = cap.text || `Line ${idx + 1}`;
       block.setAttribute('data-id', cap.id);
 
-      block.addEventListener('click', (e) => {
-        e.stopPropagation();
-        vid.currentTime = cap.start + 0.05;
-        vid.play();
-      });
+      // Left Trim Handle (Drag to decrease or increase start time)
+      const handleL = document.createElement('div');
+      handleL.className = 'tl-handle tl-handle-left';
+      handleL.title = 'Drag left/right to adjust start time';
+      block.appendChild(handleL);
+
+      // Center Text
+      const textSpan = document.createElement('span');
+      textSpan.className = 'tl-block-text';
+      textSpan.textContent = cap.text || `Line ${idx + 1}`;
+      block.appendChild(textSpan);
+
+      // Duration Tag
+      const durTag = document.createElement('span');
+      durTag.className = 'tl-block-dur';
+      durTag.textContent = (cap.end - cap.start).toFixed(1) + 's';
+      block.appendChild(durTag);
+
+      // Right Trim Handle (Drag to increase or decrease duration)
+      const handleR = document.createElement('div');
+      handleR.className = 'tl-handle tl-handle-right';
+      handleR.title = 'Drag left/right to increase or decrease duration';
+      block.appendChild(handleR);
+
+      // Setup Drag & Resize Logic
+      setupBlockDrag(block, handleL, handleR, cap, dur);
 
       timelineLane.appendChild(block);
     });
 
     syncTimelinePlayhead();
+  }
+
+  function setupBlockDrag(block, handleL, handleR, cap, totalDur) {
+    let drag = null;
+
+    const startDrag = (e, mode) => {
+      e.stopPropagation();
+      try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+      drag = {
+        pointerId: e.pointerId,
+        mode: mode,
+        startX: e.clientX,
+        origStart: cap.start,
+        origEnd: cap.end,
+        origDur: cap.end - cap.start,
+        moved: false
+      };
+      block.classList.add('is-resizing');
+      if (mode === 'left') handleL.classList.add('dragging');
+      if (mode === 'right') handleR.classList.add('dragging');
+    };
+
+    handleL.addEventListener('pointerdown', (e) => startDrag(e, 'left'));
+    handleR.addEventListener('pointerdown', (e) => startDrag(e, 'right'));
+    block.addEventListener('pointerdown', (e) => {
+      if (e.target === handleL || e.target === handleR) return;
+      startDrag(e, 'move');
+    });
+
+    const onPointerMove = (e) => {
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      const wrapRect = timelineTrackWrap.getBoundingClientRect();
+      if (!wrapRect.width) return;
+
+      const deltaPx = e.clientX - drag.startX;
+      if (!drag.moved && Math.abs(deltaPx) < 2) return;
+      drag.moved = true;
+
+      const deltaSec = (deltaPx / wrapRect.width) * totalDur;
+
+      if (drag.mode === 'right') {
+        const newEnd = Math.max(drag.origStart + 0.25, Math.min(totalDur, drag.origEnd + deltaSec));
+        cap.end = Math.round(newEnd * 100) / 100;
+        vid.currentTime = cap.end;
+      } else if (drag.mode === 'left') {
+        const newStart = Math.max(0, Math.min(drag.origEnd - 0.25, drag.origStart + deltaSec));
+        cap.start = Math.round(newStart * 100) / 100;
+        vid.currentTime = cap.start;
+      } else if (drag.mode === 'move') {
+        let newStart = drag.origStart + deltaSec;
+        let newEnd = newStart + drag.origDur;
+        if (newStart < 0) {
+          newStart = 0;
+          newEnd = drag.origDur;
+        } else if (newEnd > totalDur) {
+          newEnd = totalDur;
+          newStart = Math.max(0, totalDur - drag.origDur);
+        }
+        cap.start = Math.round(newStart * 100) / 100;
+        cap.end = Math.round(newEnd * 100) / 100;
+        vid.currentTime = cap.start;
+      }
+
+      updateCaptionWordTimings(cap);
+
+      const leftPct = (cap.start / totalDur) * 100;
+      const widthPct = Math.max(2, ((cap.end - cap.start) / totalDur) * 100);
+      block.style.left = leftPct + '%';
+      block.style.width = widthPct + '%';
+
+      const durTag = block.querySelector('.tl-block-dur');
+      if (durTag) durTag.textContent = (cap.end - cap.start).toFixed(1) + 's';
+
+      renderCanvas();
+      syncTimelinePlayhead();
+    };
+
+    const onPointerUp = (e) => {
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      const wasMoved = drag.moved;
+      const mode = drag.mode;
+      drag = null;
+
+      block.classList.remove('is-resizing');
+      handleL.classList.remove('dragging');
+      handleR.classList.remove('dragging');
+
+      if (!wasMoved && mode === 'move') {
+        vid.currentTime = cap.start + 0.02;
+        vid.play().catch(() => {});
+      } else if (wasMoved) {
+        S.captions.sort((a, b) => a.start - b.start);
+        renderTimeline();
+        renderCaptionsList();
+        showToast('⏱ ' + (cap.end - cap.start).toFixed(1) + 's (' + cap.text.slice(0, 16) + '...)');
+      }
+    };
+
+    block.addEventListener('pointermove', onPointerMove);
+    block.addEventListener('pointerup', onPointerUp);
+    block.addEventListener('pointercancel', onPointerUp);
+    block.addEventListener('lostpointercapture', onPointerUp);
   }
 
   function syncTimelinePlayhead() {
@@ -2281,7 +2416,31 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const isCur = curTime >= cap.start && curTime <= cap.end;
       row.className = 'caption-row' + (isCur ? ' active' : '');
 
-      row.innerHTML = `<button class="caption-play-btn" title="Jump to timestamp">▶</button><div class="caption-center"><span class="caption-time-pill">${formatTime(cap.start)} - ${formatTime(cap.end)}</span></div><button class="caption-delete-btn" title="Delete caption">&times;</button>`;
+      row.innerHTML = `<button class="caption-play-btn" title="Jump to timestamp">▶</button><div class="caption-center"><div class="caption-dur-controls"><button type="button" class="btn-time-step btn-step-minus" title="Decrease duration by 0.2s">-0.2s</button><span class="caption-time-pill">${formatTime(cap.start)} - ${formatTime(cap.end)} (${(cap.end - cap.start).toFixed(1)}s)</span><button type="button" class="btn-time-step btn-step-plus" title="Increase duration by 0.2s">+0.2s</button></div></div><button class="caption-delete-btn" title="Delete caption">&times;</button>`;
+
+      const btnMinus = row.querySelector('.btn-step-minus');
+      const btnPlus = row.querySelector('.btn-step-plus');
+      if (btnMinus) {
+        btnMinus.addEventListener('click', (e) => {
+          e.stopPropagation();
+          cap.end = Math.max(cap.start + 0.25, Math.round((cap.end - 0.2) * 100) / 100);
+          updateCaptionWordTimings(cap);
+          renderCaptionsList();
+          renderTimeline();
+          renderCanvas();
+        });
+      }
+      if (btnPlus) {
+        btnPlus.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dur = vid.duration || S.probe.duration || 10;
+          cap.end = Math.min(dur, Math.round((cap.end + 0.2) * 100) / 100);
+          updateCaptionWordTimings(cap);
+          renderCaptionsList();
+          renderTimeline();
+          renderCanvas();
+        });
+      }
       const captionCenter = row.querySelector('.caption-center');
       const captionInput = document.createElement('textarea');
       captionInput.className = 'caption-text-input';
