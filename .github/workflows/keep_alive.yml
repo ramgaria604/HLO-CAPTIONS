@@ -1,0 +1,27 @@
+name: 24/7 Keep Alive Ping
+
+on:
+  schedule:
+    # Runs every 14 minutes 24/7 to prevent Render free tier from sleeping (threshold is 15m)
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping Service
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Keep-Alive Endpoint
+        run: |
+          URL="${{ secrets.RENDER_URL }}"
+          if [ -z "$URL" ]; then
+            URL="https://hlo-captions.onrender.com"
+          fi
+          echo "Pinging keep-alive endpoint: $URL/api/ping"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 25 "$URL/api/ping" || echo "000")
+          echo "HTTP response status: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "Successfully kept service awake! (200 OK)"
+          else
+            echo "Ping sent (Status: $STATUS)"
+          fi
