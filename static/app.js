@@ -35,6 +35,7 @@
     generateAfterPicker: false,
   user: null,
   currentProjectId: null,
+  credits: 1,
   aspect: 'original',
   chunkMode: '3',
   autoEmojis: 'above',
@@ -1609,6 +1610,148 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
   }
 
+
+  // ==========================================================================
+  // INSTAGRAM VIP COUPON & EXPORT CREDITS SYSTEM
+  // ==========================================================================
+  function updateCreditsUI() {
+    const pill = $('creditPill');
+    const countSpan = $('creditCount');
+    if (!pill || !countSpan) return;
+
+    if (S.credits <= 0) {
+      pill.classList.add('credit-zero');
+      countSpan.textContent = '🔒 Get 10 Exports';
+    } else if (S.credits === 1) {
+      pill.classList.remove('credit-zero');
+      countSpan.textContent = '1 Free Export';
+    } else {
+      pill.classList.remove('credit-zero');
+      countSpan.textContent = `${S.credits} Exports`;
+    }
+  }
+
+  function openCouponModal() {
+    const modalCoupon = $('modalCoupon');
+    if (modalCoupon) {
+      modalCoupon.classList.remove('hidden');
+      const input = $('inputCouponCode');
+      if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 100);
+      }
+      const msg = $('couponMsg');
+      if (msg) msg.classList.add('hidden');
+    }
+  }
+
+  function setupCouponHandlers() {
+    // Initialize credits (Option B: 1 free export first, then coupon gate!)
+    let saved = localStorage.getItem('cs_credits');
+    if (saved === null) {
+      saved = '1';
+      localStorage.setItem('cs_credits', '1');
+    }
+    S.credits = parseInt(saved, 10);
+    if (isNaN(S.credits)) S.credits = 1;
+
+    updateCreditsUI();
+
+    const pill = $('creditPill');
+    const modalCoupon = $('modalCoupon');
+    const btnCloseCoupon = $('btnCloseCouponModal');
+    const btnRedeem = $('btnRedeemCoupon');
+    const inputCode = $('inputCouponCode');
+    const msg = $('couponMsg');
+
+    if (pill) pill.addEventListener('click', openCouponModal);
+    if (btnCloseCoupon && modalCoupon) {
+      btnCloseCoupon.addEventListener('click', () => modalCoupon.classList.add('hidden'));
+      modalCoupon.addEventListener('click', (e) => {
+        if (e.target === modalCoupon) modalCoupon.classList.add('hidden');
+      });
+    }
+
+    const redeemAction = async () => {
+      const code = (inputCode && inputCode.value.trim().toUpperCase()) || '';
+      if (!code) {
+        if (msg) {
+          msg.textContent = 'Please enter a coupon code.';
+          msg.className = 'coupon-msg error';
+          msg.classList.remove('hidden');
+        }
+        return;
+      }
+
+      btnRedeem.disabled = true;
+      btnRedeem.textContent = 'Verifying...';
+      if (msg) msg.classList.add('hidden');
+
+      try {
+        let deviceId = localStorage.getItem('cs_device_id');
+        if (!deviceId) {
+          deviceId = 'dev_' + Math.random().toString(36).slice(2, 10);
+          localStorage.setItem('cs_device_id', deviceId);
+        }
+
+        const res = await fetch('/api/coupons/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: code,
+            user_id: S.user ? S.user.id : null,
+            device_id: deviceId
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || 'Invalid code');
+        }
+
+        S.credits = (S.credits || 0) + (data.added_credits || 10);
+        localStorage.setItem('cs_credits', String(S.credits));
+        updateCreditsUI();
+
+        if (msg) {
+          msg.textContent = data.message || `🎉 ${data.added_credits} Free Exports unlocked!`;
+          msg.className = 'coupon-msg success';
+          msg.classList.remove('hidden');
+        }
+
+        showToast(`🎉 ${data.added_credits} Free Exports unlocked!`);
+
+        setTimeout(() => {
+          if (modalCoupon) modalCoupon.classList.add('hidden');
+          if (S.pendingExportAfterCoupon) {
+            S.pendingExportAfterCoupon = false;
+            startExport();
+          }
+        }, 1200);
+
+      } catch (err) {
+        if (msg) {
+          msg.textContent = err.message || 'Invalid coupon code.';
+          msg.className = 'coupon-msg error';
+          msg.classList.remove('hidden');
+        }
+      } finally {
+        btnRedeem.disabled = false;
+        btnRedeem.textContent = 'Redeem';
+      }
+    };
+
+    if (btnRedeem) btnRedeem.addEventListener('click', redeemAction);
+    if (inputCode) {
+      inputCode.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          redeemAction();
+        }
+      });
+    }
+  }
+
   async function init() {
     setupUploadHandlers();
     setupTransportHandlers();
@@ -1622,6 +1765,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     startKeepAliveHeartbeat();
     setupAuthHandlers();
     setupProjectHandlers();
+    setupCouponHandlers();
 
     await loadPresets();
   }
@@ -4098,6 +4242,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   async function startExport() {
+    if (S.credits <= 0) {
+      S.pendingExportAfterCoupon = true;
+      openCouponModal();
+      return;
+    }
+
     vid.pause();
     modalExport.classList.remove('hidden');
     exportWorkingState.classList.remove('hidden');
@@ -4151,6 +4301,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       S.exportPayload = payload;
       S.exportRecovered = false;
       S.exportJobId = await queueExport(payload);
+      S.credits = Math.max(0, S.credits - 1);
+      localStorage.setItem('cs_credits', String(S.credits));
+      updateCreditsUI();
       pollExportStatus(S.exportJobId);
 
     } catch (err) {

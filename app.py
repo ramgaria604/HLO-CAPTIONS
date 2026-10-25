@@ -999,6 +999,71 @@ def project_delete(pid):
     return err("Project not found.", 404)
 
 
+# ------------------------------------------------------------------ Instagram VIP Coupon & Credits
+COUPONS_FILE = WORK / "coupons.json"
+DEFAULT_COUPONS = {
+    "HLOPRO10": {"credits": 10},
+    "INSTA10": {"credits": 10},
+    "VIRAL10": {"credits": 10},
+    "CREATOR10": {"credits": 10},
+    "NIKHILVIP": {"credits": 100},
+    "VIPPASS": {"credits": 50}
+}
+
+
+def load_coupons():
+    if not COUPONS_FILE.exists():
+        try:
+            COUPONS_FILE.write_text(json.dumps(DEFAULT_COUPONS, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+        return DEFAULT_COUPONS
+    try:
+        return json.loads(COUPONS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return DEFAULT_COUPONS
+
+
+@app.post("/api/coupons/redeem")
+def redeem_coupon():
+    d = request.get_json(force=True)
+    code = (d.get("code") or "").strip().upper()
+    user_id = d.get("user_id") or d.get("device_id") or "guest"
+    if not code:
+        return err("Please enter a coupon code.")
+    coupons = load_coupons()
+    if code not in coupons:
+        return err("Invalid code! Follow @hlo.captions on Instagram and DM 'COUPON' to receive your 10-Export code in 10 seconds.", 400)
+
+    c_info = coupons[code]
+    credits_to_add = c_info.get("credits", 10)
+
+    redeemed_file = WORK / "redeemed_coupons.json"
+    redeemed = {}
+    if redeemed_file.exists():
+        try:
+            redeemed = json.loads(redeemed_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    user_key = f"{user_id}:{code}"
+    if user_key in redeemed:
+        return err("You have already redeemed this code! DM @hlo.captions on Instagram if you need another pass.", 400)
+
+    redeemed[user_key] = time.time()
+    try:
+        redeemed_file.write_text(json.dumps(redeemed, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+    return jsonify(
+        ok=True,
+        code=code,
+        added_credits=credits_to_add,
+        message=f"🎉 Success! {credits_to_add} Free Video Exports unlocked!"
+    )
+
+
 # ------------------------------------------------------------------ upload / transcribe
 @app.post("/api/upload")
 def upload():
