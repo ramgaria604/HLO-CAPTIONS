@@ -3034,6 +3034,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         exportPercent.textContent = pct + '%';
         if (data.message) {
           exportProgressText.textContent = data.message;
+          const aiBadge = $('exportAiBadge');
+          if (data.message.includes('Separating speaker') || data.message.includes('AI Depth') || data.message.includes('cutout')) {
+            exportProgressDetail.textContent = 'Using neural vision to isolate the speaker so keywords appear behind them. Frame-by-frame depth analysis takes a few moments...';
+            if (aiBadge) aiBadge.classList.remove('hidden');
+          } else if (data.message.includes('effects') || data.message.includes('Adding captions') || data.message.includes('ready')) {
+            exportProgressDetail.textContent = 'Compositing depth layers: video background → hero keyword → speaker cutout → subtitles.';
+            if (aiBadge) aiBadge.classList.add('hidden');
+          }
         }
 
         if (data.status === 'done' || data.download) {

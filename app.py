@@ -1914,12 +1914,15 @@ def export_worker(job_id, d):
             person_name = None
             if ass_name and is_behind_preset:
                 try:
-                    job["message"] = "Separating the speaker for behind-person captions..."
+                    job["message"] = "AI Depth Cutout: Separating speaker for behind-person captions..."
                     person_name = f"person_{job_id}.webm"
                     person_path = WORK / person_name
                     mask_lib.make_person_webm(
                         ffmpeg_path(), WORK / current, person_path, W, H, fps=30,
-                        on_progress=lambda p: job.update(progress=round(12 + p * 0.1, 1))
+                        on_progress=lambda p: job.update(
+                            message=f"AI Depth Cutout: Separating speaker ({int(p)}%)...",
+                            progress=round(10 + p * 0.45, 1)
+                        )
                     )
                     if person_path.exists():
                         temp.append(person_path)

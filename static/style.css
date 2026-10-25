@@ -1794,3 +1794,27 @@ button {
   transform: scale(1.05);
   background: #4f46e5;
 }
+
+.caption-drag-hint {
+  display: none !important;
+}
+
+.export-ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(59, 130, 246, 0.25));
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  color: #c084fc;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+  animation: pulseAiBadge 2s ease-in-out infinite;
+}
+
+@keyframes pulseAiBadge {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}

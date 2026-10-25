@@ -136,7 +136,6 @@
           <div class="stage" id="stage">
             <video id="vid" playsinline preload="auto"></video>
             <canvas id="captionCanvas"></canvas>
-            <div id="captionDragHint" class="caption-drag-hint hidden" aria-live="polite">✋ Touch or click and drag captions to move · Voice-synced preview</div>
             
             <!-- Stage Fullscreen Overlay Button -->
             <button id="btnStageFullscreen" class="btn-stage-fs" title="Toggle Fullscreen">
@@ -599,6 +598,7 @@
 
       <div id="exportWorkingState" class="export-state">
         <div class="export-spinner"></div>
+        <div id="exportAiBadge" class="export-ai-badge hidden">✨ AI Depth Segmentation Active</div>
         <h3 id="exportProgressText" class="export-status-title">Rendering video with captions...</h3>
         <p id="exportProgressDetail" class="export-status-sub">Encoding high-definition MP4 with word animations.</p>
         
