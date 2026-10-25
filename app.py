@@ -297,6 +297,8 @@ def fonts_css():
     return _FONTS_CSS_CACHE, 200, {"Content-Type": "text/css"}
 
 
+LAST_MASK_ERROR = None
+
 @app.get("/api/status")
 def status():
     ff = bool(ffmpeg_path())
@@ -304,6 +306,21 @@ def status():
     has_whisper = module_ok("faster_whisper")
     has_sr = module_ok("speech_recognition")
     speech_ok = has_whisper or has_sr
+    
+    mp_info = "not_checked"
+    try:
+        import mediapipe as mp
+        mp_info = f"ok_{mp.__version__}"
+    except Exception as e:
+        mp_info = f"error_{e}"
+
+    cv_info = "not_checked"
+    try:
+        import cv2
+        cv_info = f"ok_{cv2.__version__}"
+    except Exception as e:
+        cv_info = f"error_{e}"
+
     return jsonify(
         ffmpeg=ff,
         ass=ass_ok,
@@ -311,7 +328,10 @@ def status():
         server_whisper=has_whisper,
         server_sr=has_sr,
         pexels=bool(pexels_key()),
-        fonts=user_families()
+        fonts=user_families(),
+        mediapipe=mp_info,
+        opencv=cv_info,
+        last_mask_error=str(LAST_MASK_ERROR)
     )
 
 
@@ -1894,6 +1914,8 @@ def export_worker(job_id, d):
                     else:
                         person_name = None
                 except Exception as pe:
+                    global LAST_MASK_ERROR
+                    LAST_MASK_ERROR = f"{type(pe).__name__}: {pe}"
                     print("Person mask skipped:", pe)
                     person_name = None
 
