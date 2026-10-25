@@ -1047,8 +1047,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const layoutFn = getLayoutStackFn();
   let lay;
   if (isBehindPreset && lineDescriptors.length >= 2) {
-    const heroY = typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.28;
-    const subY = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.70;
+    const heroY = isBehindPreset ? 0.28 : (typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.28);
+    const subY = isBehindPreset ? 0.70 : (typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.70);
     const laySub = layoutFn([lineDescriptors[0]], { W, H, posX, posY: subY, inkGap, maxWidth: 0.90 });
     const layHero = layoutFn([lineDescriptors[1]], { W, H, posX, posY: heroY, inkGap, maxWidth: 0.90 });
     lay = laySub.concat(layHero);
@@ -1195,9 +1195,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       card.setAttribute('aria-label', `Choose ${preset.name}`);
       const art = document.createElement('span');
       art.className = 'duo-card-art';
+      const isBehind = Boolean(
+        preset.depthAccent ||
+        preset.behindPerson ||
+        (preset.roles && preset.roles.accent && preset.roles.accent.layer === 'behind') ||
+        (preset.name && preset.name.toLowerCase().includes('(behind)'))
+      );
       const tag = document.createElement('span');
       tag.className = 'duo-card-tag';
-      tag.textContent = preset.depthAccent ? 'BEHIND SUBJECT' : 'FRONT CAPTION';
+      tag.textContent = isBehind ? 'BEHIND SUBJECT (28% + 70%)' : 'FRONT CAPTION';
       const small = document.createElement('span');
       small.className = 'duo-card-small';
       small.textContent = 'SOME MOMENTS';
@@ -1213,7 +1219,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         big.style.color = 'transparent';
       }
       big.style.fontFamily = `'${preset.key?.font || 'Montserrat'}', sans-serif`;
-      art.append(tag, small, big);
+      if (isBehind) {
+        art.append(tag, big, small);
+      } else {
+        art.append(tag, small, big);
+      }
       const label = document.createElement('span');
       label.className = 'duo-card-name';
       label.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
@@ -2005,14 +2015,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     );
     S.style = Object.assign({}, preset, {
       fontScale: 1.0,
-      position: Number.isFinite(Number(preset.position)) ? Number(preset.position) : (isBehind ? 0.28 : 0.75),
-      depthAccentY: Number.isFinite(Number(preset.depthAccentY)) ? Number(preset.depthAccentY) : 0.28,
-      subtitlePosition: Number.isFinite(Number(preset.subtitlePosition)) ? Number(preset.subtitlePosition) : 0.70,
+      position: isBehind ? 0.28 : (Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75),
+      depthAccentY: isBehind ? 0.28 : (Number.isFinite(Number(preset.depthAccentY)) ? Number(preset.depthAccentY) : 0.28),
+      subtitlePosition: isBehind ? 0.70 : (Number.isFinite(Number(preset.subtitlePosition)) ? Number(preset.subtitlePosition) : 0.70),
       behindPerson: isBehind,
+      depthAccent: isBehind,
       highlightColor: preset.highlightColor || preset.key?.color || '#FFE600',
       fontFamily: preset.key?.font || 'Poppins',
       textCase: S.style?.textCase || 'upper'
     });
+    if (isBehind && Array.isArray(S.style.posCycle)) {
+      delete S.style.posCycle;
+    }
 
     if (selectedPresetName) {
       selectedPresetName.textContent = preset.name || 'Template';

@@ -416,8 +416,8 @@ def load_presets():
                     "behindPerson": accent.get("layer") == "behind",
                     "depthAccent": accent.get("layer") == "behind",
                     "depthAccentSize": max(0.12, min(0.34, float(accent.get("size", 190)) / 1080.0)),
-                    "depthAccentY": float((p.get("posCycle") or [p.get("posY", 0.2)])[0]),
-                    "subtitlePosition": max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48)),
+                    "depthAccentY": 0.28 if (accent.get("layer") == "behind" or "(behind)" in str(p.get("name", "")).lower()) else float((p.get("posCycle") or [p.get("posY", 0.2)])[0]),
+                    "subtitlePosition": 0.70 if (accent.get("layer") == "behind" or "(behind)" in str(p.get("name", "")).lower()) else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48)),
                     "subtitleSize": max(0.04, min(0.08, float(base.get("size", 62)) / 1080.0)),
                     "lineGap": p.get("lineGap", 0.86),
                     "keyRule": p.get("keyRule", "last"),
@@ -540,6 +540,10 @@ def load_presets():
                 accent_color = colors[0] if colors else (accent.get("color") or "#FFFFFF")
                 preset_y = max(0.20, min(0.82, float(p.get("posY", 0.52))))
                 subtitle_gap = max(0.055, min(0.09, (float(accent.get("size", 160)) + float(base.get("size", 62))) * 0.35 / 1920.0 + 0.01))
+                is_behind = bool(
+                    accent.get("layer") == "behind" or
+                    "(behind)" in str(p.get("name", "")).lower()
+                )
 
                 duo_item = {
                     "id": p["id"],
@@ -550,14 +554,14 @@ def load_presets():
                     "animation": accent.get("enter", "slide-up"),
                     "wordsPerCaption": int(p.get("wordsPerPage", 3)),
                     "maxKeys": int(p.get("maxKeys", 1)),
-                    "position": (float(p.get("posY", 0.52)) if accent.get("layer") == "behind"
+                    "position": (0.28 if is_behind
                                   else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48))),
-                    "posCycle": p.get("posCycle"),
-                    "behindPerson": accent.get("layer") == "behind",
-                    "depthAccent": accent.get("layer") == "behind",
+                    "posCycle": None if is_behind else p.get("posCycle"),
+                    "behindPerson": is_behind,
+                    "depthAccent": is_behind,
                     "depthAccentSize": round(accent.get("size", 160) / 1080.0, 3),
-                    "depthAccentY": preset_y,
-                    "subtitlePosition": max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))),
+                    "depthAccentY": 0.28 if is_behind else preset_y,
+                    "subtitlePosition": 0.70 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))),
                     "subtitleSize": round(base.get("size", 62) / 1080.0, 3),
                     "blend": p.get("blend", "screen"),
                     "blendMode": p.get("blend", "screen"),
