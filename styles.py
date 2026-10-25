@@ -1387,7 +1387,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 
                 N_SLICES = 24
                 for k in range(N_SLICES):
-                    t_mid = (k + 0.5) / N_SLICES
+                    # Power curve weighting: gives 80% of height to rich vibrant colors and restricts the lighter tone to a subtle 20% accent, matching preview
+                    t_linear = (k + 0.5) / N_SLICES
+                    t_mid = t_linear ** 2.0
                     slice_col = _interpolate_gradient_color(oriented_colors, t_mid)
                     s_top = int(y_top + (k / N_SLICES) * span_h)
                     s_bot = int(math.ceil(y_top + ((k + 1) / N_SLICES) * span_h)) + 1
