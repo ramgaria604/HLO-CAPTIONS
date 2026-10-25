@@ -1887,11 +1887,14 @@ def export_worker(job_id, d):
             if caps:
                 st = stylelib.clean_style(d.get("style"))
                 is_behind_preset = bool(
+                    d.get("behindPerson") or
+                    d.get("behind_person") or
                     st.get("behindPerson") or
+                    st.get("behind_person") or
                     st.get("depthAccent") or
                     st.get("isSpecial") or
                     (isinstance(st.get("roles"), dict) and st["roles"].get("accent", {}).get("layer") == "behind") or
-                    ("(behind)" in str(st.get("name", "")).lower())
+                    ("behind" in str(st.get("name", "")).lower())
                 )
                 if is_behind_preset:
                     ass_name = f"{job_id}_depth.ass"

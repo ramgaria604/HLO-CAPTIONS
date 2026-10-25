@@ -1,23 +1,50 @@
-"""Person-only transparent WebM for 'text behind the person' using MediaPipe ImageSegmenter."""
+"""Person-only transparent WebM for 'text behind the person' using OpenCV DNN or MediaPipe."""
 import os
 import subprocess
 from pathlib import Path
 
-MODEL_PATH = Path(__file__).resolve().parent / "models" / "selfie_segmenter.tflite"
+MODELS_DIR = Path(__file__).resolve().parent / "models"
+ONNX_MODEL_PATH = MODELS_DIR / "selfie_segmenter.onnx"
+TFLITE_MODEL_PATH = MODELS_DIR / "selfie_segmenter.tflite"
 LAST_INIT_ERROR = None
 
 
 def get_segmenter():
     global LAST_INIT_ERROR
-    import mediapipe as mp
 
-    # 1. Try modern MediaPipe Tasks API with model_asset_buffer (100% reliable in Linux/Gunicorn)
-    if MODEL_PATH.exists():
+    # 1. Primary: OpenCV DNN with ONNX model
+    # Pure CPU inference via OpenCV's built-in DNN engine.
+    # Has ZERO OpenGL / GUI / X11 / libGLESv2 dependencies — 100% reliable on headless Linux / Render.
+    if ONNX_MODEL_PATH.exists():
         try:
+            import cv2
+            net = cv2.dnn.readNetFromONNX(str(ONNX_MODEL_PATH))
+
+            def segment_frame_opencv(rgb_frame):
+                h, w = rgb_frame.shape[:2]
+                blob = cv2.dnn.blobFromImage(rgb_frame, scalefactor=1.0 / 255.0, size=(256, 256), swapRB=False)
+                net.setInput(blob)
+                out = net.forward()
+                m = out[0, 0] if out.ndim == 4 else out[0]
+                m_resized = cv2.resize(m, (w, h))
+                return m_resized.astype("float32")
+
+            LAST_INIT_ERROR = "OpenCV_ONNX_Ready"
+            return segment_frame_opencv
+        except Exception as e:
+            LAST_INIT_ERROR = f"OpenCV_ONNX_Error_{type(e).__name__}_{e}"
+            print("OpenCV ONNX segmenter init error:", e)
+    else:
+        LAST_INIT_ERROR = f"ONNX_NotFound_at_{ONNX_MODEL_PATH}"
+
+    # 2. Secondary: MediaPipe Tasks API
+    if TFLITE_MODEL_PATH.exists():
+        try:
+            import mediapipe as mp
             from mediapipe.tasks import python as mp_python
             from mediapipe.tasks.python import vision as mp_vision
 
-            model_bytes = MODEL_PATH.read_bytes()
+            model_bytes = TFLITE_MODEL_PATH.read_bytes()
             base_options = mp_python.BaseOptions(model_asset_buffer=model_bytes)
             options = mp_vision.ImageSegmenterOptions(
                 base_options=base_options,
@@ -35,13 +62,12 @@ def get_segmenter():
             LAST_INIT_ERROR = "Tasks_Ready"
             return segment_frame_tasks
         except Exception as e:
-            LAST_INIT_ERROR = f"Tasks_Error_{type(e).__name__}_{e}"
-            print("Modern ImageSegmenter init error:", e)
-    else:
-        LAST_INIT_ERROR = f"Model_NotFound_at_{MODEL_PATH}"
+            LAST_INIT_ERROR += f"_Tasks_Error_{type(e).__name__}_{e}"
+            print("MediaPipe Tasks ImageSegmenter init error:", e)
 
-    # 2. Try legacy solutions API (MediaPipe < 0.10)
+    # 3. Tertiary: Legacy solutions API (MediaPipe < 0.10)
     try:
+        import mediapipe as mp
         if hasattr(mp, "solutions") and hasattr(mp.solutions, "selfie_segmentation"):
             legacy_seg = mp.solutions.selfie_segmentation.SelfieSegmentation(model_selection=1)
 
@@ -66,7 +92,9 @@ def make_person_webm(ffmpeg, video, out_path, width, height, fps=30, on_progress
 
     segment_fn = get_segmenter()
     if segment_fn is None:
-        raise RuntimeError(f"No MediaPipe selfie segmenter could be initialized: {LAST_INIT_ERROR}")
+        raise RuntimeError(f"No selfie segmenter could be initialized: {LAST_INIT_ERROR}")
+
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
     cap = cv2.VideoCapture(str(video))
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
@@ -113,7 +141,10 @@ def make_person_webm(ffmpeg, video, out_path, width, height, fps=30, on_progress
                 on_progress(100.0 * i / total)
     finally:
         if p.stdin:
-            p.stdin.close()
+            try:
+                p.stdin.close()
+            except Exception:
+                pass
         stderr = p.communicate()[1]
         p.wait()
         cap.release()
