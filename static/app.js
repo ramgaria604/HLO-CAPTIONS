@@ -729,6 +729,20 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
           ctx.fillStyle = st.highlight.textColor || '#111111';
           ctx.fillText(wo.txt, 0, 0);
         } else {
+          const isGlowActive = st.glowEnabled !== false;
+          const gColor = st.glowColor || (kRole && kRole.glow) || st.highlightColor || '#FFE600';
+          const gBlur = Math.max(6, Math.round(Number(st.glowBlur) || 18));
+
+          if (isGlowActive && wo.isKey) {
+            ctx.save();
+            ctx.shadowColor = gColor;
+            ctx.shadowBlur = gBlur;
+            ctx.strokeText(wo.txt, 0, 0);
+            ctx.shadowBlur = gBlur * 1.8;
+            ctx.fillText(wo.txt, 0, 0);
+            ctx.restore();
+          }
+
           // Glow / Shadow
           ctx.shadowColor = wo.isKey ? (kRole.shadowColor || 'rgba(0, 0, 0, 0.90)') : (fRole.shadowColor || 'rgba(0, 0, 0, 0.90)');
           ctx.shadowBlur = Math.round(base * 0.02) + (wo.isKey ? 8 : 5);
@@ -1223,6 +1237,18 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           outlineWidth = Math.max(1, (o.role.outline || 3) * (o.size / 70));
           outlineColor = o.role.outlineColor || '#000000';
         }
+        if (st.glowEnabled !== false && (st.glowEnabled || (o.role && o.role.glow))) {
+          const gColor = st.glowColor || (o.role && o.role.glow) || '#FFE600';
+          const gBlur = Math.max(8, Math.round(Number(st.glowBlur) || 18));
+          targetCtx.save();
+          targetCtx.shadowColor = gColor;
+          targetCtx.shadowBlur = gBlur;
+          targetCtx.shadowOffsetX = 0;
+          targetCtx.shadowOffsetY = 0;
+          targetCtx.fillText(wo.txt, 0, 0);
+          targetCtx.restore();
+        }
+
         if (outlineWidth > 0) {
           targetCtx.lineJoin = 'round';
           targetCtx.lineWidth = outlineWidth;
@@ -3177,6 +3203,70 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         renderCanvas();
       });
     });
+
+    // Text Glow-Up & Neon Bloom Controls
+    const valGlowBadge = $('valGlowBadge');
+    const valGlowColor = $('valGlowColor');
+    const glowOptionsBox = $('glowOptionsBox');
+    const inputCustomGlow = $('inputCustomGlow');
+    const inputGlowBlur = $('inputGlowBlur');
+    const valGlowBlur = $('valGlowBlur');
+
+    function setGlowColor(color) {
+      if (!S.style) S.style = {};
+      S.style.glowColor = color;
+      if (!S.style.key) S.style.key = {};
+      S.style.key.glow = color;
+      if (!S.style.roles) S.style.roles = {};
+      if (S.style.roles.accent) S.style.roles.accent.glow = color;
+      if (valGlowColor) {
+        valGlowColor.textContent = color;
+        valGlowColor.style.background = color;
+        valGlowColor.style.color = (color === '#FFFFFF' || color.toLowerCase() === '#ffe600') ? '#000' : '#fff';
+      }
+      if (inputCustomGlow) inputCustomGlow.value = color;
+      renderCanvas();
+    }
+
+    $$('#glowToggleGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#glowToggleGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        const isOn = btn.getAttribute('data-glow') === 'on';
+        if (!S.style) S.style = {};
+        S.style.glowEnabled = isOn;
+        if (glowOptionsBox) glowOptionsBox.classList.toggle('is-disabled', !isOn);
+        if (valGlowBadge) valGlowBadge.textContent = isOn ? 'Glow: ON' : 'Off';
+        showToast(isOn ? '✨ Glow-up enabled!' : 'Glow turned off');
+        renderCanvas();
+      });
+    });
+
+    $$('#glowColorSwatches .swatch').forEach(swatch => {
+      swatch.addEventListener('click', () => {
+        $$('#glowColorSwatches .swatch').forEach(s => s.classList.toggle('active', s === swatch));
+        setGlowColor(swatch.getAttribute('data-color'));
+      });
+    });
+
+    if (inputCustomGlow) {
+      inputCustomGlow.addEventListener('input', (e) => {
+        $$('#glowColorSwatches .swatch').forEach(s => s.classList.remove('active'));
+        setGlowColor(e.target.value);
+      });
+    }
+
+    if (inputGlowBlur) {
+      inputGlowBlur.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (!S.style) S.style = {};
+        S.style.glowBlur = val;
+        if (valGlowBlur) {
+          const label = val <= 10 ? `Soft (${val}px)` : (val <= 25 ? `Medium (${val}px)` : `Ultra (${val}px)`);
+          valGlowBlur.textContent = label;
+        }
+        renderCanvas();
+      });
+    }
 
     // Viral Auto-Emojis toggle
     const valEmojiBadge = $('valEmojiBadge');

@@ -2820,3 +2820,83 @@ button {
 .coupon-msg.error {
   color: #ef4444;
 }
+
+/* ==========================================================================
+   PRESETS GLOW-UP & NEON BLOOM STYLING
+   ========================================================================== */
+
+/* Presets Grid Cards Glow-up */
+.presets-grid {
+  gap: 12px !important;
+}
+.preset-card {
+  background: linear-gradient(145deg, rgba(26, 28, 46, 0.8), rgba(15, 17, 30, 0.95)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.preset-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.preset-card:hover {
+  transform: translateY(-3px) scale(1.02) !important;
+  border-color: rgba(168, 85, 247, 0.6) !important;
+  box-shadow: 0 8px 25px rgba(168, 85, 247, 0.3), 0 0 16px rgba(255, 230, 0, 0.15) !important;
+}
+.preset-card:hover::before {
+  opacity: 1;
+}
+.preset-card.active {
+  border-color: #FFE600 !important;
+  background: linear-gradient(145deg, rgba(35, 38, 61, 0.95), rgba(255, 230, 0, 0.08)) !important;
+  box-shadow: 0 0 22px rgba(255, 230, 0, 0.4), 0 0 40px rgba(168, 85, 247, 0.25), inset 0 0 14px rgba(255, 230, 0, 0.12) !important;
+}
+.preset-card.active::before {
+  opacity: 1;
+  background: linear-gradient(90deg, #a855f7, #FFE600, #a855f7);
+}
+
+/* Duo Front Presets Glow-up */
+.duo-front-card {
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: linear-gradient(145deg, #131522, #0d0e17) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+  transition: all 0.22s ease !important;
+}
+.duo-front-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgba(168, 85, 247, 0.6) !important;
+  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.35), 0 0 14px rgba(255, 230, 0, 0.18) !important;
+}
+.duo-front-card[aria-pressed="true"] {
+  border-color: #FFE600 !important;
+  box-shadow: 0 0 24px rgba(255, 230, 0, 0.45), 0 0 45px rgba(168, 85, 247, 0.25) !important;
+}
+
+/* Category Pills Glow */
+.cat-pill.active {
+  background: linear-gradient(135deg, #a855f7, #7c3aed) !important;
+  border-color: #c084fc !important;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.5) !important;
+  color: #fff !important;
+}
+
+/* Text Glow Options Box */
+.glow-options-box {
+  transition: all 0.2s ease;
+}
+.glow-options-box.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}

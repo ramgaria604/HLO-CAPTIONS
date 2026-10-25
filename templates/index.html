@@ -433,6 +433,44 @@
                 </div>
               </div>
 
+              <!-- 4b. Text Glow-Up & Neon Bloom -->
+              <div class="control-card glow-card">
+                <div class="control-header">
+                  <label>✨ Text Glow-Up & Neon Bloom</label>
+                  <span id="valGlowBadge" class="val-badge">Glow: ON</span>
+                </div>
+                <div class="btn-group" id="glowToggleGroup" style="margin-bottom:10px;">
+                  <button type="button" class="btn-toggle active" data-glow="on">✨ Glow: ON</button>
+                  <button type="button" class="btn-toggle" data-glow="off">Off</button>
+                </div>
+                <div id="glowOptionsBox" class="glow-options-box">
+                  <div class="control-header" style="margin-top:4px;">
+                    <label style="font-size:11.5px; color:#94a3b8;">Glow Color</label>
+                    <span id="valGlowColor" class="val-badge" style="background:#FFE600; color:#000;">#FFE600</span>
+                  </div>
+                  <div class="color-picker-row">
+                    <div class="color-swatches" id="glowColorSwatches">
+                      <button type="button" class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Viral Yellow"></button>
+                      <button type="button" class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan Neon"></button>
+                      <button type="button" class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
+                      <button type="button" class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>
+                      <button type="button" class="swatch" style="--c:#10B981" data-color="#10B981" title="Neon Green"></button>
+                      <button type="button" class="swatch" style="--c:#FF8A00" data-color="#FF8A00" title="Sunset Orange"></button>
+                      <button type="button" class="swatch" style="--c:#FFFFFF" data-color="#FFFFFF" title="Clean White"></button>
+                    </div>
+                    <label class="custom-color-wrap" title="Pick any custom glow color">
+                      <input type="color" id="inputCustomGlow" class="custom-color-input" value="#FFE600">
+                      <span class="custom-color-label">Custom</span>
+                    </label>
+                  </div>
+                  <div class="control-header" style="margin-top:10px;">
+                    <label style="font-size:11.5px; color:#94a3b8;">Glow Radius / Intensity</label>
+                    <span id="valGlowBlur" class="val-badge">Medium (18px)</span>
+                  </div>
+                  <input type="range" id="inputGlowBlur" min="4" max="45" value="18" class="styled-slider">
+                </div>
+              </div>
+
               <!-- 5. Caption Size -->
               <div class="control-card">
                 <div class="control-header">
