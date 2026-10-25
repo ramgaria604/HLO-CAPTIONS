@@ -1374,6 +1374,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (viewId === 'viewEditor') {
       viewUpload.classList.add('hidden');
       viewEditor.classList.remove('hidden');
+      const eb = $('editorBody') || $('.editor-body');
+      if (eb && S.drawerOpen) eb.classList.add('drawer-open');
       fitCanvas();
       renderTimeline();
       renderCaptionsList();
@@ -1925,12 +1927,71 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         renderPresetsTab(pill.getAttribute('data-cat'));
       });
     });
+
+    setupDrawerDragHandler();
+  }
+
+  function setupDrawerDragHandler() {
+    const handle = $('drawerDragHandle');
+    const editorBody = $('editorBody') || $('.editor-body');
+    if (!handle || !editorBody) return;
+
+    let isDragging = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.button && e.button !== 0) return;
+      isDragging = true;
+      startY = e.clientY;
+      startHeight = drawerPanel.getBoundingClientRect().height;
+      try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+      handle.classList.add('dragging');
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    handle.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const deltaY = startY - e.clientY;
+      const editorHeight = editorBody.getBoundingClientRect().height;
+      const minDrawerHeight = 160;
+      const maxDrawerHeight = Math.max(minDrawerHeight, editorHeight - 190);
+      const newHeight = Math.max(minDrawerHeight, Math.min(maxDrawerHeight, startHeight + deltaY));
+      editorBody.style.setProperty('--drawer-height', `${Math.round(newHeight)}px`);
+      fitCanvas();
+    });
+
+    const stopDragging = (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      handle.classList.remove('dragging');
+      document.body.style.userSelect = '';
+      try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+      fitCanvas();
+    };
+
+    handle.addEventListener('pointerup', stopDragging);
+    handle.addEventListener('pointercancel', stopDragging);
+
+    // Double-click to toggle compact (30%) vs comfortable (46%)
+    handle.addEventListener('dblclick', () => {
+      const editorHeight = editorBody.getBoundingClientRect().height;
+      const currentHeight = drawerPanel.getBoundingClientRect().height;
+      const compactH = Math.round(editorHeight * 0.30);
+      const standardH = Math.round(editorHeight * 0.46);
+      const targetH = (currentHeight > compactH + 30) ? compactH : standardH;
+      editorBody.style.setProperty('--drawer-height', `${targetH}px`);
+      fitCanvas();
+    });
   }
 
   function openDrawerTab(targetId) {
     S.activeTab = targetId;
     S.drawerOpen = true;
     drawerPanel.classList.remove('collapsed');
+    const eb = $('editorBody') || $('.editor-body');
+    if (eb) eb.classList.add('drawer-open');
 
     $$('.bottom-nav-btn').forEach(btn => {
       const tabAttr = btn.getAttribute('data-tab');
@@ -1950,13 +2011,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (targetId === 'tabCaptions') {
       renderCaptionsList();
     }
+    requestAnimationFrame(fitCanvas);
   }
 
   function closeDrawer() {
     S.drawerOpen = false;
     drawerPanel.classList.add('collapsed');
+    const eb = $('editorBody') || $('.editor-body');
+    if (eb) eb.classList.remove('drawer-open');
     $$('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
     btnToggleTimeline.classList.add('active');
+    requestAnimationFrame(fitCanvas);
   }
 
   function toggleTimelineView() {
@@ -1973,6 +2038,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     drawerPanel.classList.toggle('fullscreen', S.drawerFullscreen);
     iconExpand.classList.toggle('hidden', S.drawerFullscreen);
     iconCollapse.classList.toggle('hidden', !S.drawerFullscreen);
+    requestAnimationFrame(fitCanvas);
   }
 
   function triggerGenerateActiveTemplate() {
@@ -2073,18 +2139,30 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     if (isModal) {
       const genBtn = card.querySelector('.btn-card-generate');
-      genBtn.addEventListener('click', (e) => {
+      if (genBtn) {
+        genBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          applyPreset(preset, true);
+          modalTemplates.classList.add('hidden');
+        });
+      }
+      card.addEventListener('dblclick', (e) => {
         e.stopPropagation();
-        applyPreset(preset, true);
+        applyPreset(preset, false);
         modalTemplates.classList.add('hidden');
       });
     }
 
     card.addEventListener('click', () => {
+      const wasActive = card.classList.contains('active');
       applyPreset(preset, false);
       $$('.preset-card').forEach(c => c.classList.toggle('active', c === card));
       if (isModal) {
-        modalTemplates.classList.add('hidden');
+        if (wasActive) {
+          modalTemplates.classList.add('hidden');
+        } else {
+          showToast(`✨ ${preset.name} active · Previewing on video`);
+        }
       }
     });
 
@@ -2584,6 +2662,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function setupCanvasSizing() {
     window.addEventListener('resize', fitCanvas);
     document.addEventListener('fullscreenchange', fitCanvas);
+    if (window.ResizeObserver && stage) {
+      const ro = new ResizeObserver(() => {
+        fitCanvas();
+      });
+      ro.observe(stage);
+    }
   }
 
   function setupCaptionDragging() {
@@ -2764,6 +2848,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     btnCloseTemplatesModal.addEventListener('click', () => {
       modalTemplates.classList.add('hidden');
+    });
+
+    modalTemplates.addEventListener('click', (e) => {
+      if (e.target === modalTemplates) {
+        modalTemplates.classList.add('hidden');
+      }
     });
 
     templateSearchInput.addEventListener('input', (e) => {

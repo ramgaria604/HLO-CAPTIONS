@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Poppins:wght@600;700;800;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=3.11">
+  <link rel="stylesheet" href="/static/style.css?v=3.30">
 </head>
 <body>
 
@@ -128,7 +128,7 @@
     </header>
 
     <!-- Editor Body -->
-    <div class="editor-body">
+    <div class="editor-body drawer-open" id="editorBody">
 
       <!-- TOP: Video Stage -->
       <section class="stage-section">
@@ -193,12 +193,16 @@
 
       <!-- POPUP / DRAWER PANEL (Covers timeline when a tab is tapped, with fullscreen & close options) -->
       <div class="drawer-panel" id="drawerPanel">
+        <!-- DRAG RESIZE HANDLE BAR: Drag up or down to resize video preview and templates -->
+        <div class="drawer-drag-handle-bar" id="drawerDragHandle" title="Drag up or down to resize video preview and templates (Double click to reset)">
+          <div class="drawer-drag-pill"></div>
+        </div>
         <div class="drawer-header">
           <div class="drawer-title-row">
             <span id="drawerTitle">🎨 Templates</span>
           </div>
           <div class="drawer-actions">
-            <button id="btnDrawerExpand" class="btn-drawer-tool" title="Expand Fullscreen">
+            <button id="btnDrawerExpand" class="btn-drawer-tool" title="Expand / Compact preview">
               <svg id="iconExpand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
               <svg id="iconCollapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><path d="M4 14h6m0 0v6m0-6L3 21m17-11h-6m0 0V4m0 6l7-7"/></svg>
             </button>
@@ -550,7 +554,7 @@
       <div class="modal-header">
         <div>
           <h2 class="modal-title">All Caption Templates</h2>
-          <p class="modal-desc">Pick from 130+ viral designs. Tap "Generate" on any template to apply.</p>
+          <p class="modal-desc">Pick from 164 viral designs. Tap any template to preview live on video above.</p>
         </div>
         <button id="btnCloseTemplatesModal" class="btn-close">&times;</button>
       </div>
@@ -647,6 +651,6 @@
     window.measureInk = Layout.measureInk;
     window.checkLayout = Layout.checkLayout;
   </script>
-  <script src="/static/app.js?v=3.29"></script>
+  <script src="/static/app.js?v=3.30"></script>
 </body>
 </html>
