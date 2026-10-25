@@ -1379,10 +1379,16 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 y_bottom = min(H, int(math.ceil(y_bottom + pad_y)))
                 span_h = max(1, y_bottom - y_top)
 
+                # Ensure primary accent color is at top of letter so downwards blend is vibrant
+                primary_color = str(r.get("color") or style.get("highlightColor") or "").upper()
+                oriented_colors = list(grad_colors)
+                if primary_color and len(grad_colors) > 1 and grad_colors[-1].upper() == primary_color:
+                    oriented_colors = list(reversed(grad_colors))
+
                 N_SLICES = 24
                 for k in range(N_SLICES):
                     t_mid = (k + 0.5) / N_SLICES
-                    slice_col = _interpolate_gradient_color(grad_colors, t_mid)
+                    slice_col = _interpolate_gradient_color(oriented_colors, t_mid)
                     s_top = int(y_top + (k / N_SLICES) * span_h)
                     s_bot = int(math.ceil(y_top + ((k + 1) / N_SLICES) * span_h)) + 1
                     slice_clip = f"\\clip(0,{s_top},{W},{s_bot})"
