@@ -1132,15 +1132,31 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             font_name = tt["name"].getDebugName(1) or Path(o["font_file"]).stem
 
             r = o["role"]
-            col = r.get("color") or ("#FFE600" if o["is_hero"] else "#FFFFFF")
+            if o["is_hero"]:
+                hl_col = style.get("highlightColor")
+                r_col = r.get("color")
+                if hl_col and isinstance(hl_col, str) and hl_col.startswith("#") and hl_col.upper() not in ("#FFFFFF", "#FFF", "#000000", "#000") and hl_col.upper() != "#FFE600":
+                    col = hl_col
+                elif r_col and isinstance(r_col, str) and r_col.startswith("#") and r_col.upper() not in ("#FFFFFF", "#FFF"):
+                    col = r_col
+                elif hl_col and isinstance(hl_col, str) and hl_col.startswith("#") and hl_col.upper() not in ("#FFFFFF", "#FFF"):
+                    col = hl_col
+                elif r.get("fill") and isinstance(r["fill"], dict) and r["fill"].get("colors"):
+                    fill_colors = [c for c in r["fill"]["colors"] if isinstance(c, str) and c.upper() not in ("#FFFFFF", "#FFF", "#000000", "#000")]
+                    if fill_colors:
+                        col = fill_colors[len(fill_colors) // 2]
+                    else:
+                        col = r["fill"]["colors"][0]
+                else:
+                    col = r_col or hl_col or "#FF6200"
+            else:
+                col = r.get("color") or "#FFFFFF"
+
             bold = 1 if (r.get("bold") or r.get("weight", 500) >= 700) else 0
             italic = 1 if r.get("italic") else 0
             outline_val = float(r.get("outline", 0))
             outline_px = max(0.0, outline_val * (o["size"] / 70.0))
             outline_col = r.get("outlineColor", "#000000")
-            shad_val = float(r.get("shadow", 0))
-            shad_px = max(0.0, shad_val * (o["size"] / 70.0))
-            shad_col = r.get("shadowColor", "#000000")
 
             tags = [
                 r"\an2",
@@ -1156,10 +1172,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
             else:
                 tags.append(r"\bord0")
-            if shad_px > 0:
-                tags += [f"\\shad{shad_px:.1f}", f"\\4c{_c(shad_col)}"]
-            else:
-                tags.append(r"\shad0")
+            tags.append(r"\shad0")
 
             # Word-by-word reveal:
             line_parts = []

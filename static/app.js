@@ -1188,7 +1188,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         if (!o.role.keyGradient && o.role.fill && o.role.fill.colors && o.role.fill.colors.length > 1) {
           o.role.keyGradient = `linear-gradient(${o.role.fill.angle || 90}deg, ${o.role.fill.colors.join(',')})`;
         }
-        targetCtx.fillStyle = canvasRolePaint(targetCtx, o.role, o.role.color || '#FFFFFF', o.size);
+        const basePaintColor = o.isHero ? (o.role.color || st.highlightColor || '#FF6200') : (o.role.color || '#FFFFFF');
+        targetCtx.fillStyle = canvasRolePaint(targetCtx, o.role, basePaintColor, o.size);
         targetCtx.fillText(wo.txt, 0, 0);
         targetCtx.restore();
       }
@@ -2124,7 +2125,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       (preset.roles && preset.roles.accent && preset.roles.accent.layer === 'behind') ||
       (preset.name && preset.name.toLowerCase().includes('(behind)'))
     );
+    const clonedRoles = preset.roles ? JSON.parse(JSON.stringify(preset.roles)) : undefined;
     S.style = Object.assign({}, preset, {
+      roles: clonedRoles || preset.roles,
       fontScale: 1.0,
       position: isBehind ? 0.18 : (Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75),
       topY: isBehind ? (Number.isFinite(Number(preset.topY)) ? Number(preset.topY) : 0.10) : 0.10,
@@ -2132,8 +2135,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       subtitlePosition: isBehind ? (Number.isFinite(Number(preset.subtitlePosition)) ? Number(preset.subtitlePosition) : 0.72) : 0.72,
       behindPerson: isBehind,
       depthAccent: isBehind,
-      highlightColor: preset.highlightColor || preset.key?.color || '#FFE600',
-      fontFamily: preset.key?.font || 'Poppins',
+      highlightColor: preset.highlightColor || preset.roles?.accent?.color || preset.key?.color || '#FFE600',
+      fontFamily: preset.roles?.accent?.font || preset.key?.font || 'Poppins',
       textCase: S.style?.textCase || 'upper'
     });
     if (isBehind && Array.isArray(S.style.posCycle)) {
@@ -2283,6 +2286,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         S.style.highlightColor = color;
         if (!S.style.key) S.style.key = {};
         S.style.key.color = color;
+        if (!S.style.roles) S.style.roles = {};
+        if (!S.style.roles.accent) S.style.roles.accent = {};
+        S.style.roles.accent.color = color;
+        delete S.style.roles.accent.keyGradient;
+        delete S.style.roles.accent.textGradient;
+        delete S.style.roles.accent.fill;
+        if (S.style.roles.accent2) {
+          S.style.roles.accent2.color = color;
+          delete S.style.roles.accent2.keyGradient;
+          delete S.style.roles.accent2.textGradient;
+          delete S.style.roles.accent2.fill;
+        }
         renderCanvas();
       });
     });
