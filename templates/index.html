@@ -175,6 +175,13 @@
             <video id="vid" playsinline preload="auto"></video>
             <canvas id="captionCanvas"></canvas>
             
+            <!-- Moonshot-style Floating Active Preset Badge -->
+            <button type="button" class="stage-preset-badge" id="stagePresetBadge" title="Tap to change caption style">
+              <span class="badge-crown">👑</span>
+              <span id="stagePresetName">Yellow Box Pop</span>
+              <span class="badge-chevron">›</span>
+            </button>
+
             <!-- Stage Fullscreen Overlay Button -->
             <button id="btnStageFullscreen" class="btn-stage-fs" title="Toggle Fullscreen">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
@@ -200,6 +207,11 @@
           <button id="btnMute" class="btn-icon" title="Mute/Unmute">
             <svg id="iconVolume" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
             <svg id="iconMuted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          </button>
+
+          <!-- Moonshot-style Drawer / Timeline Toggle Chevron -->
+          <button id="btnToggleTimeline" class="btn-icon btn-drawer-toggle" title="Toggle tools drawer & timeline">
+            <svg id="iconDrawerChevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
         </div>
 
@@ -330,11 +342,129 @@
           <!-- TAB 3: STYLE OPTIONS -->
           <div id="tabStyle" class="tab-pane hidden">
             <div class="style-options-grid">
-              
-              <!-- 1. Motion & Entrance Animation -->
+
+              <!-- 1. Words per line Stepper (Chunk Pacing) -->
+              <div class="stepper-card">
+                <div class="stepper-header-row">
+                  <div class="stepper-label-col">
+                    <label class="stepper-label">⚡ Words Per Line</label>
+                    <span class="stepper-sub">Chunk pacing for maximum retention</span>
+                  </div>
+                  <button type="button" class="btn-step-reset" id="btnResetWords">Reset</button>
+                </div>
+                <div class="stepper-control-row">
+                  <button type="button" class="btn-step" id="btnStepWordsDown" title="Decrease chunk">−</button>
+                  <span class="stepper-value" id="valWordsPerLine">2-3 Words</span>
+                  <button type="button" class="btn-step" id="btnStepWordsUp" title="Increase chunk">+</button>
+                </div>
+              </div>
+
+              <!-- 2. Caption Font Size Stepper -->
+              <div class="stepper-card">
+                <div class="stepper-header-row">
+                  <div class="stepper-label-col">
+                    <label class="stepper-label">📏 Caption Size</label>
+                    <span class="stepper-sub">Scale text size on screen</span>
+                  </div>
+                  <button type="button" class="btn-step-reset" id="btnResetSize">Reset</button>
+                </div>
+                <div class="stepper-control-row">
+                  <button type="button" class="btn-step" id="btnStepSizeDown" title="Smaller">−</button>
+                  <span class="stepper-value" id="valFontSize">100% (48px)</span>
+                  <button type="button" class="btn-step" id="btnStepSizeUp" title="Larger">+</button>
+                </div>
+                <input type="range" id="inputFontSize" min="60" max="180" value="100" class="styled-slider" style="display:none;">
+              </div>
+
+              <!-- 3. Line Spacing Stepper -->
+              <div class="stepper-card">
+                <div class="stepper-header-row">
+                  <div class="stepper-label-col">
+                    <label class="stepper-label">↕️ Line Spacing</label>
+                    <span class="stepper-sub">Vertical gap between multiple lines</span>
+                  </div>
+                  <button type="button" class="btn-step-reset" id="btnResetLineSpacing">Reset</button>
+                </div>
+                <div class="stepper-control-row">
+                  <button type="button" class="btn-step" id="btnStepLineSpacingDown">−</button>
+                  <span class="stepper-value" id="valLineSpacing">120%</span>
+                  <button type="button" class="btn-step" id="btnStepLineSpacingUp">+</button>
+                </div>
+              </div>
+
+              <!-- 4. Text Glow Bloom Stepper & Color Swatches -->
+              <div class="stepper-card glow-stepper-card">
+                <div class="stepper-header-row">
+                  <div class="stepper-label-col">
+                    <label class="stepper-label">✨ Text Glow-Up & Neon Bloom</label>
+                    <span class="stepper-sub">Atmospheric viral glow lighting</span>
+                  </div>
+                  <div class="btn-group" id="glowToggleGroup">
+                    <button type="button" class="btn-toggle active" data-glow="on">ON</button>
+                    <button type="button" class="btn-toggle" data-glow="off">OFF</button>
+                  </div>
+                </div>
+                
+                <div id="glowOptionsBox" class="glow-options-box">
+                  <div class="color-picker-row" style="margin-bottom:10px;">
+                    <div class="color-swatches" id="glowColorSwatches">
+                      <button type="button" class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Viral Yellow"></button>
+                      <button type="button" class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan Neon"></button>
+                      <button type="button" class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
+                      <button type="button" class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>
+                      <button type="button" class="swatch" style="--c:#10B981" data-color="#10B981" title="Neon Green"></button>
+                      <button type="button" class="swatch" style="--c:#FF8A00" data-color="#FF8A00" title="Sunset Orange"></button>
+                      <button type="button" class="swatch" style="--c:#FFFFFF" data-color="#FFFFFF" title="Clean White"></button>
+                    </div>
+                    <label class="custom-color-wrap" title="Pick any custom glow color">
+                      <input type="color" id="inputCustomGlow" class="custom-color-input" value="#FFE600">
+                      <span class="custom-color-label">Custom</span>
+                    </label>
+                  </div>
+
+                  <div class="stepper-control-row">
+                    <button type="button" class="btn-step" id="btnStepGlowDown">−</button>
+                    <span class="stepper-value" id="valGlowBlur">18px Bloom</span>
+                    <button type="button" class="btn-step" id="btnStepGlowUp">+</button>
+                    <button type="button" class="btn-step-reset" id="btnResetGlow">Reset</button>
+                  </div>
+                  <input type="range" id="inputGlowBlur" min="4" max="45" value="18" class="styled-slider" style="display:none;">
+                </div>
+              </div>
+
+              <!-- 5. Vertical Position & Auto Emojis -->
+              <div class="stepper-card">
+                <div class="stepper-header-row">
+                  <div class="stepper-label-col">
+                    <label class="stepper-label">📍 Screen Position</label>
+                    <span class="stepper-sub">Vertical caption placement</span>
+                  </div>
+                  <div class="btn-group" id="posButtonGroup">
+                    <button type="button" class="btn-toggle" data-pos="0.25">Top</button>
+                    <button type="button" class="btn-toggle" data-pos="0.50">Middle</button>
+                    <button type="button" class="btn-toggle active" data-pos="0.75">Bottom</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stepper-card">
+                <div class="stepper-header-row">
+                  <div class="stepper-label-col">
+                    <label class="stepper-label">🔥 Auto Emojis</label>
+                    <span class="stepper-sub">Smart animated icons on speech</span>
+                  </div>
+                  <div class="btn-group" id="emojiButtonGroup">
+                    <button type="button" class="btn-toggle active" data-emoji="above">Above</button>
+                    <button type="button" class="btn-toggle" data-emoji="beside">Beside</button>
+                    <button type="button" class="btn-toggle" data-emoji="off">Off</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 6. Motion & Animation -->
               <div class="control-card">
                 <div class="control-header">
-                  <label>🎬 Text Motion & Animation</label>
+                  <label>🎬 Animation Style</label>
                   <span id="valAnimName" class="val-badge">Pop & Bounce</span>
                 </div>
                 <div class="anim-grid" id="animGrid">
@@ -342,33 +472,21 @@
                     <span class="anim-icon">💥</span>
                     <span class="anim-label">Pop</span>
                   </button>
-                  <button type="button" class="btn-anim-choice" data-anim="slide-up">
-                    <span class="anim-icon">⬆️</span>
-                    <span class="anim-label">Slide Up</span>
-                  </button>
-                  <button type="button" class="btn-anim-choice" data-anim="slide-down">
-                    <span class="anim-icon">⬇️</span>
-                    <span class="anim-label">Slide Down</span>
-                  </button>
-                  <button type="button" class="btn-anim-choice" data-anim="slide-left">
-                    <span class="anim-icon">⬅️</span>
-                    <span class="anim-label">Slide Left</span>
-                  </button>
-                  <button type="button" class="btn-anim-choice" data-anim="slide-right">
-                    <span class="anim-icon">➡️</span>
-                    <span class="anim-label">Slide Right</span>
+                  <button type="button" class="btn-anim-choice" data-anim="karaoke">
+                    <span class="anim-icon">🎙️</span>
+                    <span class="anim-label">Karaoke</span>
                   </button>
                   <button type="button" class="btn-anim-choice" data-anim="fade">
                     <span class="anim-icon">✨</span>
                     <span class="anim-label">Soft Fade</span>
                   </button>
+                  <button type="button" class="btn-anim-choice" data-anim="slide-up">
+                    <span class="anim-icon">⬆️</span>
+                    <span class="anim-label">Slide Up</span>
+                  </button>
                   <button type="button" class="btn-anim-choice" data-anim="zoom">
                     <span class="anim-icon">🔍</span>
                     <span class="anim-label">Zoom In</span>
-                  </button>
-                  <button type="button" class="btn-anim-choice" data-anim="karaoke">
-                    <span class="anim-icon">🎙️</span>
-                    <span class="anim-label">Karaoke</span>
                   </button>
                   <button type="button" class="btn-anim-choice" data-anim="none">
                     <span class="anim-icon">⏹️</span>
@@ -377,7 +495,7 @@
                 </div>
               </div>
 
-              <!-- 2. Highlight Word Color -->
+              <!-- 7. Colors: Highlight & Base -->
               <div class="control-card">
                 <div class="control-header">
                   <label>🎨 Highlight Word Color</label>
@@ -400,104 +518,10 @@
                 </div>
               </div>
 
-              <!-- 3. Base Subtitle Color -->
+              <!-- 8. Font Family & Custom Upload -->
               <div class="control-card">
                 <div class="control-header">
-                  <label>🔤 Base Subtitle Color</label>
-                  <span id="valBaseColor" class="val-badge" style="background:#FFFFFF; color:#000;">#FFFFFF</span>
-                </div>
-                <div class="color-picker-row">
-                  <div class="color-swatches" id="baseColorSwatches">
-                    <button type="button" class="swatch active" style="--c:#FFFFFF" data-color="#FFFFFF" title="White"></button>
-                    <button type="button" class="swatch" style="--c:#E2E8F0" data-color="#E2E8F0" title="Light Silver"></button>
-                    <button type="button" class="swatch" style="--c:#FFFDD0" data-color="#FFFDD0" title="Warm Cream"></button>
-                    <button type="button" class="swatch" style="--c:#FFE600" data-color="#FFE600" title="Yellow"></button>
-                    <button type="button" class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan"></button>
-                    <button type="button" class="swatch" style="--c:#1E293B" data-color="#1E293B" title="Dark Slate"></button>
-                  </div>
-                  <label class="custom-color-wrap" title="Pick any custom base color">
-                    <input type="color" id="inputCustomBaseColor" class="custom-color-input" value="#FFFFFF">
-                    <span class="custom-color-label">Custom</span>
-                  </label>
-                </div>
-              </div>
-
-              <!-- 4. Text Outline / Stroke -->
-              <div class="control-card">
-                <div class="control-header">
-                  <label>🖋️ Outline / Stroke</label>
-                  <span id="valOutlineBadge" class="val-badge">Solid Black</span>
-                </div>
-                <div class="btn-group" id="outlineButtonGroup">
-                  <button type="button" class="btn-toggle active" data-outline="black">Black Outline</button>
-                  <button type="button" class="btn-toggle" data-outline="glow">Colored Glow</button>
-                  <button type="button" class="btn-toggle" data-outline="none">No Outline</button>
-                </div>
-              </div>
-
-              <!-- 4b. Text Glow-Up & Neon Bloom -->
-              <div class="control-card glow-card">
-                <div class="control-header">
-                  <label>✨ Text Glow-Up & Neon Bloom</label>
-                  <span id="valGlowBadge" class="val-badge">Glow: ON</span>
-                </div>
-                <div class="btn-group" id="glowToggleGroup" style="margin-bottom:10px;">
-                  <button type="button" class="btn-toggle active" data-glow="on">✨ Glow: ON</button>
-                  <button type="button" class="btn-toggle" data-glow="off">Off</button>
-                </div>
-                <div id="glowOptionsBox" class="glow-options-box">
-                  <div class="control-header" style="margin-top:4px;">
-                    <label style="font-size:11.5px; color:#94a3b8;">Glow Color</label>
-                    <span id="valGlowColor" class="val-badge" style="background:#FFE600; color:#000;">#FFE600</span>
-                  </div>
-                  <div class="color-picker-row">
-                    <div class="color-swatches" id="glowColorSwatches">
-                      <button type="button" class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Viral Yellow"></button>
-                      <button type="button" class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan Neon"></button>
-                      <button type="button" class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
-                      <button type="button" class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>
-                      <button type="button" class="swatch" style="--c:#10B981" data-color="#10B981" title="Neon Green"></button>
-                      <button type="button" class="swatch" style="--c:#FF8A00" data-color="#FF8A00" title="Sunset Orange"></button>
-                      <button type="button" class="swatch" style="--c:#FFFFFF" data-color="#FFFFFF" title="Clean White"></button>
-                    </div>
-                    <label class="custom-color-wrap" title="Pick any custom glow color">
-                      <input type="color" id="inputCustomGlow" class="custom-color-input" value="#FFE600">
-                      <span class="custom-color-label">Custom</span>
-                    </label>
-                  </div>
-                  <div class="control-header" style="margin-top:10px;">
-                    <label style="font-size:11.5px; color:#94a3b8;">Glow Radius / Intensity</label>
-                    <span id="valGlowBlur" class="val-badge">Medium (18px)</span>
-                  </div>
-                  <input type="range" id="inputGlowBlur" min="4" max="45" value="18" class="styled-slider">
-                </div>
-              </div>
-
-              <!-- 5. Caption Size -->
-              <div class="control-card">
-                <div class="control-header">
-                  <label>Caption Size</label>
-                  <span id="valFontSize" class="val-badge">100%</span>
-                </div>
-                <input type="range" id="inputFontSize" min="60" max="180" value="100" class="styled-slider">
-              </div>
-
-              <!-- 6. Screen Position -->
-              <div class="control-card">
-                <div class="control-header">
-                  <label>Screen Position</label>
-                </div>
-                <div class="btn-group" id="posButtonGroup">
-                  <button type="button" class="btn-toggle" data-pos="0.25">Top</button>
-                  <button type="button" class="btn-toggle" data-pos="0.50">Middle</button>
-                  <button type="button" class="btn-toggle active" data-pos="0.75">Bottom</button>
-                </div>
-              </div>
-
-              <!-- 7. Font Family -->
-              <div class="control-card">
-                <div class="control-header">
-                  <label>Font Family</label>
+                  <label>🔤 Font Family</label>
                 </div>
                 <select id="selectFont" class="styled-select">
                   <option value="Poppins" selected>Poppins (Bold Sans)</option>
@@ -516,63 +540,14 @@
                 </div>
               </div>
 
-              <!-- 8. Letter Casing -->
+              <!-- 9. Text Casing -->
               <div class="control-card">
                 <div class="control-header">
-                  <label>Text Case</label>
+                  <label>Text Casing</label>
                 </div>
                 <div class="btn-group" id="caseButtonGroup">
                   <button type="button" class="btn-toggle active" data-case="upper">ALL CAPS</button>
                   <button type="button" class="btn-toggle" data-case="normal">Normal</button>
-                </div>
-              </div>
-
-              <!-- 9. Viral Auto-Emojis -->
-              <div class="control-card">
-                <div class="control-header">
-                  <label>🔥 Viral Auto-Emojis</label>
-                  <span id="valEmojiBadge" class="val-badge">ON (Above Word)</span>
-                </div>
-                <div class="btn-group" id="emojiButtonGroup">
-                  <button type="button" class="btn-toggle active" data-emoji="above">Above Word</button>
-                  <button type="button" class="btn-toggle" data-emoji="beside">Beside Word</button>
-                  <button type="button" class="btn-toggle" data-emoji="off">Off</button>
-                </div>
-              </div>
-
-              <!-- 10. Creator Social Watermark / Handle -->
-              <div class="control-card watermark-card">
-                <div class="control-header">
-                  <label>🏷️ Creator Social Watermark</label>
-                  <span id="valWatermarkBadge" class="val-badge">Corner Badge</span>
-                </div>
-                <div class="watermark-inputs">
-                  <div class="watermark-text-row">
-                    <input type="text" id="inputWatermarkText" class="styled-input" placeholder="@yourhandle or Channel Name" maxlength="40">
-                  </div>
-                  <div class="watermark-sub-row">
-                    <label class="sub-label">Icon:</label>
-                    <div class="btn-group" id="wmPlatformGroup">
-                      <button type="button" class="btn-toggle active" data-platform="instagram">📷 IG</button>
-                      <button type="button" class="btn-toggle" data-platform="youtube">▶️ YT</button>
-                      <button type="button" class="btn-toggle" data-platform="tiktok">🎵 TikTok</button>
-                      <button type="button" class="btn-toggle" data-platform="none">None</button>
-                    </div>
-                  </div>
-                  <div class="watermark-sub-row">
-                    <label class="sub-label">Position:</label>
-                    <div class="btn-group" id="wmPosGroup">
-                      <button type="button" class="btn-toggle" data-pos="top-left">Top L</button>
-                      <button type="button" class="btn-toggle" data-pos="top-right">Top R</button>
-                      <button type="button" class="btn-toggle" data-pos="bottom-left">Bot L</button>
-                      <button type="button" class="btn-toggle active" data-pos="bottom-right">Bot R</button>
-                    </div>
-                  </div>
-                  <div class="control-header" style="margin-top:8px;">
-                    <label>Watermark Opacity</label>
-                    <span id="valWmOpacity" class="val-badge">80%</span>
-                  </div>
-                  <input type="range" id="inputWmOpacity" min="20" max="100" value="80" class="styled-slider">
                 </div>
               </div>
 
@@ -757,7 +732,7 @@
         </div>
       </div>
 
-      <!-- LOWEST PART: BOTTOM NAV BAR -->
+      <!-- LOWEST PART: 4 CORE BOTTOM TABS (MOONSHOT STYLE) -->
       <nav class="bottom-nav-bar" id="bottomNavBar">
         <button class="bottom-nav-btn active" data-tab="tabTemplates">
           <span class="nav-btn-icon">🎨</span>
@@ -765,19 +740,15 @@
         </button>
         <button class="bottom-nav-btn" data-tab="tabCaptions">
           <span class="nav-btn-icon">📝</span>
-          <span class="nav-btn-label">Captions</span>
+          <span class="nav-btn-label">Transcript</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabStyle">
-          <span class="nav-btn-icon">🎚️</span>
-          <span class="nav-btn-label">Text</span>
+          <span class="nav-btn-icon">⚙️</span>
+          <span class="nav-btn-label">Customize</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabAudio">
           <span class="nav-btn-icon">🎵</span>
-          <span class="nav-btn-label">Sound</span>
-        </button>
-        <button class="bottom-nav-btn" id="btnToggleTimeline" title="View timeline">
-          <span class="nav-btn-icon">⏱️</span>
-          <span class="nav-btn-label">Timeline</span>
+          <span class="nav-btn-label">Sound & AI</span>
         </button>
       </nav>
 

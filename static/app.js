@@ -2614,6 +2614,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // DRAWER & LOWEST NAV BAR
   // ==========================================================================
   function setupDrawerAndNavHandlers() {
+    const stagePresetBadge = $('stagePresetBadge');
+    if (stagePresetBadge) {
+      stagePresetBadge.addEventListener('click', () => {
+        openDrawerTab('tabTemplates');
+      });
+    }
+
     $$('.bottom-nav-btn[data-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-tab');
@@ -2703,6 +2710,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function openDrawerTab(targetId) {
+    const iconChevron = $('iconDrawerChevron');
+    if (iconChevron) iconChevron.style.transform = 'rotate(0deg)';
     S.activeTab = targetId;
     S.drawerOpen = true;
     drawerPanel.classList.remove('collapsed');
@@ -2731,6 +2740,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function closeDrawer() {
+    const iconChevron = $('iconDrawerChevron');
+    if (iconChevron) iconChevron.style.transform = 'rotate(180deg)';
     S.drawerOpen = false;
     drawerPanel.classList.add('collapsed');
     const eb = $('editorBody') || $('.editor-body');
@@ -2916,6 +2927,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (selectedPresetName) {
       selectedPresetName.textContent = preset.name || 'Template';
     }
+    const stagePresetName = $('stagePresetName');
+    if (stagePresetName) {
+      stagePresetName.textContent = preset.name || 'Template';
+    }
     const frontSelectedName = $('duoSelectedName');
     if (frontSelectedName && preset.isDuo) frontSelectedName.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
     $$('.duo-front-card').forEach(card => {
@@ -3050,6 +3065,163 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // TAB 3: STYLE CONTROLS
   // ==========================================================================
   function setupStyleHandlers() {
+    // -------------------------------------------------------------------------
+    // MOONSHOT TACTILE STEPPERS (Words Per Line, Size, Line Spacing, Glow)
+    // -------------------------------------------------------------------------
+    const chunkModes = ['1', '3', 'sentence'];
+    const chunkLabels = {
+      '1': '1 Word (MrBeast)',
+      '3': '2-3 Words (Hormozi)',
+      'sentence': 'Full Sentence'
+    };
+    const valWordsPerLine = $('valWordsPerLine');
+    const btnStepWordsDown = $('btnStepWordsDown');
+    const btnStepWordsUp = $('btnStepWordsUp');
+    const btnResetWords = $('btnResetWords');
+
+    const updateWordsUI = () => {
+      if (valWordsPerLine) {
+        valWordsPerLine.textContent = chunkLabels[S.chunkMode] || '2-3 Words';
+      }
+    };
+
+    if (btnStepWordsDown) {
+      btnStepWordsDown.addEventListener('click', () => {
+        const idx = chunkModes.indexOf(String(S.chunkMode));
+        const nextIdx = Math.max(0, idx - 1);
+        setChunkMode(chunkModes[nextIdx]);
+        updateWordsUI();
+      });
+    }
+    if (btnStepWordsUp) {
+      btnStepWordsUp.addEventListener('click', () => {
+        const idx = chunkModes.indexOf(String(S.chunkMode));
+        const nextIdx = Math.min(chunkModes.length - 1, idx + 1);
+        setChunkMode(chunkModes[nextIdx]);
+        updateWordsUI();
+      });
+    }
+    if (btnResetWords) {
+      btnResetWords.addEventListener('click', () => {
+        setChunkMode('3');
+        updateWordsUI();
+      });
+    }
+
+    // Font Size Stepper
+    const btnStepSizeDown = $('btnStepSizeDown');
+    const btnStepSizeUp = $('btnStepSizeUp');
+    const btnResetSize = $('btnResetSize');
+
+    const updateFontScaleUI = () => {
+      if (!S.style) S.style = {};
+      if (typeof S.style.fontScale !== 'number') S.style.fontScale = 1.0;
+      const px = Math.round(S.style.fontScale * 48);
+      const pct = Math.round(S.style.fontScale * 100);
+      if (valFontSize) valFontSize.textContent = `${pct}% (${px}px)`;
+      if (inputFontSize) inputFontSize.value = String(pct);
+    };
+
+    if (btnStepSizeDown) {
+      btnStepSizeDown.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.fontScale = Math.max(0.6, Math.round(((S.style.fontScale || 1.0) - 0.1) * 10) / 10);
+        updateFontScaleUI();
+        renderCanvas();
+      });
+    }
+    if (btnStepSizeUp) {
+      btnStepSizeUp.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.fontScale = Math.min(1.8, Math.round(((S.style.fontScale || 1.0) + 0.1) * 10) / 10);
+        updateFontScaleUI();
+        renderCanvas();
+      });
+    }
+    if (btnResetSize) {
+      btnResetSize.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.fontScale = 1.0;
+        updateFontScaleUI();
+        renderCanvas();
+      });
+    }
+
+    // Line Spacing Stepper
+    const valLineSpacing = $('valLineSpacing');
+    const btnStepLineSpacingDown = $('btnStepLineSpacingDown');
+    const btnStepLineSpacingUp = $('btnStepLineSpacingUp');
+    const btnResetLineSpacing = $('btnResetLineSpacing');
+
+    const updateLineSpacingUI = () => {
+      if (!S.style) S.style = {};
+      const sp = S.style.lineSpacing || 1.2;
+      if (valLineSpacing) valLineSpacing.textContent = `${Math.round(sp * 100)}%`;
+    };
+
+    if (btnStepLineSpacingDown) {
+      btnStepLineSpacingDown.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.lineSpacing = Math.max(0.9, Math.round(((S.style.lineSpacing || 1.2) - 0.05) * 100) / 100);
+        updateLineSpacingUI();
+        renderCanvas();
+      });
+    }
+    if (btnStepLineSpacingUp) {
+      btnStepLineSpacingUp.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.lineSpacing = Math.min(1.8, Math.round(((S.style.lineSpacing || 1.2) + 0.05) * 100) / 100);
+        updateLineSpacingUI();
+        renderCanvas();
+      });
+    }
+    if (btnResetLineSpacing) {
+      btnResetLineSpacing.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.lineSpacing = 1.2;
+        updateLineSpacingUI();
+        renderCanvas();
+      });
+    }
+
+    // Glow Bloom Stepper
+    const valGlowBlur = $('valGlowBlur');
+    const btnStepGlowDown = $('btnStepGlowDown');
+    const btnStepGlowUp = $('btnStepGlowUp');
+    const btnResetGlow = $('btnResetGlow');
+
+    const updateGlowBlurUI = () => {
+      if (!S.style) S.style = {};
+      const blur = typeof S.style.glowBlur === 'number' ? S.style.glowBlur : 18;
+      if (valGlowBlur) valGlowBlur.textContent = `${blur}px Bloom`;
+      if (inputGlowBlur) inputGlowBlur.value = String(blur);
+    };
+
+    if (btnStepGlowDown) {
+      btnStepGlowDown.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.glowBlur = Math.max(4, (typeof S.style.glowBlur === 'number' ? S.style.glowBlur : 18) - 3);
+        updateGlowBlurUI();
+        renderCanvas();
+      });
+    }
+    if (btnStepGlowUp) {
+      btnStepGlowUp.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.glowBlur = Math.min(45, (typeof S.style.glowBlur === 'number' ? S.style.glowBlur : 18) + 3);
+        updateGlowBlurUI();
+        renderCanvas();
+      });
+    }
+    if (btnResetGlow) {
+      btnResetGlow.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.glowBlur = 18;
+        updateGlowBlurUI();
+        renderCanvas();
+      });
+    }
+
     inputFontSize.addEventListener('input', (e) => {
       const val = parseInt(e.target.value, 10);
       valFontSize.textContent = val + '%';
@@ -3214,8 +3386,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const valGlowColor = $('valGlowColor');
     const glowOptionsBox = $('glowOptionsBox');
     const inputCustomGlow = $('inputCustomGlow');
-    const inputGlowBlur = $('inputGlowBlur');
-    const valGlowBlur = $('valGlowBlur');
+    const inputGlowSlider = $('inputGlowBlur');
 
     function setGlowColor(color) {
       if (!S.style) S.style = {};
