@@ -1072,10 +1072,13 @@ def check_device_credits():
 
 @app.post("/api/credits/consume")
 def consume_device_credit():
-    """Deducts credit server-side upon video export."""
+    """Deducts credit server-side upon video export and tracks exact user email & usage."""
     d = request.get_json(force=True)
     device_id = (d.get("device_id") or "").strip()
-    if not device_id:
+    user_email = (d.get("email") or "").strip().lower()
+    user_name = (d.get("name") or "").strip()
+    key = user_email or device_id
+    if not key:
         return jsonify(ok=True)
 
     dev_file = WORK / "device_credits.json"
@@ -1086,12 +1089,16 @@ def consume_device_credit():
         except Exception:
             pass
 
-    record = data.get(device_id, {"credits": 1, "used": 0})
+    record = data.get(key, {"credits": 1, "used": 0})
     cur_credits = record.get("credits", 0)
     record["credits"] = max(0, cur_credits - 1)
     record["used"] = record.get("used", 0) + 1
     record["last_export"] = time.time()
-    data[device_id] = record
+    if user_email:
+        record["email"] = user_email
+    if user_name:
+        record["name"] = user_name
+    data[key] = record
 
     try:
         dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -1099,6 +1106,41 @@ def consume_device_credit():
         pass
 
     return jsonify(ok=True, remaining_credits=record["credits"])
+
+
+@app.get("/api/admin/users")
+def admin_users_summary():
+    """Private admin overview showing who signed up and who used their 1-free export."""
+    token = request.args.get("key", "").strip()
+    # Simple secure secret key or dev check
+    if token != "nikhil604":
+        return jsonify(error="Unauthorized. Add ?key=nikhil604 to URL."), 401
+
+    dev_file = WORK / "device_credits.json"
+    data = {}
+    if dev_file.exists():
+        try:
+            data = json.loads(dev_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    users_summary = []
+    for k, v in data.items():
+        users_summary.append({
+            "identifier": k,
+            "email": v.get("email", k if "@" in k else "Device Guest"),
+            "name": v.get("name", "Creator"),
+            "used_free_limit": v.get("used", 0) >= 1,
+            "total_exports": v.get("used", 0),
+            "remaining_credits": v.get("credits", 0),
+            "last_active": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(v.get("last_export", time.time()))) if v.get("last_export") else "Never"
+        })
+
+    return jsonify(
+        total_tracked_users=len(users_summary),
+        users_who_used_free_export=len([u for u in users_summary if u["used_free_limit"]]),
+        users=users_summary
+    )
 
 @app.post("/api/coupons/redeem")
 def redeem_coupon():

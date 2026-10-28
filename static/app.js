@@ -5278,13 +5278,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           S.credits = Math.max(0, S.credits - 1);
           localStorage.setItem('cs_credits', String(S.credits));
           updateCreditsUI();
-          // Sync deduction with server
+          // Sync deduction with server (tracks exact Gmail & Device)
           const devId = localStorage.getItem('cs_device_id');
-          if (devId) {
+          const userEmail = S.user ? (S.user.email || '') : '';
+          const userName = S.user ? (S.user.name || '') : '';
+          if (devId || userEmail) {
             fetch('/api/credits/consume', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ device_id: devId })
+              body: JSON.stringify({
+                device_id: devId,
+                email: userEmail,
+                name: userName
+              })
             }).catch(() => {});
           }
 
