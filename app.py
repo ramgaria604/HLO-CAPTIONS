@@ -2259,6 +2259,92 @@ def export_worker(job_id, d):
                 pass
 
 
+
+@app.post("/api/save_canvas_export")
+def save_canvas_export():
+    """Receives client-rendered canvas video blob, packages to universal MP4 with faststart, and saves to WORK."""
+    if "video" not in request.files:
+        return err("No video file uploaded", 400)
+
+    file = request.files["video"]
+    orig_name = secure_filename(file.filename or "export.mp4")
+    out_id = uuid.uuid4().hex[:12]
+
+    suffix = Path(orig_name).suffix.lower() or ".mp4"
+    temp_input = WORK / f"{out_id}_raw{suffix}"
+    file.save(temp_input)
+
+    final_output = WORK / f"{out_id}_final.mp4"
+    ff = ffmpeg_path()
+
+    bgm_name = request.form.get("bgMusic")
+    music_vol = request.form.get("musicVol")
+    voiceover_name = request.form.get("voiceover")
+
+    bgm_file = (WORK / secure_filename(bgm_name)) if bgm_name else None
+    if bgm_file and not bgm_file.exists():
+        bgm_file = None
+
+    voiceover_file = (WORK / secure_filename(voiceover_name)) if voiceover_name else None
+    if voiceover_file and not voiceover_file.exists():
+        voiceover_file = None
+
+    if ff:
+        try:
+            cmd = [ff, "-y", "-i", str(temp_input)]
+            filter_complex = []
+            audio_map = "0:a?"
+
+            if voiceover_file:
+                cmd.extend(["-i", str(voiceover_file)])
+                audio_map = "1:a"
+
+            if bgm_file:
+                bgm_idx = 2 if voiceover_file else 1
+                cmd.extend(["-stream_loop", "-1", "-i", str(bgm_file)])
+                try:
+                    vol_val = float(music_vol or 30) / 100.0
+                except (ValueError, TypeError):
+                    vol_val = 0.3
+                filter_complex.append(f"[{bgm_idx}:a]volume={vol_val:.2f}[bgm]")
+                filter_complex.append(f"[{audio_map}][bgm]amix=inputs=2:duration=first[aout]")
+                audio_map = "[aout]"
+
+            cmd.extend([
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+                "-pix_fmt", "yuv420p"
+            ])
+
+            if filter_complex:
+                cmd.extend(["-filter_complex", ";".join(filter_complex), "-map", "0:v", "-map", audio_map])
+            else:
+                cmd.extend(["-map", "0:v", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"])
+
+            cmd.extend(["-movflags", "+faststart", str(final_output)])
+
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+            if res.returncode != 0 or not final_output.exists() or final_output.stat().st_size == 0:
+                print("FFmpeg save_canvas_export fallback, stderr:", res.stderr.decode(errors="ignore"))
+                subprocess.run([ff, "-y", "-i", str(temp_input), "-c:v", "libx264", "-c:a", "aac", str(final_output)], timeout=60)
+
+            temp_input.unlink(missing_ok=True)
+        except Exception as e:
+            print("save_canvas_export exception:", e)
+            if temp_input.exists() and not final_output.exists():
+                temp_input.rename(final_output)
+    else:
+        if temp_input.exists():
+            temp_input.rename(final_output)
+
+    out_name = final_output.name
+    return jsonify({
+        "ok": True,
+        "download": f"/download/{out_name}",
+        "filename": out_name,
+        "video_url": f"/video/{out_name}"
+    })
+
+
 @app.post("/api/export")
 def export():
     d = request.get_json(force=True)

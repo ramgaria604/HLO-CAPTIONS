@@ -4903,6 +4903,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     btnCloseExportModal.addEventListener('click', () => {
       modalExport.classList.add('hidden');
+      if (activeDirectExport) {
+        try { activeDirectExport.stop(); } catch (_) {}
+        activeDirectExport = null;
+      }
       if (S.exportTimer) clearInterval(S.exportTimer);
       if (exportElapsedInterval) clearInterval(exportElapsedInterval);
       stopTitleFlash();
@@ -5013,6 +5017,282 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
   }
 
+  let activeDirectExport = null;
+
+  async function startDirectCanvasExport() {
+    const rawW = vid.videoWidth || S.probe?.width || 1080;
+    const rawH = vid.videoHeight || S.probe?.height || 1920;
+
+    // Standard 1080p maximum constraint to keep canvas rendering ultra-fast & crisp
+    let W = rawW;
+    let H = rawH;
+    if (W > 1920 || H > 1920) {
+      const scale = Math.min(1920 / W, 1920 / H);
+      W = Math.round(W * scale);
+      H = Math.round(H * scale);
+    }
+    W = W % 2 === 0 ? W : W - 1;
+    H = H % 2 === 0 ? H : H - 1;
+
+    const recCanvas = document.createElement('canvas');
+    recCanvas.width = W;
+    recCanvas.height = H;
+    const recCtx = recCanvas.getContext('2d', { alpha: false, desynchronized: true });
+
+    // Identify supported MediaRecorder MIME type
+    const mimeCandidates = [
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4;codecs=avc1',
+      'video/mp4',
+      'video/webm;codecs=h264,opus',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm'
+    ];
+    let chosenMime = '';
+    for (const m of mimeCandidates) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) {
+        chosenMime = m;
+        break;
+      }
+    }
+
+    // Audio stream capture
+    let audioTrack = null;
+    let streamFromVid = null;
+    if (typeof vid.captureStream === 'function') {
+      try { streamFromVid = vid.captureStream(); } catch (_) {}
+    } else if (typeof vid.mozCaptureStream === 'function') {
+      try { streamFromVid = vid.mozCaptureStream(); } catch (_) {}
+    }
+
+    if (streamFromVid && streamFromVid.getAudioTracks().length > 0) {
+      audioTrack = streamFromVid.getAudioTracks()[0];
+    }
+
+    if (!audioTrack && (window.AudioContext || window.webkitAudioContext)) {
+      try {
+        if (!window._csAudioCtx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          window._csAudioCtx = new AudioCtx();
+          window._csAudioSource = window._csAudioCtx.createMediaElementSource(vid);
+          window._csAudioDest = window._csAudioCtx.createMediaStreamDestination();
+          window._csAudioSource.connect(window._csAudioDest);
+          window._csAudioSource.connect(window._csAudioCtx.destination);
+        }
+        if (window._csAudioCtx.state === 'suspended') {
+          window._csAudioCtx.resume();
+        }
+        const aTracks = window._csAudioDest.stream.getAudioTracks();
+        if (aTracks.length > 0) audioTrack = aTracks[0];
+      } catch (e) {
+        console.warn('Web Audio capture fallback notice:', e);
+      }
+    }
+
+    const fps = Math.min(60, Math.max(30, Math.round(S.probe?.fps || 30)));
+    const canvasStream = recCanvas.captureStream ? recCanvas.captureStream(fps) : recCanvas.mozCaptureStream(fps);
+    const combinedTracks = [canvasStream.getVideoTracks()[0]];
+    if (audioTrack) {
+      combinedTracks.push(audioTrack);
+    }
+    const exportStream = new MediaStream(combinedTracks);
+
+    const recOptions = {
+      videoBitsPerSecond: 10000000
+    };
+    if (chosenMime) recOptions.mimeType = chosenMime;
+
+    const recorder = new MediaRecorder(exportStream, recOptions);
+    const chunks = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
+
+    const prevMuted = vid.muted;
+    const prevVol = vid.volume;
+    vid.muted = false;
+    vid.volume = Math.max(0.01, prevVol > 0 ? prevVol : 0.5);
+
+    vid.pause();
+    vid.currentTime = 0;
+
+    await new Promise((resolve) => {
+      let resolved = false;
+      const onSeek = () => {
+        if (resolved) return;
+        resolved = true;
+        vid.removeEventListener('seeked', onSeek);
+        resolve();
+      };
+      vid.addEventListener('seeked', onSeek, { once: true });
+      setTimeout(onSeek, 600);
+    });
+
+    const duration = vid.duration || S.probe?.duration || 1;
+    let isRunning = true;
+    let animId = null;
+
+    activeDirectExport = {
+      stop: () => {
+        isRunning = false;
+        if (animId) cancelAnimationFrame(animId);
+        try { vid.pause(); } catch (_) {}
+        try { recorder.stop(); } catch (_) {}
+        vid.muted = prevMuted;
+        vid.volume = prevVol;
+      }
+    };
+
+    const isBehind = Boolean(
+      S.style && (
+        S.style.behindPerson ||
+        S.style.depthAccent ||
+        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
+        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
+      )
+    );
+
+    function renderDirectFrame() {
+      if (!isRunning) return;
+
+      const t = vid.currentTime || 0;
+
+      // 1. Draw raw video frame onto recCanvas
+      try {
+        recCtx.drawImage(vid, 0, 0, W, H);
+      } catch (drawErr) {
+        console.warn('Canvas drawImage notice:', drawErr);
+      }
+
+      // 2. Active caption with EXACT Same Engine Canvas Typography
+      const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+      if (activeCap) {
+        const words = (activeCap.words || []).map(w => ({
+          t: w.t || w.word || '',
+          s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
+          e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
+          key: Boolean(w.key)
+        }));
+
+        drawCanvasTypography(recCtx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
+        drawAutoEmojis(recCtx, activeCap, words, t, S.style || {}, W, H);
+      }
+
+      // 3. Watermark
+      drawWatermark(recCtx, W, H);
+
+      // 4. Progress bar
+      const pct = Math.min(99, Math.max(5, Math.round((t / duration) * 100)));
+      exportProgressBar.style.width = pct + '%';
+      exportPercent.textContent = pct + '%';
+      exportProgressText.textContent = `Rendering with Same Engine... ${pct}%`;
+      exportProgressDetail.textContent = 'Recording exact canvas animations & vibrant colors frame-by-frame.';
+      updateExportPipeline(1, `Recording Canvas (${pct}%)...`, 'Queued');
+
+      // 5. Completion check
+      if (vid.ended || t >= duration - 0.05) {
+        finishDirectExport();
+        return;
+      }
+
+      animId = requestAnimationFrame(renderDirectFrame);
+    }
+
+    async function finishDirectExport() {
+      if (!isRunning) return;
+      isRunning = false;
+      if (animId) cancelAnimationFrame(animId);
+      vid.pause();
+
+      vid.muted = prevMuted;
+      vid.volume = prevVol;
+
+      updateExportPipeline(2, 'Done ✓', 'Packaging MP4...');
+      exportProgressText.textContent = 'Finalizing 1080p video file...';
+      exportProgressDetail.textContent = 'Packaging crystal-clear audio and video streams.';
+      exportProgressBar.style.width = '100%';
+      exportPercent.textContent = '100%';
+
+      recorder.onstop = async () => {
+        try {
+          const recordedBlob = new Blob(chunks, { type: chosenMime || 'video/mp4' });
+          const ext = (chosenMime && chosenMime.includes('webm')) ? 'webm' : 'mp4';
+
+          S.credits = Math.max(0, S.credits - 1);
+          localStorage.setItem('cs_credits', String(S.credits));
+          updateCreditsUI();
+
+          const formData = new FormData();
+          formData.append('video', recordedBlob, `canvas_export.${ext}`);
+          if (S.bgmFilename) formData.append('bgMusic', S.bgmFilename);
+          if (S.bgmVolume != null) formData.append('musicVol', Math.round(S.bgmVolume * 100));
+          if (S.voiceoverFilename && btnReplaceVoiceover.classList.contains('active')) {
+            formData.append('voiceover', S.voiceoverFilename);
+          }
+
+          const res = await fetch('/api/save_canvas_export', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.ok && data.download) {
+              updateExportPipeline(3);
+              showExportComplete(data.download);
+              return;
+            }
+          }
+
+          const directBlobUrl = URL.createObjectURL(recordedBlob);
+          updateExportPipeline(3);
+          showExportComplete(directBlobUrl);
+        } catch (postErr) {
+          console.warn('save_canvas_export error, using local blob:', postErr);
+          const recordedBlob = new Blob(chunks, { type: chosenMime || 'video/mp4' });
+          const directBlobUrl = URL.createObjectURL(recordedBlob);
+          updateExportPipeline(3);
+          showExportComplete(directBlobUrl);
+        }
+      };
+
+      try {
+        recorder.stop();
+      } catch (_) {}
+    }
+
+    vid.addEventListener('ended', finishDirectExport, { once: true });
+
+    recorder.start(250);
+    await vid.play();
+
+    if ('requestVideoFrameCallback' in vid) {
+      function onFrame() {
+        if (!isRunning) return;
+        renderDirectFrame();
+        vid.requestVideoFrameCallback(onFrame);
+      }
+      vid.requestVideoFrameCallback(onFrame);
+    } else {
+      animId = requestAnimationFrame(renderDirectFrame);
+    }
+
+    const heartbeat = setInterval(() => {
+      if (!isRunning) {
+        clearInterval(heartbeat);
+        return;
+      }
+      if (vid.paused && !vid.ended && vid.currentTime < duration - 0.1) {
+        vid.play().catch(() => {});
+      }
+      if (vid.ended || vid.currentTime >= duration - 0.05) {
+        clearInterval(heartbeat);
+        finishDirectExport();
+      }
+    }, 250);
+  }
+
   async function startExport() {
     if (S.credits <= 0) {
       S.pendingExportAfterCoupon = true;
@@ -5028,8 +5308,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     exportProgressBar.style.width = '5%';
     exportPercent.textContent = '5%';
-    exportProgressText.textContent = 'Initiating video render...';
-    exportProgressDetail.textContent = 'Applying selected style preset and burning captions.';
+    exportProgressText.textContent = 'Initiating Same-Engine video render...';
+    exportProgressDetail.textContent = 'Preparing frame-by-frame canvas recording for 100% visual match.';
 
     if ('Notification' in window && Notification.permission === 'default') {
       try { Notification.requestPermission(); } catch (_) {}
@@ -5044,8 +5324,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (timerVal) timerVal.textContent = formatTimeElapsed(elapsedSec);
     }, 500);
 
-    updateExportPipeline(1, 'Burning Captions...', 'Queued');
+    updateExportPipeline(1, 'Recording Canvas...', 'Queued');
 
+    const canDirectExport = Boolean(
+      window.MediaRecorder &&
+      (typeof HTMLCanvasElement.prototype.captureStream === 'function' || typeof HTMLCanvasElement.prototype.mozCaptureStream === 'function') &&
+      vid && (vid.src || S.filename)
+    );
+
+    if (canDirectExport) {
+      try {
+        await startDirectCanvasExport();
+        return;
+      } catch (err) {
+        console.warn('Direct canvas export notice, falling back to server export:', err);
+      }
+    }
+
+    await startServerExport();
+  }
+
+  async function startServerExport() {
     try {
       const payload = {
         filename: S.filename,
@@ -5187,14 +5486,20 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       doneMeta.textContent = 'Completed in ' + timeStr + ' • 1080p high quality with full audio.';
     }
 
-    const file = String(filename || '').split('/').pop();
-    const downloadUrl = String(filename || '').startsWith('/download/')
-      ? filename
-      : '/download/' + encodeURIComponent(file);
-    btnDownloadExport.href = downloadUrl;
-    btnDownloadExport.download = 'captioned_' + file;
-
-    exportPreviewVideo.src = '/video/' + encodeURIComponent(file);
+    const isBlob = String(filename || '').startsWith('blob:');
+    if (isBlob) {
+      btnDownloadExport.href = filename;
+      btnDownloadExport.download = 'captioned_video.mp4';
+      exportPreviewVideo.src = filename;
+    } else {
+      const file = String(filename || '').split('/').pop();
+      const downloadUrl = String(filename || '').startsWith('/download/')
+        ? filename
+        : '/download/' + encodeURIComponent(file);
+      btnDownloadExport.href = downloadUrl;
+      btnDownloadExport.download = 'captioned_' + file;
+      exportPreviewVideo.src = '/video/' + encodeURIComponent(file);
+    }
     exportPreviewVideo.load();
 
     playSuccessChime();

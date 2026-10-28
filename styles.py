@@ -1329,7 +1329,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             grad_colors = get_gradient_colors(r, style)
 
             if is_hero:
-                col = user_hl or r.get("color") or (grad_colors[0] if grad_colors else "#FFE600")
+                col = user_hl or r.get("color") or (grad_colors[-1] if grad_colors else "#FFE600")
             else:
                 col = user_base or r.get("color") or style.get("color") or "#FFFFFF"
 
@@ -1350,7 +1350,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     outline_px = max(2.5, round(o["size"] * (0.08 if is_hero else 0.06), 1))
                 outline_col = r.get("outlineColor", "#000000")
 
-            anim_name = str(style.get("animation") or style.get("anim") or "pop").lower()
+            anim_name = str(o["role"].get("enter") or style.get("animation") or style.get("anim") or "pop").lower()
 
             # Word-by-word measurement and placement along line
             line_words = o["words"]
