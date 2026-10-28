@@ -1017,6 +1017,10 @@ DEFAULT_COUPONS = {
     "HLOPRO10": {"credits": 10},
     "INSTA10": {"credits": 10},
     "VIRAL10": {"credits": 10},
+    "HLOFREE2": {"credits": 2},
+    "CREATOR2": {"credits": 2},
+    "STORYVIP": {"credits": 2},
+    "INSTA2": {"credits": 2},
     "CREATOR10": {"credits": 10},
     "NIKHILVIP": {"credits": 100},
     "VIPPASS": {"credits": 50}
@@ -1036,11 +1040,72 @@ def load_coupons():
         return DEFAULT_COUPONS
 
 
+
+@app.post("/api/credits/check")
+def check_device_credits():
+    """Checks server-side device export history so refresh or private tab cannot bypass."""
+    d = request.get_json(force=True)
+    device_id = (d.get("device_id") or "").strip()
+    if not device_id:
+        return jsonify(credits=1, used=0)
+
+    dev_file = WORK / "device_credits.json"
+    data = {}
+    if dev_file.exists():
+        try:
+            data = json.loads(dev_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    record = data.get(device_id)
+    if not record:
+        # Brand new device: give 1 free export
+        data[device_id] = {"credits": 1, "used": 0, "created_at": time.time()}
+        try:
+            dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+        return jsonify(credits=1, used=0)
+
+    return jsonify(credits=record.get("credits", 0), used=record.get("used", 0))
+
+
+@app.post("/api/credits/consume")
+def consume_device_credit():
+    """Deducts credit server-side upon video export."""
+    d = request.get_json(force=True)
+    device_id = (d.get("device_id") or "").strip()
+    if not device_id:
+        return jsonify(ok=True)
+
+    dev_file = WORK / "device_credits.json"
+    data = {}
+    if dev_file.exists():
+        try:
+            data = json.loads(dev_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    record = data.get(device_id, {"credits": 1, "used": 0})
+    cur_credits = record.get("credits", 0)
+    record["credits"] = max(0, cur_credits - 1)
+    record["used"] = record.get("used", 0) + 1
+    record["last_export"] = time.time()
+    data[device_id] = record
+
+    try:
+        dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+    return jsonify(ok=True, remaining_credits=record["credits"])
+
 @app.post("/api/coupons/redeem")
 def redeem_coupon():
     d = request.get_json(force=True)
     code = (d.get("code") or "").strip().upper()
     user_id = d.get("user_id") or d.get("device_id") or "guest"
+    device_id = d.get("device_id") or user_id
     if not code:
         return err("Please enter a coupon code.")
     coupons = load_coupons()
@@ -1065,6 +1130,23 @@ def redeem_coupon():
     redeemed[user_key] = time.time()
     try:
         redeemed_file.write_text(json.dumps(redeemed, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+    # Update device credits server-side
+    dev_file = WORK / "device_credits.json"
+    dev_data = {}
+    if dev_file.exists():
+        try:
+            dev_data = json.loads(dev_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    if device_id in dev_data:
+        dev_data[device_id]["credits"] = dev_data[device_id].get("credits", 0) + credits_to_add
+    else:
+        dev_data[device_id] = {"credits": credits_to_add, "used": 1, "created_at": time.time()}
+    try:
+        dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
     except Exception:
         pass
 
@@ -1094,6 +1176,15 @@ def upload():
     except Exception as e:
         (WORK / name).unlink(missing_ok=True)
         return err(f"This video could not be read: {e}")
+
+    # Enforce strict 2-Minute (120s) limit designed for Reels & Shorts
+    vid_dur = float(info.get("duration") or 0.0)
+    if vid_dur > 125.0:
+        (WORK / name).unlink(missing_ok=True)
+        mins = int(vid_dur // 60)
+        secs = int(vid_dur % 60)
+        return err(f"⏱️ Video length is {mins}m {secs}s. Maximum 2 minutes allowed for viral Reels & Shorts! Please trim or select a shorter video.", 400)
+
     return jsonify(filename=name, original_name=secure_filename(f.filename), **info)
 
 

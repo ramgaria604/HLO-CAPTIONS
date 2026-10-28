@@ -846,36 +846,63 @@
   </div>
 
 
-  <!-- ======================== MODAL: INSTAGRAM COUPON UNLOCK ======================== -->
+  <!-- ======================== MODAL: EXPORT PASS & UNLOCK OPTIONS ======================== -->
   <div id="modalCoupon" class="modal-backdrop hidden">
     <div class="modal-card modal-coupon-card">
       <div class="modal-header">
         <div>
-          <div class="coupon-badge">🎁 FREE CREATOR PASS</div>
-          <h2 class="modal-title">Unlock 10 Free Exports</h2>
-          <p class="modal-desc">Follow on Instagram & DM to receive your instant code!</p>
+          <div class="coupon-badge">⚡ CREATOR EXPORT PASS</div>
+          <h2 class="modal-title">Unlock Video Export</h2>
+          <p class="modal-desc">1st video was free! Choose an option below to export your video:</p>
         </div>
         <button id="btnCloseCouponModal" class="btn-close">&times;</button>
       </div>
 
       <div class="modal-body coupon-modal-body">
+        <!-- OPTION 1: INSTANT UPI PASS (₹10) -->
+        <div class="pay-option-card">
+          <div class="pay-option-header">
+            <span class="pay-option-tag">⚡ FASTEST</span>
+            <div class="pay-price-row">
+              <span class="pay-amount">₹10</span>
+              <span class="pay-per">/ 1 Export</span>
+            </div>
+          </div>
+          <p class="pay-desc">Instant 1080p download with zero wait. Pay via any UPI app:</p>
+          <div class="upi-apps-row">
+            <span class="upi-badge">GPay</span>
+            <span class="upi-badge">PhonePe</span>
+            <span class="upi-badge">Paytm</span>
+            <span class="upi-badge">BHIM</span>
+          </div>
+          <a href="https://ig.me/m/hlocaptions?text=Hi%2C%20I%20want%20to%20pay%20Rs%2010%20for%20Export%20Pass" target="_blank" rel="noopener noreferrer" class="btn-pay-upi">
+            <span>📲 Pay ₹10 via UPI (Get Instant Code)</span>
+          </a>
+        </div>
+
+        <div class="coupon-or-divider">
+          <span>OR GET 2 EXPORTS 100% FREE</span>
+        </div>
+
+        <!-- OPTION 2: INSTAGRAM STORY & FOLLOW TASK -->
         <div class="insta-steps-card">
+          <div class="insta-task-title">🎁 Free Viral Creator Task (Get 2 Free Coupons):</div>
           <div class="step-row">
             <span class="step-num">1</span>
             <div class="step-desc">
-              <strong>Follow @hlocaptions</strong> on Instagram
+              Follow <strong>@hlocaptions</strong> on Instagram
             </div>
           </div>
           <div class="step-row">
             <span class="step-num">2</span>
             <div class="step-desc">
-              Send a DM with the word <strong>"COUPON"</strong>
+              Add a Story & Tag <strong>@hlocaptions</strong> + drop a comment
             </div>
           </div>
           <div class="step-row">
             <span class="step-num">3</span>
             <div class="step-desc">
-              Receive your secret 10-Export Code in <strong>10 seconds</strong>!
+              DM screenshot to get <strong>2 Free Export Coupons</strong>!
             </div>
           </div>
 
@@ -883,16 +910,17 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
             </svg>
-            <span>📸 Open Instagram & DM "COUPON"</span>
+            <span>📸 DM Story Screenshot to @hlocaptions</span>
           </a>
         </div>
 
+        <!-- REDEEM COUPON BOX -->
         <div class="coupon-redeem-box">
-          <label for="inputCouponCode" class="coupon-label">Have your code? Paste it here:</label>
+          <label for="inputCouponCode" class="coupon-label">Have your Coupon Code? Enter here:</label>
           <div class="coupon-input-group">
-            <input type="text" id="inputCouponCode" class="styled-input coupon-input" placeholder="e.g. HLOPRO10" autocomplete="off" autocapitalize="characters">
+            <input type="text" id="inputCouponCode" class="styled-input coupon-input" placeholder="e.g. HLOFREE2" autocomplete="off" autocapitalize="characters">
             <button type="button" id="btnRedeemCoupon" class="btn-redeem">
-              <span>Redeem</span>
+              <span>Unlock</span>
             </button>
           </div>
           <p id="couponMsg" class="coupon-msg hidden"></p>
@@ -1053,6 +1081,6 @@
     window.measureInk = Layout.measureInk;
     window.checkLayout = Layout.checkLayout;
   </script>
-  <script src="/static/app.js?v=4.03"></script>
+  <script src="/static/app.js?v=4.04"></script>
 </body>
 </html>

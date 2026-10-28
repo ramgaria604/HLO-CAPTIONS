@@ -1682,16 +1682,31 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function setupCouponHandlers() {
-    // Initialize credits (Option B: 1 free export first, then coupon gate!)
-    let saved = localStorage.getItem('cs_credits');
-    if (saved === null) {
-      saved = '1';
-      localStorage.setItem('cs_credits', '1');
+    // Persistent Device Fingerprint (cannot be bypassed by simple page refresh)
+    let deviceId = localStorage.getItem('cs_device_id');
+    if (!deviceId) {
+      deviceId = 'dev_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
+      localStorage.setItem('cs_device_id', deviceId);
     }
-    S.credits = parseInt(saved, 10);
-    if (isNaN(S.credits)) S.credits = 1;
 
+    let saved = localStorage.getItem('cs_credits');
+    S.credits = saved !== null ? parseInt(saved, 10) : 1;
+    if (isNaN(S.credits)) S.credits = 1;
     updateCreditsUI();
+
+    // Verify credits with server in background to enforce 1-Free-Export limit across tabs/refresh
+    fetch('/api/credits/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
+    }).then(r => r.json()).then(data => {
+      if (typeof data.credits === 'number') {
+        // If server says user already used their 1 free export, sync local state
+        S.credits = Math.min(S.credits, data.credits);
+        localStorage.setItem('cs_credits', String(S.credits));
+        updateCreditsUI();
+      }
+    }).catch(e => console.warn('Credit check notice:', e));
 
     const pill = $('creditPill');
     const modalCoupon = $('modalCoupon');
@@ -5254,6 +5269,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           S.credits = Math.max(0, S.credits - 1);
           localStorage.setItem('cs_credits', String(S.credits));
           updateCreditsUI();
+          // Sync deduction with server
+          const devId = localStorage.getItem('cs_device_id');
+          if (devId) {
+            fetch('/api/credits/consume', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ device_id: devId })
+            }).catch(() => {});
+          }
 
           const formData = new FormData();
           formData.append('video', recordedBlob, `canvas_export.${ext}`);
@@ -5404,9 +5428,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       S.exportPayload = payload;
       S.exportRecovered = false;
       S.exportJobId = await queueExport(payload);
-      S.credits = Math.max(0, S.credits - 1);
-      localStorage.setItem('cs_credits', String(S.credits));
-      updateCreditsUI();
+          S.credits = Math.max(0, S.credits - 1);
+          localStorage.setItem('cs_credits', String(S.credits));
+          updateCreditsUI();
+          // Sync deduction with server
+          const devId = localStorage.getItem('cs_device_id');
+          if (devId) {
+            fetch('/api/credits/consume', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ device_id: devId })
+            }).catch(() => {});
+          }
       pollExportStatus(S.exportJobId);
 
     } catch (err) {
