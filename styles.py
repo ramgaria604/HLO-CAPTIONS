@@ -1329,16 +1329,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             grad_colors = get_gradient_colors(r, style)
 
             if is_hero:
-                if user_hl and (style.get("_customColorActive") or not grad_colors):
-                    col = user_hl
-                elif grad_colors and len(grad_colors) > 0:
-                    col = grad_colors[0]
-                elif r.get("color"):
-                    col = r.get("color")
-                else:
-                    col = "#FFE600"
+                col = user_hl or r.get("color") or (grad_colors[0] if grad_colors else "#FFE600")
             else:
-                col = user_base or r.get("color") or "#FFFFFF"
+                col = user_base or r.get("color") or style.get("color") or "#FFFFFF"
 
             bold = 1 if (r.get("bold") or r.get("weight", 500) >= 700) else 0
             italic = 1 if r.get("italic") else 0
@@ -1390,9 +1383,34 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 w_st_ts = ts(w_start)
                 w_end_ts = ts(ev_end)
 
+                if anim_name == "slide-up":
+                    pos_tag = f"\\move({word_cx:.1f},{o['ass_y'] + 28:.1f},{word_cx:.1f},{o['ass_y']:.1f},0,200)"
+                    anim_tags = [r"\alpha&HFF&\t(0,40,\alpha&H00&)"]
+                elif anim_name == "slide-down":
+                    pos_tag = f"\\move({word_cx:.1f},{o['ass_y'] - 28:.1f},{word_cx:.1f},{o['ass_y']:.1f},0,200)"
+                    anim_tags = [r"\alpha&HFF&\t(0,40,\alpha&H00&)"]
+                elif anim_name == "slide-left":
+                    pos_tag = f"\\move({word_cx + 32:.1f},{o['ass_y']:.1f},{word_cx:.1f},{o['ass_y']:.1f},0,200)"
+                    anim_tags = [r"\alpha&HFF&\t(0,40,\alpha&H00&)"]
+                elif anim_name == "slide-right":
+                    pos_tag = f"\\move({word_cx - 32:.1f},{o['ass_y']:.1f},{word_cx:.1f},{o['ass_y']:.1f},0,200)"
+                    anim_tags = [r"\alpha&HFF&\t(0,40,\alpha&H00&)"]
+                elif anim_name == "zoom":
+                    pos_tag = f"\\pos({word_cx:.1f},{o['ass_y']:.1f})"
+                    anim_tags = [r"\fscx50\fscy50\alpha&HFF&\t(0,40,\alpha&H00&)\t(0,200,0.4,\fscx100\fscy100)"]
+                elif anim_name == "fade":
+                    pos_tag = f"\\pos({word_cx:.1f},{o['ass_y']:.1f})"
+                    anim_tags = [r"\alpha&HFF&\t(0,200,\alpha&H00&)"]
+                elif anim_name in ("none", "static"):
+                    pos_tag = f"\\pos({word_cx:.1f},{o['ass_y']:.1f})"
+                    anim_tags = [r"\fscx100\fscy100"]
+                else:  # pop / bounce
+                    pos_tag = f"\\pos({word_cx:.1f},{o['ass_y']:.1f})"
+                    anim_tags = [r"\fscx84\fscy84\alpha&HFF&\t(0,40,\alpha&H00&)\t(0,200,0.4,\fscx100\fscy100)"]
+
                 tags = [
                     r"\an2",
-                    f"\\pos({word_cx:.1f},{o['ass_y']:.1f})",
+                    pos_tag,
                     f"\\fn{font_name}",
                     f"\\fs{ass_fs:.1f}",
                     f"\\fsp{fsp:.2f}",
@@ -1405,15 +1423,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 else:
                     tags.append(r"\bord0")
                 tags.append(r"\shad0")
-
-                if anim_name in ("pop", "bounce"):
-                    tags.append(r"\fscx84\fscy84\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,130,\fscx108\fscy108)\t(130,200,\fscx100\fscy100)")
-                elif anim_name == "slide-up":
-                    tags.append(r"\fscy85\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,180,\fscy100)")
-                elif anim_name == "zoom":
-                    tags.append(r"\fscx55\fscy55\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,200,\fscx100\fscy100)")
-                elif anim_name == "fade":
-                    tags.append(r"\alpha&HFF&\t(0,180,\alpha&H00&)")
+                tags += anim_tags
 
                 rows.append(f"Dialogue: {line_idx},{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
 
@@ -1626,9 +1636,34 @@ def build_ass(captions, style, W, H):
                 bold = 1 if ((k_role if is_key else f_role).get("bold") or (k_role if is_key else f_role).get("weight", 700) >= 700) else 0
                 italic = 1 if (k_role if is_key else f_role).get("italic") else 0
 
+                if anim_name == "slide-up":
+                    pos_tag = f"\\move({word_cx:.1f},{line_y + 28:.1f},{word_cx:.1f},{line_y:.1f},0,200)"
+                    anim_tags = [r"\alpha&HFF&\t(0,40,\alpha&H00&)"]
+                elif anim_name == "slide-down":
+                    pos_tag = f"\\move({word_cx:.1f},{line_y - 28:.1f},{word_cx:.1f},{line_y:.1f},0,200)"
+                    anim_tags = [r"\alpha&HFF&\t(0,40,\alpha&H00&)"]
+                elif anim_name == "slide-left":
+                    pos_tag = f"\\move({word_cx + 32:.1f},{line_y:.1f},{word_cx:.1f},{line_y:.1f},0,200)"
+                    anim_tags = [r"\alpha&HFF&\t(0,40,\alpha&H00&)"]
+                elif anim_name == "slide-right":
+                    pos_tag = f"\\move({word_cx - 32:.1f},{line_y:.1f},{word_cx:.1f},{line_y:.1f},0,200)"
+                    anim_tags = [r"\alpha&HFF&\t(0,40,\alpha&H00&)"]
+                elif anim_name == "zoom":
+                    pos_tag = f"\\pos({word_cx:.1f},{line_y:.1f})"
+                    anim_tags = [r"\fscx50\fscy50\alpha&HFF&\t(0,40,\alpha&H00&)\t(0,200,0.4,\fscx100\fscy100)"]
+                elif anim_name == "fade":
+                    pos_tag = f"\\pos({word_cx:.1f},{line_y:.1f})"
+                    anim_tags = [r"\alpha&HFF&\t(0,200,\alpha&H00&)"]
+                elif anim_name in ("none", "static"):
+                    pos_tag = f"\\pos({word_cx:.1f},{line_y:.1f})"
+                    anim_tags = [r"\fscx100\fscy100"]
+                else:  # pop / bounce
+                    pos_tag = f"\\pos({word_cx:.1f},{line_y:.1f})"
+                    anim_tags = [r"\fscx84\fscy84\alpha&HFF&\t(0,40,\alpha&H00&)\t(0,200,0.4,\fscx100\fscy100)"]
+
                 tags = [
                     r"\an5",
-                    f"\\pos({word_cx:.1f},{line_y:.1f})",
+                    pos_tag,
                     f"\\fn{font_name}",
                     f"\\fs{ass_fs:.1f}",
                     f"\\b{bold}",
@@ -1640,15 +1675,7 @@ def build_ass(captions, style, W, H):
                 else:
                     tags.append(r"\bord0")
                 tags.append(f"\\shad{max(1.0, round(fs * 0.04, 1)):.1f}\\4c&H000000&")
-
-                if anim_name in ("pop", "bounce"):
-                    tags.append(r"\fscx84\fscy84\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,130,\fscx108\fscy108)\t(130,200,\fscx100\fscy100)")
-                elif anim_name == "slide-up":
-                    tags.append(r"\fscy85\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,180,\fscy100)")
-                elif anim_name == "zoom":
-                    tags.append(r"\fscx55\fscy55\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,200,\fscx100\fscy100)")
-                elif anim_name == "fade":
-                    tags.append(r"\alpha&HFF&\t(0,180,\alpha&H00&)")
+                tags += anim_tags
 
                 rows.append(f"Dialogue: 0,{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
 
