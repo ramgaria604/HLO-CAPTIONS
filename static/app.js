@@ -1822,6 +1822,124 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         }
       });
     }
+
+    // Razorpay Integration Handlers
+    const launchRazorpayCheckout = async (packId) => {
+      try {
+        if (typeof window.Razorpay === 'undefined') {
+          showToast('Payment gateway loading... please retry in 2 seconds.');
+          return;
+        }
+
+        let devId = localStorage.getItem('cs_device_id');
+        if (!devId) {
+          devId = 'dev_' + Math.random().toString(36).slice(2, 10);
+          localStorage.setItem('cs_device_id', devId);
+        }
+
+        const userEmail = S.user ? (S.user.email || '') : '';
+        const userName = S.user ? (S.user.name || '') : '';
+
+        // 1. Create Order on backend
+        const orderRes = await fetch('/api/payment/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pack_id: packId,
+            device_id: devId,
+            email: userEmail,
+            name: userName
+          })
+        });
+
+        const orderData = await orderRes.json();
+        if (!orderRes.ok || !orderData.ok) {
+          throw new Error(orderData.error || 'Failed to initialize payment');
+        }
+
+        // 2. Open official Razorpay Checkout Modal
+        const options = {
+          key: orderData.key_id,
+          amount: orderData.amount,
+          currency: orderData.currency || 'INR',
+          name: 'HLO-CAPTIONS PRO',
+          description: orderData.pack ? orderData.pack.title : 'Video Export Pass',
+          order_id: orderData.order_id,
+          theme: {
+            color: '#a855f7'
+          },
+          prefill: {
+            name: userName || '',
+            email: userEmail || '',
+            contact: ''
+          },
+          handler: async function (response) {
+            // 3. Verify Payment Signature on Backend
+            try {
+              showToast('Verifying payment... ⏳');
+              const verifyRes = await fetch('/api/payment/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  pack_id: packId,
+                  device_id: devId,
+                  email: userEmail,
+                  name: userName
+                })
+              });
+
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok || !verifyData.ok) {
+                throw new Error(verifyData.error || 'Payment verification failed');
+              }
+
+              // Update Credits in UI
+              S.credits = verifyData.total_credits || ((S.credits || 0) + (verifyData.credits_added || 1));
+              localStorage.setItem('cs_credits', String(S.credits));
+              updateCreditsUI();
+
+              showToast(`🎉 Payment Successful! ${verifyData.credits_added} Video Exports unlocked.`);
+
+              if (modalCoupon) modalCoupon.classList.add('hidden');
+
+              // Automatically continue export if user was waiting
+              if (S.pendingExportAfterCoupon) {
+                S.pendingExportAfterCoupon = false;
+                setTimeout(() => startExport(), 500);
+              }
+
+            } catch (err) {
+              console.error('Payment verify error:', err);
+              showToast('Verification failed: ' + err.message);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              console.log('Razorpay modal dismissed by user');
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', function (response) {
+          showToast('Payment failed: ' + (response.error.description || 'Transaction cancelled'));
+        });
+        rzp.open();
+
+      } catch (err) {
+        console.error('Razorpay launch error:', err);
+        showToast('Payment error: ' + err.message);
+      }
+    };
+
+    const btnPay10 = $('btnPayPack10');
+    const btnPay50 = $('btnPayPack50');
+
+    if (btnPay10) btnPay10.addEventListener('click', () => launchRazorpayCheckout('pack10'));
+    if (btnPay50) btnPay50.addEventListener('click', () => launchRazorpayCheckout('pack50'));
   }
 
   async function init() {

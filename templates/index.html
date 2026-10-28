@@ -877,9 +877,9 @@
               <span class="upi-badge">Paytm</span>
               <span class="upi-badge">UPI</span>
             </div>
-            <a href="https://ig.me/m/hlocaptions?text=Hi%2C%20I%20want%20to%20buy%20Rs%2050%20Weekly%20Pack%20(7%20Exports%20for%207%20Days)" target="_blank" rel="noopener noreferrer" class="btn-pay-upi btn-pay-weekly">
-              <span>🚀 Get ₹50 Weekly Pack (7 Exports)</span>
-            </a>
+            <button type="button" class="btn-pay-upi btn-pay-weekly" id="btnPayPack50">
+              <span>⚡ Pay ₹50 via UPI / Card (7 Exports)</span>
+            </button>
           </div>
 
           <!-- ₹10 SINGLE EXPORT PASS -->
@@ -898,9 +898,9 @@
               <span class="upi-badge">Paytm</span>
               <span class="upi-badge">BHIM</span>
             </div>
-            <a href="https://ig.me/m/hlocaptions?text=Hi%2C%20I%20want%20to%20pay%20Rs%2010%20for%20Export%20Pass" target="_blank" rel="noopener noreferrer" class="btn-pay-upi">
-              <span>📲 Pay ₹10 Single Export</span>
-            </a>
+            <button type="button" class="btn-pay-upi" id="btnPayPack10">
+              <span>📲 Pay ₹10 via UPI / Card (Instant)</span>
+            </button>
           </div>
         </div>
 
@@ -1105,6 +1105,7 @@
     window.measureInk = Layout.measureInk;
     window.checkLayout = Layout.checkLayout;
   </script>
-  <script src="/static/app.js?v=4.06"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="/static/app.js?v=4.07"></script>
 </body>
 </html>

@@ -1252,6 +1252,14 @@ def redeem_coupon():
     )
 
 
+# ------------------------------------------------------------------ Razorpay Payment Routes
+try:
+    from razorpay_routes import register_razorpay_routes
+    register_razorpay_routes(app, WORK)
+except Exception as _rzp_err:
+    print("Warning: Razorpay routes registration error:", _rzp_err)
+
+
 # ------------------------------------------------------------------ upload / transcribe
 @app.post("/api/upload")
 def upload():
