@@ -1052,10 +1052,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   );
 
   const up = (txt) => uppercase ? txt.toUpperCase() : txt;
-  const scale = Math.min(W / 1080, H / 1920) * (Number(st.fontScale) || 1);
+  const scale = Math.max(0.24, Math.min(W / 1080, H / 1920)) * (Number(st.fontScale) || 1);
   const getRolePx = (r, defaultPx) => {
     const s = Number(r.size) || defaultPx;
-    return s > 1 ? s * scale : s * H;
+    return Math.max(16, s > 1 ? s * scale : s * H);
   };
 
   const layoutFn = getLayoutStackFn();
@@ -1286,7 +1286,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
   if (!ctxFore) return;
-  const base = Math.min(W, H) * Math.max(0.6, Math.min(1.5, Number(st.fontScale) || 1));
+  const base = Math.max(260, Math.min(W, H)) * Math.max(0.7, Math.min(1.5, Number(st.fontScale) || 1));
   const presetId = st.id || '';
   const offsetX = (Number(st.offsetX) || 0) * W;
   ctxFore.save(); ctxFore.translate(offsetX, 0);
@@ -1811,69 +1811,182 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   // LOAD PRESETS FROM SERVER + MERGE LOCAL CS_PRESETS (DUO PACK)
   // ==========================================================================
-  function renderDuoFrontPresets() {
-    const grid = $('duoPresetGrid');
+    function createFrontShowcaseCard(preset) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'front-preset-card' + (S.style?.id === preset.id ? ' active' : '');
+    card.setAttribute('aria-pressed', String(S.style?.id === preset.id));
+    card.setAttribute('aria-label', `Choose ${preset.name}`);
+    card.setAttribute('data-id', preset.id);
+
+    const kRole = preset.key || preset.roles?.accent || {};
+    const color = preset.highlightColor || kRole.color || '#FFE600';
+    const font = kRole.font || 'Poppins';
+    const isItalic = kRole.italic ? 'italic' : 'normal';
+    const weight = kRole.bold !== false ? '900' : '700';
+    const textTransform = kRole.upper !== false ? 'uppercase' : 'none';
+
+    // Unique preview word
+    let previewWord = preset.previewWord || '';
+    if (!previewWord) {
+      previewWord = (preset.name || 'VIRAL')
+        .replace(/^Duo\s*[·-]\s*/i, '')
+        .replace(/[^\w\s]/gi, '')
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .join(' ');
+    }
+    if (!previewWord) previewWord = 'VIRAL POP';
+
+    // Category badge tag
+    let tag = preset.badge || '';
+    if (!tag) {
+      if (preset.isDuo || preset.category === 'duo') tag = '⚡ DUO';
+      else if (preset.category === 'real-estate') tag = '👑 ESTATE';
+      else if (preset.name?.toLowerCase().includes('box') || preset.pill) tag = '📦 BOX';
+      else if (preset.name?.toLowerCase().includes('neon') || preset.name?.toLowerCase().includes('glow')) tag = '✨ NEON';
+      else if (preset.category === 'colourful') tag = '🌈 COLOR';
+      else tag = (preset.category || 'POP').toUpperCase();
+    }
+
+    const isBehind = Boolean(
+      preset.depthAccent ||
+      preset.behindPerson ||
+      (preset.roles && preset.roles.accent && preset.roles.accent.layer === 'behind') ||
+      (preset.name && preset.name.toLowerCase().includes('(behind)'))
+    );
+    if (isBehind) tag = '👑 BEHIND';
+
+    // Visual Art Container
+    const art = document.createElement('div');
+    art.className = 'front-card-art';
+
+    const tagSpan = document.createElement('span');
+    tagSpan.className = 'front-card-tag';
+    tagSpan.style.background = `${color}25`;
+    tagSpan.style.color = color;
+    tagSpan.style.borderColor = `${color}44`;
+    tagSpan.textContent = tag;
+    art.appendChild(tagSpan);
+
+    if (preset.isDuo) {
+      const small = document.createElement('span');
+      small.className = 'front-card-small';
+      small.textContent = 'SOME MOMENTS';
+      art.appendChild(small);
+    }
+
+    const big = document.createElement('strong');
+    big.className = 'front-card-big';
+    big.textContent = previewWord;
+    big.style.fontFamily = `'${font}', sans-serif`;
+    big.style.fontStyle = isItalic;
+    big.style.fontWeight = weight;
+    big.style.textTransform = textTransform;
+
+    const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
+    if (preset.pill) {
+      big.style.background = preset.pill;
+      big.style.padding = '3px 8px';
+      big.style.borderRadius = '5px';
+      big.style.color = '#000';
+    } else if (paint && paint.startsWith('linear-gradient(')) {
+      big.style.backgroundImage = paint;
+      big.style.webkitBackgroundClip = 'text';
+      big.style.backgroundClip = 'text';
+      big.style.color = 'transparent';
+    } else {
+      big.style.color = color;
+      if (kRole.glow || preset.glow) {
+        big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+      }
+    }
+    art.appendChild(big);
+
+    // Name & Selected Check
+    const nameRow = document.createElement('div');
+    nameRow.className = 'front-card-name-row';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'front-card-name';
+    nameSpan.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+
+    const checkSpan = document.createElement('span');
+    checkSpan.className = 'front-card-check';
+    checkSpan.textContent = '✓';
+
+    nameRow.append(nameSpan, checkSpan);
+    card.append(art, nameRow);
+
+    card.addEventListener('click', () => {
+      applyPreset(preset, false);
+      const selName = $('frontSelectedName') || $('duoSelectedName');
+      if (selName) selName.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+      $$('.front-preset-card').forEach(c => {
+        const isActive = c.getAttribute('data-id') === preset.id;
+        c.classList.toggle('active', isActive);
+        c.setAttribute('aria-pressed', String(isActive));
+      });
+    });
+
+    return card;
+  }
+
+  function renderFrontShowcasePresets(filterCat = 'all') {
+    const grid = $('frontPresetGrid') || $('duoPresetGrid');
     if (!grid) return;
-    const duo = S.presets.filter(p => p.isDuo);
     grid.replaceChildren();
-    const count = $('duoPresetCount');
-    const selectedName = $('duoSelectedName');
-    if (count) count.textContent = `${duo.length} STYLES`;
-    if (!duo.length) {
-      grid.innerHTML = '<p class="duo-empty">Duo styles could not load. Refresh the page to try again.</p>';
+
+    const filtered = filterCat === 'all'
+      ? S.presets
+      : S.presets.filter(p => {
+          const cat = (p.category || '').toLowerCase();
+          const name = (p.name || '').toLowerCase();
+          const id = (p.id || '').toLowerCase();
+          if (filterCat === 'duo') return cat === 'duo' || name.startsWith('duo ·') || Boolean(p.isDuo);
+          if (filterCat === 'viral') return cat.includes('viral') || name.includes('viral') || name.includes('pop') || id.includes('hype');
+          if (filterCat === 'neon') return cat.includes('neon') || name.includes('neon') || name.includes('ice') || name.includes('electric') || name.includes('glow');
+          if (filterCat === 'box') return name.includes('box') || cat.includes('box') || Boolean(p.pill);
+          if (filterCat === 'real-estate') return cat.includes('real-estate') || id.includes('estate');
+          if (filterCat === 'colourful') return cat.includes('colourful') || cat.includes('color') || name.includes('fire') || name.includes('sunset') || name.includes('aurora');
+          if (filterCat === 'minimal') return cat.includes('minimal') || cat.includes('classic') || name.includes('clean') || name.includes('sub');
+          if (filterCat === 'special') return cat.includes('special') || id.includes('special') || Boolean(p.isSpecial);
+          return true;
+        });
+
+    const countPill = $('frontPresetCount') || $('duoPresetCount');
+    if (countPill) countPill.textContent = `${filtered.length} STYLES`;
+
+    const selectedName = $('frontSelectedName') || $('duoSelectedName');
+    if (selectedName && S.style) {
+      selectedName.textContent = S.style.name.replace(/^Duo\s*[·-]\s*/i, '');
+    }
+
+    if (!filtered.length) {
+      grid.innerHTML = '<p class="duo-empty">No presets in this category.</p>';
       return;
     }
-    duo.forEach((preset) => {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'duo-front-card';
-      card.setAttribute('aria-pressed', String(S.style?.id === preset.id));
-      card.setAttribute('aria-label', `Choose ${preset.name}`);
-      const art = document.createElement('span');
-      art.className = 'duo-card-art';
-      const isBehind = Boolean(
-        preset.depthAccent ||
-        preset.behindPerson ||
-        (preset.roles && preset.roles.accent && preset.roles.accent.layer === 'behind') ||
-        (preset.name && preset.name.toLowerCase().includes('(behind)'))
-      );
-      const tag = document.createElement('span');
-      tag.className = 'duo-card-tag';
-      tag.textContent = isBehind ? 'BEHIND SUBJECT (HAIR/HEAD)' : 'FRONT CAPTION';
-      const small = document.createElement('span');
-      small.className = 'duo-card-small';
-      small.textContent = 'SOME MOMENTS';
-      const big = document.createElement('strong');
-      big.className = 'duo-card-big';
-      big.textContent = preset.previewWord || preset.name.replace(/^Duo\s*[·-]\s*/i, '').toUpperCase();
-      const paint = preset.key?.keyGradient || preset.key?.color || preset.highlightColor || '#8B5CF6';
-      big.style.color = preset.key?.color || preset.highlightColor || '#8B5CF6';
-      if (paint.startsWith('linear-gradient(')) {
-        big.style.backgroundImage = paint;
-        big.style.webkitBackgroundClip = 'text';
-        big.style.backgroundClip = 'text';
-        big.style.color = 'transparent';
-      }
-      big.style.fontFamily = `'${preset.key?.font || 'Montserrat'}', sans-serif`;
-      if (isBehind) {
-        art.append(tag, big, small);
-      } else {
-        art.append(tag, small, big);
-      }
-      const label = document.createElement('span');
-      label.className = 'duo-card-name';
-      label.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
-      card.append(art, label);
-      card.addEventListener('click', () => {
-        applyPreset(preset, false);
-        if (selectedName) selectedName.textContent = label.textContent;
-      });
-      grid.append(card);
+
+    filtered.forEach(preset => {
+      const card = createFrontShowcaseCard(preset);
+      grid.appendChild(card);
     });
-    if (selectedName) {
-      const selected = duo.find(p => p.id === S.style?.id) || duo[0];
-      selectedName.textContent = selected.name.replace(/^Duo\s*[·-]\s*/i, '');
-    }
+  }
+
+  function renderDuoFrontPresets() {
+    renderFrontShowcasePresets('all');
+  }
+
+  function setupFrontCategoryPills() {
+    const frontCatPills = $$('#frontCategoryPills .cat-pill');
+    frontCatPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        frontCatPills.forEach(p => p.classList.toggle('active', p === pill));
+        const cat = pill.getAttribute('data-cat') || 'all';
+        renderFrontShowcasePresets(cat);
+      });
+    });
   }
 
   async function loadPresets() {
@@ -1897,7 +2010,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       } catch(e) {}
 
       S.presets.sort((a, b) => Number(Boolean(b.isDuo)) - Number(Boolean(a.isDuo)));
-      renderDuoFrontPresets();
+      renderFrontShowcasePresets('all');
+      setupFrontCategoryPills();
       if (S.presets.length > 0) {
         const initial = S.presets.find(p => p.isDuo) || S.presets[0];
         applyPreset(initial, false);
@@ -1925,6 +2039,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (viewId === 'viewEditor') {
       viewUpload.classList.add('hidden');
       viewEditor.classList.remove('hidden');
+      document.body.classList.add('editor-active');
+      document.body.classList.remove('view-upload-active');
       const eb = $('editorBody') || $('.editor-body');
       if (eb && S.drawerOpen) eb.classList.add('drawer-open');
       fitCanvas();
@@ -1935,6 +2051,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     } else {
       viewEditor.classList.add('hidden');
       viewUpload.classList.remove('hidden');
+      document.body.classList.remove('editor-active');
+      document.body.classList.add('view-upload-active');
       vid.pause();
     }
   }
@@ -2931,8 +3049,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (stagePresetName) {
       stagePresetName.textContent = preset.name || 'Template';
     }
-    const frontSelectedName = $('duoSelectedName');
-    if (frontSelectedName && preset.isDuo) frontSelectedName.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+    const frontSelectedName = $('frontSelectedName') || $('duoSelectedName');
+    if (frontSelectedName) frontSelectedName.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+    $$('.front-preset-card').forEach(card => {
+      const isMatch = card.getAttribute('data-id') === preset.id || card.getAttribute('aria-label') === `Choose ${preset.name}`;
+      card.classList.toggle('active', isMatch);
+      card.setAttribute('aria-pressed', String(isMatch));
+    });
     $$('.duo-front-card').forEach(card => {
       card.setAttribute('aria-pressed', String(card.getAttribute('aria-label') === `Choose ${preset.name}`));
     });

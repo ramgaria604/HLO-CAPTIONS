@@ -20,18 +20,13 @@
 
   <!-- ======================== VIEW 1: UPLOAD SCREEN ======================== -->
   <main id="viewUpload" class="view active">
-    <div class="upload-container">
-      <!-- Centered Brand Badge -->
-      <div class="brand-badge">
+    <!-- Sleek Top Navigation Bar for Home View (Aligns Brand, Projects & Sign-in) -->
+    <header class="home-top-nav">
+      <div class="home-brand">
         <span class="brand-dot"></span>
-        <span>HLO CAPTIONS AI</span>
+        <span class="brand-name">HLO CAPTIONS</span>
       </div>
-
-      <h1 class="hero-title">Add Viral Captions to <span class="gradient-text">Any Video</span></h1>
-      <p class="hero-subtitle">Upload your video below to auto-transcribe & burn voice-synced captions.</p>
-
-      <!-- Centered Account & Projects Bar -->
-      <div class="home-action-bar">
+      <div class="home-nav-actions">
         <button type="button" id="btnHomeProjects" class="nav-pill-btn" title="View your saved projects">
           📁 My Projects
         </button>
@@ -45,6 +40,11 @@
           <span>Sign In</span>
         </button>
       </div>
+    </header>
+
+    <div class="upload-container">
+      <h1 class="hero-title">Add Viral Captions to <span class="gradient-text">Any Video</span></h1>
+      <p class="hero-subtitle">Upload your video below to auto-transcribe & burn voice-synced captions.</p>
 
       <!-- PRIORITY 1: UPLOAD CARD -->
       <div class="upload-card" id="dropZone">
@@ -109,14 +109,42 @@
         <div id="uploadError" class="error-msg hidden"></div>
       </div>
 
-      <!-- DOWNWARDS: TEMPLATE SHOWCASE -->
-      <section class="duo-front-picker template-showcase-section" aria-labelledby="duoFrontTitle">
-        <div class="duo-front-heading">
-          <div><h2 id="duoFrontTitle">🎨 Caption Styles Showcase</h2><p>Duo + Real Estate styles · Tap one to preview it</p></div>
-          <span id="duoPresetCount" class="duo-count">31 STYLES</span>
+      <!-- DOWNWARDS: ALL TEMPLATES SHOWCASE (164 STYLES) -->
+      <section class="template-showcase-section" aria-labelledby="frontShowcaseTitle">
+        <div class="showcase-header">
+          <div class="showcase-titles">
+            <h2 id="frontShowcaseTitle">🎨 All Caption Templates</h2>
+            <p>Tap any template to preview & select &bull; Auto-applied to your uploaded video</p>
+          </div>
+          <span id="frontPresetCount" class="showcase-count-pill">164 STYLES</span>
         </div>
-        <div id="duoPresetGrid" class="duo-front-grid" aria-label="Duo caption presets"></div>
-        <p class="duo-selected-line">Selected Style: <strong id="duoSelectedName">Loading presets…</strong></p>
+
+        <!-- Category Filter Pills -->
+        <div class="front-category-pills" id="frontCategoryPills">
+          <button type="button" class="cat-pill active" data-cat="all">All (164)</button>
+          <button type="button" class="cat-pill" data-cat="duo">⚡ Duo Styles (31)</button>
+          <button type="button" class="cat-pill" data-cat="viral">🔥 Viral Pop</button>
+          <button type="button" class="cat-pill" data-cat="neon">✨ Neon & Ice</button>
+          <button type="button" class="cat-pill" data-cat="box">📦 Box Pop</button>
+          <button type="button" class="cat-pill" data-cat="real-estate">👑 Real Estate</button>
+          <button type="button" class="cat-pill" data-cat="colourful">🌈 Colourful</button>
+          <button type="button" class="cat-pill" data-cat="minimal">🎬 Minimal</button>
+          <button type="button" class="cat-pill" data-cat="special">⭐ Special</button>
+        </div>
+
+        <!-- Selected Style Status Bar -->
+        <div class="showcase-status-bar">
+          <span class="showcase-selected-label">Selected Style: <strong id="frontSelectedName">Loading presets…</strong></span>
+          <span class="showcase-selected-badge">✓ Active Style</span>
+        </div>
+
+        <!-- Complete Presets Showcase Grid (All 164 Templates) -->
+        <div id="frontPresetGrid" class="front-showcase-grid" aria-label="All caption presets"></div>
+        
+        <!-- Hidden elements for backward compatibility -->
+        <div id="duoPresetGrid" style="display:none;"></div>
+        <span id="duoPresetCount" style="display:none;"></span>
+        <strong id="duoSelectedName" style="display:none;"></strong>
       </section>
     </div>
   </main>
@@ -209,19 +237,17 @@
             <svg id="iconMuted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           </button>
 
+          <!-- Compact Aspect Ratio Selector inside Transport Bar -->
+          <div class="aspect-ratio-bar" id="aspectRatioBar">
+            <button type="button" class="btn-aspect active" data-aspect="9:16" title="9:16 Reels & Shorts">📱 9:16</button>
+            <button type="button" class="btn-aspect" data-aspect="original" title="Original video ratio">Fit</button>
+            <button type="button" class="btn-aspect" data-aspect="1:1" title="1:1 Square Feed">1:1</button>
+          </div>
+
           <!-- Moonshot-style Drawer / Timeline Toggle Chevron -->
           <button id="btnToggleTimeline" class="btn-icon btn-drawer-toggle" title="Toggle tools drawer & timeline">
             <svg id="iconDrawerChevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-        </div>
-
-        <!-- Aspect Ratio Bar -->
-        <div class="aspect-ratio-bar" id="aspectRatioBar">
-          <span class="aspect-label">Aspect:</span>
-          <button type="button" class="btn-aspect active" data-aspect="original" title="Original video ratio">Original</button>
-          <button type="button" class="btn-aspect" data-aspect="9:16" title="9:16 Reels & Shorts">📱 9:16 Reel</button>
-          <button type="button" class="btn-aspect" data-aspect="1:1" title="1:1 Square Feed">🔲 1:1 Square</button>
-          <button type="button" class="btn-aspect" data-aspect="16:9" title="16:9 YouTube">🖥️ 16:9 YT</button>
         </div>
       </section>
 
