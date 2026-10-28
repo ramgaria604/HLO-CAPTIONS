@@ -1396,8 +1396,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (quickLoginForm) {
       quickLoginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = ($('inputLoginName') && $('inputLoginName').value.trim()) || 'Creator';
-        const email = ($('inputLoginEmail') && $('inputLoginEmail').value.trim()) || '';
+        const email = ($('inputLoginEmail') && $('inputLoginEmail').value.trim().toLowerCase()) || '';
+        const name = ($('inputLoginName') && $('inputLoginName').value.trim()) || (email.split('@')[0] || 'Creator');
+        if (!email || !email.includes('@') || !email.includes('.')) {
+          showToast('Please enter a valid Gmail / Email address!');
+          return;
+        }
         try {
           const res = await fetch('/api/auth/google', {
             method: 'POST',
@@ -1405,6 +1409,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             body: JSON.stringify({ name, email })
           });
           const data = await res.json();
+          if (!res.ok || !data.ok) {
+            throw new Error(data.error || 'Login failed. Please use your valid Gmail.');
+          }
           if (data.ok && data.user) {
             S.user = data.user;
             try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
@@ -1423,7 +1430,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             }
           }
         } catch (err) {
-          showToast('Login error: ' + err.message);
+          showToast(err.message || 'Login error');
         }
       });
     }
@@ -5432,23 +5439,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             formData.append('voiceover', S.voiceoverFilename);
           }
 
-          const res = await fetch('/api/save_canvas_export', {
-            method: 'POST',
-            body: formData
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data.ok && data.download) {
-              updateExportPipeline(3);
-              showExportComplete(data.download);
-              return;
+          let serverDownloadUrl = null;
+          try {
+            const controller = new AbortController();
+            const fetchTimeout = setTimeout(() => controller.abort(), 12000);
+            const res = await fetch('/api/save_canvas_export', {
+              method: 'POST',
+              body: formData,
+              signal: controller.signal
+            });
+            clearTimeout(fetchTimeout);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.ok && data.download) {
+                serverDownloadUrl = data.download;
+              }
             }
+          } catch (netErr) {
+            console.warn('Canvas export server packaging timeout/error, serving client blob:', netErr);
           }
 
-          const directBlobUrl = URL.createObjectURL(recordedBlob);
+          const finalUrl = serverDownloadUrl || URL.createObjectURL(recordedBlob);
           updateExportPipeline(3);
-          showExportComplete(directBlobUrl);
+          showExportComplete(finalUrl);
         } catch (postErr) {
           console.warn('save_canvas_export error, using local blob:', postErr);
           const recordedBlob = new Blob(chunks, { type: chosenMime || 'video/mp4' });

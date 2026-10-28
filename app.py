@@ -932,8 +932,13 @@ def serve_video(filename):
 def auth_google():
     d = request.get_json(force=True)
     email = (d.get("email") or "").strip().lower()
-    name = (d.get("name") or "").strip() or (email.split("@")[0] if email else "Creator")
-    user_id = d.get("id") or (re.sub(r"\W", "_", email) if email else f"user_{uuid.uuid4().hex[:8]}")
+    
+    # Strictly require a valid email address (prevents name-only exploit)
+    if not email or "@" not in email or "." not in email:
+        return jsonify(ok=False, error="A valid Gmail / Email address is required to sign in."), 400
+
+    name = (d.get("name") or "").strip() or email.split("@")[0]
+    user_id = re.sub(r"\W", "_", email)
     picture = d.get("picture") or f"https://api.dicebear.com/7.x/bottts/svg?seed={user_id}"
 
     user_data = {
@@ -953,7 +958,7 @@ def auth_google():
             pass
     user_file.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
 
-    # Sync User Account Credits from Server Records
+    # Sync User Account Credits from Server Records by exact email address
     dev_file = WORK / "device_credits.json"
     dev_data = {}
     if dev_file.exists():
@@ -962,22 +967,21 @@ def auth_google():
         except Exception:
             pass
 
-    key = email or user_id
-    user_record = dev_data.get(key)
+    user_record = dev_data.get(email)
     if not user_record:
         # First time this Gmail account has logged in -> Grant 1 Free Export!
         user_record = {"credits": 1, "used": 0, "email": email, "name": name, "created_at": time.time()}
-        dev_data[key] = user_record
+        dev_data[email] = user_record
         try:
             dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
         except Exception:
             pass
     else:
         # User has logged in before -> Update name/email metadata
-        if email: user_record["email"] = email
+        user_record["email"] = email
         if name: user_record["name"] = name
         user_record["last_login"] = time.time()
-        dev_data[key] = user_record
+        dev_data[email] = user_record
         try:
             dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
         except Exception:
