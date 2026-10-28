@@ -10,7 +10,8 @@ import uuid
 from pathlib import Path
 import urllib.request
 
-from flask import Flask, abort, jsonify, render_template, request, send_from_directory
+from flask import Flask, abort, jsonify, redirect, render_template, request, send_from_directory
+import cloud_storage
 
 START_TIME = time.time()
 from werkzeug.utils import secure_filename
@@ -26,6 +27,10 @@ from fonts_util import FONTS_DIR, font_index, user_families
 BASE = Path(__file__).resolve().parent
 WORK = BASE / "work"
 WORK.mkdir(exist_ok=True)
+
+# Launch background Smart Storage Janitor thread (runs every 30 mins)
+# Auto-cleans expired temporary files and enforces disk quota so disk never fills up
+cloud_storage.start_janitor_thread(WORK, interval_seconds=1800)
 PROJECTS_DIR = WORK / "projects"
 PROJECTS_DIR.mkdir(exist_ok=True)
 USERS_DIR = WORK / "users"
@@ -912,7 +917,14 @@ def serve_preview_card(filename):
 @app.get("/video/<path:filename>")
 def serve_video(filename):
     safe = safe_name(filename)
-    return send_from_directory(WORK, safe)
+    local_f = WORK / safe
+    if local_f.exists():
+        return send_from_directory(WORK, safe)
+    if cloud_storage.storage.is_enabled():
+        cloud_url = cloud_storage.storage.upload_file(local_f, cloud_key=safe)
+        if cloud_url:
+            return redirect(cloud_url)
+    abort(404)
 
 
 # ------------------------------------------------------------------ Auth & Project Save/Load
@@ -2275,8 +2287,10 @@ def export_worker(job_id, d):
 
             args += [out_name]
             run_ffmpeg(args, job, cur_duration, base, step_span)
+            final_out_file = WORK / out_name
+            cloud_url = cloud_storage.storage.upload_file(final_out_file)
             job.update(status="done", progress=100, message="Your video is ready! \U0001F389",
-                       download=f"/download/{out_name}")
+                       download=cloud_url or f"/download/{out_name}")
     except Exception as e:  # noqa
         job.update(status="error", message=str(e)[:1500])
     finally:
@@ -2365,11 +2379,12 @@ def save_canvas_export():
             temp_input.rename(final_output)
 
     out_name = final_output.name
+    cloud_url = cloud_storage.storage.upload_file(final_output)
     return jsonify({
         "ok": True,
-        "download": f"/download/{out_name}",
+        "download": cloud_url or f"/download/{out_name}",
         "filename": out_name,
-        "video_url": f"/video/{out_name}"
+        "video_url": cloud_url or f"/video/{out_name}"
     })
 
 
@@ -2397,8 +2412,15 @@ def download(filename):
     safe = Path(filename).name
     if not (safe.endswith("_final.mp4") or safe.endswith("_final.webm")):
         abort(404)
-    dl_name = "captioned_video" + Path(safe).suffix
-    return send_from_directory(WORK, safe, as_attachment=True, download_name=dl_name)
+    local_p = WORK / safe
+    if local_p.exists():
+        dl_name = "captioned_video" + Path(safe).suffix
+        return send_from_directory(WORK, safe, as_attachment=True, download_name=dl_name)
+    if cloud_storage.storage.is_enabled():
+        cloud_url = cloud_storage.storage.upload_file(local_p, cloud_key=safe)
+        if cloud_url:
+            return redirect(cloud_url)
+    abort(404)
 
 
 def cleanup_old(days=3):
