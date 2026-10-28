@@ -1,5 +1,6 @@
 """Caption grouping, emphasis detection, style presets and the ASS caption builder."""
 import copy
+from functools import lru_cache
 import json
 import math
 import os
@@ -36,6 +37,30 @@ def find_font_file(role):
         if font.lower() in p.stem.lower().replace("-", "").replace(" ", ""):
             return str(p)
     return str(FONTS_DIR / "Poppins-700.ttf")
+
+
+@lru_cache(maxsize=128)
+def get_ass_font_info(font_file):
+    """
+    Returns (font_family_name, ratio) where font_family_name is nameID 1,
+    which libass matches 100% against fonts/ without falling back to Arial.
+    """
+    try:
+        tt = TTFont(str(font_file), lazy=True)
+        upem = tt["head"].unitsPerEm
+        ascent = tt["OS/2"].usWinAscent
+        descent = tt["OS/2"].usWinDescent
+        ratio = (ascent + descent) / upem
+        font_name = None
+        for rec in tt["name"].names:
+            if rec.nameID == 1:
+                font_name = rec.toUnicode()
+                break
+        if not font_name:
+            font_name = Path(font_file).stem
+        return font_name, ratio
+    except Exception:
+        return "Arial", 1.0
 
 STOP = set("""a an the and or but if so to of in on at for from by with as is are was were be been being am i you he she it
 we they me my your his her its our their this that these those there here do does did done have has had will would can could
@@ -677,12 +702,12 @@ def clean_role(r, d):
     out = {
         "font": _text(r.get("font"), d["font"]), "fallback": _text(r.get("fallback"), d["fallback"]),
         "size": _num(r.get("size"), 0.02, 0.30, d["size"]),
-        "color": _hex(r.get("color"), d["color"]),
+        "color": r.get("color") or d["color"],
         "outline": _num(r.get("outline"), 0, 0.25, d["outline"]),
-        "outlineColor": _hex(r.get("outlineColor"), d["outlineColor"]),
-        "glow": _hex(r.get("glow"), d["glow"]), "glowSize": _num(r.get("glowSize"), 0, 0.25, d["glowSize"]),
+        "outlineColor": r.get("outlineColor") or d["outlineColor"],
+        "glow": r.get("glow") or d["glow"], "glowSize": _num(r.get("glowSize"), 0, 0.25, d["glowSize"]),
         "shadow": _num(r.get("shadow"), 0, 0.2, d["shadow"]),
-        "shadowColor": _hex(r.get("shadowColor"), d["shadowColor"]),
+        "shadowColor": r.get("shadowColor") or d["shadowColor"],
         "track": float(_num(r.get("track"), -0.5, 0.5, 0.0)),
         "italic": bool(r.get("italic")), "bold": bool(r.get("bold")), "upper": bool(r.get("upper")),
     }
@@ -694,11 +719,13 @@ def clean_role(r, d):
         out["fill"] = r["fill"]
     if "layer" in r:
         out["layer"] = r["layer"]
+    if "weight" in r:
+        out["weight"] = r["weight"]
     return out
 
 
 def clean_style(s):
-    s = s or {}
+    s = dict(s or {})
     d = DEFAULT_STYLE
     palette = [c for c in s.get("palette", []) if isinstance(c, str) and c.startswith("#")]
     is_special = bool(s.get("isSpecial"))
@@ -707,13 +734,20 @@ def clean_style(s):
     active_role = clean_role(s.get("activeRole"), d["key"])
     accent2_role = clean_role(s.get("accent2"), d["key"]) if s.get("accent2") else None
     if is_special:
-        # Retain each preset's text palette but remove its colored shadow/halo layer.
         for role in (key_role, filler_role, active_role, accent2_role):
             if role is not None:
                 role["shadowColor"] = "#000000"
                 role["shadow"] = 0
                 role["glowSize"] = 0
-    return {
+
+    anim = str(s.get("animation") or s.get("anim") or "pop").lower()
+    valid_anims = ("pop", "bounce", "slide-up", "slide-down", "zoom", "fade", "none", "static", "highlight", "slide-right-soft")
+    if anim not in valid_anims:
+        anim = "pop"
+
+    # Start with all original fields to preserve user customized values
+    out = dict(s)
+    out.update({
         "id": s.get("id", "custom"),
         "name": _text(s.get("name"), "Custom", 40),
         "category": s.get("category", "all"),
@@ -721,68 +755,28 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
-        "layout": s.get("layout") if s.get("layout") in ("stack", "line") else "stack",
-        "animation": s.get("animation") if s.get("animation") in ("pop", "highlight", "none", "slide-right-soft") else "pop",
+        "layout": s.get("layout") if s.get("layout") in ("stack", "line") else ("stack" if s.get("isDuo") else "line"),
+        "animation": anim,
+        "anim": anim,
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",
         "wordsPerCaption": int(_num(s.get("wordsPerCaption"), 1, 8, 3)),
         "maxKeys": int(_num(s.get("maxKeys"), 0, 3, 1)),
-        "position": _num(s.get("position"), 0.1, 0.95, 0.78),
-        "opacity": _num(s.get("opacity"), 0.4, 1.0, 0.90),
-        "highlightColor": _hex(s.get("highlightColor"), "#FFE600"),
-        "key": key_role, "filler": filler_role,
+        "position": _num(s.get("position"), 0.1, 0.95, 0.68),
+        "opacity": _num(s.get("opacity"), 0.4, 1.0, 1.0),
+        "highlightColor": s.get("highlightColor") or key_role.get("color") or "#FFE600",
+        "baseColor": s.get("baseColor") or filler_role.get("color") or "#FFFFFF",
+        "_customColorActive": bool(s.get("_customColorActive", False)),
+        "key": key_role,
+        "filler": filler_role,
         "activeRole": active_role,
         "accent2": accent2_role,
-        # Unique Moonshot features
         "palette": palette,
-        "badge": s.get("badge"),
-        "badgeTextColor": s.get("badgeTextColor", "#000000"),
         "rotation": float(s.get("rotation", 0.0)),
-        "shadow3D": bool(s.get("shadow3D", False)),
-        "karaokeDim": bool(s.get("karaokeDim", False)),
-        "glowBloom": bool(s.get("glowBloom", False)),
-        "blendMode": s.get("blendMode"),
-        "behindPerson": bool(s.get("behindPerson") or (isinstance(s.get("roles"), dict) and s["roles"].get("accent", {}).get("layer") == "behind") or ("(behind)" in str(s.get("name", "")).lower())),
-        "depthAccent": bool(s.get("depthAccent") or (isinstance(s.get("roles"), dict) and s["roles"].get("accent", {}).get("layer") == "behind") or ("(behind)" in str(s.get("name", "")).lower())),
-        "depthAccentSize": float(_num(s.get("depthAccentSize"), 0.12, 0.45, 0.26)),
-        "topY": float(_num(s.get("topY"), 0.02, 0.40, 0.10)),
-        "depthAccentY": float(_num(s.get("depthAccentY"), 0.06, 0.50, 0.18)),
-        "subtitlePosition": float(_num(s.get("subtitlePosition"), 0.50, 0.95, 0.72)),
-        "subtitleSize": float(_num(s.get("subtitleSize"), 0.035, 0.09, 0.058)),
         "fontScale": float(_num(s.get("fontScale"), 0.6, 1.5, 1.0)),
         "offsetX": float(_num(s.get("offsetX"), -0.10, 0.10, 0.0)),
         "scaleX": float(_num(s.get("scaleX"), 0.7, 1.5, 1.0)),
-        "refDualNeon": bool(s.get("refDualNeon", False)),
-        "chromaticAberration": bool(s.get("chromaticAberration", False)),
-        "lensDistort": bool(s.get("lensDistort", False)),
-        "pillBox": bool(s.get("pillBox", False)),
-        "pillBg": s.get("pillBg"),
-        "chromeSpecular": bool(s.get("chromeSpecular", False)),
-        "behindBars": bool(s.get("behindBars", False)),
-        "motionGraphic3D": s.get("motionGraphic3D"),
-        "leading": float(s.get("leading", 1.0)),
-        "multiColorGradients": s.get("multiColorGradients"),
-        "keyGradient": s.get("keyGradient"),
-        "secondaryGradient": s.get("secondaryGradient"),
-        "textGradient": s.get("textGradient"),
-        "big": s.get("big"),
-        "small": s.get("small"),
-        "fx": s.get("fx"),
-        "blend": s.get("blend"),
-        "pill": s.get("pill"),
-        "highlight": s.get("highlight"),
-        "posCycle": s.get("posCycle"),
-        "lineGap": s.get("lineGap"),
-        "keyRule": s.get("keyRule"),
-        "enter": s.get("enter"),
-        "fill": s.get("fill"),
-        "roles": s.get("roles"),
-        "isSpecial": s.get("isSpecial"),
-        "isDuo": s.get("isDuo"),
-        "inkGap": float(s.get("inkGap", 0.03)) if s.get("inkGap") is not None else 0.03,
-        "posX": float(s.get("posX", 0.5)),
-        "posY": float(s.get("posY", 0.5)),
-        "uppercase": bool(s.get("uppercase", False)),
-    }
+    })
+    return out
 
 
 # ---------------------------------------------------------------- ASS builder
@@ -1122,8 +1116,8 @@ def _chunk_text(words, style, W, H, layer, ev_start):
 
 def build_stack_ass(captions, style, W, H, layer_filter="all"):
     r"""
-    Renders stack-layout captions (e.g. Duo presets) using ink_layout.layout_stack
-    with real glyph bounding box measurement, \an2\pos(x, ass_y), and exact inkGap.
+    Renders stack-layout captions (e.g. Duo presets) with exact glyph bounding box measurement,
+    word-by-word stable positioning, and 100% visual parity with canvas preview.
     """
     style = clean_style(style)
     roles = style.get("roles") or {}
@@ -1225,8 +1219,6 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             top_y = float(style.get("topY", default_top))
             sub_y = float(style.get("subtitlePosition", 0.72))
 
-            # Distribute words across 3 lines in strict chronological order:
-            # Line 1 (Top above head) plays FIRST, Line 2 (Hero middle behind head) plays SECOND, Line 3 (Bottom) plays THIRD.
             if len(words) >= 3:
                 if len(words) == 3:
                     top_w = [words[0]]
@@ -1325,34 +1317,28 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             if layer_filter == "subtitle" and o["is_hero"]:
                 continue
 
-            tt = TTFont(o["font_file"], lazy=True)
-            upem = tt["head"].unitsPerEm
-            ratio = (tt["OS/2"].usWinAscent + tt["OS/2"].usWinDescent) / upem
+            font_name, ratio = get_ass_font_info(o["font_file"])
             ass_fs = o["size"] * ratio
             fsp = o["track"] * o["size"]
-            raw_font_name = tt["name"].getDebugName(16) or tt["name"].getDebugName(1) or Path(o["font_file"]).stem
-            clean_fam = re.split(r"[\s-]+(Thin|Light|Medium|Regular|SemiBold|Bold|ExtraBold|Black|Italic)", raw_font_name, flags=re.I)[0].strip()
-            font_name = clean_fam or raw_font_name
 
             r = o["role"]
-            grad_colors = None
-            if o["is_hero"]:
-                user_hl = style.get("highlightColor") or (style.get("highlight") or {}).get("color")
-                if user_hl and style.get("_customColorActive"):
-                    grad_colors = None
+            is_hero = o["is_hero"]
+
+            user_hl = style.get("highlightColor") or (style.get("highlight") or {}).get("color")
+            user_base = style.get("baseColor")
+            grad_colors = get_gradient_colors(r, style)
+
+            if is_hero:
+                if user_hl and (style.get("_customColorActive") or not grad_colors):
                     col = user_hl
+                elif grad_colors and len(grad_colors) > 0:
+                    col = grad_colors[0]
+                elif r.get("color"):
+                    col = r.get("color")
                 else:
-                    grad_colors = get_gradient_colors(r, style)
-                    if not grad_colors:
-                        r_col = r.get("color")
-                        if user_hl and isinstance(user_hl, str) and user_hl.startswith("#"):
-                            col = user_hl
-                        elif r_col and isinstance(r_col, str) and r_col.startswith("#"):
-                            col = r_col
-                        else:
-                            col = "#FFE600"
+                    col = "#FFE600"
             else:
-                col = style.get("baseColor") or r.get("color") or "#FFFFFF"
+                col = user_base or r.get("color") or "#FFFFFF"
 
             bold = 1 if (r.get("bold") or r.get("weight", 500) >= 700) else 0
             italic = 1 if r.get("italic") else 0
@@ -1361,147 +1347,77 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 outline_px = 0.0
                 outline_col = "#000000"
             elif outline_mode == "glow":
-                outline_px = max(2.0, o["size"] * 0.05)
-                outline_col = style.get("highlightColor", "#FFE600")
-            elif outline_mode == "black":
-                outline_px = max(2.5, o["size"] * 0.06)
-                outline_col = "#000000"
+                outline_px = max(2.0, round(o["size"] * 0.06, 1))
+                outline_col = user_hl or "#FFE600"
             else:
                 outline_val = float(r.get("outline", 0))
-                outline_px = max(0.0, outline_val * (o["size"] / 70.0))
+                if outline_val > 0:
+                    outline_px = max(2.0, round(outline_val * (o["size"] / 70.0), 1))
+                else:
+                    outline_px = max(2.5, round(o["size"] * (0.08 if is_hero else 0.06), 1))
                 outline_col = r.get("outlineColor", "#000000")
 
-            base_tags = [
-                r"\an2",
-                f"\\pos({o['x']:.1f},{o['ass_y']:.1f})",
-                f"\\fn{font_name}",
-                f"\\fs{ass_fs:.1f}",
-                f"\\fsp{fsp:.2f}",
-                f"\\b{bold}",
-                f"\\i{italic}",
-            ]
-            if outline_px > 0:
-                base_tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
-            else:
-                base_tags.append(r"\bord0")
-            base_tags.append(r"\shad0")
-
-            # Word-by-word reveal (exact match to canvas preview):
-            line_parts = []
             anim_name = str(style.get("animation") or style.get("anim") or "pop").lower()
-            ev_dur_ms = max(250, int(round((ev_end - ev_start) * 1000)))
-            for wi, w in enumerate(o["words"]):
+
+            # Word-by-word measurement and placement along line
+            line_words = o["words"]
+            measured = []
+            for w in line_words:
                 txt = up(w["t"])
-                reveal_ms = max(0, min(ev_dur_ms - 80, int(round((w["s"] - ev_start) * 1000))))
-                w_tags = []
-                if anim_name not in ("none", "static"):
-                    if reveal_ms > 0:
-                        w_tags.append(r"\alpha&HFF&")
-                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 40},\\alpha&H00&)")
-                    if anim_name in ("pop", "bounce"):
-                        w_tags.append(r"\fscx84\fscy84")
-                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 130},\\fscx108\\fscy108)")
-                        w_tags.append(f"\\t({reveal_ms + 130},{reveal_ms + 210},\\fscx100\\fscy100)")
-                    elif anim_name == "slide-up":
-                        w_tags.append(r"\fscy85")
-                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 180},\\fscy100)")
-                    elif anim_name == "zoom":
-                        w_tags.append(r"\fscx55\fscy55")
-                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 200},\\fscx100\\fscy100)")
-                line_parts.append("{" + "".join(w_tags) + "}" + _esc(txt))
-                if wi < len(o["words"]) - 1:
-                    line_parts.append(" ")
-            text_body = "".join(line_parts)
+                we = ink_layout.ink_extents(o["font_file"], txt, o["size"], o["track"])
+                measured.append({
+                    "w": w,
+                    "txt": txt,
+                    "width": we["width"],
+                })
 
-            if grad_colors and len(grad_colors) > 1:
-                # Render clean outline pass ONCE in layer 0 (avoids 24x dark outline stacking and seams)
-                if outline_px > 0:
-                    outline_tags = [
-                        r"\an2",
-                        f"\\pos({o['x']:.1f},{o['ass_y']:.1f})",
-                        f"\\fn{font_name}",
-                        f"\\fs{ass_fs:.1f}",
-                        f"\\fsp{fsp:.2f}",
-                        f"\\b{bold}",
-                        f"\\i{italic}",
-                        f"\\bord{outline_px:.1f}",
-                        f"\\3c{_c(outline_col)}",
-                        r"\1a&HFF&",
-                        r"\shad0"
-                    ]
-                    rows.append(f"Dialogue: 0,{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,{{{ ''.join(outline_tags) }}}{text_body}")
+            min_space = 0.16 * o["size"]
+            space_extent = ink_layout.ink_extents(o["font_file"], " ", o["size"], o["track"])
+            space_w = max(min_space, space_extent["width"])
+            total_line_w = sum(m["width"] for m in measured) + max(0, len(measured) - 1) * space_w
 
-                fill_base_tags = [
+            cur_x = o["x"] - total_line_w / 2.0
+
+            for m in measured:
+                w = m["w"]
+                txt = m["txt"]
+                w_w = m["width"]
+                word_cx = cur_x + w_w / 2.0
+                cur_x += w_w + space_w
+
+                w_start = float(w.get("s", ev_start))
+                w_start = max(ev_start, min(ev_end - 0.05, w_start))
+                w_st_ts = ts(w_start)
+                w_end_ts = ts(ev_end)
+
+                tags = [
                     r"\an2",
-                    f"\\pos({o['x']:.1f},{o['ass_y']:.1f})",
+                    f"\\pos({word_cx:.1f},{o['ass_y']:.1f})",
                     f"\\fn{font_name}",
                     f"\\fs{ass_fs:.1f}",
                     f"\\fsp{fsp:.2f}",
                     f"\\b{bold}",
                     f"\\i{italic}",
-                    r"\bord0",
-                    r"\shad0"
+                    f"\\1c{_c(col)}",
                 ]
-
-                angle = get_gradient_angle(r, style)
-                norm_angle = angle % 360.0
-                is_horizontal = (45.0 <= norm_angle <= 135.0) or (225.0 <= norm_angle <= 315.0)
-
-                N_SLICES = 16
-                if is_horizontal:
-                    text_w = float(o.get("width") or (ass_fs * len(o.get("text", "")) * 0.6))
-                    pad_x = max(8.0, o["size"] * 0.05)
-                    x_left = max(0, int(math.floor(o["x"] - text_w / 2.0 - pad_x)))
-                    x_right = min(W, int(math.ceil(o["x"] + text_w / 2.0 + pad_x)))
-                    span_w = max(1, x_right - x_left)
-
-                    oriented_colors = list(grad_colors)
-                    if 225.0 <= norm_angle <= 315.0:
-                        oriented_colors = list(reversed(oriented_colors))
-
-                    for k in range(N_SLICES):
-                        t_mid = (k + 0.5) / N_SLICES
-                        slice_col = _interpolate_gradient_color(oriented_colors, t_mid)
-                        s_left = 0 if k == 0 else int(x_left + (k / N_SLICES) * span_w)
-                        s_right = W if k == N_SLICES - 1 else int(math.ceil(x_left + ((k + 1) / N_SLICES) * span_w)) + 1
-                        slice_clip = f"\\clip({s_left},0,{s_right},{H})"
-                        slice_tags = fill_base_tags + [f"\\1c{slice_col}", slice_clip]
-                        rows.append(f"Dialogue: 1,{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,{{{ ''.join(slice_tags) }}}{text_body}")
+                if outline_px > 0:
+                    tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
                 else:
-                    y_top = o.get("ink_top")
-                    y_bottom = o.get("ink_bottom")
-                    if y_top is None or y_bottom is None or y_bottom <= y_top:
-                        y_top = o["ass_y"] - ass_fs * 0.95
-                        y_bottom = o["ass_y"] + ass_fs * 0.25
-                    pad_y = max(1.0, o["size"] * 0.03)
-                    y_top = max(0, int(math.floor(y_top - pad_y)))
-                    y_bottom = min(H, int(math.ceil(y_bottom + pad_y)))
-                    span_h = max(1, y_bottom - y_top)
+                    tags.append(r"\bord0")
+                tags.append(r"\shad0")
 
-                    oriented_colors = list(grad_colors)
-                    if not (135.0 <= norm_angle <= 225.0):
-                        oriented_colors = list(reversed(oriented_colors))
+                if anim_name in ("pop", "bounce"):
+                    tags.append(r"\fscx84\fscy84\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,130,\fscx108\fscy108)\t(130,200,\fscx100\fscy100)")
+                elif anim_name == "slide-up":
+                    tags.append(r"\fscy85\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,180,\fscy100)")
+                elif anim_name == "zoom":
+                    tags.append(r"\fscx55\fscy55\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,200,\fscx100\fscy100)")
+                elif anim_name == "fade":
+                    tags.append(r"\alpha&HFF&\t(0,180,\alpha&H00&)")
 
-                    for k in range(N_SLICES):
-                        t_mid = (k + 0.5) / N_SLICES
-                        slice_col = _interpolate_gradient_color(oriented_colors, t_mid)
-                        s_top = 0 if k == 0 else int(y_top + (k / N_SLICES) * span_h)
-                        s_bot = H if k == N_SLICES - 1 else int(math.ceil(y_top + ((k + 1) / N_SLICES) * span_h)) + 1
-                        slice_clip = f"\\clip(0,{s_top},{W},{s_bot})"
-                        slice_tags = fill_base_tags + [f"\\1c{slice_col}", slice_clip]
-                        rows.append(f"Dialogue: 1,{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,{{{ ''.join(slice_tags) }}}{text_body}")
-            else:
-                tags = base_tags + [f"\\1c{_c(col)}"]
-                dialogue_line = (
-                    f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
-                    f"{{{ ''.join(tags) }}}{text_body}"
-                )
-                rows.append(dialogue_line)
+                rows.append(f"Dialogue: {line_idx},{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
 
     return header + "\n".join(rows) + "\n"
-
-
-
 def build_depth_ass(captions, style, W, H):
     """Return a large behind-person keyword and readable foreground subtitle."""
     base = clean_style(style)
@@ -1584,12 +1500,32 @@ def build_depth_ass(captions, style, W, H):
 def build_ass(captions, style, W, H):
     """captions: list of {'start','end','words':[{'t','key','s','e'}]} already on the OUTPUT timeline."""
     style = clean_style(style)
-    has_gradient = bool(get_gradient_colors(style.get("key") or {}, style))
-    if style.get("layout") == "stack" or style.get("isDuo") or (style.get("isSpecial") and style.get("mode") == "emphasis") or has_gradient:
+    if style.get("layout") == "stack" or style.get("isDuo") or (style.get("isSpecial") and style.get("mode") == "emphasis"):
         return build_stack_ass(captions, style, W, H, layer_filter="all")
-    x = max(0, min(W, int(W * (0.5 + style.get("offsetX", 0.0)))))
-    y = int(H * style["position"])
-    has_glow = not style.get("isSpecial") and any(style[k]["glowSize"] > 0 for k in ("key", "filler"))
+
+    k_role = style.get("key") or {}
+    f_role = style.get("filler") or {}
+    font_file = find_font_file(k_role if k_role.get("font") else f_role)
+    font_name, ratio = get_ass_font_info(font_file)
+
+    scale = max(260.0, min(W, H)) / 1080.0
+    base_fs = float(style.get("fontSize") or f_role.get("size") or k_role.get("size") or 0.082)
+    if base_fs <= 1.0:
+        fs = max(18.0, round(1080.0 * scale * base_fs * float(style.get("fontScale", 1.0))))
+    else:
+        fs = max(18.0, round(base_fs * scale * float(style.get("fontScale", 1.0))))
+
+    ass_fs = fs * ratio
+    leading = 1.18
+    line_h = fs * leading
+
+    highlight_col = style.get("highlightColor") or k_role.get("color") or "#FFE600"
+    base_col = style.get("baseColor") or f_role.get("color") or "#FFFFFF"
+    anim_name = str(style.get("animation") or style.get("anim") or "pop").lower()
+
+    pos_y_pct = float(style.get("position", 0.68))
+    c_y = int(H * pos_y_pct)
+
     header = (
         "[Script Info]\nScriptType: v4.00+\n"
         f"PlayResX: {W}\nPlayResY: {H}\nWrapStyle: 2\nScaledBorderAndShadow: yes\n\n"
@@ -1597,9 +1533,10 @@ def build_ass(captions, style, W, H):
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, "
         "Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, "
         "MarginR, MarginV, Encoding\n"
-        "Style: Cap,Arial,40,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1\n\n"
+        "Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,2,0,0,0,1\n\n"
         "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
+
     norm_caps = []
     for c in captions:
         w_list = c.get("words", [])
@@ -1619,28 +1556,100 @@ def build_ass(captions, style, W, H):
         })
     caps = sorted(norm_caps, key=lambda c: c["start"])
     rows = []
-    for i, c in enumerate(caps):
-        words = []
-        for w in c["words"]:
-            w = dict(w)
-            w["T"] = w["t"].upper() if style["key" if w["key"] else "filler"]["upper"] else w["t"]
-            words.append(w)
+
+    for cap_idx, c in enumerate(caps):
+        words = list(c["words"])
+        if not words:
+            continue
         ev_start = min(w["s"] for w in words)
         ev_end = max(c["end"], max(w["e"] for w in words))
-        if i + 1 < len(caps):
-            ev_end = min(ev_end, caps[i + 1]["start"])
+        if cap_idx + 1 < len(caps):
+            ev_end = min(ev_end, caps[cap_idx + 1]["start"])
         ev_end = max(ev_end, ev_start + 0.25)
-        if style["animation"] == "slide-right-soft":
-            slide_ms = max(80, min(400, int((ev_end - ev_start) * 550)))
-            slide_x = max(12, round(min(W, H) * 0.025))
-            pos = f"{{\\an5\\move({x - slide_x},{y},{x},{y},0,{slide_ms})}}"
-            event_style = {**style, "_slideMs": slide_ms}
+
+        if len(words) <= 3:
+            lines = [words]
         else:
-            pos = f"{{\\an5\\pos({x},{y})}}"
-            event_style = style
-        if has_glow:
-            rows.append(f"Dialogue: 0,{ts(ev_start)},{ts(ev_end)},Cap,,0,0,0,,{pos}"
-                        + _chunk_text(words, event_style, W, H, "glow", ev_start))
-        rows.append(f"Dialogue: 1,{ts(ev_start)},{ts(ev_end)},Cap,,0,0,0,,{pos}"
-                    + _chunk_text(words, event_style, W, H, "main", ev_start))
+            mid = math.ceil(len(words) / 2)
+            lines = [words[:mid], words[mid:]]
+
+        total_h = len(lines) * line_h
+        start_y = c_y - (total_h / 2.0) + (line_h / 2.0)
+
+        for line_idx, line_words in enumerate(lines):
+            line_y = start_y + line_idx * line_h
+
+            measured = []
+            for w in line_words:
+                is_key = bool(w["key"])
+                role = k_role if is_key else f_role
+                is_upper = role.get("upper", True if is_key else False)
+                txt = w["t"].upper() if is_upper else w["t"]
+                we = ink_layout.ink_extents(font_file, txt, fs)
+                measured.append({
+                    "w": w,
+                    "txt": txt,
+                    "is_key": is_key,
+                    "width": we["width"]
+                })
+
+            space_extent = ink_layout.ink_extents(font_file, " ", fs)
+            space_w = max(fs * 0.28, space_extent["width"])
+            total_line_w = sum(m["width"] for m in measured) + max(0, len(measured) - 1) * space_w
+
+            if style.get("align") == "left":
+                cur_x = W * 0.09
+            elif style.get("align") == "right":
+                cur_x = W * 0.91 - total_line_w
+            else:
+                cur_x = (W - total_line_w) / 2.0
+
+            for m in measured:
+                w = m["w"]
+                txt = m["txt"]
+                is_key = m["is_key"]
+                w_w = m["width"]
+                word_cx = cur_x + w_w / 2.0
+                cur_x += w_w + space_w
+
+                w_start = float(w.get("s", ev_start))
+                w_start = max(ev_start, min(ev_end - 0.05, w_start))
+                w_st_ts = ts(w_start)
+                w_end_ts = ts(ev_end)
+
+                col = highlight_col if is_key else base_col
+                outline_px = max(2.5, round(fs * (0.17 if is_key else 0.14), 1))
+                outline_col = (k_role if is_key else f_role).get("outlineColor") or "#000000"
+                if style.get("outlineMode") == "none":
+                    outline_px = 0.0
+
+                bold = 1 if ((k_role if is_key else f_role).get("bold") or (k_role if is_key else f_role).get("weight", 700) >= 700) else 0
+                italic = 1 if (k_role if is_key else f_role).get("italic") else 0
+
+                tags = [
+                    r"\an5",
+                    f"\\pos({word_cx:.1f},{line_y:.1f})",
+                    f"\\fn{font_name}",
+                    f"\\fs{ass_fs:.1f}",
+                    f"\\b{bold}",
+                    f"\\i{italic}",
+                    f"\\1c{_c(col)}",
+                ]
+                if outline_px > 0:
+                    tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
+                else:
+                    tags.append(r"\bord0")
+                tags.append(f"\\shad{max(1.0, round(fs * 0.04, 1)):.1f}\\4c&H000000&")
+
+                if anim_name in ("pop", "bounce"):
+                    tags.append(r"\fscx84\fscy84\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,130,\fscx108\fscy108)\t(130,200,\fscx100\fscy100)")
+                elif anim_name == "slide-up":
+                    tags.append(r"\fscy85\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,180,\fscy100)")
+                elif anim_name == "zoom":
+                    tags.append(r"\fscx55\fscy55\alpha&HFF&\t(0,30,\alpha&H00&)\t(0,200,\fscx100\fscy100)")
+                elif anim_name == "fade":
+                    tags.append(r"\alpha&HFF&\t(0,180,\alpha&H00&)")
+
+                rows.append(f"Dialogue: 0,{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
+
     return header + "\n".join(rows) + "\n"
