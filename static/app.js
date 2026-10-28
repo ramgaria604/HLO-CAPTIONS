@@ -5294,7 +5294,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
     }
 
-    const fps = Math.min(60, Math.max(30, Math.round(S.probe?.fps || 30)));
+    // Fixed 30 FPS stream prevents MediaRecorder timestamp dilation / slow-motion stretch
+    const fps = 30;
     const canvasStream = recCanvas.captureStream ? recCanvas.captureStream(fps) : recCanvas.mozCaptureStream(fps);
     const combinedTracks = [canvasStream.getVideoTracks()[0]];
     if (audioTrack) {
@@ -5492,30 +5493,31 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     recorder.start(250);
     await vid.play();
 
-    if ('requestVideoFrameCallback' in vid) {
-      function onFrame() {
-        if (!isRunning) return;
-        renderDirectFrame();
-        vid.requestVideoFrameCallback(onFrame);
+    // Single deterministic frame loop locked to video clock
+    function loopDirectFrame() {
+      if (!isRunning) return;
+      renderDirectFrame();
+      if ('requestVideoFrameCallback' in vid) {
+        vid.requestVideoFrameCallback(loopDirectFrame);
+      } else {
+        animId = requestAnimationFrame(loopDirectFrame);
       }
-      vid.requestVideoFrameCallback(onFrame);
-    } else {
-      animId = requestAnimationFrame(renderDirectFrame);
     }
+    loopDirectFrame();
 
     const heartbeat = setInterval(() => {
       if (!isRunning) {
         clearInterval(heartbeat);
         return;
       }
-      if (vid.paused && !vid.ended && vid.currentTime < duration - 0.1) {
+      if (vid.paused && !vid.ended && vid.currentTime < duration - 0.2) {
         vid.play().catch(() => {});
       }
-      if (vid.ended || vid.currentTime >= duration - 0.05) {
+      if (vid.ended || vid.currentTime >= duration - 0.08) {
         clearInterval(heartbeat);
         finishDirectExport();
       }
-    }, 250);
+    }, 150);
   }
 
   async function startExport() {
@@ -5563,8 +5565,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     updateExportPipeline(1, 'Recording Canvas...', 'Queued');
 
-    // Always use robust FFmpeg Server Export to guarantee 100% exact timing, zero lag, and no frame-skipping
-    await startServerExport();
+    // Option 2 SAME ENGINE DIRECT CANVAS EXPORT:
+    // Ensures 100% exact colors, font typography, and pop animations identical to editor preview!
+    try {
+      await startDirectCanvasExport();
+      return;
+    } catch (directErr) {
+      console.warn('Direct canvas export error, falling back to server render:', directErr);
+      await startServerExport();
+    }
   }
 
   async function startServerExport() {
