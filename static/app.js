@@ -87,10 +87,14 @@
   // Timeline elements
   const timelineSection = $('timelineSection');
   const timelineTrackWrap = $('timelineTrackWrap');
+  const timelineScrollContainer = $('timelineScrollContainer') || $('timelineTrackWrap');
+  const timelineRibbon = $('timelineRibbon');
   const timelineRuler = $('timelineRuler');
   const timelineLane = $('timelineLane');
   const timelinePlayhead = $('timelinePlayhead');
   const tlTimeIndicator = $('tlTimeIndicator');
+  const pxPerSec = 80;
+  let isUserScrubbingTimeline = false;
 
   // Drawer & Lowest Nav elements
   const drawerPanel = $('drawerPanel');
@@ -2535,34 +2539,115 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
     });
 
-    timelineTrackWrap.addEventListener('click', (e) => {
+    let isTimelineDragging = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+    let wasPlayingBeforeScrub = false;
+    let dragDistance = 0;
+
+    const onScrubStart = (e) => {
       if (e.target.closest('.tl-handle') || e.target.closest('.timeline-block')) return;
-      const rect = timelineTrackWrap.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      isTimelineDragging = true;
+      isUserScrubbingTimeline = true;
+      startX = e.clientX;
+      startScrollLeft = timelineScrollContainer.scrollLeft;
+      dragDistance = 0;
+      if (!vid.paused) {
+        wasPlayingBeforeScrub = true;
+        vid.pause();
+      } else {
+        wasPlayingBeforeScrub = false;
+      }
+      try { timelineScrollContainer.setPointerCapture(e.pointerId); } catch (_) {}
+    };
+
+    const onScrubMove = (e) => {
+      if (!isTimelineDragging) return;
+      const dx = e.clientX - startX;
+      dragDistance = Math.max(dragDistance, Math.abs(dx));
+      timelineScrollContainer.scrollLeft = startScrollLeft - dx;
       const dur = vid.duration || S.probe.duration || 10;
-      vid.currentTime = pct * dur;
+      const newTime = Math.max(0, Math.min(dur, timelineScrollContainer.scrollLeft / pxPerSec));
+      vid.currentTime = newTime;
       renderCanvas();
       syncTimelinePlayhead();
-    });
+    };
+
+    const onScrubEnd = (e) => {
+      if (!isTimelineDragging) return;
+      isTimelineDragging = false;
+      try { timelineScrollContainer.releasePointerCapture(e.pointerId); } catch (_) {}
+
+      // If user tapped / clicked without dragging, jump center playhead to that point
+      if (dragDistance < 4 && e) {
+        const rect = timelineScrollContainer.getBoundingClientRect();
+        const clickOffsetFromCenter = e.clientX - (rect.left + rect.width / 2);
+        const dur = vid.duration || S.probe.duration || 10;
+        const newTime = Math.max(0, Math.min(dur, (timelineScrollContainer.scrollLeft + clickOffsetFromCenter) / pxPerSec));
+        vid.currentTime = newTime;
+        timelineScrollContainer.scrollLeft = newTime * pxPerSec;
+        renderCanvas();
+        syncTimelinePlayhead();
+      }
+
+      setTimeout(() => { isUserScrubbingTimeline = false; }, 80);
+      if (wasPlayingBeforeScrub) {
+        vid.play().catch(() => {});
+      }
+    };
+
+    if (timelineScrollContainer) {
+      timelineScrollContainer.addEventListener('pointerdown', onScrubStart);
+      timelineScrollContainer.addEventListener('pointermove', onScrubMove);
+      timelineScrollContainer.addEventListener('pointerup', onScrubEnd);
+      timelineScrollContainer.addEventListener('pointercancel', onScrubEnd);
+
+      // Mouse wheel / trackpad scroll handler
+      timelineScrollContainer.addEventListener('wheel', (e) => {
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+          e.preventDefault();
+          timelineScrollContainer.scrollLeft += e.deltaY;
+        }
+        const dur = vid.duration || S.probe.duration || 10;
+        const newTime = Math.max(0, Math.min(dur, timelineScrollContainer.scrollLeft / pxPerSec));
+        vid.currentTime = newTime;
+        renderCanvas();
+        syncTimelinePlayhead();
+      }, { passive: false });
+    }
   }
 
   function renderTimeline() {
+    if (!timelineLane || !timelineRuler) return;
     timelineLane.innerHTML = '';
     timelineRuler.innerHTML = '';
 
     const dur = vid.duration || S.probe.duration || 10;
     if (dur <= 0) return;
 
-    const step = dur > 60 ? 10 : (dur > 20 ? 5 : (dur > 10 ? 2 : 1));
-    for (let t = 0; t <= dur; t += step) {
-      const mark = document.createElement('span');
-      mark.style.position = 'absolute';
-      mark.style.left = (t / dur * 100) + '%';
-      mark.style.fontSize = '9px';
-      mark.style.color = '#64748b';
-      mark.style.transform = 'translateX(-50%)';
-      mark.textContent = t + 's';
+    // Dynamically pad ribbon so 0.0s and dur align exactly with the center red playhead (50%)
+    const containerW = timelineScrollContainer ? timelineScrollContainer.clientWidth : 360;
+    const halfW = containerW / 2;
+    if (timelineRibbon) {
+      timelineRibbon.style.paddingLeft = halfW + 'px';
+      timelineRibbon.style.paddingRight = halfW + 'px';
+    }
+
+    // Ribbon track width expands sideways based on video duration
+    const trackWidth = Math.ceil(dur * pxPerSec);
+    timelineLane.style.width = trackWidth + 'px';
+    timelineRuler.style.width = trackWidth + 'px';
+    if (timelineRibbon) {
+      timelineRibbon.style.width = trackWidth + 'px';
+    }
+
+    // Ruler marks every 1 second
+    const step = 1;
+    for (let t = 0; t <= Math.ceil(dur); t += step) {
+      const mark = document.createElement('div');
+      mark.className = 'timeline-ruler-mark' + (t % 5 === 0 ? ' major' : '');
+      mark.style.left = (t * pxPerSec) + 'px';
+      mark.innerHTML = `<span class="ruler-tick"></span><span class="ruler-num">${t}s</span>`;
       timelineRuler.appendChild(mark);
     }
 
@@ -2570,16 +2655,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.captions.forEach((cap, idx) => {
       const block = document.createElement('div');
       block.className = 'timeline-block' + (curTime >= cap.start && curTime <= cap.end ? ' active' : '');
-      const leftPct = (cap.start / dur) * 100;
-      const widthPct = Math.max(2, ((cap.end - cap.start) / dur) * 100);
-      block.style.left = leftPct + '%';
-      block.style.width = widthPct + '%';
+      const leftPx = Math.round(cap.start * pxPerSec);
+      const widthPx = Math.max(36, Math.round((cap.end - cap.start) * pxPerSec));
+      block.style.left = leftPx + 'px';
+      block.style.width = widthPx + 'px';
       block.setAttribute('data-id', cap.id);
 
-      // Left Trim Handle (Drag to decrease or increase start time)
+      // Left Trim Handle (Drag left/right to adjust start time)
       const handleL = document.createElement('div');
       handleL.className = 'tl-handle tl-handle-left';
-      handleL.title = 'Drag left/right to adjust start time';
+      handleL.title = 'Drag to adjust start time';
       block.appendChild(handleL);
 
       // Center Text
@@ -2594,10 +2679,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       durTag.textContent = (cap.end - cap.start).toFixed(1) + 's';
       block.appendChild(durTag);
 
-      // Right Trim Handle (Drag to increase or decrease duration)
+      // Right Trim Handle (Drag left/right to adjust duration)
       const handleR = document.createElement('div');
       handleR.className = 'tl-handle tl-handle-right';
-      handleR.title = 'Drag left/right to increase or decrease duration';
+      handleR.title = 'Drag to adjust duration';
       block.appendChild(handleR);
 
       // Setup Drag & Resize Logic
@@ -2638,21 +2723,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     const onPointerMove = (e) => {
       if (!drag || drag.pointerId !== e.pointerId) return;
-      const wrapRect = timelineTrackWrap.getBoundingClientRect();
-      if (!wrapRect.width) return;
 
       const deltaPx = e.clientX - drag.startX;
       if (!drag.moved && Math.abs(deltaPx) < 2) return;
       drag.moved = true;
 
-      const deltaSec = (deltaPx / wrapRect.width) * totalDur;
+      const deltaSec = deltaPx / pxPerSec;
 
       if (drag.mode === 'right') {
-        const newEnd = Math.max(drag.origStart + 0.25, Math.min(totalDur, drag.origEnd + deltaSec));
+        const newEnd = Math.max(drag.origStart + 0.2, Math.min(totalDur, drag.origEnd + deltaSec));
         cap.end = Math.round(newEnd * 100) / 100;
         vid.currentTime = cap.end;
       } else if (drag.mode === 'left') {
-        const newStart = Math.max(0, Math.min(drag.origEnd - 0.25, drag.origStart + deltaSec));
+        const newStart = Math.max(0, Math.min(drag.origEnd - 0.2, drag.origStart + deltaSec));
         cap.start = Math.round(newStart * 100) / 100;
         vid.currentTime = cap.start;
       } else if (drag.mode === 'move') {
@@ -2672,13 +2755,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
       updateCaptionWordTimings(cap);
 
-      const leftPct = (cap.start / totalDur) * 100;
-      const widthPct = Math.max(2, ((cap.end - cap.start) / totalDur) * 100);
-      block.style.left = leftPct + '%';
-      block.style.width = widthPct + '%';
+      block.style.left = Math.round(cap.start * pxPerSec) + 'px';
+      block.style.width = Math.max(36, Math.round((cap.end - cap.start) * pxPerSec)) + 'px';
 
       const durTag = block.querySelector('.tl-block-dur');
       if (durTag) durTag.textContent = (cap.end - cap.start).toFixed(1) + 's';
+
+      if (timelineScrollContainer) {
+        timelineScrollContainer.scrollLeft = vid.currentTime * pxPerSec;
+      }
 
       renderCanvas();
       syncTimelinePlayhead();
@@ -2695,13 +2780,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       handleR.classList.remove('dragging');
 
       if (!wasMoved && mode === 'move') {
-        vid.currentTime = cap.start + 0.02;
+        vid.currentTime = cap.start;
+        if (timelineScrollContainer) {
+          timelineScrollContainer.scrollLeft = cap.start * pxPerSec;
+        }
+        renderCanvas();
+        syncTimelinePlayhead();
         vid.play().catch(() => {});
       } else if (wasMoved) {
         S.captions.sort((a, b) => a.start - b.start);
         renderTimeline();
         renderCaptionsList();
-        showToast('⏱ ' + (cap.end - cap.start).toFixed(1) + 's (' + cap.text.slice(0, 16) + '...)');
+        showToast('⏱ ' + (cap.end - cap.start).toFixed(1) + 's (' + (cap.text || '').slice(0, 16) + '...)');
       }
     };
 
@@ -2715,8 +2805,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const dur = vid.duration || S.probe.duration || 10;
     if (dur <= 0) return;
     const cur = vid.currentTime || 0;
-    const pct = Math.max(0, Math.min(100, (cur / dur) * 100));
-    timelinePlayhead.style.left = pct + '%';
+
+    // Playhead stays permanently locked at exact center (50%)
+    if (timelinePlayhead) {
+      timelinePlayhead.style.left = '50%';
+    }
+
+    if (tlTimeIndicator) {
+      if (typeof formatTimeWithTenths === 'function') {
+        tlTimeIndicator.textContent = formatTimeWithTenths(cur);
+      } else {
+        tlTimeIndicator.textContent = cur.toFixed(1) + 's';
+      }
+    }
+
+    // Scroll ribbon underneath center needle during playback
+    if (timelineScrollContainer && !isUserScrubbingTimeline) {
+      const targetScroll = cur * pxPerSec;
+      if (Math.abs(timelineScrollContainer.scrollLeft - targetScroll) > 0.5) {
+        timelineScrollContainer.scrollLeft = targetScroll;
+      }
+    }
 
     $$('.timeline-block').forEach((blk) => {
       const capId = blk.getAttribute('data-id');
@@ -3940,7 +4049,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // CANVAS SIZING & RENDERING LOOP
   // ==========================================================================
   function setupCanvasSizing() {
-    window.addEventListener('resize', fitCanvas);
+    window.addEventListener('resize', () => {
+      fitCanvas();
+      if (timelineScrollContainer && timelineRibbon) {
+        const halfW = timelineScrollContainer.clientWidth / 2;
+        timelineRibbon.style.paddingLeft = halfW + 'px';
+        timelineRibbon.style.paddingRight = halfW + 'px';
+      }
+    });
     document.addEventListener('fullscreenchange', fitCanvas);
     if (window.ResizeObserver && stage) {
       const ro = new ResizeObserver(() => {

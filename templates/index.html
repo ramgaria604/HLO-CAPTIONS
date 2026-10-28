@@ -240,26 +240,34 @@
         </div>
       </section>
 
-      <!-- VISUAL TIMELINE PANEL -->
+      <!-- VISUAL TIMELINE PANEL (CAPCUT STYLE: FIXED CENTER PLAYHEAD + EXPANDING HORIZONTAL RIBBON) -->
       <section class="timeline-section" id="timelineSection">
         <div class="timeline-header-bar">
-          <span class="timeline-label">💬 Captions Timeline</span>
+          <div class="timeline-header-left">
+            <span class="timeline-label">💬 Captions Timeline</span>
+            <span class="timeline-hint">⇄ Swipe / drag horizontally to scrub</span>
+          </div>
           <span id="tlTimeIndicator" class="timeline-time">0:00.0</span>
         </div>
         
         <div class="timeline-track-wrap" id="timelineTrackWrap">
-          <!-- Time Ruler -->
-          <div class="timeline-ruler" id="timelineRuler"></div>
-          
-          <!-- Caption Blocks Lane -->
-          <div class="timeline-lane" id="timelineLane">
-            <!-- Dynamically populated caption blocks -->
-          </div>
-
-          <!-- Red Playhead -->
+          <!-- FIXED CENTER PLAYHEAD LINE (LOCKED AT 50% MIDDLE) -->
           <div class="timeline-playhead" id="timelinePlayhead">
             <div class="playhead-marker"></div>
             <div class="playhead-line"></div>
+          </div>
+
+          <!-- HORIZONTAL SCROLLABLE TRACK (EXPANDS SIDEWAYS) -->
+          <div class="timeline-scroll-container" id="timelineScrollContainer">
+            <div class="timeline-ribbon" id="timelineRibbon">
+              <!-- Time Ruler -->
+              <div class="timeline-ruler" id="timelineRuler"></div>
+              
+              <!-- Caption Blocks Lane (Expands Sideways) -->
+              <div class="timeline-lane" id="timelineLane">
+                <!-- Dynamically populated caption blocks -->
+              </div>
+            </div>
           </div>
         </div>
       </section>
