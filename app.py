@@ -1052,18 +1052,29 @@ def project_delete(pid):
 # ------------------------------------------------------------------ Instagram VIP Coupon & Credits
 COUPONS_FILE = WORK / "coupons.json"
 DEFAULT_COUPONS = {
+    # 1 Unlimited VIP Code
+    "NIKHILNOTTA1": {"credits": 100, "max_uses": None, "unlimited": True},
+
+    # 15 Secret Exclusive Codes (max 2 uses total each, 2 free credits each)
+    "HLO7X2": {"credits": 2, "max_uses": 2},
+    "VIP8K4": {"credits": 2, "max_uses": 2},
+    "REEL9M": {"credits": 2, "max_uses": 2},
+    "CAP4T1": {"credits": 2, "max_uses": 2},
+    "STAR5V": {"credits": 2, "max_uses": 2},
+    "GLOW3B": {"credits": 2, "max_uses": 2},
+    "CRE8W9": {"credits": 2, "max_uses": 2},
+    "PRO2K7": {"credits": 2, "max_uses": 2},
+    "VIRAL6": {"credits": 2, "max_uses": 2},
+    "BOOST8": {"credits": 2, "max_uses": 2},
+    "FLOW4X": {"credits": 2, "max_uses": 2},
+    "PEAK7Z": {"credits": 2, "max_uses": 2},
+    "ZOOM1Q": {"credits": 2, "max_uses": 2},
+    "SNAP9R": {"credits": 2, "max_uses": 2},
+    "FIRE2H": {"credits": 2, "max_uses": 2},
+
+    # System payment packs
     "PACK50": {"credits": 7, "days": 7, "price": 50},
-    "CREATOR50": {"credits": 7, "days": 7, "price": 50},
-    "REEL50": {"credits": 7, "days": 7, "price": 50},
-    "WEEKLY50": {"credits": 7, "days": 7, "price": 50},
-    "PASS10": {"credits": 1, "price": 10},
-    "HLOFREE2": {"credits": 2},
-    "CREATOR2": {"credits": 2},
-    "STORYVIP": {"credits": 2},
-    "INSTA2": {"credits": 2},
-    "HLOPRO10": {"credits": 10},
-    "NIKHILVIP": {"credits": 100},
-    "VIPPASS": {"credits": 50}
+    "PASS10": {"credits": 1, "price": 10}
 }
 
 
@@ -1201,7 +1212,7 @@ def redeem_coupon():
         return err("Please enter a coupon code.")
     coupons = load_coupons()
     if code not in coupons:
-        return err("Invalid code! Follow @hlocaptions on Instagram and DM 'COUPON' to receive your 10-Export code in 10 seconds.", 400)
+        return err("Invalid coupon code. Please check and try again.", 400)
 
     c_info = coupons[code]
     credits_to_add = c_info.get("credits", 10)
@@ -1214,11 +1225,23 @@ def redeem_coupon():
         except Exception:
             pass
 
-    user_key = f"{user_id}:{code}"
-    if user_key in redeemed:
-        return err("You have already redeemed this code! DM @hlocaptions on Instagram if you need another pass.", 400)
+    # Check code usage count
+    max_allowed = c_info.get("max_uses")
+    is_unlimited = c_info.get("unlimited") or (code == "NIKHILNOTTA1")
 
-    redeemed[user_key] = time.time()
+    # Count how many times this specific code has been redeemed globally
+    code_global_uses = sum(1 for k in redeemed.keys() if k.endswith(f":{code}"))
+    if not is_unlimited and max_allowed is not None and code_global_uses >= max_allowed:
+        return err("This coupon code has reached its maximum limit (used 2 times already).", 400)
+
+    # For limited codes, also prevent the same user from redeeming twice
+    user_key = f"{user_id}:{code}"
+    if not is_unlimited and user_key in redeemed:
+        return err("You have already used this coupon code!", 400)
+
+    # Record redemption
+    redeem_entry_key = f"{user_id}:{code}_{int(time.time())}" if is_unlimited else user_key
+    redeemed[redeem_entry_key] = time.time()
     try:
         redeemed_file.write_text(json.dumps(redeemed, indent=2), encoding="utf-8")
     except Exception:
