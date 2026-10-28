@@ -1122,24 +1122,24 @@ def transcribe():
 
     # Intelligent language detection and Hinglish mapping
     is_hinglish = False
-    if not raw_lang or raw_lang == "auto":
-        is_hinglish = False
-        recognition_lang = "en-US"
-        target_label = "Auto Detect"
-        whisper_lang = None
-        whisper_prompt = "High accuracy transcription with clean grammar and punctuation."
-    elif raw_lang in ("hinglish", "en-in", "hi-latn"):
+    if raw_lang in ("hinglish", "en-in", "hi-latn", "hi_en"):
         is_hinglish = True
         recognition_lang = "hi-IN"
         target_label = "Hinglish"
         whisper_lang = "hi"
-        whisper_prompt = "Hinglish, Romanized Hindi, Bollywood keywords: dosto, video, like, subscribe, editing."
+        whisper_prompt = "Transcribe in Hinglish Roman English script: dosto, video, like, subscribe, viral, ye, woh, hai, toh, ready, creator."
     elif raw_lang in ("hi", "hi-in", "hindi"):
         is_hinglish = False
         recognition_lang = "hi-IN"
         target_label = "Hindi"
         whisper_lang = "hi"
         whisper_prompt = "हिंदी भाषण और संवाद।"
+    elif not raw_lang or raw_lang == "auto":
+        is_hinglish = False
+        recognition_lang = "en-US"
+        target_label = "Auto Detect"
+        whisper_lang = None
+        whisper_prompt = "High accuracy transcription with clean punctuation and Hinglish: dosto, video, viral, creator."
     elif raw_lang in ("en", "en-us", "english"):
         is_hinglish = False
         recognition_lang = "en-US"
@@ -1240,6 +1240,16 @@ def transcribe():
                         for s in res_json["segments"]:
                             raw_words.extend(s.get("words") or [])
 
+                    # Intelligent Auto-Detect for Indian languages & Hinglish
+                    detected_code = str(res_json.get("language") or "").lower()
+                    has_devanagari = any(hinglish.is_devanagari(w.get("word", "")) for w in raw_words)
+
+                    if raw_lang in ("hinglish", "en-in", "hi-latn", "hi_en") or (raw_lang in ("auto", "") and (detected_code in ("hi", "hindi", "mr", "ne", "ur") or has_devanagari)):
+                        is_hinglish = True
+                        detected_lang = "Hinglish"
+                    else:
+                        detected_lang = res_json.get("language") or detected_lang
+
                     for w in raw_words:
                         t = (w.get("word") or "").strip()
                         if t:
@@ -1247,9 +1257,27 @@ def transcribe():
                                 t = hinglish.devanagari_to_hinglish(t)
                             words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
 
+                    # If words is empty but text was returned in response, parse segments/tokens
+                    if not words and res_json.get("text"):
+                        full_text = res_json.get("text", "")
+                        if raw_lang in ("hinglish", "en-in", "hi-latn", "hi_en") or hinglish.is_devanagari(full_text):
+                            is_hinglish = True
+                            detected_lang = "Hinglish"
+                        for seg in res_json.get("segments", []):
+                            s_start = float(seg.get("start", 0))
+                            s_end = float(seg.get("end", s_start + 1.0))
+                            seg_tokens = (seg.get("text") or "").split()
+                            if seg_tokens:
+                                dur_per_token = (s_end - s_start) / len(seg_tokens)
+                                for idx_t, tok in enumerate(seg_tokens):
+                                    w_s = round(s_start + idx_t * dur_per_token, 3)
+                                    w_e = round(s_start + (idx_t + 1) * dur_per_token, 3)
+                                    if is_hinglish and hinglish.is_devanagari(tok):
+                                        tok = hinglish.devanagari_to_hinglish(tok)
+                                    words.append((w_s, w_e, tok))
+
                     if words:
                         transcription_engine = groq_engine_name
-                        detected_lang = res_json.get("language") or detected_lang
         except Exception as groq_err:
             transcription_notes.append(f"{groq_engine_name} note: {groq_err}")
         finally:
@@ -2383,17 +2411,47 @@ def cleanup_old(days=3):
             pass
 
 
-if __name__ == "__main__":
-    cleanup_old()
-    ff = ffmpeg_path()
-    if not ff:
-        print("\nWARNING: FFmpeg was not found. Follow SETUP.md to install it.\n")
-    else:
-        print(f"FFmpeg active: {ff}")
-    print("CaptionStudio Pro is running at:")
-    print("  -> http://localhost:5000")
-    print("  -> http://127.0.0.1:5000")
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+
+
+
+@app.post("/api/transliterate_hinglish")
+def transliterate_hinglish():
+    """Converts captions or text containing Devanagari Hindi into natural Romanized Hinglish."""
+    d = request.get_json(force=True)
+    if "text" in d and d.get("text"):
+        return jsonify(ok=True, text=hinglish.devanagari_to_hinglish(str(d.get("text"))))
+
+    captions = d.get("captions") or []
+    words_list = d.get("words") or []
+
+    converted_caps = []
+    for cap in captions:
+        cap_copy = dict(cap)
+        if "text" in cap_copy and isinstance(cap_copy["text"], str):
+            cap_copy["text"] = hinglish.devanagari_to_hinglish(cap_copy["text"])
+        if "words" in cap_copy and isinstance(cap_copy["words"], list):
+            new_sub_words = []
+            for w in cap_copy["words"]:
+                w_copy = dict(w)
+                wt = str(w_copy.get("t") or w_copy.get("word") or "")
+                converted_wt = hinglish.devanagari_to_hinglish(wt)
+                if "t" in w_copy:
+                    w_copy["t"] = converted_wt
+                if "word" in w_copy:
+                    w_copy["word"] = converted_wt
+                new_sub_words.append(w_copy)
+            cap_copy["words"] = new_sub_words
+        converted_caps.append(cap_copy)
+
+    converted_words = []
+    for item in words_list:
+        if isinstance(item, (list, tuple)) and len(item) >= 3:
+            s, e, t = item[0], item[1], item[2]
+            converted_words.append([s, e, hinglish.devanagari_to_hinglish(str(t))])
+        else:
+            converted_words.append(item)
+
+    return jsonify(ok=True, captions=converted_caps, words=converted_words)
 
 
 @app.post("/api/sync_script")
@@ -2403,6 +2461,11 @@ def sync_script():
     text = (d.get("script") or "").strip()
     if not text:
         return err("Please provide script text", 400)
+
+    # Auto-convert script to Hinglish if Devanagari present unless explicitly requested Devanagari Hindi
+    req_lang = (d.get("language") or d.get("lang") or "").strip().lower()
+    if req_lang in ("hinglish", "en-in", "hi-latn") or (req_lang != "hi" and hinglish.is_devanagari(text)):
+        text = hinglish.devanagari_to_hinglish(text)
     try:
         name = safe_name(d.get("filename", ""))
     except Exception as e:
@@ -2426,3 +2489,16 @@ def sync_script():
     caps = stylelib.build_captions(timed_words, per=per, max_keys=keys)
     return jsonify(captions=caps, words=[[round(a, 3), round(b, 3), t] for a, b, t in timed_words],
                    language="Script Sync", engine="Manual Script AI", timing_quality="word")
+
+
+if __name__ == "__main__":
+    cleanup_old()
+    ff = ffmpeg_path()
+    if not ff:
+        print("\nWARNING: FFmpeg was not found. Follow SETUP.md to install it.\n")
+    else:
+        print(f"FFmpeg active: {ff}")
+    print("CaptionStudio Pro is running at:")
+    print("  -> http://localhost:5000")
+    print("  -> http://127.0.0.1:5000")
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

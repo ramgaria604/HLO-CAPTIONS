@@ -85,9 +85,10 @@
         <div class="lang-row">
           <label for="langSelect">Language:</label>
           <select id="langSelect" class="lang-select">
-            <option value="auto" selected>✨ Auto Detect (Recommended)</option>
+            <option value="hinglish" selected>🇮🇳 Hinglish (Hindi in English Script)</option>
+            <option value="auto">✨ Auto Detect (All Languages)</option>
             <option value="en">English (US/UK)</option>
-            <option value="hi">Hindi / Hinglish</option>
+            <option value="hi">हिंदी Hindi (Devanagari)</option>
             <option value="es">Spanish</option>
             <option value="fr">French</option>
             <option value="de">German</option>
@@ -360,6 +361,9 @@
                 </div>
                 <button type="button" id="btnViralHooks" class="btn-subaction btn-viral-hooks" title="Viral hook suggestions for first 3 seconds">
                   💡 Viral Hooks
+                </button>
+                <button id="btnConvertToHinglish" type="button" class="btn-subaction btn-hinglish" title="Convert Devanagari Hindi captions to clean Roman Hinglish (A->A)">
+                  🔤 Hinglish (A-Z)
                 </button>
                 <button id="btnAddCaption" class="btn-subaction">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1049,6 +1053,6 @@
     window.measureInk = Layout.measureInk;
     window.checkLayout = Layout.checkLayout;
   </script>
-  <script src="/static/app.js?v=4.02"></script>
+  <script src="/static/app.js?v=4.03"></script>
 </body>
 </html>

@@ -117,6 +117,7 @@
   const btnAddCaption = $('btnAddCaption');
   const btnSyncScriptModal = $('btnSyncScriptModal');
   const btnCleanCaptions = $('btnCleanCaptions');
+  const btnConvertToHinglish = $('btnConvertToHinglish');
 
   // Style controls
   const inputFontSize = $('inputFontSize');
@@ -4175,6 +4176,37 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         } finally {
           btnCleanCaptions.disabled = false;
           btnCleanCaptions.textContent = '🧹 Clean Gaps & Fillers';
+        }
+      });
+    }
+
+    if (btnConvertToHinglish) {
+      btnConvertToHinglish.addEventListener('click', async () => {
+        if (!S.captions || !S.captions.length) {
+          showToast('No captions to convert yet.');
+          return;
+        }
+        btnConvertToHinglish.disabled = true;
+        btnConvertToHinglish.textContent = '⏳ Converting...';
+        try {
+          const res = await fetch('/api/transliterate_hinglish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ captions: S.captions, words: S.words })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to convert captions');
+          S.captions = normalizeCaptions(data.captions);
+          if (data.words && data.words.length > 0) S.words = data.words;
+          renderCaptionsList();
+          renderTimeline();
+          renderCanvas();
+          showToast('🎉 All captions converted to natural Hinglish!');
+        } catch (e) {
+          showToast('Error: ' + e.message);
+        } finally {
+          btnConvertToHinglish.disabled = false;
+          btnConvertToHinglish.textContent = '🔤 Hinglish (A-Z)';
         }
       });
     }

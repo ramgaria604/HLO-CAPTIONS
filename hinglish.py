@@ -114,6 +114,49 @@ COMMON_WORDS = {
     'खुद': 'khud', 'सबको': 'sabko', 'सबके': 'sabke',
     'क्लिक': 'click', 'बटन': 'button', 'डाउनलोड': 'download',
     'ऑडियो': 'audio', 'साउंड': 'sound', 'इफेक्ट': 'effect', 'इफेक्ट्स': 'effects',
+    # Creator, social media, tech & viral terms
+    'रेडी': 'ready', 'क्रिएटर': 'creator', 'क्रिएटर्स': 'creators',
+    'कंटेंट': 'content', 'ट्रेंड': 'trend', 'ट्रेंडिंग': 'trending',
+    'फॉलोअर्स': 'followers', 'फॉलोवर': 'follower',
+    'रील्स': 'reels', 'रील': 'reel', 'शॉर्ट्स': 'shorts', 'शॉर्ट': 'short',
+    'स्टोरी': 'story', 'स्टोरीज': 'stories',
+    'पोस्ट': 'post', 'पोस्ट्स': 'posts',
+    'व्यूज': 'views', 'व्यू': 'view', 'इंप्रेशन': 'impression', 'इंप्रेशन्स': 'impressions',
+    'रीच': 'reach', 'ग्रोथ': 'growth', 'ग्रो': 'grow',
+    'ऑडियंस': 'audience', 'इंगेजमेंट': 'engagement',
+    'वायरल': 'viral', 'हैक': 'hack', 'हैक्स': 'hacks',
+    'कैप्शन': 'caption', 'कैप्शन्स': 'captions',
+    'फॉन्ट': 'font', 'फॉन्ट्स': 'fonts', 'एनिमेशन': 'animation',
+    'इफेक्ट': 'effect', 'इफेक्ट्स': 'effects',
+    'टेम्पलेट': 'template', 'टेम्पलेट्स': 'templates',
+    'प्रोफाइल': 'profile', 'बायो': 'bio', 'अकाउंट': 'account',
+    'प्लेटफॉर्म': 'platform', 'एल्गोरिदम': 'algorithm', 'एल्गोरिद्म': 'algorithm',
+    'माइक': 'mic', 'कैमरा': 'camera',
+
+    # Conjugations & common verb forms
+    'आएगी': 'aayegi', 'आएगा': 'aayega', 'आएंगे': 'aayenge', 'आएंगी': 'aayengi',
+    'जाएगी': 'jaayegi', 'जाएगा': 'jaayega', 'जाएंगे': 'jaayenge', 'जाएंगी': 'jaayengi',
+    'होगी': 'hogi', 'होंगे': 'honge', 'होंगी': 'hongi', 'होगीं': 'hongi', 'होगा': 'hoga',
+    'देगी': 'degi', 'देगा': 'dega', 'देंगे': 'denge', 'दूँगी': 'doongi', 'दूँगा': 'doonga',
+    'करेगी': 'karegi', 'करेगा': 'karega', 'करेंगे': 'karenge', 'करूँगी': 'karungi', 'करूँगा': 'karunga',
+    'लगेगी': 'lagegi', 'लगेगा': 'lagega', 'लगेंगे': 'lagenge',
+    'मिलेगी': 'milegi', 'मिलेगा': 'milega', 'मिलेंगे': 'milenge',
+    'सकेगी': 'sakegi', 'सकेगा': 'sakega', 'सकेंगे': 'sakenge',
+    'बनेगी': 'banegi', 'बनेगा': 'banega', 'बनेंगे': 'banenge',
+    'दिखेगी': 'dikhegi', 'दिखेगा': 'dikhega', 'दिखेंगे': 'dikhenge',
+    'चलेगी': 'chalegi', 'चलेगा': 'chalega', 'चलेंगे': 'chalenge',
+    'रखेगी': 'rakhegi', 'रखेगा': 'rakhega', 'रखेंगे': 'rakhenge',
+    'सीखेगी': 'seekhegi', 'सीखेगा': 'seekhega', 'सीखेंगे': 'seekhenge',
+    'बताएगी': 'batayegi', 'बताएगा': 'batayega', 'बताएंगे': 'batayenge',
+    'कहेगी': 'kahegi', 'कहेगा': 'kahega', 'कहेंगे': 'kahenge',
+    'सोचेगी': 'sochegi', 'सोचेगा': 'sochega', 'सोचेंगे': 'sochenge',
+
+    # Connectors & adverbs
+    'किसी': 'kisi', 'किसीको': 'kisiko', 'किसीने': 'kisine', 'किसीका': 'kisika', 'किसीकी': 'kiski', 'किसीके': 'kiske',
+    'देरी': 'deri', 'जल्दी': 'jaldi', 'बिल्कुल': 'bilkul', 'सिर्फ': 'sirf', 'शायद': 'shayad',
+    'जरूरी': 'zaroori', 'ज़रूरी': 'zaroori', 'आसान': 'aasan', 'मुश्किल': 'mushkil',
+    'जिंदगी': 'zindagi', 'ज़िंदगी': 'zindagi', 'खुशी': 'khushi', 'दिक्कत': 'dikkat',
+    'प्रॉब्लम': 'problem', 'सॉल्यूशन': 'solution',
     'टेम्पलेट': 'template', 'फॉन्ट': 'font', 'स्टाइल': 'style'
 }
 
@@ -186,13 +229,21 @@ def phonetic_word_to_hinglish(word):
         next_c = chars[i + 1] if i + 1 < n else ''
 
         if c in VOWELS:
-            out.append(VOWELS[c])
+            # Handle post-vocalic diphthong 'ए' (e.g. आए -> aaye, जाए -> jaaye, आएगी -> aayegi)
+            if c == 'ए' and i > 0 and chars[i-1] in ('ा', 'ो', 'ू', 'े', 'ी', 'ै', 'ौ', 'अ', 'आ', 'इ', 'ई', 'उ', 'ऊ', 'ए', 'ऐ', 'ओ', 'औ'):
+                out.append('ye')
+            else:
+                out.append(VOWELS[c])
             i += 1
         elif c in CONSONANTS:
             base = CONSONANTS[c]
             out.append(base)
             if next_c in MATRAS:
-                out.append(MATRAS[next_c])
+                # Terminal 'ी' at word end is universally written as 'i' in natural Hinglish (e.g. degi, karegi, kisi)
+                if next_c == 'ी' and (i + 2 >= n or (i + 2 < n and chars[i + 2] in (ANUSVARA, CHANDRABINDU))):
+                    out.append('i')
+                else:
+                    out.append(MATRAS[next_c])
                 i += 2
             elif next_c == HALANT:
                 i += 2  # halant suppresses inherent 'a'
