@@ -4000,3 +4000,113 @@ button {
 #tabTemplates {
   padding-bottom: 80px;
 }
+
+
+/* ==========================================================================
+   HISTORY CONTROLS (UNDO / REDO), TIMELINE ZOOM & TOUCH CONTROLS
+   ========================================================================== */
+
+.history-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-history-icon {
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 6px !important;
+  color: #e2e8f0 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-history-icon:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.3) !important;
+  border-color: #a855f7 !important;
+  color: #fff !important;
+}
+
+.btn-history-icon:disabled,
+.btn-history-icon.disabled,
+.btn-tl-history:disabled,
+.btn-tl-history.disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+.timeline-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-zoom-group {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.btn-tl-zoom {
+  width: 22px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-tl-zoom:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.btn-tl-history {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-tl-history:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.25);
+  border-color: #a855f7;
+  color: #fff;
+}
+
+/* Extra-wide touch hit area for mobile trimming handles */
+.tl-handle {
+  width: 22px !important;
+  touch-action: none !important;
+  cursor: ew-resize !important;
+  z-index: 15 !important;
+}
+
+.tl-handle-left {
+  left: -11px !important;
+}
+
+.tl-handle-right {
+  right: -11px !important;
+}

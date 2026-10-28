@@ -93,7 +93,7 @@
   const timelineLane = $('timelineLane');
   const timelinePlayhead = $('timelinePlayhead');
   const tlTimeIndicator = $('tlTimeIndicator');
-  const pxPerSec = 80;
+  let pxPerSec = 80;
   let isUserScrubbingTimeline = false;
 
   // Drawer & Lowest Nav elements
@@ -2531,6 +2531,85 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
   }
 
+  // ==========================================================================
+  // UNDO & REDO HISTORY SYSTEM
+  // ==========================================================================
+  const historyStack = [];
+  let historyIndex = -1;
+  const MAX_HISTORY = 40;
+  let isApplyingHistory = false;
+
+  function pushHistoryState(desc = '') {
+    if (isApplyingHistory) return;
+    const snapshot = {
+      captions: JSON.parse(JSON.stringify(S.captions || [])),
+      style: JSON.parse(JSON.stringify(S.style || {})),
+      desc: desc || 'Change'
+    };
+    if (historyIndex < historyStack.length - 1) {
+      historyStack.splice(historyIndex + 1);
+    }
+    historyStack.push(snapshot);
+    if (historyStack.length > MAX_HISTORY) {
+      historyStack.shift();
+    }
+    historyIndex = historyStack.length - 1;
+    updateUndoRedoUI();
+  }
+
+  function undo() {
+    if (historyIndex > 0) {
+      historyIndex--;
+      applyHistorySnapshot(historyStack[historyIndex]);
+      const prevDesc = historyStack[historyIndex + 1]?.desc || 'Change';
+      showToast(`↩ Undone: ${prevDesc}`);
+    } else {
+      showToast('⚠️ Nothing to undo');
+    }
+  }
+
+  function redo() {
+    if (historyIndex < historyStack.length - 1) {
+      historyIndex++;
+      applyHistorySnapshot(historyStack[historyIndex]);
+      const nextDesc = historyStack[historyIndex]?.desc || 'Change';
+      showToast(`↪ Redone: ${nextDesc}`);
+    } else {
+      showToast('⚠️ Nothing to redo');
+    }
+  }
+
+  function applyHistorySnapshot(snapshot) {
+    if (!snapshot) return;
+    isApplyingHistory = true;
+    try {
+      S.captions = JSON.parse(JSON.stringify(snapshot.captions));
+      S.style = JSON.parse(JSON.stringify(snapshot.style));
+      renderCaptionsList();
+      renderTimeline();
+      renderCanvas();
+      if (selectedPresetName && S.style?.name) {
+        selectedPresetName.textContent = S.style.name;
+      }
+    } finally {
+      isApplyingHistory = false;
+      updateUndoRedoUI();
+    }
+  }
+
+  function updateUndoRedoUI() {
+    const canUndo = historyIndex > 0;
+    const canRedo = historyIndex < historyStack.length - 1;
+    $$('.btn-undo').forEach(btn => {
+      btn.disabled = !canUndo;
+      btn.classList.toggle('disabled', !canUndo);
+    });
+    $$('.btn-redo').forEach(btn => {
+      btn.disabled = !canRedo;
+      btn.classList.toggle('disabled', !canRedo);
+    });
+  }
+
   function setupTimelineHandlers() {
     $$('#chunkModeGroup .btn-chunk-mode').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -2615,6 +2694,64 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         syncTimelinePlayhead();
       }, { passive: false });
     }
+
+    // Timeline Zoom controls (+ and -)
+    const btnTlZoomIn = $('btnTlZoomIn');
+    const btnTlZoomOut = $('btnTlZoomOut');
+    if (btnTlZoomIn) {
+      btnTlZoomIn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pxPerSec = Math.min(160, pxPerSec + 25);
+        renderTimeline();
+        syncTimelinePlayhead();
+        showToast(`🔍 Timeline Zoom: ${pxPerSec}px/s`);
+      });
+    }
+    if (btnTlZoomOut) {
+      btnTlZoomOut.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pxPerSec = Math.max(45, pxPerSec - 25);
+        renderTimeline();
+        syncTimelinePlayhead();
+        showToast(`🔍 Timeline Zoom: ${pxPerSec}px/s`);
+      });
+    }
+
+    // Undo / Redo Click Handlers
+    $$('.btn-undo').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        undo();
+      });
+    });
+    $$('.btn-redo').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        redo();
+      });
+    });
+
+    // Keyboard Shortcuts (Ctrl+Z / Cmd+Z, Ctrl+Y / Cmd+Shift+Z)
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') && !e.target.readOnly) {
+        return;
+      }
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+      if (cmdOrCtrl && !e.altKey) {
+        if (e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+        } else if (e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          redo();
+        }
+      }
+    });
   }
 
   function renderTimeline() {
@@ -2789,6 +2926,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         vid.play().catch(() => {});
       } else if (wasMoved) {
         S.captions.sort((a, b) => a.start - b.start);
+        pushHistoryState('Adjust timeline: ' + (cap.text || '').slice(0, 16));
         renderTimeline();
         renderCaptionsList();
         showToast('⏱ ' + (cap.end - cap.start).toFixed(1) + 's (' + (cap.text || '').slice(0, 16) + '...)');
@@ -2937,6 +3075,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function openDrawerTab(targetId) {
+    if (targetId === 'tabTimeline') {
+      closeDrawer();
+      const btnNavTimeline = $('btnNavTimeline');
+      if (btnNavTimeline) {
+        $$('.bottom-nav-btn').forEach(b => b.classList.toggle('active', b === btnNavTimeline));
+      }
+      showToast('⏱️ Timeline view active');
+      renderTimeline();
+      syncTimelinePlayhead();
+      return;
+    }
     const iconChevron = $('iconDrawerChevron');
     if (iconChevron) iconChevron.style.transform = 'rotate(0deg)';
     S.activeTab = targetId;
@@ -3054,6 +3203,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const card = document.createElement('div');
     card.className = 'preset-card' + (S.style && S.style.id === preset.id ? ' active' : '');
     card.setAttribute('data-id', preset.id);
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+    card.style.minHeight = '130px';
+    card.style.height = '135px';
+    card.style.overflow = 'hidden';
+    card.style.boxSizing = 'border-box';
 
     const kRole = preset.key || preset.roles?.accent || {};
     const color = preset.highlightColor || kRole.color || '#FFE600';
@@ -3097,6 +3252,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // Visual Art Container
     const art = document.createElement('div');
     art.className = 'preset-card-art';
+    art.style.display = 'flex';
+    art.style.flexDirection = 'column';
+    art.style.alignItems = 'center';
+    art.style.justifyContent = 'center';
+    art.style.height = '92px';
+    art.style.minHeight = '92px';
+    art.style.position = 'relative';
+    art.style.boxSizing = 'border-box';
 
     const tagSpan = document.createElement('span');
     tagSpan.className = 'preset-card-tag';
@@ -3143,6 +3306,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // Name & Active Check Row
     const nameRow = document.createElement('div');
     nameRow.className = 'preset-card-name-row';
+    nameRow.style.display = 'flex';
+    nameRow.style.alignItems = 'center';
+    nameRow.style.justifyContent = 'space-between';
+    nameRow.style.height = '38px';
+    nameRow.style.minHeight = '38px';
+    nameRow.style.boxSizing = 'border-box';
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'preset-name';
@@ -3188,6 +3357,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function applyPreset(preset, showGenToast = false) {
+    pushHistoryState('Template: ' + (preset.name || 'Template'));
     const isBehind = Boolean(
       preset.behindPerson ||
       preset.depthAccent ||

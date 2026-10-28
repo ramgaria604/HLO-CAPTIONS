@@ -1004,7 +1004,7 @@ def _chunk_text(words, style, W, H, layer, ev_start):
             reveal = max(0, int(round((w["s"] - ev_start) * 1000)))
             end_ms = max(reveal + 60, int(round((w["e"] - ev_start) * 1000)))
 
-            # Multi-color assignment
+            # Multi-color assignment (exact match to canvas preview)
             if w["key"]:
                 hl = (style.get("highlight") or {}).get("color") or style.get("highlightColor")
                 if r.get("color") and r.get("color").upper() not in ("#FFFFFF", "#FFF"):
@@ -1017,12 +1017,8 @@ def _chunk_text(words, style, W, H, layer, ev_start):
                     w_color = hl
                 else:
                     w_color = "#FFE600"
-                if palette and w_color == "#FFFFFF":
-                    w_color = palette[-1]
             else:
-                w_color = r.get("color") or "#FFFFFF"
-                if palette:
-                    w_color = palette[word_idx % len(palette)]
+                w_color = style.get("baseColor") or r.get("color") or "#FFFFFF"
             word_idx += 1
 
             tags = [f"\\fn{name}", f"\\fs{fs}", f"\\b{1 if r['bold'] else 0}", f"\\i{1 if r['italic'] else 0}",
@@ -1072,25 +1068,37 @@ def _chunk_text(words, style, W, H, layer, ev_start):
                     shown = f"\\alpha&H{alpha_val:02X}&"
                     tags.append(shown)
 
-            if anim == "pop":
-                if reveal > 40:
-                    tags.append("\\alpha&HFF&")
-                    tags.append(f"\\t({reveal},{reveal + 1},{shown})")
-                if layer == "main" or True:
-                    tags.append(f"\\t({reveal},{reveal + 110},\\fscx112\\fscy112)")
-                    tags.append(f"\\t({reveal + 110},{reveal + 210},\\fscx100\\fscy100)")
+            if anim in ("pop", "bounce"):
+                if reveal > 0:
+                    tags.append(r"\alpha&HFF&")
+                    tags.append(f"\\t({reveal},{reveal + 40},{shown})")
+                tags.append(r"\fscx84\fscy84")
+                tags.append(f"\\t({reveal},{reveal + 130},\\fscx108\\fscy108)")
+                tags.append(f"\\t({reveal + 130},{reveal + 210},\\fscx100\\fscy100)")
+            elif anim == "slide-up":
+                if reveal > 0:
+                    tags.append(r"\alpha&HFF&")
+                    tags.append(f"\\t({reveal},{reveal + 40},{shown})")
+                tags.append(r"\fscy85")
+                tags.append(f"\\t({reveal},{reveal + 180},\\fscy100)")
+            elif anim == "zoom":
+                if reveal > 0:
+                    tags.append(r"\alpha&HFF&")
+                    tags.append(f"\\t({reveal},{reveal + 40},{shown})")
+                tags.append(r"\fscx55\fscy55")
+                tags.append(f"\\t({reveal},{reveal + 200},\\fscx100\\fscy100)")
             elif anim == "slide-right-soft" and layer == "main":
                 slide_ms = int(style.get("_slideMs", 400))
-                tags.append("\\fscx92")
+                tags.append(r"\fscx92")
                 if reveal > 0:
-                    tags.append("\\alpha&HFF&")
+                    tags.append(r"\alpha&HFF&")
                     tags.append(f"\\t({reveal},{reveal + 1},\\alpha&H80&)")
                     tags.append(f"\\t({reveal + 1},{reveal + slide_ms},{shown}\\fscx100)")
                 else:
-                    tags.append("\\alpha&H80&")
+                    tags.append(r"\alpha&H80&")
                     tags.append(f"\\t(0,{slide_ms},{shown}\\fscx100)")
             elif anim == "highlight" and layer == "main":
-                hl = style["highlightColor"]
+                hl = style.get("highlightColor") or "#FFE600"
                 tags.append(f"\\t({reveal},{reveal + 1},\\1c{_c(hl)})")
                 tags.append(f"\\t({end_ms},{end_ms + 1},\\1c{_c(w_color)})")
 
@@ -1322,7 +1330,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             ratio = (tt["OS/2"].usWinAscent + tt["OS/2"].usWinDescent) / upem
             ass_fs = o["size"] * ratio
             fsp = o["track"] * o["size"]
-            font_name = tt["name"].getDebugName(1) or Path(o["font_file"]).stem
+            raw_font_name = tt["name"].getDebugName(16) or tt["name"].getDebugName(1) or Path(o["font_file"]).stem
+            clean_fam = re.split(r"[\s-]+(Thin|Light|Medium|Regular|SemiBold|Bold|ExtraBold|Black|Italic)", raw_font_name, flags=re.I)[0].strip()
+            font_name = clean_fam or raw_font_name
 
             r = o["role"]
             grad_colors = None
@@ -1376,7 +1386,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 base_tags.append(r"\bord0")
             base_tags.append(r"\shad0")
 
-            # Word-by-word reveal:
+            # Word-by-word reveal (exact match to canvas preview):
             line_parts = []
             anim_name = str(style.get("animation") or style.get("anim") or "pop").lower()
             ev_dur_ms = max(250, int(round((ev_end - ev_start) * 1000)))
@@ -1384,33 +1394,61 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 txt = up(w["t"])
                 reveal_ms = max(0, min(ev_dur_ms - 80, int(round((w["s"] - ev_start) * 1000))))
                 w_tags = []
-                if anim_name not in ("none", "static") and reveal_ms > 30:
-                    w_tags.append(r"\alpha&HFF&")
-                    w_tags.append(f"\\t({reveal_ms},{reveal_ms + 1},\\alpha&H00&)")
+                if anim_name not in ("none", "static"):
+                    if reveal_ms > 0:
+                        w_tags.append(r"\alpha&HFF&")
+                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 40},\\alpha&H00&)")
                     if anim_name in ("pop", "bounce"):
-                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 90},\\fscx114\\fscy114)")
-                        w_tags.append(f"\\t({reveal_ms + 90},{reveal_ms + 180},\\fscx100\\fscy100)")
+                        w_tags.append(r"\fscx84\fscy84")
+                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 130},\\fscx108\\fscy108)")
+                        w_tags.append(f"\\t({reveal_ms + 130},{reveal_ms + 210},\\fscx100\\fscy100)")
                     elif anim_name == "slide-up":
-                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 1},\\fscy85)")
-                        w_tags.append(f"\\t({reveal_ms + 1},{reveal_ms + 180},\\fscy100)")
+                        w_tags.append(r"\fscy85")
+                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 180},\\fscy100)")
                     elif anim_name == "zoom":
-                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 1},\\fscx70\\fscy70)")
-                        w_tags.append(f"\\t({reveal_ms + 1},{reveal_ms + 190},\\fscx100\\fscy100)")
+                        w_tags.append(r"\fscx55\fscy55")
+                        w_tags.append(f"\\t({reveal_ms},{reveal_ms + 200},\\fscx100\\fscy100)")
                 line_parts.append("{" + "".join(w_tags) + "}" + _esc(txt))
                 if wi < len(o["words"]) - 1:
                     line_parts.append(" ")
-
             text_body = "".join(line_parts)
 
             if grad_colors and len(grad_colors) > 1:
+                # Render clean outline pass ONCE in layer 0 (avoids 24x dark outline stacking and seams)
+                if outline_px > 0:
+                    outline_tags = [
+                        r"\an2",
+                        f"\\pos({o['x']:.1f},{o['ass_y']:.1f})",
+                        f"\\fn{font_name}",
+                        f"\\fs{ass_fs:.1f}",
+                        f"\\fsp{fsp:.2f}",
+                        f"\\b{bold}",
+                        f"\\i{italic}",
+                        f"\\bord{outline_px:.1f}",
+                        f"\\3c{_c(outline_col)}",
+                        r"\1a&HFF&",
+                        r"\shad0"
+                    ]
+                    rows.append(f"Dialogue: 0,{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,{{{ ''.join(outline_tags) }}}{text_body}")
+
+                fill_base_tags = [
+                    r"\an2",
+                    f"\\pos({o['x']:.1f},{o['ass_y']:.1f})",
+                    f"\\fn{font_name}",
+                    f"\\fs{ass_fs:.1f}",
+                    f"\\fsp{fsp:.2f}",
+                    f"\\b{bold}",
+                    f"\\i{italic}",
+                    r"\bord0",
+                    r"\shad0"
+                ]
+
                 angle = get_gradient_angle(r, style)
                 norm_angle = angle % 360.0
                 is_horizontal = (45.0 <= norm_angle <= 135.0) or (225.0 <= norm_angle <= 315.0)
 
-                N_SLICES = 24
+                N_SLICES = 16
                 if is_horizontal:
-                    # Horizontal gradient (left-to-right matching canvas preview)
-                    # Slices vertically from x_left to x_right across the word width
                     text_w = float(o.get("width") or (ass_fs * len(o.get("text", "")) * 0.6))
                     pad_x = max(8.0, o["size"] * 0.05)
                     x_left = max(0, int(math.floor(o["x"] - text_w / 2.0 - pad_x)))
@@ -1427,14 +1465,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         s_left = 0 if k == 0 else int(x_left + (k / N_SLICES) * span_w)
                         s_right = W if k == N_SLICES - 1 else int(math.ceil(x_left + ((k + 1) / N_SLICES) * span_w)) + 1
                         slice_clip = f"\\clip({s_left},0,{s_right},{H})"
-                        slice_tags = base_tags + [f"\\1c{slice_col}", slice_clip]
-                        dialogue_line = (
-                            f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
-                            f"{{{ ''.join(slice_tags) }}}{text_body}"
-                        )
-                        rows.append(dialogue_line)
+                        slice_tags = fill_base_tags + [f"\\1c{slice_col}", slice_clip]
+                        rows.append(f"Dialogue: 1,{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,{{{ ''.join(slice_tags) }}}{text_body}")
                 else:
-                    # Vertical gradient (top-to-bottom for 180deg presets)
                     y_top = o.get("ink_top")
                     y_bottom = o.get("ink_bottom")
                     if y_top is None or y_bottom is None or y_bottom <= y_top:
@@ -1447,7 +1480,6 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 
                     oriented_colors = list(grad_colors)
                     if not (135.0 <= norm_angle <= 225.0):
-                        # angle ~ 0deg / 360deg flows upwards
                         oriented_colors = list(reversed(oriented_colors))
 
                     for k in range(N_SLICES):
@@ -1456,12 +1488,8 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         s_top = 0 if k == 0 else int(y_top + (k / N_SLICES) * span_h)
                         s_bot = H if k == N_SLICES - 1 else int(math.ceil(y_top + ((k + 1) / N_SLICES) * span_h)) + 1
                         slice_clip = f"\\clip(0,{s_top},{W},{s_bot})"
-                        slice_tags = base_tags + [f"\\1c{slice_col}", slice_clip]
-                        dialogue_line = (
-                            f"Dialogue: {line_idx},{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,"
-                            f"{{{ ''.join(slice_tags) }}}{text_body}"
-                        )
-                        rows.append(dialogue_line)
+                        slice_tags = fill_base_tags + [f"\\1c{slice_col}", slice_clip]
+                        rows.append(f"Dialogue: 1,{ts(ev_start)},{ts(ev_end)},Default,,0,0,0,,{{{ ''.join(slice_tags) }}}{text_body}")
             else:
                 tags = base_tags + [f"\\1c{_c(col)}"]
                 dialogue_line = (

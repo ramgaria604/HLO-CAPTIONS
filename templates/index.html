@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bangers&family=Bebas+Neue&family=Bowlby+One&family=Bungee&family=Cinzel:wght@700;900&family=Cormorant+Garamond:wght@700&family=DM+Serif+Display&family=Fredoka:wght@600;700&family=Great+Vibes&family=Inter:wght@400;500;600;700;800;900&family=Lobster&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Outfit:wght@700;800&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:wght@700;900&family=Poppins:wght@600;700;800;900&family=Raleway:wght@700;800&family=Righteous&family=Rubik:wght@700;800;900&family=Shrikhand&family=Space+Mono:wght@700&family=Syne:wght@700;800&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=3.30">
+  <link rel="stylesheet" href="/static/style.css?v=4.00">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -233,6 +233,16 @@
             <button type="button" class="btn-aspect" data-aspect="1:1" title="1:1 Square Feed">1:1</button>
           </div>
 
+          <!-- Undo & Redo History Controls -->
+          <div class="history-controls-group">
+            <button type="button" id="btnUndo" class="btn-icon btn-history-icon btn-undo" title="Undo (Ctrl+Z)" disabled>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+            </button>
+            <button type="button" id="btnRedo" class="btn-icon btn-history-icon btn-redo" title="Redo (Ctrl+Y)" disabled>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+            </button>
+          </div>
+
           <!-- Moonshot-style Drawer / Timeline Toggle Chevron -->
           <button id="btnToggleTimeline" class="btn-icon btn-drawer-toggle" title="Toggle tools drawer & timeline">
             <svg id="iconDrawerChevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
@@ -244,10 +254,18 @@
       <section class="timeline-section" id="timelineSection">
         <div class="timeline-header-bar">
           <div class="timeline-header-left">
-            <span class="timeline-label">💬 Captions Timeline</span>
-            <span class="timeline-hint">⇄ Swipe / drag horizontally to scrub</span>
+            <span class="timeline-label">💬 Timeline</span>
+            <div class="timeline-zoom-group">
+              <button type="button" id="btnTlZoomOut" class="btn-tl-zoom" title="Zoom Out Timeline">−</button>
+              <button type="button" id="btnTlZoomIn" class="btn-tl-zoom" title="Zoom In Timeline">+</button>
+            </div>
+            <span class="timeline-hint">⇄ Drag to scrub</span>
           </div>
-          <span id="tlTimeIndicator" class="timeline-time">0:00.0</span>
+          <div class="timeline-header-right">
+            <button type="button" class="btn-tl-history btn-undo" title="Undo (Ctrl+Z)" disabled>↩</button>
+            <button type="button" class="btn-tl-history btn-redo" title="Redo (Ctrl+Y)" disabled>↪</button>
+            <span id="tlTimeIndicator" class="timeline-time">0:00.0</span>
+          </div>
         </div>
         
         <div class="timeline-track-wrap" id="timelineTrackWrap">
@@ -761,6 +779,10 @@
           <span class="nav-btn-icon">🎨</span>
           <span class="nav-btn-label">Templates</span>
         </button>
+        <button class="bottom-nav-btn" data-tab="tabTimeline" id="btnNavTimeline">
+          <span class="nav-btn-icon">⏱️</span>
+          <span class="nav-btn-label">Timeline</span>
+        </button>
         <button class="bottom-nav-btn" data-tab="tabCaptions">
           <span class="nav-btn-icon">📝</span>
           <span class="nav-btn-label">Transcript</span>
@@ -1027,6 +1049,6 @@
     window.measureInk = Layout.measureInk;
     window.checkLayout = Layout.checkLayout;
   </script>
-  <script src="/static/app.js?v=3.30"></script>
+  <script src="/static/app.js?v=4.00"></script>
 </body>
 </html>
