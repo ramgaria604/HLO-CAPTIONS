@@ -11,7 +11,7 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Anton&family=Bangers&family=Bebas+Neue&family=Bungee&family=Great+Vibes&family=Montserrat:wght@700;800;900&family=Poppins:wght@600;700;800;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bangers&family=Bebas+Neue&family=Bowlby+One&family=Bungee&family=Cinzel:wght@700;900&family=Cormorant+Garamond:wght@700&family=DM+Serif+Display&family=Fredoka:wght@600;700&family=Great+Vibes&family=Inter:wght@400;500;600;700;800;900&family=Lobster&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Outfit:wght@700;800&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:wght@700;900&family=Poppins:wght@600;700;800;900&family=Raleway:wght@700;800&family=Righteous&family=Rubik:wght@700;800;900&family=Shrikhand&family=Space+Mono:wght@700&family=Syne:wght@700;800&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
   <link rel="stylesheet" href="/static/style.css?v=3.30">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -202,18 +202,7 @@
           <div class="stage" id="stage">
             <video id="vid" playsinline preload="auto"></video>
             <canvas id="captionCanvas"></canvas>
-            
-            <!-- Moonshot-style Floating Active Preset Badge -->
-            <button type="button" class="stage-preset-badge" id="stagePresetBadge" title="Tap to change caption style">
-              <span class="badge-crown">👑</span>
-              <span id="stagePresetName">Yellow Box Pop</span>
-              <span class="badge-chevron">›</span>
-            </button>
-
-            <!-- Stage Fullscreen Overlay Button -->
-            <button id="btnStageFullscreen" class="btn-stage-fs" title="Toggle Fullscreen">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-            </button>
+            <span id="stagePresetName" style="display:none;"></span>
           </div>
         </div>
 

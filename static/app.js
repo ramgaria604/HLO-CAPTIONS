@@ -2468,7 +2468,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       iconMuted.classList.toggle('hidden', !vid.muted);
     });
 
-    btnStageFullscreen.addEventListener('click', toggleFullscreen);
+    if (btnStageFullscreen) btnStageFullscreen.addEventListener('click', toggleFullscreen);
   }
 
   function togglePlay() {
@@ -2941,17 +2941,23 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
   }
 
-  function createPresetCard(preset, isModal) {
+    function createPresetCard(preset, isModal) {
     const card = document.createElement('div');
     card.className = 'preset-card' + (S.style && S.style.id === preset.id ? ' active' : '');
-    const kRole = preset.key || {};
-    const color = preset.highlightColor || kRole.color || '#FFE600';
-    const tag = preset.badge || (preset.category || 'POP').toUpperCase();
+    card.setAttribute('data-id', preset.id);
 
-    // Unique preview text per preset
+    const kRole = preset.key || preset.roles?.accent || {};
+    const color = preset.highlightColor || kRole.color || '#FFE600';
+    const font = kRole.font || 'Poppins';
+    const isItalic = kRole.italic ? 'italic' : 'normal';
+    const weight = kRole.bold !== false ? '900' : '700';
+    const textTransform = kRole.upper !== false ? 'uppercase' : 'none';
+
+    // Unique preview word
     let previewWord = preset.previewWord || '';
     if (!previewWord) {
       previewWord = (preset.name || 'VIRAL')
+        .replace(/^Duo\s*[·-]\s*/i, '')
         .replace(/[^\w\s]/gi, '')
         .trim()
         .split(/\s+/)
@@ -2960,48 +2966,102 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
     if (!previewWord) previewWord = 'VIRAL POP';
 
-    const font = kRole.font || 'Poppins';
-    const isItalic = kRole.italic ? 'italic' : 'normal';
-    const weight = kRole.bold !== false ? '800' : '600';
-    const textTransform = kRole.upper !== false ? 'uppercase' : 'none';
-    const bgPill = preset.pill ? `background:${preset.pill}; padding:3px 8px; border-radius:4px;` : '';
-    const textGrad = kRole.keyGradient ? `background:${kRole.keyGradient}; -webkit-background-clip:text; -webkit-text-fill-color:transparent;` : `color:${color};`;
-    const glow = kRole.glow ? `text-shadow: 0 0 10px ${kRole.glow}88;` : '';
-
-    let generateBtnHtml = '';
-    if (isModal) {
-      generateBtnHtml = `<button class="btn-card-generate">⚡ Generate</button>`;
+    // Category badge tag
+    let tag = preset.badge || '';
+    if (!tag) {
+      if (preset.isDuo || preset.category === 'duo') tag = '⚡ DUO';
+      else if (preset.category === 'real-estate') tag = '👑 ESTATE';
+      else if (preset.name?.toLowerCase().includes('box') || preset.pill) tag = '📦 BOX';
+      else if (preset.name?.toLowerCase().includes('neon') || preset.name?.toLowerCase().includes('glow')) tag = '✨ NEON';
+      else if (preset.category === 'colourful') tag = '🌈 COLOR';
+      else tag = (preset.category || 'POP').toUpperCase();
     }
 
-    card.innerHTML = `
-      <span class="preset-badge-tag" style="background:${color}22; color:${color};">${tag}</span>
-      <div class="preset-sample-text" style="font-family:'${font}', sans-serif; font-style:${isItalic}; font-weight:${weight}; text-transform:${textTransform}; ${textGrad} ${glow} ${bgPill}">
-        ${previewWord}
-      </div>
-      <span class="preset-name">${preset.name || 'Template'}</span>
-      ${generateBtnHtml}
-    `;
+    const isBehind = Boolean(
+      preset.depthAccent ||
+      preset.behindPerson ||
+      (preset.roles && preset.roles.accent && preset.roles.accent.layer === 'behind') ||
+      (preset.name && preset.name.toLowerCase().includes('(behind)'))
+    );
+    if (isBehind) tag = '👑 BEHIND';
+
+    // Visual Art Container
+    const art = document.createElement('div');
+    art.className = 'preset-card-art';
+
+    const tagSpan = document.createElement('span');
+    tagSpan.className = 'preset-card-tag';
+    tagSpan.style.background = `${color}25`;
+    tagSpan.style.color = color;
+    tagSpan.style.borderColor = `${color}44`;
+    tagSpan.textContent = tag;
+    art.appendChild(tagSpan);
+
+    if (preset.isDuo) {
+      const small = document.createElement('span');
+      small.className = 'preset-card-small';
+      small.textContent = 'SOME MOMENTS';
+      art.appendChild(small);
+    }
+
+    const big = document.createElement('strong');
+    big.className = 'preset-card-big';
+    big.textContent = previewWord;
+    big.style.fontFamily = `'${font}', sans-serif`;
+    big.style.fontStyle = isItalic;
+    big.style.fontWeight = weight;
+    big.style.textTransform = textTransform;
+
+    const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
+    if (preset.pill) {
+      big.style.background = preset.pill;
+      big.style.padding = '3px 8px';
+      big.style.borderRadius = '5px';
+      big.style.color = '#000';
+    } else if (paint && paint.startsWith('linear-gradient(')) {
+      big.style.backgroundImage = paint;
+      big.style.webkitBackgroundClip = 'text';
+      big.style.backgroundClip = 'text';
+      big.style.color = 'transparent';
+    } else {
+      big.style.color = color;
+      if (kRole.glow || preset.glow) {
+        big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+      }
+    }
+    art.appendChild(big);
+
+    // Name & Active Check Row
+    const nameRow = document.createElement('div');
+    nameRow.className = 'preset-card-name-row';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'preset-name';
+    nameSpan.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+
+    const checkSpan = document.createElement('span');
+    checkSpan.className = 'preset-check-icon';
+    checkSpan.textContent = '✓';
+
+    nameRow.append(nameSpan, checkSpan);
+    card.append(art, nameRow);
 
     if (isModal) {
-      const genBtn = card.querySelector('.btn-card-generate');
-      if (genBtn) {
-        genBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          applyPreset(preset, true);
-          modalTemplates.classList.add('hidden');
-        });
-      }
-      card.addEventListener('dblclick', (e) => {
+      const genBtn = document.createElement('button');
+      genBtn.className = 'btn-card-generate';
+      genBtn.textContent = '⚡ Generate';
+      genBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        applyPreset(preset, false);
+        applyPreset(preset, true);
         modalTemplates.classList.add('hidden');
       });
+      card.appendChild(genBtn);
     }
 
     card.addEventListener('click', () => {
       const wasActive = card.classList.contains('active');
       applyPreset(preset, false);
-      $$('.preset-card').forEach(c => c.classList.toggle('active', c === card));
+      $$('.preset-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-id') === preset.id));
       if (isModal) {
         if (wasActive) {
           modalTemplates.classList.add('hidden');
@@ -3051,6 +3111,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
     const frontSelectedName = $('frontSelectedName') || $('duoSelectedName');
     if (frontSelectedName) frontSelectedName.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+    $$('.preset-card').forEach(c => {
+      const isMatch = c.getAttribute('data-id') === preset.id;
+      c.classList.toggle('active', isMatch);
+    });
     $$('.front-preset-card').forEach(card => {
       const isMatch = card.getAttribute('data-id') === preset.id || card.getAttribute('aria-label') === `Choose ${preset.name}`;
       card.classList.toggle('active', isMatch);
@@ -4396,6 +4460,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
   }
 
+    function drawSampleCaptionPreview(ctx, W, H, st) {
+    const sampleCap = {
+      id: 'preview_sample',
+      start: 0,
+      end: 999,
+      text: 'VIRAL AI CAPTIONS',
+      words: [
+        { t: 'VIRAL', s: 0, e: 999, key: false },
+        { t: 'AI', s: 0, e: 999, key: false },
+        { t: 'CAPTIONS', s: 0, e: 999, key: true }
+      ]
+    };
+    const isBehind = Boolean(
+      st && (
+        st.behindPerson ||
+        st.depthAccent ||
+        (st.roles && st.roles.accent && st.roles.accent.layer === 'behind') ||
+        (st.name && st.name.toLowerCase().includes('(behind)'))
+      )
+    );
+    drawCanvasTypography(ctx, null, sampleCap, sampleCap.words, 0, st || {}, W, H, isBehind, true);
+  }
+
   function renderCanvas() {
     const dpr = window.devicePixelRatio || 1;
     const w = captionCanvas.width / dpr;
@@ -4405,16 +4492,26 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
     ctx.scale(dpr, dpr);
 
-    if (!S.captions.length) {
-      drawWatermark(ctx, w, h);
-      return;
-    }
-
     const t = vid.currentTime || 0;
-    const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+    let activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+
+    // If no active caption at the exact currentTime:
     if (!activeCap) {
-      drawWatermark(ctx, w, h);
-      return;
+      if (S.captions.length > 0) {
+        // While paused, scrubbing, or before speech starts:
+        // Always preview the closest or first caption so the template style is 100% visible on the video!
+        if (vid.paused) {
+          activeCap = S.captions.find(c => t <= c.end) || S.captions[0];
+        } else {
+          drawWatermark(ctx, w, h);
+          return;
+        }
+      } else {
+        // If no captions exist yet, draw sample text using selected template
+        drawSampleCaptionPreview(ctx, w, h, S.style || {});
+        drawWatermark(ctx, w, h);
+        return;
+      }
     }
 
     const words = (activeCap.words || []).map(w => ({

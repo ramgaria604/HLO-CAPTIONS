@@ -3742,4 +3742,124 @@ button {
   border-color: #a855f7;
   color: #ffffff;
   box-shadow: 0 0 8px rgba(168, 85, 247, 0.4);
-}
+}
+
+/* ==========================================================================
+   INSIDE EDITOR: TEMPLATE CARDS & PRESETS GRID (HIGH-CONTRAST & VIBRANT)
+   ========================================================================== */
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+  gap: 12px;
+  padding: 4px 2px 24px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.4) transparent;
+}
+
+.preset-card {
+  min-width: 0;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(145deg, #161826, #0e1019) !important;
+  color: inherit;
+  text-align: left !important;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+
+.preset-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgba(168, 85, 247, 0.7) !important;
+  box-shadow: 0 8px 25px rgba(168, 85, 247, 0.35), 0 0 16px rgba(255, 230, 0, 0.15) !important;
+}
+
+.preset-card.active {
+  border-color: #FFE600 !important;
+  box-shadow: 0 0 20px rgba(255, 230, 0, 0.45), 0 0 40px rgba(168, 85, 247, 0.25) !important;
+}
+
+.preset-card-art {
+  position: relative;
+  display: flex;
+  height: 90px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  padding: 8px 6px;
+  background: radial-gradient(ellipse at 50% 100%, rgba(114, 84, 191, 0.25), transparent 70%), linear-gradient(145deg, #23253b, #131422);
+}
+
+.preset-card-tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.preset-card-small {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.75;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preset-card-big {
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+  max-width: 95%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+
+.preset-card-name-row {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10, 11, 18, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.preset-card .preset-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-check-icon {
+  display: none;
+  font-size: 11px;
+  color: #FFE600;
+  font-weight: 900;
+}
+
+.preset-card.active .preset-check-icon {
+  display: inline-block;
+}
+
+#tabTemplates {
+  padding-bottom: 80px;
+}
