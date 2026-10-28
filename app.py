@@ -1048,30 +1048,29 @@ def project_delete(pid):
 # ------------------------------------------------------------------ Instagram VIP Coupon & Credits
 COUPONS_FILE = WORK / "coupons.json"
 DEFAULT_COUPONS = {
-    "HLOPRO10": {"credits": 10},
-    "INSTA10": {"credits": 10},
-    "VIRAL10": {"credits": 10},
+    "PACK50": {"credits": 7, "days": 7, "price": 50},
+    "CREATOR50": {"credits": 7, "days": 7, "price": 50},
+    "REEL50": {"credits": 7, "days": 7, "price": 50},
+    "WEEKLY50": {"credits": 7, "days": 7, "price": 50},
+    "PASS10": {"credits": 1, "price": 10},
     "HLOFREE2": {"credits": 2},
     "CREATOR2": {"credits": 2},
     "STORYVIP": {"credits": 2},
     "INSTA2": {"credits": 2},
-    "CREATOR10": {"credits": 10},
+    "HLOPRO10": {"credits": 10},
     "NIKHILVIP": {"credits": 100},
     "VIPPASS": {"credits": 50}
 }
 
 
 def load_coupons():
-    if not COUPONS_FILE.exists():
+    merged = dict(DEFAULT_COUPONS)
+    if COUPONS_FILE.exists():
         try:
-            COUPONS_FILE.write_text(json.dumps(DEFAULT_COUPONS, indent=2), encoding="utf-8")
+            merged.update(json.loads(COUPONS_FILE.read_text(encoding="utf-8")))
         except Exception:
             pass
-        return DEFAULT_COUPONS
-    try:
-        return json.loads(COUPONS_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return DEFAULT_COUPONS
+    return merged
 
 
 
@@ -1101,7 +1100,19 @@ def check_device_credits():
             pass
         return jsonify(credits=1, used=0)
 
-    return jsonify(credits=record.get("credits", 0), used=record.get("used", 0))
+    # Check for expiration of pack
+    cur_credits = record.get("credits", 0)
+    exp_time = record.get("expires_at")
+    if exp_time and time.time() > exp_time:
+        cur_credits = 0
+        record["credits"] = 0
+        record["expired"] = True
+        try:
+            dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    return jsonify(credits=cur_credits, used=record.get("used", 0), expires_at=record.get("expires_at"))
 
 
 @app.post("/api/credits/consume")
@@ -1217,10 +1228,17 @@ def redeem_coupon():
             dev_data = json.loads(dev_file.read_text(encoding="utf-8"))
         except Exception:
             pass
+    valid_days = c_info.get("days")
+    expires_at = (time.time() + valid_days * 86400) if valid_days else None
+
     if device_id in dev_data:
         dev_data[device_id]["credits"] = dev_data[device_id].get("credits", 0) + credits_to_add
+        if expires_at:
+            dev_data[device_id]["expires_at"] = expires_at
     else:
         dev_data[device_id] = {"credits": credits_to_add, "used": 1, "created_at": time.time()}
+        if expires_at:
+            dev_data[device_id]["expires_at"] = expires_at
     try:
         dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
     except Exception:
