@@ -1411,6 +1411,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             syncUserUI();
             closeLogin();
             showToast('🎉 Welcome, ' + S.user.name + '!');
+            if (S.pendingExportAfterLogin) {
+              S.pendingExportAfterLogin = false;
+              setTimeout(() => startExport(), 400);
+            }
           }
         } catch (err) {
           showToast('Login error: ' + err.message);
@@ -1480,6 +1484,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           const modalLogin = $('modalLogin');
           if (modalLogin) modalLogin.classList.add('hidden');
           showToast('🎉 Signed in as ' + S.user.name);
+          if (S.pendingExportAfterLogin) {
+            S.pendingExportAfterLogin = false;
+            setTimeout(() => startExport(), 400);
+          }
         }
       });
     } catch (e) {
@@ -1695,10 +1703,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     updateCreditsUI();
 
     // Verify credits with server in background to enforce 1-Free-Export limit across tabs/refresh
+    const userAccountId = (S.user && S.user.id) ? S.user.id : deviceId;
     fetch('/api/credits/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: deviceId })
+      body: JSON.stringify({ device_id: userAccountId, user_id: S.user ? S.user.id : null })
     }).then(r => r.json()).then(data => {
       if (typeof data.credits === 'number') {
         // If server says user already used their 1 free export, sync local state
@@ -5350,6 +5359,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   async function startExport() {
+    // 1. Mandatory Sign In Check: User must sign in with Google/Email to export!
+    if (!S.user || !S.user.id) {
+      S.pendingExportAfterLogin = true;
+      const modalLogin = $('modalLogin');
+      if (modalLogin) {
+        modalLogin.classList.remove('hidden');
+        showToast('🔐 Please sign in with your Gmail/Account to export!');
+      }
+      return;
+    }
+
+    // 2. Export Credits / Paywall Check
     if (S.credits <= 0) {
       S.pendingExportAfterCoupon = true;
       openCouponModal();
