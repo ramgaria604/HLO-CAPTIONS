@@ -5552,21 +5552,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     updateExportPipeline(1, 'Recording Canvas...', 'Queued');
 
-    const canDirectExport = Boolean(
-      window.MediaRecorder &&
-      (typeof HTMLCanvasElement.prototype.captureStream === 'function' || typeof HTMLCanvasElement.prototype.mozCaptureStream === 'function') &&
-      vid && (vid.src || S.filename)
-    );
-
-    if (canDirectExport) {
-      try {
-        await startDirectCanvasExport();
-        return;
-      } catch (err) {
-        console.warn('Direct canvas export notice, falling back to server export:', err);
-      }
-    }
-
+    // Always use robust FFmpeg Server Export to guarantee 100% exact timing, zero lag, and no frame-skipping
     await startServerExport();
   }
 
