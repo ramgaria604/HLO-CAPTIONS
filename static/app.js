@@ -1408,7 +1408,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           if (data.ok && data.user) {
             S.user = data.user;
             try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
+            // Sync exact server credits for this user
+            if (typeof data.credits === 'number') {
+              S.credits = data.credits;
+              localStorage.setItem('cs_credits', String(S.credits));
+            }
             syncUserUI();
+            updateCreditsUI();
             closeLogin();
             showToast('🎉 Welcome, ' + S.user.name + '!');
             if (S.pendingExportAfterLogin) {
@@ -1480,7 +1486,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         if (data.ok && data.user) {
           S.user = data.user;
           try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
+          // Sync exact server credits for this Gmail account
+          if (typeof data.credits === 'number') {
+            S.credits = data.credits;
+            localStorage.setItem('cs_credits', String(S.credits));
+          }
           syncUserUI();
+          updateCreditsUI();
           const modalLogin = $('modalLogin');
           if (modalLogin) modalLogin.classList.add('hidden');
           showToast('🎉 Signed in as ' + S.user.name);

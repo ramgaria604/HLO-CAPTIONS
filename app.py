@@ -952,7 +952,41 @@ def auth_google():
         except Exception:
             pass
     user_file.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
-    return jsonify(ok=True, user=user_data)
+
+    # Sync User Account Credits from Server Records
+    dev_file = WORK / "device_credits.json"
+    dev_data = {}
+    if dev_file.exists():
+        try:
+            dev_data = json.loads(dev_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    key = email or user_id
+    user_record = dev_data.get(key)
+    if not user_record:
+        # First time this Gmail account has logged in -> Grant 1 Free Export!
+        user_record = {"credits": 1, "used": 0, "email": email, "name": name, "created_at": time.time()}
+        dev_data[key] = user_record
+        try:
+            dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+    else:
+        # User has logged in before -> Update name/email metadata
+        if email: user_record["email"] = email
+        if name: user_record["name"] = name
+        user_record["last_login"] = time.time()
+        dev_data[key] = user_record
+        try:
+            dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    user_credits = user_record.get("credits", 0)
+    user_used = user_record.get("used", 0)
+
+    return jsonify(ok=True, user=user_data, credits=user_credits, used=user_used)
 
 
 @app.post("/api/project/save")
