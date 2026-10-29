@@ -2595,24 +2595,26 @@ def save_canvas_export():
                 filter_complex.append(f"[{audio_map}][bgm]amix=inputs=2:duration=first[aout]")
                 audio_map = "[aout]"
 
-            # Exact frame rate and pixel format
+            # Ultra-clean universal packaging with faststart
             cmd.extend([
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
-                "-r", "30", "-vsync", "cfr",
-                "-pix_fmt", "yuv420p"
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+                "-r", "30", "-pix_fmt", "yuv420p"
             ])
 
             if filter_complex:
-                cmd.extend(["-filter_complex", ";".join(filter_complex), "-map", "0:v", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"])
+                cmd.extend(["-filter_complex", ";".join(filter_complex), "-map", "0:v:0", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"])
             else:
-                cmd.extend(["-map", "0:v", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"] if (orig_video_file or voiceover_file) else ["-map", "0:v", "-map", "0:a?", "-c:a", "aac", "-b:a", "192k"])
+                if orig_video_file or voiceover_file:
+                    cmd.extend(["-map", "0:v:0", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"])
+                else:
+                    cmd.extend(["-c:a", "aac", "-b:a", "192k"])
 
-            cmd.extend(["-movflags", "+faststart", str(final_output)])
+            cmd.extend(["-movflags", "+faststart", "-shortest", str(final_output)])
 
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
             if res.returncode != 0 or not final_output.exists() or final_output.stat().st_size == 0:
                 print("FFmpeg save_canvas_export fallback, stderr:", res.stderr.decode(errors="ignore"))
-                subprocess.run([ff, "-y", "-i", str(temp_input), "-c:v", "libx264", "-c:a", "aac", str(final_output)], timeout=60)
+                subprocess.run([ff, "-y", "-i", str(temp_input), "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(final_output)], timeout=60)
 
             temp_input.unlink(missing_ok=True)
         except Exception as e:

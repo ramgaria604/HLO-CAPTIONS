@@ -5411,11 +5411,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     setTimeout(() => {
       if (!finishDone && !isCancelled) finishRecording();
     }, maxRecordTimeMs);
-    updateExportPipeline(2, 'Done ✓', 'Packaging MP4...');
-    exportProgressText.textContent = 'Finalizing 1080p video file...';
-    exportProgressDetail.textContent = 'Packaging crystal-clear audio and video streams.';
-    exportProgressBar.style.width = '100%';
-    exportPercent.textContent = '100%';
 
     const finishExportPromise = new Promise((resolve) => {
       recorder.onstop = async () => {
@@ -5486,7 +5481,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       };
     });
 
-    recorder.stop();
+    // Recording stop is invoked cleanly in finishRecording()
     await finishExportPromise;
   }
 
