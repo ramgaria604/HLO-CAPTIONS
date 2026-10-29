@@ -2592,8 +2592,9 @@ def save_canvas_export():
             filter_complex = []
             audio_map = "0:a?"
 
-            # Video overlay filter: overlays captions on top of original video
-            filter_complex.append("[0:v][1:v]overlay=0:0:shortest=1[vout]")
+            # Industry ChromaKey composite: strips green screen from captions overlay
+            # and layers captions cleanly over the original background video with full duration (eof_action=pass)
+            filter_complex.append("[1:v]chromakey=0x00FF00:0.18:0.02[ckout];[0:v][ckout]overlay=0:0:eof_action=pass[vout]")
 
             if voiceover_file:
                 vo_idx = len(cmd) // 2
@@ -2624,7 +2625,6 @@ def save_canvas_export():
                 "-c:a", "aac",
                 "-b:a", "192k",
                 "-movflags", "+faststart",
-                "-shortest",
                 str(final_output)
             ])
 

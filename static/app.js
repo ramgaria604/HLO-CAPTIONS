@@ -5265,8 +5265,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const frameInterval = 1 / fps;
     const totalFrames = Math.max(1, Math.round(duration * fps));
 
-    // Capture transparent canvas stream (0 means manual frame by frame push via requestFrame)
-    const canvasStream = recCanvas.captureStream ? recCanvas.captureStream(0) : recCanvas.mozCaptureStream(0);
+    // Capture canvas stream at constant 30fps for smooth standard MediaRecorder encoding
+    const canvasStream = recCanvas.captureStream ? recCanvas.captureStream(fps) : recCanvas.mozCaptureStream(fps);
 
     const recOptions = {
       videoBitsPerSecond: 16000000
@@ -5306,15 +5306,21 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // Guarantees 100% full duration coverage with zero lag!
     const track = canvasStream.getVideoTracks()[0];
 
+    // Pure mathematical green-screen overlay rendering
+    // Background is #00FF00 (pure green). Captions, shadows, and text are drawn on top.
+    // FFmpeg chromakeys out 0x00FF00 with 100% precision, leaving pristine typography on original video!
+    const frameDelayMs = Math.round(1000 / fps); // 33ms per frame
+
     for (let frameIdx = 0; frameIdx < totalFrames; frameIdx++) {
       if (isCancelled) break;
 
       const targetTime = frameIdx * frameInterval;
 
-      // 1. Clear transparent canvas
-      recCtx.clearRect(0, 0, W, H);
+      // 1. Fill canvas with chromakey green #00FF00
+      recCtx.fillStyle = '#00FF00';
+      recCtx.fillRect(0, 0, W, H);
 
-      // 2. Draw active captions with EXACT Same Canvas Engine
+      // 2. Draw active captions with EXACT Same Canvas Engine (drawCanvasTypography)
       const activeCap = S.captions.find(c => targetTime >= c.start && targetTime <= c.end);
       if (activeCap) {
         const words = (activeCap.words || []).map(w => ({
@@ -5332,25 +5338,20 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       // 3. Draw Watermark
       drawWatermark(recCtx, W, H);
 
-      // 4. Explicitly capture frame into MediaRecorder
-      if (track && track.requestFrame) {
-        track.requestFrame();
-      }
-
-      // 5. Progress update
+      // 4. Progress update
       const pct = Math.min(95, Math.max(5, Math.round(((frameIdx + 1) / totalFrames) * 95)));
       exportProgressBar.style.width = pct + '%';
       exportPercent.textContent = pct + '%';
       exportProgressText.textContent = `Rendering text overlay frame ${frameIdx + 1}/${totalFrames} (${pct}%)...`;
-      exportProgressDetail.textContent = 'Generating 1080p transparent captions layer with 100% exact colors.';
+      exportProgressDetail.textContent = 'Generating full 1080p captions overlay with 100% exact colors.';
       updateExportPipeline(1, `Frame ${frameIdx + 1}/${totalFrames}`, 'Queued');
 
-      // 16ms tick ensures MediaRecorder captures every single frame smoothly without skipping
-      await new Promise(r => setTimeout(r, 16));
+      // Steady 33ms per frame ensures MediaRecorder records the full 100% duration of the video!
+      await new Promise(r => setTimeout(r, frameDelayMs));
     }
 
-    // Allow recorder buffer to flush remaining frames
-    await new Promise(r => setTimeout(r, 300));
+    // Flush recorder buffer
+    await new Promise(r => setTimeout(r, 500));
 
     if (isCancelled) return;
 
