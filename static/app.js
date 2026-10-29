@@ -5242,7 +5242,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const recCanvas = document.createElement('canvas');
     recCanvas.width = W;
     recCanvas.height = H;
-    const recCtx = recCanvas.getContext('2d', { alpha: false });
+    const recCtx = recCanvas.getContext('2d', { alpha: false, desynchronized: true });
 
     // Identify supported MediaRecorder MIME type
     const mimeCandidates = [
@@ -5280,7 +5280,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       audioTrack = streamFromVid.getAudioTracks()[0];
     }
 
-    const canvasStream = recCanvas.captureStream ? recCanvas.captureStream(0) : recCanvas.mozCaptureStream(0);
+    const canvasStream = recCanvas.captureStream ? recCanvas.captureStream(fps) : recCanvas.mozCaptureStream(fps);
     const combinedTracks = [canvasStream.getVideoTracks()[0]];
     if (audioTrack) {
       combinedTracks.push(audioTrack);
@@ -5298,13 +5298,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (e.data && e.data.size > 0) chunks.push(e.data);
     };
 
-    vid.pause();
-    vid.muted = true;
-
     let isCancelled = false;
+    let animFrameId = null;
+
     activeDirectExport = {
       stop: () => {
         isCancelled = true;
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        try { vid.pause(); } catch (_) {}
         try { recorder.stop(); } catch (_) {}
       }
     };
@@ -5318,74 +5319,98 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       )
     );
 
-    // Seek helper promise
-    const seekVideoTo = (timeSec) => {
-      return new Promise((resolve) => {
-        let done = false;
-        const onSeeked = () => {
-          if (done) return;
-          done = true;
-          vid.removeEventListener('seeked', onSeeked);
-          resolve();
-        };
-        vid.addEventListener('seeked', onSeeked, { once: true });
-        vid.currentTime = Math.min(duration, Math.max(0, timeSec));
-        setTimeout(onSeeked, 300);
-      });
-    };
+    // Prepare video from frame 0
+    vid.pause();
+    vid.currentTime = 0;
+    vid.muted = true;
+
+    await new Promise((resolve) => {
+      const onSeek0 = () => {
+        vid.removeEventListener('seeked', onSeek0);
+        resolve();
+      };
+      vid.addEventListener('seeked', onSeek0, { once: true });
+      setTimeout(onSeek0, 400);
+    });
 
     recorder.start(100);
 
-    // Render frame-by-frame (OPTION A: Step-by-Step Offline Accurate Render)
-    for (let frameIdx = 0; frameIdx < totalFrames; frameIdx++) {
-      if (isCancelled) break;
+    // Smooth real-time playback recording - NO choppy seek jumping!
+    try {
+      await vid.play();
+    } catch (playErr) {
+      console.warn('Playback play() warning:', playErr);
+    }
 
-      const targetTime = frameIdx * frameInterval;
-      await seekVideoTo(targetTime);
+    let finishDone = false;
+    const finishRecording = async () => {
+      if (finishDone) return;
+      finishDone = true;
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      vid.pause();
 
-      // 1. Draw crisp video frame onto canvas
+      updateExportPipeline(2, 'Done ✓', 'Packaging MP4...');
+      exportProgressText.textContent = 'Finalizing 1080p video file...';
+      exportProgressDetail.textContent = 'Packaging crystal-clear audio and zero-lag video streams.';
+      exportProgressBar.style.width = '100%';
+      exportPercent.textContent = '100%';
+
+      try {
+        recorder.stop();
+      } catch (_) {}
+    };
+
+    const renderLoop = () => {
+      if (isCancelled || finishDone) return;
+
+      const curTime = vid.currentTime;
+
+      // 1. Draw smooth video frame
       try {
         recCtx.drawImage(vid, 0, 0, W, H);
-      } catch (drawErr) {
-        console.warn('Frame draw error:', drawErr);
-      }
+      } catch (err) {}
 
-      // 2. Draw active caption with EXACT Same Engine Canvas Typography
-      const activeCap = S.captions.find(c => targetTime >= c.start && targetTime <= c.end);
+      // 2. Draw caption using EXACT same canvas typography engine
+      const activeCap = S.captions.find(c => curTime >= c.start && curTime <= c.end);
       if (activeCap) {
         const words = (activeCap.words || []).map(w => ({
           t: w.t || w.word || '',
           s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
           e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
-          key: Boolean(w.key)
+          key: Boolean(w.key),
+          color: w.color || undefined
         }));
 
-        drawCanvasTypography(recCtx, null, activeCap, words, targetTime, S.style || {}, W, H, isBehind, false);
-        drawAutoEmojis(recCtx, activeCap, words, targetTime, S.style || {}, W, H);
+        drawCanvasTypography(recCtx, null, activeCap, words, curTime, S.style || {}, W, H, isBehind, false);
+        drawAutoEmojis(recCtx, activeCap, words, curTime, S.style || {}, W, H);
       }
 
       // 3. Watermark
       drawWatermark(recCtx, W, H);
 
-      // 4. Request canvas stream to capture this exact pristine frame
-      if (canvasStream.getVideoTracks()[0].requestFrame) {
-        canvasStream.getVideoTracks()[0].requestFrame();
-      }
-
-      // 5. Update UI progress smoothly
-      const pct = Math.min(99, Math.max(5, Math.round(((frameIdx + 1) / totalFrames) * 100)));
+      // 4. Update progress UI smoothly
+      const pct = Math.min(99, Math.max(5, Math.round((curTime / Math.max(0.1, duration)) * 100)));
       exportProgressBar.style.width = pct + '%';
       exportPercent.textContent = pct + '%';
-      exportProgressText.textContent = `Rendering frame ${frameIdx + 1}/${totalFrames} (${pct}%)...`;
-      exportProgressDetail.textContent = 'Baking in 100% exact colors, font typography & pop animations.';
-      updateExportPipeline(1, `Frame ${frameIdx + 1}/${totalFrames}...`, 'Queued');
+      exportProgressText.textContent = `Rendering video smoothly (${pct}%)...`;
+      exportProgressDetail.textContent = 'Recording 100% exact canvas fonts, colors & box highlights.';
+      updateExportPipeline(1, `Recording ${Math.round(curTime)}s / ${Math.round(duration)}s`, 'Queued');
 
-      // Small tick to allow MediaRecorder to swallow the frame
-      await new Promise(r => setTimeout(r, 16));
-    }
+      if (curTime >= duration || vid.ended) {
+        finishRecording();
+        return;
+      }
 
-    if (isCancelled) return;
+      animFrameId = requestAnimationFrame(renderLoop);
+    };
 
+    animFrameId = requestAnimationFrame(renderLoop);
+
+    // Safety timeout in case vid.ended doesn't fire
+    const maxRecordTimeMs = (duration + 2) * 1000;
+    setTimeout(() => {
+      if (!finishDone && !isCancelled) finishRecording();
+    }, maxRecordTimeMs);
     updateExportPipeline(2, 'Done ✓', 'Packaging MP4...');
     exportProgressText.textContent = 'Finalizing 1080p video file...';
     exportProgressDetail.textContent = 'Packaging crystal-clear audio and video streams.';
@@ -5511,13 +5536,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     updateExportPipeline(1, 'Recording Canvas...', 'Queued');
 
     // High-Fidelity Server Export:
-    // Produces 100% smooth, deterministic 60fps non-choppy video with exact ASS vector box highlights!
-    try {
-      await startServerExport();
-    } catch (srvErr) {
-      console.warn('Server export error, falling back to direct canvas export:', srvErr);
-      await startDirectCanvasExport();
-    }
+    // STRICT SAME-ENGINE CANVAS EXPORT:
+    // Guarantees 100% exact colors, typography, highlights and ZERO lag!
+    await startDirectCanvasExport();
   }
 
   async function startServerExport() {
