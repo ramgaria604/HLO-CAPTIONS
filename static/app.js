@@ -1683,6 +1683,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   // INSTAGRAM VIP COUPON & EXPORT CREDITS SYSTEM
   // ==========================================================================
+  function saveUserCredits(val) {
+    S.credits = val;
+    localStorage.setItem('cs_credits', String(val));
+    if (S.user && S.user.email) {
+      try { localStorage.setItem('cs_credits_' + S.user.email.trim().toLowerCase(), String(val)); } catch(_) {}
+    }
+  }
+
   function updateCreditsUI() {
     const pill = $('creditPill');
     const countSpan = $('creditCount');
@@ -1727,23 +1735,31 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       localStorage.setItem('cs_device_id', deviceId);
     }
 
-    let saved = localStorage.getItem('cs_credits');
+    // Load credits strictly linked to Gmail/Account if logged in
+    const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
+    const userCreditKey = userEmail ? ('cs_credits_' + userEmail) : 'cs_credits';
+    let saved = localStorage.getItem(userCreditKey) ?? localStorage.getItem('cs_credits');
+    // If not logged in, default to 1, if logged in read exact saved
     S.credits = saved !== null ? parseInt(saved, 10) : 1;
-    if (isNaN(S.credits)) S.credits = 1;
+    if (isNaN(S.credits)) S.credits = 0;
     updateCreditsUI();
 
-    // Verify credits with server in background to enforce 1-Free-Export limit across tabs/refresh
-    const userAccountId = (S.user && S.user.id) ? S.user.id : deviceId;
-    const userEmail = S.user ? (S.user.email || '') : '';
+    // Enforce 1-Free-Export per Gmail/Device with authoritative server sync
+    const checkPayload = {
+      device_id: deviceId,
+      email: userEmail,
+      user_id: S.user ? S.user.id : null
+    };
     fetch('/api/credits/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: userAccountId, email: userEmail, user_id: S.user ? S.user.id : null })
+      body: JSON.stringify(checkPayload)
     }).then(r => r.json()).then(data => {
       if (typeof data.credits === 'number') {
-        // If server says user already used their 1 free export, sync local state
-        S.credits = Math.min(S.credits, data.credits);
+        // Authoritative server balance: refresh will NOT reset consumed credits
+        S.credits = data.credits;
         localStorage.setItem('cs_credits', String(S.credits));
+        if (userEmail) localStorage.setItem('cs_credits_' + userEmail, String(S.credits));
         updateCreditsUI();
       }
     }).catch(e => console.warn('Credit check notice:', e));
