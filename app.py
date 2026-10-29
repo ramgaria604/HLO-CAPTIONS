@@ -31,9 +31,11 @@ WORK.mkdir(exist_ok=True)
 # Launch background Smart Storage Janitor thread (runs every 30 mins)
 # Auto-cleans expired temporary files and enforces disk quota so disk never fills up
 cloud_storage.start_janitor_thread(WORK, interval_seconds=1800)
-PROJECTS_DIR = WORK / "projects"
+DATA_DIR = BASE / "data"
+DATA_DIR.mkdir(exist_ok=True)
+PROJECTS_DIR = DATA_DIR / "projects"
 PROJECTS_DIR.mkdir(exist_ok=True)
-USERS_DIR = WORK / "users"
+USERS_DIR = DATA_DIR / "users"
 USERS_DIR.mkdir(exist_ok=True)
 CONFIG = BASE / "config.json"
 ALLOWED = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".3gp", ".ts", ".flv", ".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"}
@@ -959,7 +961,7 @@ def auth_google():
     user_file.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
 
     # Sync User Account Credits from Server Records by exact email address
-    dev_file = WORK / "device_credits.json"
+    dev_file = DATA_DIR / "device_credits.json"
     dev_data = {}
     if dev_file.exists():
         try:
@@ -1094,10 +1096,12 @@ def check_device_credits():
     """Checks server-side device export history so refresh or private tab cannot bypass."""
     d = request.get_json(force=True)
     device_id = (d.get("device_id") or "").strip()
-    if not device_id:
+    user_email = (d.get("email") or "").strip().lower()
+    key = user_email or device_id
+    if not key:
         return jsonify(credits=1, used=0)
 
-    dev_file = WORK / "device_credits.json"
+    dev_file = DATA_DIR / "device_credits.json"
     data = {}
     if dev_file.exists():
         try:
@@ -1105,10 +1109,18 @@ def check_device_credits():
         except Exception:
             pass
 
-    record = data.get(device_id)
+    # If logged in user, look up by email first, fallback to device_id
+    record = None
+    if user_email and user_email in data:
+        record = data[user_email]
+    elif device_id and device_id in data:
+        record = data[device_id]
+
     if not record:
-        # Brand new device: give 1 free export
-        data[device_id] = {"credits": 1, "used": 0, "created_at": time.time()}
+        # Brand new user or device: give 1 free export
+        record = {"credits": 1, "used": 0, "created_at": time.time()}
+        if user_email: record["email"] = user_email
+        data[key] = record
         try:
             dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
         except Exception:
@@ -1141,7 +1153,7 @@ def consume_device_credit():
     if not key:
         return jsonify(ok=True)
 
-    dev_file = WORK / "device_credits.json"
+    dev_file = DATA_DIR / "device_credits.json"
     data = {}
     if dev_file.exists():
         try:
@@ -1176,7 +1188,7 @@ def admin_users_summary():
     if token != "nikhil604":
         return jsonify(error="Unauthorized. Add ?key=nikhil604 to URL."), 401
 
-    dev_file = WORK / "device_credits.json"
+    dev_file = DATA_DIR / "device_credits.json"
     data = {}
     if dev_file.exists():
         try:
@@ -1248,7 +1260,7 @@ def redeem_coupon():
         pass
 
     # Update device credits server-side
-    dev_file = WORK / "device_credits.json"
+    dev_file = DATA_DIR / "device_credits.json"
     dev_data = {}
     if dev_file.exists():
         try:

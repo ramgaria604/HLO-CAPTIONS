@@ -143,6 +143,9 @@ def enforce_disk_quota(work_dir, max_mb=None):
         total_size = 0
         for f in work_path.iterdir():
             if f.is_file():
+                name = f.name.lower()
+                if name.endswith(".json") or name.endswith(".txt") or name.endswith(".lock"):
+                    continue
                 try:
                     st = f.stat()
                     total_size += st.st_size
@@ -190,8 +193,12 @@ def cleanup_expired_files(work_dir, retention_hours=None):
                 continue
 
             try:
-                mtime = f.stat().st_mtime
                 name = f.name.lower()
+                # Never delete user databases, credits, or project state
+                if name.endswith(".json") or name.endswith(".txt") or name.endswith(".lock"):
+                    continue
+
+                mtime = f.stat().st_mtime
 
                 # 1. Clean orphaned temporary audio/analysis scratch files after 15 mins
                 if ("_groq" in name or "_speech" in name or "_vosk" in name or "_raw" in name) and mtime < temp_cutoff:

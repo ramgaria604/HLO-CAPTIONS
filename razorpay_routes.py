@@ -118,7 +118,7 @@ def register_razorpay_routes(app, WORK):
         expires_at = (time.time() + valid_days * 86400) if valid_days else None
 
         # Record payment transaction
-        payments_file = WORK / "razorpay_payments.json"
+        payments_file = (WORK.parent / "data") / "razorpay_payments.json"
         payments_data = []
         if payments_file.exists():
             try:
@@ -145,7 +145,7 @@ def register_razorpay_routes(app, WORK):
             pass
 
         # Update device credits
-        dev_file = WORK / "device_credits.json"
+        dev_file = (WORK.parent / "data") / "device_credits.json"
         dev_data = {}
         if dev_file.exists():
             try:

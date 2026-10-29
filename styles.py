@@ -1628,13 +1628,22 @@ def build_ass(captions, style, W, H):
                 w_end_ts = ts(ev_end)
 
                 col = highlight_col if is_key else base_col
-                outline_px = max(2.5, round(fs * (0.17 if is_key else 0.14), 1))
-                outline_col = (k_role if is_key else f_role).get("outlineColor") or "#000000"
+                # Check preset explicit stroke/outline
+                role_dict = k_role if is_key else f_role
+                explicit_stroke = role_dict.get("stroke") or role_dict.get("outline") or style.get("stroke")
                 if style.get("outlineMode") == "none":
                     outline_px = 0.0
+                elif explicit_stroke:
+                    outline_val = float(explicit_stroke.get("w", 0.03)) if isinstance(explicit_stroke, dict) else float(explicit_stroke or 0)
+                    outline_px = max(1.0, round(fs * outline_val, 1))
+                else:
+                    # Clean modern text without forced muddy black outlines
+                    outline_px = 0.0
 
-                bold = 1 if ((k_role if is_key else f_role).get("bold") or (k_role if is_key else f_role).get("weight", 700) >= 700) else 0
-                italic = 1 if (k_role if is_key else f_role).get("italic") else 0
+                outline_col = role_dict.get("outlineColor") or (explicit_stroke.get("color") if isinstance(explicit_stroke, dict) else None) or "#000000"
+
+                bold = 1 if (role_dict.get("bold") or role_dict.get("weight", 700) >= 700) else 0
+                italic = 1 if role_dict.get("italic") else 0
 
                 if anim_name == "slide-up":
                     pos_tag = f"\\move({word_cx:.1f},{line_y + 28:.1f},{word_cx:.1f},{line_y:.1f},0,200)"
@@ -1674,7 +1683,7 @@ def build_ass(captions, style, W, H):
                     tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
                 else:
                     tags.append(r"\bord0")
-                tags.append(f"\\shad{max(1.0, round(fs * 0.04, 1)):.1f}\\4c&H000000&")
+                tags.append(f"\\shad{max(1.0, round(fs * 0.03, 1)):.1f}\\4c&H000000&")
                 tags += anim_tags
 
                 # Check if highlight mode is 'box' (e.g. Yellow Box Pop)

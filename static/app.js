@@ -1734,10 +1734,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     // Verify credits with server in background to enforce 1-Free-Export limit across tabs/refresh
     const userAccountId = (S.user && S.user.id) ? S.user.id : deviceId;
+    const userEmail = S.user ? (S.user.email || '') : '';
     fetch('/api/credits/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: userAccountId, user_id: S.user ? S.user.id : null })
+      body: JSON.stringify({ device_id: userAccountId, email: userEmail, user_id: S.user ? S.user.id : null })
     }).then(r => r.json()).then(data => {
       if (typeof data.credits === 'number') {
         // If server says user already used their 1 free export, sync local state
@@ -5552,13 +5553,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           updateCreditsUI();
           // Sync deduction with server
           const devId = localStorage.getItem('cs_device_id');
-          if (devId) {
-            fetch('/api/credits/consume', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ device_id: devId })
-            }).catch(() => {});
-          }
+          const uEmail = S.user ? (S.user.email || '') : '';
+          const uName = S.user ? (S.user.name || '') : '';
+          fetch('/api/credits/consume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_id: devId, email: uEmail, name: uName })
+          }).catch(() => {});
       pollExportStatus(S.exportJobId);
 
     } catch (err) {

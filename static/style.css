@@ -3375,7 +3375,18 @@ button {
 .modal-export-card {
 
   text-align: center;
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
 
+}
+
+.modal-export-card .export-state {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  max-height: calc(90vh - 70px) !important;
+  padding-bottom: 24px !important;
 }
 
 
@@ -3476,7 +3487,8 @@ button {
 
   width: 100%;
 
-  max-width: 240px;
+  max-width: 200px;
+  max-height: 280px;
 
   aspect-ratio: 9 / 16;
 
@@ -3484,7 +3496,7 @@ button {
 
   overflow: hidden;
 
-  margin: 16px auto;
+  margin: 12px auto;
 
   background: #000;
 
@@ -3514,26 +3526,36 @@ button {
 
   justify-content: center;
 
-  gap: 8px;
+  gap: 10px;
 
-  background: #10b981;
+  background: linear-gradient(135deg, #10b981, #059669);
 
   color: #ffffff;
 
-  font-size: 14px;
+  font-size: 15px;
 
-  font-weight: 700;
+  font-weight: 800;
 
-  padding: 12px 24px;
+  padding: 14px 28px;
 
-  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 320px;
+  margin: 10px auto 4px auto;
+
+  border-radius: 9999px;
 
   text-decoration: none;
 
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
 
-  transition: transform 0.15s;
+  transition: all 0.2s ease;
+  cursor: pointer;
 
+}
+
+.btn-download:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.6);
 }
 
 
@@ -4827,6 +4849,10 @@ button {
 .modal-coupon-card {
   max-width: 480px !important;
   width: 92%;
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
 }
 .coupon-badge {
   display: inline-block;
@@ -4843,7 +4869,11 @@ button {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 10px 0;
+  padding: 10px 4px 16px 0;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
 }
 .insta-steps-card {
   background: rgba(255, 255, 255, 0.04);
