@@ -2558,6 +2558,7 @@ def save_canvas_export():
     music_vol = request.form.get("musicVol")
     voiceover_name = request.form.get("voiceover")
     orig_filename = request.form.get("originalVideo")
+    print(f"[save_canvas_export] Received originalVideo: '{orig_filename}'")
 
     bgm_file = (WORK / secure_filename(bgm_name)) if bgm_name else None
     if bgm_file and not bgm_file.exists():
@@ -2567,9 +2568,21 @@ def save_canvas_export():
     if voiceover_file and not voiceover_file.exists():
         voiceover_file = None
 
-    orig_video_file = (WORK / secure_filename(orig_filename)) if orig_filename else None
-    if orig_video_file and not orig_video_file.exists():
-        orig_video_file = None
+    # Search WORK folder for the video file
+    orig_video_file = None
+    if orig_filename:
+        clean_name = secure_filename(orig_filename)
+        candidate = WORK / clean_name
+        if candidate.exists() and candidate.is_file():
+            orig_video_file = candidate
+        else:
+            # Check by base stem if extension differed
+            stem = Path(clean_name).stem
+            for f in WORK.glob(f"{stem}*"):
+                if f.is_file() and f.suffix.lower() in [".mp4", ".mov", ".webm", ".avi", ".mkv"]:
+                    orig_video_file = f
+                    break
+    print(f"[save_canvas_export] Resolved orig_video_file: {orig_video_file}")
 
     if ff and orig_video_file and orig_video_file.exists():
         try:
