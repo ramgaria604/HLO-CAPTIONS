@@ -1677,6 +1677,46 @@ def build_ass(captions, style, W, H):
                 tags.append(f"\\shad{max(1.0, round(fs * 0.04, 1)):.1f}\\4c&H000000&")
                 tags += anim_tags
 
-                rows.append(f"Dialogue: 0,{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
+                # Check if highlight mode is 'box' (e.g. Yellow Box Pop)
+                is_box_mode = is_key and bool(style.get("highlight", {}).get("mode") == "box")
+                if is_box_mode:
+                    box_bg = style.get("highlight", {}).get("color") or highlight_col or "#FFE600"
+                    box_fg = style.get("highlight", {}).get("textColor") or "#111111"
+                    pad_x = max(6.0, round(fs * 0.24, 1))
+                    pad_y = max(4.0, round(fs * 0.16, 1))
+                    bw = round(w_w + pad_x * 2.0, 1)
+                    bh = round(fs * 1.25, 1)
+                    
+                    # Box background drawn on Layer 0
+                    x1 = -round(bw / 2.0, 1)
+                    y1 = -round(bh / 2.0, 1)
+                    x2 = round(bw / 2.0, 1)
+                    y2 = round(bh / 2.0, 1)
+                    box_draw = f"m {x1} {y1} l {x2} {y1} l {x2} {y2} l {x1} {y2}"
+                    box_tags = [
+                        r"\an5",
+                        pos_tag,
+                        r"\p1",
+                        f"\\1c{_c(box_bg)}",
+                        r"\bord0",
+                        r"\shad1.5\4c&H000000&",
+                    ] + anim_tags
+                    rows.append(f"Dialogue: 0,{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(box_tags) }}}{box_draw}")
+
+                    # Box text drawn on Layer 1 on top of box
+                    txt_tags = [
+                        r"\an5",
+                        pos_tag,
+                        f"\\fn{font_name}",
+                        f"\\fs{ass_fs:.1f}",
+                        f"\\b{bold}",
+                        f"\\i{italic}",
+                        f"\\1c{_c(box_fg)}",
+                        r"\bord0",
+                        r"\shad0",
+                    ] + anim_tags
+                    rows.append(f"Dialogue: 1,{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(txt_tags) }}}{_esc(txt)}")
+                else:
+                    rows.append(f"Dialogue: 0,{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
 
     return header + "\n".join(rows) + "\n"

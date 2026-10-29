@@ -1688,16 +1688,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const countSpan = $('creditCount');
     const sidebarCredits = $('sidebarCreditsCount');
 
-    let text = `${S.credits} Exports`;
-    if (S.credits <= 0) text = '0 Exports (Claim Coupon)';
-    else if (S.credits === 1) text = '1 Free Export';
+    let text = `${S.credits} Credits (${S.credits} Exports)`;
+    if (S.credits <= 0) text = '0 Credits (Recharge to Export)';
+    else if (S.credits === 1) text = '1 Credit (1 Video Export)';
 
     if (sidebarCredits) sidebarCredits.textContent = text;
 
     if (pill && countSpan) {
       if (S.credits <= 0) {
         pill.classList.add('credit-zero');
-        countSpan.textContent = '🔒 Get 10 Exports';
+        countSpan.textContent = '🔒 0 Credits (Recharge)';
       } else {
         pill.classList.remove('credit-zero');
         countSpan.textContent = text;
@@ -5509,14 +5509,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     updateExportPipeline(1, 'Recording Canvas...', 'Queued');
 
-    // Option 2 SAME ENGINE DIRECT CANVAS EXPORT:
-    // Ensures 100% exact colors, font typography, and pop animations identical to editor preview!
+    // High-Fidelity Server Export:
+    // Produces 100% smooth, deterministic 60fps non-choppy video with exact ASS vector box highlights!
     try {
-      await startDirectCanvasExport();
-      return;
-    } catch (directErr) {
-      console.warn('Direct canvas export error, falling back to server render:', directErr);
       await startServerExport();
+    } catch (srvErr) {
+      console.warn('Server export error, falling back to direct canvas export:', srvErr);
+      await startDirectCanvasExport();
     }
   }
 
@@ -5672,19 +5671,40 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
 
     const isBlob = String(filename || '').startsWith('blob:');
+    let targetDownloadUrl = '';
+    let targetFileName = 'captioned_video.mp4';
+
     if (isBlob) {
-      btnDownloadExport.href = filename;
-      btnDownloadExport.download = 'captioned_video.mp4';
+      targetDownloadUrl = filename;
+      targetFileName = 'captioned_video.mp4';
       exportPreviewVideo.src = filename;
     } else {
       const file = String(filename || '').split('/').pop();
-      const downloadUrl = String(filename || '').startsWith('/download/')
+      targetDownloadUrl = String(filename || '').startsWith('/download/')
         ? filename
         : '/download/' + encodeURIComponent(file);
-      btnDownloadExport.href = downloadUrl;
-      btnDownloadExport.download = 'captioned_' + file;
+      targetFileName = 'captioned_' + file;
       exportPreviewVideo.src = '/video/' + encodeURIComponent(file);
     }
+    btnDownloadExport.href = targetDownloadUrl;
+    btnDownloadExport.download = targetFileName;
+    btnDownloadExport.target = '_blank';
+
+    // Explicit click handler to trigger direct download across all browsers
+    btnDownloadExport.onclick = (e) => {
+      if (!targetDownloadUrl) return;
+      if (isBlob) {
+        const a = document.createElement('a');
+        a.href = targetDownloadUrl;
+        a.download = targetFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        window.location.href = targetDownloadUrl;
+      }
+    };
+
     exportPreviewVideo.load();
 
     playSuccessChime();
