@@ -929,8 +929,17 @@ def get_gradient_colors(role, style):
     return None
 
 
-def _c(hex_color):
-    h = str(hex_color or "").strip().lstrip("#")
+def _c(color_val):
+    s = str(color_val or "").strip()
+    if not s:
+        return "&HFFFFFF&"
+    if s.lower().startswith("rgb"):
+        import re
+        m = re.findall(r"\d+", s)
+        if len(m) >= 3:
+            r, g, b = int(m[0]), int(m[1]), int(m[2])
+            return f"&H{b:02X}{g:02X}{r:02X}&"
+    h = s.lstrip("#")
     if len(h) == 3:
         h = "".join(c * 2 for c in h)
     if len(h) == 6:
@@ -1150,7 +1159,13 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             t = str(w.get("t") or w.get("word") or w.get("text") or "").replace("*", "")
             s = float(w.get("s", w.get("start", c.get("start", 0))))
             e = float(w.get("e", w.get("end", c.get("end", s))))
-            clean_w.append({"t": t, "key": bool(w.get("key")), "s": s, "e": e})
+            clean_w.append({
+                "t": t,
+                "key": bool(w.get("key") or w.get("isKey")),
+                "s": s,
+                "e": e,
+                "color": w.get("color") or w.get("customColor")
+            })
         norm_caps.append({
             "start": float(c.get("start", 0)),
             "end": float(c.get("end", 0)),
@@ -1408,6 +1423,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     pos_tag = f"\\pos({word_cx:.1f},{o['ass_y']:.1f})"
                     anim_tags = [r"\fscx84\fscy84\alpha&HFF&\t(0,40,\alpha&H00&)\t(0,200,0.4,\fscx100\fscy100)"]
 
+                word_color = w.get("color") or col
                 tags = [
                     r"\an2",
                     pos_tag,
@@ -1416,7 +1432,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     f"\\fsp{fsp:.2f}",
                     f"\\b{bold}",
                     f"\\i{italic}",
-                    f"\\1c{_c(col)}",
+                    f"\\1c{_c(word_color)}",
                 ]
                 if outline_px > 0:
                     tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
@@ -1557,7 +1573,13 @@ def build_ass(captions, style, W, H):
             t = str(w.get("t") or w.get("word") or w.get("text") or "").replace("*", "")
             s = float(w.get("s", w.get("start", c.get("start", 0))))
             e = float(w.get("e", w.get("end", c.get("end", s))))
-            clean_w.append({"t": t, "key": bool(w.get("key")), "s": s, "e": e})
+            clean_w.append({
+                "t": t,
+                "key": bool(w.get("key") or w.get("isKey")),
+                "s": s,
+                "e": e,
+                "color": w.get("color") or w.get("customColor")
+            })
         norm_caps.append({
             "start": float(c.get("start", 0)),
             "end": float(c.get("end", 0)),
@@ -1627,7 +1649,15 @@ def build_ass(captions, style, W, H):
                 w_st_ts = ts(w_start)
                 w_end_ts = ts(ev_end)
 
-                col = highlight_col if is_key else base_col
+                w_custom_col = w.get("color")
+                if w_custom_col:
+                    col = w_custom_col
+                elif is_key:
+                    k_grad = get_gradient_colors(k_role, style)
+                    col = highlight_col or (k_grad[-1] if k_grad else "#FFE600")
+                else:
+                    f_grad = get_gradient_colors(f_role, style)
+                    col = base_col or (f_grad[0] if f_grad else "#FFFFFF")
                 # Check preset explicit stroke/outline
                 role_dict = k_role if is_key else f_role
                 explicit_stroke = role_dict.get("stroke") or role_dict.get("outline") or style.get("stroke")

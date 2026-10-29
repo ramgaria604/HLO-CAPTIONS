@@ -5527,7 +5527,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         captions: S.captions.map(cap => ({
           ...cap,
           text: cleanCaptionText(cap.text),
-          words: (cap.words || []).map(word => ({ ...word, t: cleanCaptionText(word.t ?? word.word), word: cleanCaptionText(word.word ?? word.t) })).filter(word => word.t)
+          words: (cap.words || []).map(word => ({
+            ...word,
+            t: cleanCaptionText(word.t ?? word.word),
+            word: cleanCaptionText(word.word ?? word.t),
+            key: Boolean(word.key || word.isKey),
+            color: word.color || word.customColor || undefined
+          })).filter(word => word.t)
         })),
         style: S.style,
         preset_id: S.style?.id || 'yellow_box',
