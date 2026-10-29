@@ -5448,14 +5448,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
           let serverDownloadUrl = null;
           try {
-            const controller = new AbortController();
-            const fetchTimeout = setTimeout(() => controller.abort(), 15000);
             const res = await fetch('/api/save_canvas_export', {
               method: 'POST',
-              body: formData,
-              signal: controller.signal
+              body: formData
             });
-            clearTimeout(fetchTimeout);
             if (res.ok) {
               const data = await res.json();
               if (data.ok && data.download) {
@@ -5463,7 +5459,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               }
             }
           } catch (netErr) {
-            console.warn('Canvas export server packaging timeout/error, serving client blob:', netErr);
+            console.warn('Canvas export server packaging error, serving client blob:', netErr);
           }
 
           const finalUrl = serverDownloadUrl || URL.createObjectURL(recordedBlob);
@@ -5716,16 +5712,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // Explicit click handler to trigger direct download across all browsers
     btnDownloadExport.onclick = (e) => {
       if (!targetDownloadUrl) return;
-      if (isBlob) {
-        const a = document.createElement('a');
-        a.href = targetDownloadUrl;
-        a.download = targetFileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } else {
-        window.location.href = targetDownloadUrl;
-      }
+      const a = document.createElement('a');
+      a.href = targetDownloadUrl;
+      a.download = targetFileName || 'captioned_video.mp4';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        try { document.body.removeChild(a); } catch (_) {}
+      }, 300);
     };
 
     exportPreviewVideo.load();
