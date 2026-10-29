@@ -1801,12 +1801,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           localStorage.setItem('cs_device_id', deviceId);
         }
 
+        const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
         const res = await fetch('/api/coupons/redeem', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             code: code,
             user_id: S.user ? S.user.id : null,
+            email: userEmail,
             device_id: deviceId
           })
         });
@@ -1816,8 +1818,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           throw new Error(data.error || 'Invalid code');
         }
 
-        S.credits = (S.credits || 0) + (data.added_credits || 10);
-        localStorage.setItem('cs_credits', String(S.credits));
+        const newBalance = typeof data.total_credits === 'number' ? data.total_credits : ((S.credits || 0) + (data.added_credits || 10));
+        saveUserCredits(newBalance);
         updateCreditsUI();
 
         if (msg) {

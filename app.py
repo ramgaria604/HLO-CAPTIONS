@@ -1270,14 +1270,18 @@ def redeem_coupon():
     valid_days = c_info.get("days")
     expires_at = (time.time() + valid_days * 86400) if valid_days else None
 
-    if device_id in dev_data:
-        dev_data[device_id]["credits"] = dev_data[device_id].get("credits", 0) + credits_to_add
-        if expires_at:
-            dev_data[device_id]["expires_at"] = expires_at
-    else:
-        dev_data[device_id] = {"credits": credits_to_add, "used": 1, "created_at": time.time()}
-        if expires_at:
-            dev_data[device_id]["expires_at"] = expires_at
+    user_email = (d.get("email") or "").strip().lower()
+    keys_to_update = set(filter(None, [device_id, user_id, user_email]))
+    for k in keys_to_update:
+        if k in dev_data:
+            dev_data[k]["credits"] = dev_data[k].get("credits", 0) + credits_to_add
+            if expires_at: dev_data[k]["expires_at"] = expires_at
+            if user_email: dev_data[k]["email"] = user_email
+        else:
+            dev_data[k] = {"credits": credits_to_add, "used": 0, "created_at": time.time()}
+            if expires_at: dev_data[k]["expires_at"] = expires_at
+            if user_email: dev_data[k]["email"] = user_email
+    total_synced_credits = (dev_data.get(user_email) or dev_data.get(device_id) or {}).get("credits", credits_to_add)
     try:
         dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
     except Exception:
@@ -1287,6 +1291,7 @@ def redeem_coupon():
         ok=True,
         code=code,
         added_credits=credits_to_add,
+        total_credits=total_synced_credits,
         message=f"🎉 Success! {credits_to_add} Free Video Exports unlocked!"
     )
 
