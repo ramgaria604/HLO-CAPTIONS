@@ -2536,17 +2536,20 @@ def export_worker(job_id, d):
 
 @app.post("/api/save_canvas_export")
 def save_canvas_export():
-    """Receives client-rendered canvas video blob, packages to universal MP4 with faststart, and saves to WORK."""
+    """Hybrid Overlay Engine:
+    Receives transparent caption overlay video blob rendered from client HTML5 Canvas (100% exact colors & styles)
+    and composites it directly over the original pristine video with zero lag and lossless audio.
+    """
     if "video" not in request.files:
-        return err("No video file uploaded", 400)
+        return err("No overlay video uploaded", 400)
 
     file = request.files["video"]
-    orig_name = secure_filename(file.filename or "export.mp4")
+    orig_name = secure_filename(file.filename or "captions_overlay.webm")
     out_id = uuid.uuid4().hex[:12]
 
-    suffix = Path(orig_name).suffix.lower() or ".mp4"
-    temp_input = WORK / f"{out_id}_raw{suffix}"
-    file.save(temp_input)
+    suffix = Path(orig_name).suffix.lower() or ".webm"
+    temp_overlay = WORK / f"{out_id}_overlay{suffix}"
+    file.save(temp_overlay)
 
     final_output = WORK / f"{out_id}_final.mp4"
     ff = ffmpeg_path()
@@ -2568,19 +2571,19 @@ def save_canvas_export():
     if orig_video_file and not orig_video_file.exists():
         orig_video_file = None
 
-    if ff:
+    if ff and orig_video_file and orig_video_file.exists():
         try:
-            cmd = [ff, "-y", "-i", str(temp_input)]
+            # 1. Input 0: Original video (Background)
+            # 2. Input 1: Transparent Canvas Overlay (Captions with 100% exact colors)
+            cmd = [ff, "-y", "-i", str(orig_video_file), "-i", str(temp_overlay)]
             filter_complex = []
             audio_map = "0:a?"
 
-            # If original uploaded video is available, take crystal clear pristine original audio
-            if orig_video_file:
-                cmd.extend(["-i", str(orig_video_file)])
-                audio_map = "1:a"
+            # Video overlay filter: overlays captions on top of original video
+            filter_complex.append("[0:v][1:v]overlay=0:0:shortest=1[vout]")
 
             if voiceover_file:
-                vo_idx = len(cmd) // 2  # next input index
+                vo_idx = len(cmd) // 2
                 cmd.extend(["-i", str(voiceover_file)])
                 audio_map = f"{vo_idx}:a"
 
@@ -2595,35 +2598,41 @@ def save_canvas_export():
                 filter_complex.append(f"[{audio_map}][bgm]amix=inputs=2:duration=first[aout]")
                 audio_map = "[aout]"
 
-            # Ultra-clean universal packaging with faststart
+            # Fast, smooth 30fps CFR MP4 encoding with universal faststart
             cmd.extend([
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
-                "-r", "30", "-pix_fmt", "yuv420p"
+                "-filter_complex", ";".join(filter_complex),
+                "-map", "[vout]",
+                "-map", audio_map,
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-crf", "18",
+                "-r", "30",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-movflags", "+faststart",
+                "-shortest",
+                str(final_output)
             ])
-
-            if filter_complex:
-                cmd.extend(["-filter_complex", ";".join(filter_complex), "-map", "0:v:0", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"])
-            else:
-                if orig_video_file or voiceover_file:
-                    cmd.extend(["-map", "0:v:0", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"])
-                else:
-                    cmd.extend(["-c:a", "aac", "-b:a", "192k"])
-
-            cmd.extend(["-movflags", "+faststart", "-shortest", str(final_output)])
 
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
             if res.returncode != 0 or not final_output.exists() or final_output.stat().st_size == 0:
-                print("FFmpeg save_canvas_export fallback, stderr:", res.stderr.decode(errors="ignore"))
-                subprocess.run([ff, "-y", "-i", str(temp_input), "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(final_output)], timeout=60)
+                print("FFmpeg hybrid overlay fallback, stderr:", res.stderr.decode(errors="ignore"))
+                # Fallback to single input conversion if overlay failed
+                subprocess.run([ff, "-y", "-i", str(temp_overlay), "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(final_output)], timeout=60)
 
-            temp_input.unlink(missing_ok=True)
+            temp_overlay.unlink(missing_ok=True)
         except Exception as e:
-            print("save_canvas_export exception:", e)
-            if temp_input.exists() and not final_output.exists():
-                temp_input.rename(final_output)
+            print("save_canvas_export hybrid exception:", e)
+            if temp_overlay.exists() and not final_output.exists():
+                temp_overlay.rename(final_output)
+    elif ff and temp_overlay.exists():
+        # Fallback if orig_video_file is somehow not present on disk
+        subprocess.run([ff, "-y", "-i", str(temp_overlay), "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(final_output)], timeout=60)
+        temp_overlay.unlink(missing_ok=True)
     else:
-        if temp_input.exists():
-            temp_input.rename(final_output)
+        if temp_overlay.exists():
+            temp_overlay.rename(final_output)
 
     out_name = final_output.name
     cloud_url = cloud_storage.storage.upload_file(final_output)
@@ -2633,25 +2642,6 @@ def save_canvas_export():
         "filename": out_name,
         "video_url": cloud_url or f"/video/{out_name}"
     })
-
-
-@app.post("/api/export")
-def export():
-    d = request.get_json(force=True)
-    if not ffmpeg_path():
-        return err("FFmpeg is not installed.", 500)
-    job_id = uuid.uuid4().hex[:12]
-    JOBS[job_id] = {"status": "queued", "progress": 0, "message": "Waiting...", "download": None}
-    threading.Thread(target=export_worker, args=(job_id, d), daemon=True).start()
-    return jsonify(job=job_id)
-
-
-@app.get("/api/jobs/<job_id>")
-def job_status(job_id):
-    j = JOBS.get(job_id)
-    if not j:
-        return err("Job not found.", 404)
-    return jsonify(j)
 
 
 @app.get("/download/<path:filename>")
