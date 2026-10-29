@@ -2542,6 +2542,7 @@ def save_canvas_export():
     bgm_name = request.form.get("bgMusic")
     music_vol = request.form.get("musicVol")
     voiceover_name = request.form.get("voiceover")
+    orig_filename = request.form.get("originalVideo")
 
     bgm_file = (WORK / secure_filename(bgm_name)) if bgm_name else None
     if bgm_file and not bgm_file.exists():
@@ -2551,18 +2552,28 @@ def save_canvas_export():
     if voiceover_file and not voiceover_file.exists():
         voiceover_file = None
 
+    orig_video_file = (WORK / secure_filename(orig_filename)) if orig_filename else None
+    if orig_video_file and not orig_video_file.exists():
+        orig_video_file = None
+
     if ff:
         try:
             cmd = [ff, "-y", "-i", str(temp_input)]
             filter_complex = []
             audio_map = "0:a?"
 
-            if voiceover_file:
-                cmd.extend(["-i", str(voiceover_file)])
+            # If original uploaded video is available, take crystal clear pristine original audio
+            if orig_video_file:
+                cmd.extend(["-i", str(orig_video_file)])
                 audio_map = "1:a"
 
+            if voiceover_file:
+                vo_idx = len(cmd) // 2  # next input index
+                cmd.extend(["-i", str(voiceover_file)])
+                audio_map = f"{vo_idx}:a"
+
             if bgm_file:
-                bgm_idx = 2 if voiceover_file else 1
+                bgm_idx = len(cmd) // 2
                 cmd.extend(["-stream_loop", "-1", "-i", str(bgm_file)])
                 try:
                     vol_val = float(music_vol or 30) / 100.0
@@ -2572,15 +2583,17 @@ def save_canvas_export():
                 filter_complex.append(f"[{audio_map}][bgm]amix=inputs=2:duration=first[aout]")
                 audio_map = "[aout]"
 
+            # Exact frame rate and pixel format
             cmd.extend([
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+                "-r", "30", "-vsync", "cfr",
                 "-pix_fmt", "yuv420p"
             ])
 
             if filter_complex:
-                cmd.extend(["-filter_complex", ";".join(filter_complex), "-map", "0:v", "-map", audio_map])
+                cmd.extend(["-filter_complex", ";".join(filter_complex), "-map", "0:v", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"])
             else:
-                cmd.extend(["-map", "0:v", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"])
+                cmd.extend(["-map", "0:v", "-map", audio_map, "-c:a", "aac", "-b:a", "192k"] if (orig_video_file or voiceover_file) else ["-map", "0:v", "-map", "0:a?", "-c:a", "aac", "-b:a", "192k"])
 
             cmd.extend(["-movflags", "+faststart", str(final_output)])
 

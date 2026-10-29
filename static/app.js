@@ -5227,7 +5227,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const rawW = vid.videoWidth || S.probe?.width || 1080;
     const rawH = vid.videoHeight || S.probe?.height || 1920;
 
-    // Standard 1080p maximum constraint to keep canvas rendering ultra-fast & crisp
+    // Standard 1080p maximum constraint
     let W = rawW;
     let H = rawH;
     if (W > 1920 || H > 1920) {
@@ -5241,7 +5241,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const recCanvas = document.createElement('canvas');
     recCanvas.width = W;
     recCanvas.height = H;
-    const recCtx = recCanvas.getContext('2d', { alpha: false, desynchronized: true });
+    const recCtx = recCanvas.getContext('2d', { alpha: false });
 
     // Identify supported MediaRecorder MIME type
     const mimeCandidates = [
@@ -5261,6 +5261,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
     }
 
+    const duration = vid.duration || S.probe?.duration || 1;
+    const fps = 30;
+    const frameInterval = 1 / fps;
+    const totalFrames = Math.max(1, Math.round(duration * fps));
+
     // Audio stream capture
     let audioTrack = null;
     let streamFromVid = null;
@@ -5274,29 +5279,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       audioTrack = streamFromVid.getAudioTracks()[0];
     }
 
-    if (!audioTrack && (window.AudioContext || window.webkitAudioContext)) {
-      try {
-        if (!window._csAudioCtx) {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          window._csAudioCtx = new AudioCtx();
-          window._csAudioSource = window._csAudioCtx.createMediaElementSource(vid);
-          window._csAudioDest = window._csAudioCtx.createMediaStreamDestination();
-          window._csAudioSource.connect(window._csAudioDest);
-          window._csAudioSource.connect(window._csAudioCtx.destination);
-        }
-        if (window._csAudioCtx.state === 'suspended') {
-          window._csAudioCtx.resume();
-        }
-        const aTracks = window._csAudioDest.stream.getAudioTracks();
-        if (aTracks.length > 0) audioTrack = aTracks[0];
-      } catch (e) {
-        console.warn('Web Audio capture fallback notice:', e);
-      }
-    }
-
-    // Fixed 30 FPS stream prevents MediaRecorder timestamp dilation / slow-motion stretch
-    const fps = 30;
-    const canvasStream = recCanvas.captureStream ? recCanvas.captureStream(fps) : recCanvas.mozCaptureStream(fps);
+    const canvasStream = recCanvas.captureStream ? recCanvas.captureStream(0) : recCanvas.mozCaptureStream(0);
     const combinedTracks = [canvasStream.getVideoTracks()[0]];
     if (audioTrack) {
       combinedTracks.push(audioTrack);
@@ -5304,7 +5287,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const exportStream = new MediaStream(combinedTracks);
 
     const recOptions = {
-      videoBitsPerSecond: 10000000
+      videoBitsPerSecond: 12000000
     };
     if (chosenMime) recOptions.mimeType = chosenMime;
 
@@ -5314,38 +5297,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (e.data && e.data.size > 0) chunks.push(e.data);
     };
 
-    const prevMuted = vid.muted;
-    const prevVol = vid.volume;
-    vid.muted = false;
-    vid.volume = Math.max(0.01, prevVol > 0 ? prevVol : 0.5);
-
     vid.pause();
-    vid.currentTime = 0;
+    vid.muted = true;
 
-    await new Promise((resolve) => {
-      let resolved = false;
-      const onSeek = () => {
-        if (resolved) return;
-        resolved = true;
-        vid.removeEventListener('seeked', onSeek);
-        resolve();
-      };
-      vid.addEventListener('seeked', onSeek, { once: true });
-      setTimeout(onSeek, 600);
-    });
-
-    const duration = vid.duration || S.probe?.duration || 1;
-    let isRunning = true;
-    let animId = null;
-
+    let isCancelled = false;
     activeDirectExport = {
       stop: () => {
-        isRunning = false;
-        if (animId) cancelAnimationFrame(animId);
-        try { vid.pause(); } catch (_) {}
+        isCancelled = true;
         try { recorder.stop(); } catch (_) {}
-        vid.muted = prevMuted;
-        vid.volume = prevVol;
       }
     };
 
@@ -5358,20 +5317,40 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       )
     );
 
-    function renderDirectFrame() {
-      if (!isRunning) return;
+    // Seek helper promise
+    const seekVideoTo = (timeSec) => {
+      return new Promise((resolve) => {
+        let done = false;
+        const onSeeked = () => {
+          if (done) return;
+          done = true;
+          vid.removeEventListener('seeked', onSeeked);
+          resolve();
+        };
+        vid.addEventListener('seeked', onSeeked, { once: true });
+        vid.currentTime = Math.min(duration, Math.max(0, timeSec));
+        setTimeout(onSeeked, 300);
+      });
+    };
 
-      const t = vid.currentTime || 0;
+    recorder.start(100);
 
-      // 1. Draw raw video frame onto recCanvas
+    // Render frame-by-frame (OPTION A: Step-by-Step Offline Accurate Render)
+    for (let frameIdx = 0; frameIdx < totalFrames; frameIdx++) {
+      if (isCancelled) break;
+
+      const targetTime = frameIdx * frameInterval;
+      await seekVideoTo(targetTime);
+
+      // 1. Draw crisp video frame onto canvas
       try {
         recCtx.drawImage(vid, 0, 0, W, H);
       } catch (drawErr) {
-        console.warn('Canvas drawImage notice:', drawErr);
+        console.warn('Frame draw error:', drawErr);
       }
 
-      // 2. Active caption with EXACT Same Engine Canvas Typography
-      const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+      // 2. Draw active caption with EXACT Same Engine Canvas Typography
+      const activeCap = S.captions.find(c => targetTime >= c.start && targetTime <= c.end);
       if (activeCap) {
         const words = (activeCap.words || []).map(w => ({
           t: w.t || w.word || '',
@@ -5380,45 +5359,39 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           key: Boolean(w.key)
         }));
 
-        drawCanvasTypography(recCtx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
-        drawAutoEmojis(recCtx, activeCap, words, t, S.style || {}, W, H);
+        drawCanvasTypography(recCtx, null, activeCap, words, targetTime, S.style || {}, W, H, isBehind, false);
+        drawAutoEmojis(recCtx, activeCap, words, targetTime, S.style || {}, W, H);
       }
 
       // 3. Watermark
       drawWatermark(recCtx, W, H);
 
-      // 4. Progress bar
-      const pct = Math.min(99, Math.max(5, Math.round((t / duration) * 100)));
-      exportProgressBar.style.width = pct + '%';
-      exportPercent.textContent = pct + '%';
-      exportProgressText.textContent = `Rendering with Same Engine... ${pct}%`;
-      exportProgressDetail.textContent = 'Recording exact canvas animations & vibrant colors frame-by-frame.';
-      updateExportPipeline(1, `Recording Canvas (${pct}%)...`, 'Queued');
-
-      // 5. Completion check
-      if (vid.ended || t >= duration - 0.05) {
-        finishDirectExport();
-        return;
+      // 4. Request canvas stream to capture this exact pristine frame
+      if (canvasStream.getVideoTracks()[0].requestFrame) {
+        canvasStream.getVideoTracks()[0].requestFrame();
       }
 
-      animId = requestAnimationFrame(renderDirectFrame);
+      // 5. Update UI progress smoothly
+      const pct = Math.min(99, Math.max(5, Math.round(((frameIdx + 1) / totalFrames) * 100)));
+      exportProgressBar.style.width = pct + '%';
+      exportPercent.textContent = pct + '%';
+      exportProgressText.textContent = `Rendering frame ${frameIdx + 1}/${totalFrames} (${pct}%)...`;
+      exportProgressDetail.textContent = 'Baking in 100% exact colors, font typography & pop animations.';
+      updateExportPipeline(1, `Frame ${frameIdx + 1}/${totalFrames}...`, 'Queued');
+
+      // Small tick to allow MediaRecorder to swallow the frame
+      await new Promise(r => setTimeout(r, 16));
     }
 
-    async function finishDirectExport() {
-      if (!isRunning) return;
-      isRunning = false;
-      if (animId) cancelAnimationFrame(animId);
-      vid.pause();
+    if (isCancelled) return;
 
-      vid.muted = prevMuted;
-      vid.volume = prevVol;
+    updateExportPipeline(2, 'Done ✓', 'Packaging MP4...');
+    exportProgressText.textContent = 'Finalizing 1080p video file...';
+    exportProgressDetail.textContent = 'Packaging crystal-clear audio and video streams.';
+    exportProgressBar.style.width = '100%';
+    exportPercent.textContent = '100%';
 
-      updateExportPipeline(2, 'Done ✓', 'Packaging MP4...');
-      exportProgressText.textContent = 'Finalizing 1080p video file...';
-      exportProgressDetail.textContent = 'Packaging crystal-clear audio and video streams.';
-      exportProgressBar.style.width = '100%';
-      exportPercent.textContent = '100%';
-
+    const finishExportPromise = new Promise((resolve) => {
       recorder.onstop = async () => {
         try {
           const recordedBlob = new Blob(chunks, { type: chosenMime || 'video/mp4' });
@@ -5427,7 +5400,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           S.credits = Math.max(0, S.credits - 1);
           localStorage.setItem('cs_credits', String(S.credits));
           updateCreditsUI();
-          // Sync deduction with server (tracks exact Gmail & Device)
+
           const devId = localStorage.getItem('cs_device_id');
           const userEmail = S.user ? (S.user.email || '') : '';
           const userName = S.user ? (S.user.name || '') : '';
@@ -5445,6 +5418,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
           const formData = new FormData();
           formData.append('video', recordedBlob, `canvas_export.${ext}`);
+          formData.append('originalVideo', S.filename || '');
           if (S.bgmFilename) formData.append('bgMusic', S.bgmFilename);
           if (S.bgmVolume != null) formData.append('musicVol', Math.round(S.bgmVolume * 100));
           if (S.voiceoverFilename && btnReplaceVoiceover.classList.contains('active')) {
@@ -5454,7 +5428,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           let serverDownloadUrl = null;
           try {
             const controller = new AbortController();
-            const fetchTimeout = setTimeout(() => controller.abort(), 12000);
+            const fetchTimeout = setTimeout(() => controller.abort(), 15000);
             const res = await fetch('/api/save_canvas_export', {
               method: 'POST',
               body: formData,
@@ -5474,53 +5448,23 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           const finalUrl = serverDownloadUrl || URL.createObjectURL(recordedBlob);
           updateExportPipeline(3);
           showExportComplete(finalUrl);
+          resolve();
         } catch (postErr) {
           console.warn('save_canvas_export error, using local blob:', postErr);
           const recordedBlob = new Blob(chunks, { type: chosenMime || 'video/mp4' });
           const directBlobUrl = URL.createObjectURL(recordedBlob);
           updateExportPipeline(3);
           showExportComplete(directBlobUrl);
+          resolve();
         }
       };
+    });
 
-      try {
-        recorder.stop();
-      } catch (_) {}
-    }
-
-    vid.addEventListener('ended', finishDirectExport, { once: true });
-
-    recorder.start(250);
-    await vid.play();
-
-    // Single deterministic frame loop locked to video clock
-    function loopDirectFrame() {
-      if (!isRunning) return;
-      renderDirectFrame();
-      if ('requestVideoFrameCallback' in vid) {
-        vid.requestVideoFrameCallback(loopDirectFrame);
-      } else {
-        animId = requestAnimationFrame(loopDirectFrame);
-      }
-    }
-    loopDirectFrame();
-
-    const heartbeat = setInterval(() => {
-      if (!isRunning) {
-        clearInterval(heartbeat);
-        return;
-      }
-      if (vid.paused && !vid.ended && vid.currentTime < duration - 0.2) {
-        vid.play().catch(() => {});
-      }
-      if (vid.ended || vid.currentTime >= duration - 0.08) {
-        clearInterval(heartbeat);
-        finishDirectExport();
-      }
-    }, 150);
+    recorder.stop();
+    await finishExportPromise;
   }
 
-  async function startExport() {
+    async function startExport() {
     // 1. Mandatory Sign In Check: User must sign in with Google/Email to export!
     if (!S.user || !S.user.id) {
       S.pendingExportAfterLogin = true;
