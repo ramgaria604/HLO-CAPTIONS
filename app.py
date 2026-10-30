@@ -2541,22 +2541,18 @@ def export_worker(job_id, d):
 
 @app.post("/api/save_canvas_export")
 def save_canvas_export():
-    """Hybrid Overlay Engine:
-    Receives transparent caption overlay video blob rendered from client HTML5 Canvas (100% exact colors & styles)
-    and composites it directly over the original pristine video with zero lag and lossless audio.
-    """
     if "video" not in request.files:
         return err("No overlay video uploaded", 400)
 
     file = request.files["video"]
     orig_name = secure_filename(file.filename or "captions_overlay.webm")
     out_id = uuid.uuid4().hex[:12]
-
     suffix = Path(orig_name).suffix.lower() or ".webm"
     temp_overlay = WORK / f"{out_id}_overlay{suffix}"
     file.save(temp_overlay)
 
     final_output = WORK / f"{out_id}_final.mp4"
+    tmp_output = WORK / f"{out_id}_final.tmp.mp4"
     ff = ffmpeg_path()
 
     bgm_name = request.form.get("bgMusic")
@@ -2573,7 +2569,6 @@ def save_canvas_export():
     if voiceover_file and not voiceover_file.exists():
         voiceover_file = None
 
-    # Search WORK folder for the video file
     orig_video_file = None
     if orig_filename:
         clean_name = secure_filename(orig_filename)
@@ -2581,7 +2576,6 @@ def save_canvas_export():
         if candidate.exists() and candidate.is_file():
             orig_video_file = candidate
         else:
-            # Check by base stem if extension differed
             stem = Path(clean_name).stem
             for f in WORK.glob(f"{stem}*"):
                 if f.is_file() and f.suffix.lower() in [".mp4", ".mov", ".webm", ".avi", ".mkv"]:
@@ -2589,69 +2583,98 @@ def save_canvas_export():
                     break
     print(f"[save_canvas_export] Resolved orig_video_file: {orig_video_file}")
 
-    if ff and orig_video_file and orig_video_file.exists():
-        try:
-            # 1. Input 0: Original video (Background)
-            # 2. Input 1: Transparent Canvas Overlay (Captions with 100% exact colors)
-            cmd = [ff, "-y", "-i", str(orig_video_file), "-i", str(temp_overlay)]
-            filter_complex = []
-            audio_map = "0:a?"
-
-            # Industry ChromaKey composite: strips green screen from captions overlay
-            # and layers captions cleanly over the original background video with full duration (eof_action=pass)
-            # Direct overlay of transparent caption video onto original video (no chromakey needed)
-            filter_complex.append("[1:v]format=yuva420p[ov];[0:v][ov]overlay=0:0:eof_action=pass,format=yuv420p[vout]")
-
-            if voiceover_file:
-                vo_idx = len(cmd) // 2
-                cmd.extend(["-i", str(voiceover_file)])
-                audio_map = f"{vo_idx}:a"
-
-            if bgm_file:
-                bgm_idx = len(cmd) // 2
-                cmd.extend(["-stream_loop", "-1", "-i", str(bgm_file)])
-                try:
-                    vol_val = float(music_vol or 30) / 100.0
-                except (ValueError, TypeError):
-                    vol_val = 0.3
-                filter_complex.append(f"[{bgm_idx}:a]volume={vol_val:.2f}[bgm]")
-                filter_complex.append(f"[{audio_map}][bgm]amix=inputs=2:duration=first[aout]")
-                audio_map = "[aout]"
-
-            # Fast, smooth 30fps CFR MP4 encoding with universal faststart
-            cmd.extend([
-                "-filter_complex", ";".join(filter_complex),
-                "-map", "[vout]",
-                "-map", audio_map,
-                "-c:v", "libx264",
-                "-preset", "ultrafast",
-                "-crf", "18",
-                "-r", "30",
-                "-pix_fmt", "yuv420p",
-                "-c:a", "aac",
-                "-b:a", "192k",
-                "-movflags", "+faststart",
-                str(final_output)
-            ])
-
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
-            if res.returncode != 0 or not final_output.exists() or final_output.stat().st_size == 0:
-                print("FFmpeg hybrid overlay fallback, stderr:", res.stderr.decode(errors="ignore"))
-                # Fallback to single input conversion if overlay failed
-                subprocess.run([ff, "-y", "-i", str(temp_overlay), "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(final_output)], timeout=60)
-
-            temp_overlay.unlink(missing_ok=True)
-        except Exception as e:
-            print("save_canvas_export hybrid exception:", e)
-            if temp_overlay.exists() and not final_output.exists():
-                temp_overlay.rename(final_output)
-    elif ff and temp_overlay.exists():
-        # Fallback if orig_video_file is somehow not present on disk
-        subprocess.run([ff, "-y", "-i", str(temp_overlay), "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(final_output)], timeout=60)
+    if not ff or not orig_video_file:
         temp_overlay.unlink(missing_ok=True)
-    else:
-        if temp_overlay.exists():
-            temp_overlay.rename(final_output)
+        return err("Original video not found on server. Please upload it again and re-export.", 400)
+
+    try:
+        info = probe(orig_video_file)
+        has_audio = bool(info.get("has_audio", True))
+        duration = float(info.get("duration") or 0) or None
+    except Exception:
+        has_audio, duration = True, None
+
+    try:
+        vol_val = float(music_vol or 30) / 100.0
+    except (ValueError, TypeError):
+        vol_val = 0.3
+
+    def build_cmd(decoder):
+        cmd = [ff, "-y", "-i", str(orig_video_file)]
+        if decoder:
+            cmd += ["-c:v", decoder]
+        cmd += ["-i", str(temp_overlay)]
+        idx = 2
+        vo_idx = bgm_idx = None
+        if voiceover_file:
+            vo_idx = idx
+            idx += 1
+            cmd += ["-i", str(voiceover_file)]
+        if bgm_file:
+            bgm_idx = idx
+            idx += 1
+            cmd += ["-stream_loop", "-1", "-i", str(bgm_file)]
+
+        fc = ["[1:v]format=yuva420p[ov];"
+              "[0:v][ov]overlay=0:0:eof_action=pass,"
+              "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[vout]"]
+
+        if vo_idx is not None:
+            main_a = f"[{vo_idx}:a]"
+        elif has_audio:
+            main_a = "[0:a]"
+        else:
+            main_a = None
+
+        if bgm_idx is not None:
+            fc.append(f"[{bgm_idx}:a]volume={vol_val:.2f}[bgm]")
+            if main_a:
+                fc.append(f"{main_a}[bgm]amix=inputs=2:duration=first:dropout_transition=0[aout]")
+                amap = "[aout]"
+            else:
+                amap = "[bgm]"
+        else:
+            amap = f"{vo_idx}:a" if vo_idx is not None else "0:a?"
+
+        cmd += ["-filter_complex", ";".join(fc), "-map", "[vout]", "-map", amap]
+        if duration:
+            cmd += ["-t", f"{duration:.3f}"]
+        cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-r", "30", "-pix_fmt", "yuv420p", "-threads", "2",
+                "-c:a", "aac", "-b:a", "192k",
+                "-movflags", "+faststart", str(tmp_output)]
+        return cmd
+
+    decoders = ["libvpx-vp9", "libvpx", None] if suffix == ".webm" else [None]
+    ok = False
+    last_err = ""
+    for dec in decoders:
+        tmp_output.unlink(missing_ok=True)
+        try:
+            res = subprocess.run(build_cmd(dec), stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, timeout=600)
+        except subprocess.TimeoutExpired:
+            last_err = "Export timed out"
+            print("[save_canvas_export] FFmpeg timeout")
+            break
+        if res.returncode == 0 and tmp_output.exists() and tmp_output.stat().st_size > 1024:
+            try:
+                probe(tmp_output)
+                ok = True
+                break
+            except Exception as e:
+                last_err = f"Output check failed: {e}"
+        else:
+            last_err = res.stderr.decode(errors="ignore")[-1500:]
+        print(f"[save_canvas_export] decoder={dec} failed:", last_err)
+
+    temp_overlay.unlink(missing_ok=True)
+
+    if not ok:
+        tmp_output.unlink(missing_ok=True)
+        return err("Export failed. " + last_err[-300:], 500)
+
+    tmp_output.replace(final_output)
 
     out_name = final_output.name
     cloud_url = cloud_storage.storage.upload_file(final_output)
