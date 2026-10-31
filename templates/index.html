@@ -461,6 +461,10 @@
 
                 <!-- Feature Toggles -->
                 <div class="vtemplate-checks-grid">
+                  <label class="vtemplate-check-label" id="lblRealEstateBigType">
+                    <input type="checkbox" id="chkRealEstateBigType" checked>
+                    <span>Big Type</span>
+                  </label>
                   <label class="vtemplate-check-label">
                     <input type="checkbox" id="chkRealEstatePunch" checked>
                     <span>⚡ Camera Punch</span>
@@ -558,6 +562,19 @@
           <!-- TAB 3: STYLE OPTIONS -->
           <div id="tabStyle" class="tab-pane hidden">
             <div class="style-options-grid">
+              <!-- Big Type Switch (Behind Person) -->
+              <div class="control-card" id="cardBigType">
+                <div class="control-header">
+                  <label>Big Type (Behind Person)</label>
+                  <span id="valBigTypeBadge" class="val-badge badge-green">ON</span>
+                </div>
+                <p class="voiceover-help">Uses tall heavy Anton type, readability guard, and contrast pills for behind-person captions.</p>
+                <div class="btn-group" id="bigTypeToggleGroup">
+                  <button type="button" class="btn-toggle active" id="btnBigTypeOn" data-bigtype="on">Big Type: ON</button>
+                  <button type="button" class="btn-toggle" id="btnBigTypeOff" data-bigtype="off">Big Type: OFF</button>
+                </div>
+              </div>
+
 
               <!-- 1. Words per line Stepper (Chunk Pacing) -->
               <div class="stepper-card">

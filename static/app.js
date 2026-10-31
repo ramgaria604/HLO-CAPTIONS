@@ -76,8 +76,10 @@
     scale: 1.10
   },
   progressBar: { enabled: true, position: 'bottom' },
+  bigType: true,
   realEstateConfig: {
     enabled: false,
+    bigType: true,
     paletteLock: 'auto',
     cameraPunch: true,
     personGlow: true,
@@ -1683,7 +1685,16 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const _reCaptionCache = new Map();
   let _lastLoggedHeroCapIdx = -1;
 
-  function analyzeRealEstateCaption(cap, words, capIdx, showAll) {
+  function analyzeRealEstateCaption(cap, words, passedCapIdx, showAll) {
+    let capIdx = -1;
+    if (cap && typeof cap.index === 'number') {
+      capIdx = cap.index;
+    } else if (S.captions && S.captions.length > 0) {
+      capIdx = S.captions.findIndex(c => c === cap || (c.id != null && c.id === cap.id) || (Math.abs(c.start - cap.start) < 0.001));
+    }
+    if (capIdx === -1) {
+      capIdx = Number(passedCapIdx) || 0;
+    }
     const cacheKey = (cap.id || capIdx) + ':::' + words.map(w => w.t || w.word || '').join('|');
     if (_reCaptionCache.has(cacheKey)) {
       return _reCaptionCache.get(cacheKey);
@@ -1721,8 +1732,17 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       console.log('[HERO PICK]', capIdx, chosenWord, candidateSummary);
     }
 
-    // ALL words before heroIdx (0 words dropped!)
-    const topWords = heroIdx > 0 ? words.slice(0, heroIdx) : [];
+    // ALL words before heroIdx
+    let topWords = heroIdx > 0 ? words.slice(0, heroIdx) : [];
+    // ALL words after heroIdx
+    let bottomWords = heroIdx >= 0 && heroIdx < words.length - 1 ? words.slice(heroIdx + 1) : [];
+
+    // Requirement 7: If the bottom line is only one word, merge it into the top line
+    if (bottomWords.length === 1) {
+      topWords = topWords.concat(bottomWords);
+      bottomWords = [];
+    }
+
     const topLines = [];
     if (topWords.length >= 3) {
       const chunkSize = topWords.length >= 5 ? 3 : 2;
@@ -1733,8 +1753,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       topLines.push(topWords);
     }
 
-    // ALL words after heroIdx (0 words dropped!)
-    const bottomWords = heroIdx >= 0 && heroIdx < words.length - 1 ? words.slice(heroIdx + 1) : [];
     const bottomLines = [];
     if (bottomWords.length >= 3) {
       const chunkSize = bottomWords.length >= 5 ? 3 : 2;
@@ -1749,11 +1767,22 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const lock = (S.realEstateConfig && S.realEstateConfig.paletteLock) || 'auto';
     if (lock !== 'auto' && REAL_ESTATE_PALETTES[lock]) {
       palette = REAL_ESTATE_PALETTES[lock];
-    } else if (heroIsNum || heroText.includes('MILLION') || heroText.includes('PRICE')) {
-      palette = REAL_ESTATE_PALETTES.gold;
     } else {
-      const pIdx = capIdx % REAL_ESTATE_PALETTE_KEYS.length;
-      palette = REAL_ESTATE_PALETTES[REAL_ESTATE_PALETTE_KEYS[pIdx]];
+      // Rotation: cycle palettes so each caption has a different palette, never same twice in a row
+      let pIdx = Math.abs(capIdx) % REAL_ESTATE_PALETTE_KEYS.length;
+      if (heroIsNum || heroText.includes('MILLION') || heroText.includes('PRICE')) {
+        pIdx = REAL_ESTATE_PALETTE_KEYS.indexOf('gold');
+      }
+      let chosenKey = REAL_ESTATE_PALETTE_KEYS[pIdx];
+      if (capIdx > 0) {
+        const prevPIdx = (capIdx - 1) % REAL_ESTATE_PALETTE_KEYS.length;
+        const prevKey = REAL_ESTATE_PALETTE_KEYS[prevPIdx];
+        if (chosenKey === prevKey && REAL_ESTATE_PALETTE_KEYS.length > 1) {
+          pIdx = (pIdx + 1) % REAL_ESTATE_PALETTE_KEYS.length;
+          chosenKey = REAL_ESTATE_PALETTE_KEYS[pIdx];
+        }
+      }
+      palette = REAL_ESTATE_PALETTES[chosenKey];
     }
 
     const analyzed = {
@@ -1948,203 +1977,41 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
 
     // ------------------------------------------------------------------------
-    // 1. DRAW TOP LINES (IN FRONT, BELOW) - ALL WORDS BEFORE HERO
+    // 1. DRAW TOP LINES (IN FRONT) - ALL WORDS BEFORE HERO
     // ------------------------------------------------------------------------
     if (numTopLines > 0) {
-      const topFont = `700 ${topFontSize}px 'Montserrat', 'Poppins', sans-serif`;
+      if (useBigType) {
+        const smallFontSize = Math.max(16, Math.round(heroFontSize * 0.32));
+        const topLineSpacing = smallFontSize + 14;
+        data.topLines.forEach((lineChunk, lineIdx) => {
+          const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
+          const curY = startTopY + lineIdx * topLineSpacing;
+          const topAlpha = (showAll ? 1.0 : Math.min(1.0, stTime / 0.12)) * exitAlpha;
+          drawBigTypeSmallLine(ctxFore, lineText, W / 2, curY, smallFontSize, W, H, topAlpha);
+        });
+      } else {
+        const topFont = `700 ${topFontSize}px 'Montserrat', 'Poppins', sans-serif`;
 
-      data.topLines.forEach((lineChunk, lineIdx) => {
-        const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
-        targetCtx.save();
-        targetCtx.font = topFont;
-        const metrics = targetCtx.measureText(lineText);
-        const lineW = metrics.width;
-        let lineX = Math.round((W - lineW) / 2);
-        lineX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - lineW, lineX));
-        const curY = startTopY + lineIdx * topLineSpacing;
+        data.topLines.forEach((lineChunk, lineIdx) => {
+          const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
+          targetCtx.save();
+          targetCtx.font = topFont;
+          const metrics = targetCtx.measureText(lineText);
+          const lineW = metrics.width;
+          let lineX = Math.round((W - lineW) / 2);
+          lineX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - lineW, lineX));
+          const curY = startTopY + lineIdx * topLineSpacing;
 
-        const topAlpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.12) * exitAlpha;
-        targetCtx.globalAlpha = topAlpha;
+          const topAlpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.12) * exitAlpha;
+          targetCtx.globalAlpha = topAlpha;
 
-        targetCtx.fillStyle = 'rgba(15, 23, 42, 0.70)';
-        const pillPadX = 12;
-        const pillPadY = 4;
-        targetCtx.beginPath();
-        targetCtx.roundRect(lineX - pillPadX, curY - pillPadY, lineW + pillPadX * 2, topFontSize + pillPadY * 2, 6);
-        targetCtx.fill();
-
-        targetCtx.textAlign = 'left';
-        targetCtx.textBaseline = 'top';
-        targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-        targetCtx.lineWidth = 3;
-        targetCtx.lineJoin = 'round';
-        targetCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-        targetCtx.shadowBlur = 6;
-        targetCtx.strokeText(lineText, lineX, curY);
-
-        targetCtx.fillStyle = '#FFFFFF';
-        targetCtx.fillText(lineText, lineX, curY);
-        targetCtx.restore();
-      });
-    }
-
-    // ------------------------------------------------------------------------
-    // 2. DRAW HERO WORD (IN FRONT, BELOW)
-    // ------------------------------------------------------------------------
-    targetCtx.save();
-    targetCtx.globalAlpha = exitAlpha;
-
-    const heroCenterX = heroX + heroW / 2;
-    const heroCenterY = heroY + heroH / 2;
-    targetCtx.translate(heroCenterX, heroCenterY + floatY);
-    targetCtx.scale(flipScaleX * exitScale, exitScale);
-    targetCtx.translate(-heroCenterX, -heroCenterY);
-
-    const heroGrad = targetCtx.createLinearGradient(heroX, heroY, heroX + heroW, heroY + heroH);
-    heroGrad.addColorStop(0, data.palette.gradient[0]);
-    heroGrad.addColorStop(1, data.palette.gradient[1]);
-
-    const letters = displayHeroText.split('');
-    const charMetrics = [];
-    targetCtx.font = heroFont;
-    for (let ci = 0; ci < letters.length; ci++) {
-      charMetrics.push(targetCtx.measureText(letters[ci]).width);
-    }
-    const totalCharW = charMetrics.reduce((acc, m) => acc + m, 0) + (letters.length - 1) * letterSpacing;
-    let curCharX = Math.round((W - totalCharW) / 2);
-
-    // Fast entrance reveal: completes within 0.25s
-    const maxEntranceTotalTime = 0.25;
-    const charAnimDur = 0.12;
-    const numLetters = Math.max(1, letters.length);
-    const charStagger = numLetters > 1 
-      ? Math.min(0.03, (maxEntranceTotalTime - charAnimDur) / (numLetters - 1))
-      : 0;
-
-    // Glitch passes on entrance (< 0.06s)
-    if (!showAll && stTime < GLITCH_DURATION) {
-      const glitchP = 1.0 - (stTime / GLITCH_DURATION);
-      const maxGlitchOffset = Math.min(heroFontSize * 0.08, 3.5);
-      const glitchOffset = maxGlitchOffset * glitchP;
-
-      targetCtx.save();
-      targetCtx.translate(glitchOffset, 0);
-      targetCtx.fillStyle = `rgba(0, 245, 212, ${0.40 * glitchP})`;
-      targetCtx.font = heroFont;
-      targetCtx.textAlign = 'left';
-      targetCtx.textBaseline = 'top';
-      targetCtx.fillText(displayHeroText, heroX, heroY);
-      targetCtx.restore();
-
-      targetCtx.save();
-      targetCtx.translate(-glitchOffset, 0);
-      targetCtx.fillStyle = `rgba(255, 0, 127, ${0.40 * glitchP})`;
-      targetCtx.font = heroFont;
-      targetCtx.textAlign = 'left';
-      targetCtx.textBaseline = 'top';
-      targetCtx.fillText(displayHeroText, heroX, heroY);
-      targetCtx.restore();
-    }
-
-    // High-contrast 4px dark stroke around hero letters
-    targetCtx.font = heroFont;
-    targetCtx.textAlign = 'left';
-    targetCtx.textBaseline = 'top';
-    targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-    targetCtx.lineWidth = 4;
-    targetCtx.lineJoin = 'round';
-    targetCtx.shadowColor = 'rgba(0, 0, 0, 0.75)';
-    targetCtx.shadowBlur = 12;
-    targetCtx.shadowOffsetY = 4;
-
-    for (let ci = 0; ci < letters.length; ci++) {
-      const charDelay = ci * charStagger;
-      let charYOffset = 0;
-      let charAlpha = 1.0;
-
-      if (!showAll && stTime < charDelay + charAnimDur) {
-        if (stTime < charDelay) {
-          charYOffset = 18;
-          charAlpha = 0;
-        } else {
-          const p = Math.min(1.0, (stTime - charDelay) / charAnimDur);
-          charYOffset = (1 - easeOutBack(p)) * 18;
-          charAlpha = Math.min(1.0, p * 2.0);
-        }
-      }
-
-      if (charAlpha > 0) {
-        targetCtx.save();
-        targetCtx.globalAlpha = exitAlpha * charAlpha;
-        // Stroke
-        targetCtx.strokeText(letters[ci], curCharX, heroY + charYOffset);
-        // Fill gradient
-        targetCtx.fillStyle = heroGrad;
-        targetCtx.fillText(letters[ci], curCharX, heroY + charYOffset);
-        targetCtx.restore();
-      }
-      curCharX += charMetrics[ci] + letterSpacing;
-    }
-
-    // Underline swipe (matching measured word width)
-    if (!showAll || showAll) {
-      const swipeP = showAll ? 1.0 : Math.min(1.0, Math.max(0, stTime / 0.20));
-      const maxUnderlineW = Math.min(heroW, (W * (1 - BEHIND_SAFE_MARGIN)) - heroX);
-      const barW = Math.max(0, maxUnderlineW * swipeP);
-      targetCtx.save();
-      targetCtx.shadowColor = data.palette.accent;
-      targetCtx.shadowBlur = 8;
-      targetCtx.fillStyle = data.palette.accent;
-      targetCtx.fillRect(heroX, heroY + heroH + 6, barW, Math.max(3, Math.round(H * 0.005)));
-      targetCtx.restore();
-    }
-
-    targetCtx.restore();
-
-    // ------------------------------------------------------------------------
-    // 3. DRAW BOTTOM LINES (IN FRONT, BELOW) - ALL WORDS AFTER HERO
-    // ------------------------------------------------------------------------
-    if (numBottomLines > 0) {
-      const bottomFont = `800 ${bottomFontSize}px 'Montserrat', 'Poppins', sans-serif`;
-
-      data.bottomLines.forEach((lineChunk, lineIdx) => {
-        const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
-        targetCtx.save();
-        targetCtx.font = bottomFont;
-        const metrics = targetCtx.measureText(lineText);
-        const lineW = metrics.width;
-        let lineX = Math.round((W - lineW) / 2);
-        lineX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - lineW, lineX));
-
-        // Reach full opacity within 0.12s with stagger at most 0.04s per line
-        const lineStart = lineIdx * 0.04;
-        let lineAlpha = 1.0;
-        let lineYOffset = 0;
-
-        if (!showAll && stTime < lineStart + 0.12) {
-          if (stTime < lineStart) {
-            lineAlpha = 0;
-            lineYOffset = 12;
-          } else {
-            const p = Math.min(1.0, (stTime - lineStart) / 0.12);
-            lineAlpha = p;
-            lineYOffset = (1 - easeOutQuad(p)) * 12;
-          }
-        }
-
-        const curLineY = startBottomY + lineIdx * bottomLineSpacing + lineYOffset;
-
-        if (lineAlpha > 0) {
-          targetCtx.globalAlpha = lineAlpha * exitAlpha;
-
-          targetCtx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-          const bPadX = 14;
-          const bPadY = 5;
+          targetCtx.fillStyle = 'rgba(15, 23, 42, 0.70)';
+          const pillPadX = 12;
+          const pillPadY = 4;
           targetCtx.beginPath();
-          targetCtx.roundRect(lineX - bPadX, curLineY - bPadY, lineW + bPadX * 2, bottomFontSize + bPadY * 2, 8);
+          targetCtx.roundRect(lineX - pillPadX, curY - pillPadY, lineW + pillPadX * 2, topFontSize + pillPadY * 2, 6);
           targetCtx.fill();
 
-          // High contrast: dark stroke of 3px plus soft shadow
           targetCtx.textAlign = 'left';
           targetCtx.textBaseline = 'top';
           targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
@@ -2152,20 +2019,206 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           targetCtx.lineJoin = 'round';
           targetCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
           targetCtx.shadowBlur = 6;
-          targetCtx.strokeText(lineText, lineX, curLineY);
+          targetCtx.strokeText(lineText, lineX, curY);
 
           targetCtx.fillStyle = '#FFFFFF';
-          targetCtx.fillText(lineText, lineX, curLineY);
+          targetCtx.fillText(lineText, lineX, curY);
+          targetCtx.restore();
+        });
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // 2. DRAW HERO WORD (BEHIND PERSON IF isBehindPerson, ELSE FRONT)
+    // ------------------------------------------------------------------------
+    const drawCtx = heroTargetCtx;
+    drawCtx.save();
+    drawCtx.globalAlpha = exitAlpha;
+
+    const heroCenterX = heroX + heroW / 2;
+    const heroCenterY = heroY + heroH / 2;
+    drawCtx.translate(heroCenterX, heroCenterY + floatY);
+    drawCtx.scale(flipScaleX * exitScale, exitScale);
+    drawCtx.translate(-heroCenterX, -heroCenterY);
+
+    const heroGrad = drawCtx.createLinearGradient(heroX, heroY, heroX + heroW, heroY + heroH);
+    heroGrad.addColorStop(0, data.palette.gradient[0]);
+    heroGrad.addColorStop(1, data.palette.gradient[1]);
+
+    if (useBigType && heroMetricsObj) {
+      drawBigTypeHeroWord(drawCtx, heroMetricsObj, heroX, heroY, heroGrad, '#111111', exitAlpha, {
+        stTime,
+        charStagger: Math.min(0.04, 0.25 / Math.max(1, displayHeroText.length)),
+        charAnimDur: 0.14,
+        showAll
+      });
+    } else {
+      const letters = displayHeroText.split('');
+      const charMetrics = [];
+      drawCtx.font = heroFont;
+      for (let ci = 0; ci < letters.length; ci++) {
+        charMetrics.push(drawCtx.measureText(letters[ci]).width);
+      }
+      const totalCharW = charMetrics.reduce((acc, m) => acc + m, 0) + (letters.length - 1) * letterSpacing;
+      let curCharX = Math.round((W - totalCharW) / 2);
+
+      const maxEntranceTotalTime = 0.25;
+      const charAnimDur = 0.12;
+      const numLetters = Math.max(1, letters.length);
+      const charStagger = numLetters > 1 
+        ? Math.min(0.03, (maxEntranceTotalTime - charAnimDur) / (numLetters - 1))
+        : 0;
+
+      if (!showAll && stTime < GLITCH_DURATION) {
+        const glitchP = 1.0 - (stTime / GLITCH_DURATION);
+        const maxGlitchOffset = Math.round(18 * glitchP);
+        const glitchScrunchScale = 1.0 - (0.08 * glitchP);
+
+        drawCtx.save();
+        drawCtx.translate(heroCenterX, heroCenterY);
+        drawCtx.scale(glitchScrunchScale, 1.0);
+        drawCtx.translate(-heroCenterX, -heroCenterY);
+
+        drawCtx.font = heroFont;
+        drawCtx.textAlign = 'left';
+        drawCtx.textBaseline = 'top';
+
+        drawCtx.save();
+        drawCtx.globalAlpha = 0.35 * glitchP * exitAlpha;
+        drawCtx.fillStyle = '#ff0055';
+        drawCtx.fillText(displayHeroText, heroX - maxGlitchOffset, heroY);
+        drawCtx.restore();
+
+        drawCtx.save();
+        drawCtx.globalAlpha = 0.35 * glitchP * exitAlpha;
+        drawCtx.fillStyle = '#00f5d4';
+        drawCtx.fillText(displayHeroText, heroX + maxGlitchOffset, heroY);
+        drawCtx.restore();
+
+        drawCtx.restore();
+      }
+
+      drawCtx.textAlign = 'left';
+      drawCtx.textBaseline = 'top';
+      drawCtx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+      drawCtx.lineWidth = 4;
+      drawCtx.lineJoin = 'round';
+      drawCtx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+      drawCtx.shadowBlur = 12;
+      drawCtx.shadowOffsetY = 4;
+
+      for (let ci = 0; ci < letters.length; ci++) {
+        const charDelay = ci * charStagger;
+        let charYOffset = 0;
+        let charAlpha = 1.0;
+
+        if (!showAll && stTime < charDelay + charAnimDur) {
+          if (stTime < charDelay) {
+            charYOffset = 18;
+            charAlpha = 0;
+          } else {
+            const p = Math.min(1.0, (stTime - charDelay) / charAnimDur);
+            charYOffset = (1 - easeOutBack(p)) * 18;
+            charAlpha = Math.min(1.0, p * 2.0);
+          }
         }
 
-        targetCtx.restore();
-      });
+        if (charAlpha > 0) {
+          drawCtx.save();
+          drawCtx.globalAlpha = exitAlpha * charAlpha;
+          drawCtx.strokeText(letters[ci], curCharX, heroY + charYOffset);
+          drawCtx.fillStyle = heroGrad;
+          drawCtx.fillText(letters[ci], curCharX, heroY + charYOffset);
+          drawCtx.restore();
+        }
+        curCharX += charMetrics[ci] + letterSpacing;
+      }
     }
-  }
-  function drawRealEstateOverlays(ctx, W, H, t) {
-    if (!ctx) return;
-    const cfg = S.realEstateConfig || {};
-    if (!cfg.enabled && (!S.style || S.style.videoTemplate !== 'specialRealEstate')) return;
+
+    // Underline swipe (matching measured word width)
+    if (!showAll || showAll) {
+      const swipeP = showAll ? 1.0 : Math.min(1.0, Math.max(0, stTime / 0.20));
+      const maxUnderlineW = Math.min(heroW, (W * (1 - BEHIND_SAFE_MARGIN)) - heroX);
+      const barW = Math.max(0, maxUnderlineW * swipeP);
+      drawCtx.save();
+      drawCtx.shadowColor = data.palette.accent;
+      drawCtx.shadowBlur = 8;
+      drawCtx.fillStyle = data.palette.accent;
+      drawCtx.fillRect(heroX, heroY + heroH + 6, barW, Math.max(3, Math.round(H * 0.005)));
+      drawCtx.restore();
+    }
+
+    drawCtx.restore();
+
+    // ------------------------------------------------------------------------
+    // 3. DRAW BOTTOM LINES (IN FRONT) - ALL WORDS AFTER HERO
+    // ------------------------------------------------------------------------
+    if (numBottomLines > 0) {
+      if (useBigType) {
+        const smallFontSize = Math.max(16, Math.round(heroFontSize * 0.32));
+        const bottomLineSpacing = smallFontSize + 14;
+        data.bottomLines.forEach((lineChunk, lineIdx) => {
+          const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
+          const curLineY = startBottomY + lineIdx * bottomLineSpacing;
+          const lineAlpha = (showAll ? 1.0 : Math.min(1.0, stTime / 0.12)) * exitAlpha;
+          drawBigTypeSmallLine(ctxFore, lineText, W / 2, curLineY, smallFontSize, W, H, lineAlpha);
+        });
+      } else {
+        const bottomFont = `800 ${bottomFontSize}px 'Montserrat', 'Poppins', sans-serif`;
+
+        data.bottomLines.forEach((lineChunk, lineIdx) => {
+          const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
+          targetCtx.save();
+          targetCtx.font = bottomFont;
+          const metrics = targetCtx.measureText(lineText);
+          const lineW = metrics.width;
+          let lineX = Math.round((W - lineW) / 2);
+          lineX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - lineW, lineX));
+
+          const lineStart = lineIdx * 0.04;
+          let lineAlpha = 1.0;
+          let lineYOffset = 0;
+
+          if (!showAll && stTime < lineStart + 0.12) {
+            if (stTime < lineStart) {
+              lineAlpha = 0;
+              lineYOffset = 12;
+            } else {
+              const p = Math.min(1.0, (stTime - lineStart) / 0.12);
+              lineAlpha = p;
+              lineYOffset = (1 - easeOutQuad(p)) * 12;
+            }
+          }
+
+          const curLineY = startBottomY + lineIdx * bottomLineSpacing + lineYOffset;
+
+          if (lineAlpha > 0) {
+            targetCtx.globalAlpha = lineAlpha * exitAlpha;
+
+            targetCtx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+            const bPadX = 14;
+            const bPadY = 5;
+            targetCtx.beginPath();
+            targetCtx.roundRect(lineX - bPadX, curLineY - bPadY, lineW + bPadX * 2, bottomFontSize + bPadY * 2, 8);
+            targetCtx.fill();
+
+            targetCtx.textAlign = 'left';
+            targetCtx.textBaseline = 'top';
+            targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+            targetCtx.lineWidth = 3;
+            targetCtx.lineJoin = 'round';
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+            targetCtx.shadowBlur = 6;
+            targetCtx.strokeText(lineText, lineX, curLineY);
+
+            targetCtx.fillStyle = '#FFFFFF';
+            targetCtx.fillText(lineText, lineX, curLineY);
+          }
+
+          targetCtx.restore();
+        });
+      }
+    }
 
     // 1. Lower Third (First 3.0 seconds) - Only drawn if presenter name is typed
     const presName = (cfg.presenterName || '').trim();
@@ -8101,6 +8154,39 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         renderCanvas();
       });
     }
+
+    // BIG TYPE TOGGLE CONTROLLER
+    const chkBigType = $('chkRealEstateBigType');
+    const btnBigTypeOn = $('btnBigTypeOn');
+    const btnBigTypeOff = $('btnBigTypeOff');
+    const valBigTypeBadge = $('valBigTypeBadge');
+
+    function setBigTypeEnabled(enabled) {
+      S.bigType = enabled;
+      if (!S.style) S.style = {};
+      S.style.bigType = enabled;
+      if (!S.realEstateConfig) S.realEstateConfig = {};
+      S.realEstateConfig.bigType = enabled;
+
+      if (chkBigType) chkBigType.checked = enabled;
+      if (btnBigTypeOn) btnBigTypeOn.classList.toggle('active', enabled);
+      if (btnBigTypeOff) btnBigTypeOff.classList.toggle('active', !enabled);
+      if (valBigTypeBadge) {
+        valBigTypeBadge.textContent = enabled ? 'ON' : 'OFF';
+        valBigTypeBadge.className = 'val-badge ' + (enabled ? 'badge-green' : 'badge-gray');
+      }
+
+      _bigTypeLayoutCache.clear();
+      showToast('Big Type: ' + (enabled ? 'ON' : 'OFF'));
+      renderCanvas(true);
+    }
+
+    if (chkBigType) {
+      chkBigType.checked = S.bigType !== false;
+      chkBigType.addEventListener('change', () => setBigTypeEnabled(chkBigType.checked));
+    }
+    if (btnBigTypeOn) btnBigTypeOn.addEventListener('click', () => setBigTypeEnabled(true));
+    if (btnBigTypeOff) btnBigTypeOff.addEventListener('click', () => setBigTypeEnabled(false));
   }
 
   initSpecialRealEstateUI();
@@ -8504,8 +8590,14 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       let exportFrameIndex = 0;
       let consecutiveMaskFailures = 0;
 
-      if (document.fonts && document.fonts.ready) {
-        try { await document.fonts.ready; } catch (_) {}
+      if (document.fonts && document.fonts.load) {
+        try {
+          await Promise.all([
+            document.fonts.load(`${Math.round(H * 0.16)}px Anton`),
+            document.fonts.load(`600 ${Math.round(H * 0.05)}px Poppins`),
+            document.fonts.ready
+          ]);
+        } catch (_) {}
       }
 
       const brollElements = {};
