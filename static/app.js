@@ -184,7 +184,7 @@ function getWordPop(w, t, showAll, anim) {
       return { visible: false, scale: 1.0, dx: 0, dy: 0, opacity: 0.0 };
     }
 
-    const dur = 0.20;
+    const dur = 0.25;
     if (dt < dur) {
       const p = Math.max(0, Math.min(1, dt / dur));
       const ease = 1 - Math.pow(1 - p, 3);
@@ -5669,6 +5669,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
     }
 
+    if (typeof showToast === 'function') {
+      showToast('Using compatibility mode');
+    }
     await startDirectCanvasExport();
   }
 
