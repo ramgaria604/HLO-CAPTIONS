@@ -1407,11 +1407,13 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     'here', 'come', 'look', 'take', 'make', 'good', 'some', 'than', 'them', 'very',
     // Extended Hindi / Hinglish / Pronoun / Filler stopwords
     'tu', 'tujhe', 'tujhko', 'tera', 'teri', 'tere', 'main', 'mujhe', 'mera', 'meri', 'mere',
-    'hum', 'humein', 'aap', 'aapko', 'tum', 'tumhein', 'bas', 'ek', 'hi', 'bhi', 'toh',
-    'na', 'nahi', 'wo', 'woh', 'ye', 'yeh', 'jo', 'jab', 'tab', 'kar', 'karo', 'karna',
+    'hum', 'humein', 'aap', 'aapko', 'tum', 'tumhein', 'bas', 'ek', 'hi', 'bhi', 'toh', 'to',
+    'na', 'nahi', 'nahin', 'wo', 'woh', 'ye', 'yeh', 'jo', 'jab', 'tab', 'kar', 'karo', 'karna',
     'karta', 'karti', 'kuch', 'sab', 'mein', 'me', 'se', 'ko', 'ka', 'ki', 'ke', 'par',
-    'pe', 'ne', 'aur', 'ya', 'likh', 'bhej', 'de', 'doonga', 'dunga', 'chahiye', 'hai',
-    'hain', 'tha', 'the'
+    'pe', 'ne', 'aur', 'ya', 'likh', 'likho', 'likhna', 'bhej', 'bhejo', 'bhejna', 'de', 'dena',
+    'doonga', 'dunga', 'lena', 'chahiye', 'hai', 'hain', 'tha', 'the',
+    'bhai', 'bro', 'yaar', 'dost', 'sun', 'suno', 'dekho', 'dekh', 'chalo', 'abhi', 'phir', 'fir',
+    'bol', 'bolo', 'bolna', 'batao', 'bata', 'batana', 'apna', 'apni', 'apne'
   ]);
 
   const REAL_ESTATE_PALETTES = {
@@ -1662,8 +1664,11 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
   // Scored word ranking with power words & strict stopword rejection
   function scoreRealEstateWord(w, idx) {
-    const clean = cleanWordForHero(w.t || w.word || '');
-    if (!clean || REAL_ESTATE_STOPWORDS.has(clean)) return -100;
+    const raw = String(w.t || w.word || '');
+    const clean = cleanWordForHero(raw);
+    if (!clean) return -999;
+    // Strict stopword rejection: even if w.key === true, ALWAYS reject stopwords!
+    if (REAL_ESTATE_STOPWORDS.has(clean)) return -999;
     if (Boolean(w.key)) return 1000 - idx;
     if (POWER_HERO_WORDS.has(clean) || REAL_ESTATE_KEYWORDS.has(clean)) return 800 - idx;
     if (isPriceOrNumber(clean)) return 700 - idx;
@@ -1672,36 +1677,53 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   }
 
   const _reCaptionCache = new Map();
+  let _lastLoggedHeroCapIdx = -1;
 
-  function analyzeRealEstateCaption(cap, words, capIdx) {
+  function analyzeRealEstateCaption(cap, words, capIdx, showAll) {
     const cacheKey = (cap.id || capIdx) + ':::' + words.map(w => w.t || w.word || '').join('|');
     if (_reCaptionCache.has(cacheKey)) {
       return _reCaptionCache.get(cacheKey);
     }
 
-    // Rank words by hero score
-    const ranked = words.map((w, idx) => ({
-      word: w,
-      idx,
-      score: scoreRealEstateWord(w, idx)
-    })).sort((a, b) => b.score - a.score);
+    // Score all candidates
+    const candidates = words.map((w, idx) => {
+      const raw = String(w.t || w.word || '');
+      const clean = cleanWordForHero(raw);
+      const isStop = !clean || REAL_ESTATE_STOPWORDS.has(clean);
+      const score = isStop ? -999 : scoreRealEstateWord(w, idx);
+      return { word: w, raw, clean, idx, score };
+    });
 
-    // If no word scores as a valid hero word (all are stopwords, short fillers, or pronouns)
-    const hasValidHeroWord = ranked.length > 0 && ranked[0].score >= 400;
+    // Rank candidates
+    const ranked = candidates.slice().sort((a, b) => b.score - a.score);
 
-    const heroIdx = ranked.length > 0 ? ranked[0].idx : 0;
-    const heroWord = words[heroIdx] || { t: 'ESTATE' };
-    const rawHeroText = heroWord.t || heroWord.word || '';
+    // Only accept words scoring >= 400 that are strictly not in the stopword list
+    const validCandidates = ranked.filter(c => c.score >= 400 && !REAL_ESTATE_STOPWORDS.has(c.clean));
+    const hasValidHeroWord = validCandidates.length > 0;
+
+    const heroCandidate = hasValidHeroWord ? validCandidates[0] : null;
+    const heroIdx = heroCandidate ? heroCandidate.idx : -1;
+    const heroWord = heroCandidate ? heroCandidate.word : null;
+    const rawHeroText = heroWord ? (heroWord.t || heroWord.word || '') : '';
+    // Never draw trailing punctuation on the hero word
     const heroText = getCleanDisplayHeroText(rawHeroText);
     const heroIsNum = isPriceOrNumber(heroText);
 
-    // 1-2 words captions: all words go behind
+    // Logging: console.log('[HERO PICK]', captionIndex, chosenWord, candidates with scores) once per caption
+    if (_lastLoggedHeroCapIdx !== capIdx && !showAll) {
+      _lastLoggedHeroCapIdx = capIdx;
+      const chosenWord = hasValidHeroWord ? heroCandidate.raw : 'NONE (normal in-front)';
+      const candidateSummary = candidates.map(c => `${c.raw}(${c.score})`).join(', ');
+      console.log('[HERO PICK]', capIdx, chosenWord, candidateSummary);
+    }
+
+    // 1-2 words captions: all words go behind (if valid)
     const isSmallCaption = words.length <= 2;
 
     // 4+ words: identify potential second-best behind word
     let secondBehindIdx = -1;
-    if (words.length >= 4 && ranked.length > 1 && ranked[1].score >= 400) {
-      secondBehindIdx = ranked[1].idx;
+    if (words.length >= 4 && validCandidates.length > 1) {
+      secondBehindIdx = validCandidates[1].idx;
     }
 
     // Top words (before hero, excluding second behind word if used)
@@ -1751,6 +1773,60 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     return analyzed;
   }
 
+  // Normal in-front caption layout when no word qualifies as a hero word (does not force a hero)
+  function drawNormalInFrontCaption(ctx, cap, words, t, stTime, capDur, W, H, showAll) {
+    if (!ctx || !words || words.length === 0) return;
+
+    const fontSize = Math.round(W * 0.056);
+    const font = `800 ${fontSize}px 'Montserrat', 'Poppins', sans-serif`;
+    const lineSpacing = fontSize * 1.34;
+
+    const lines = [];
+    const chunkSize = words.length >= 6 ? 4 : (words.length >= 4 ? 3 : words.length);
+    for (let i = 0; i < words.length; i += chunkSize) {
+      lines.push(words.slice(i, i + chunkSize));
+    }
+
+    const totalH = lines.length * lineSpacing;
+    const startY = Math.round(H * 0.70 - (totalH / 2));
+    const alpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.12);
+
+    lines.forEach((lineChunk, lineIdx) => {
+      const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
+      ctx.save();
+      ctx.font = font;
+      const metrics = ctx.measureText(lineText);
+      const lineW = metrics.width;
+      let lineX = Math.round((W - lineW) / 2);
+      lineX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - lineW, lineX));
+      const curY = startY + lineIdx * lineSpacing;
+
+      ctx.globalAlpha = alpha;
+
+      // Dark translucent glass pill behind line
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      const padX = 14;
+      const padY = 5;
+      ctx.beginPath();
+      ctx.roundRect(lineX - padX, curY - padY, lineW + padX * 2, fontSize + padY * 2, 8);
+      ctx.fill();
+
+      // High contrast: dark stroke of 3px plus soft shadow + pure white text
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      ctx.shadowBlur = 6;
+      ctx.strokeText(lineText, lineX, curY);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(lineText, lineX, curY);
+      ctx.restore();
+    });
+  }
+
   // Reusable offscreen canvases for Depth Shadow & Parallax
   let _reHeroCanvas = null;
   let _reHeroCtx = null;
@@ -1768,22 +1844,23 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (!ctxFore || !cap || !words || words.length === 0) return;
 
     const capIdx = S.captions.indexOf(cap) !== -1 ? S.captions.indexOf(cap) : 0;
-    const data = analyzeRealEstateCaption(cap, words, capIdx);
+    const data = analyzeRealEstateCaption(cap, words, capIdx, showAll);
 
     const stTime = Math.max(0, t - cap.start);
     const capDur = Math.max(0.1, cap.end - cap.start);
 
-    // GHOSTING FIX: If next caption has already started, do not draw this hero word
+    // GHOSTING FIX 1: If next caption has already started, do not draw this hero word
     const nextCap = (S.captions && capIdx + 1 < S.captions.length) ? S.captions[capIdx + 1] : null;
-    let exitWindow = 0.12;
-    if (nextCap && typeof nextCap.start === 'number' && nextCap.start > cap.start) {
-      if (t >= nextCap.start && !showAll) {
-        return; // Suppress drawing so two hero words never overlap in time
-      }
-      const gapToNext = nextCap.start - cap.end;
-      if (gapToNext < exitWindow) {
-        exitWindow = Math.max(0.02, Math.min(exitWindow, nextCap.start - cap.start - 0.04));
-      }
+    const hasNextImmediate = Boolean(nextCap && typeof nextCap.start === 'number' && nextCap.start <= cap.end + 0.04);
+
+    if (nextCap && typeof nextCap.start === 'number' && t >= nextCap.start && !showAll) {
+      return; // Stop rendering immediately so two hero words NEVER overlap in time
+    }
+
+    // RULE 1: If no word qualifies, use the normal in-front caption layout (do not force a hero)
+    if (!data.hasValidHeroWord) {
+      drawNormalInFrontCaption(ctxFore, cap, words, t, stTime, capDur, W, H, showAll);
+      return;
     }
 
     // 1 in 8 captions: front "slam" layout (all words drawn in front for visual variety)
@@ -1799,9 +1876,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
     const hasPersonMask = Boolean(maskCanvas && maskCanvas.width && maskCanvas.height);
 
-    // If B-roll cutaway, front slam, no valid hero word, or no person mask, route everything in front
+    // If B-roll cutaway, front slam, or no person mask, route everything in front
     let targetBehindCtx = (isBehind && ctxBehind && ctxBehind !== ctxFore) ? ctxBehind : ctxFore;
-    if (isFrontSlam || isCutaway || !hasPersonMask || !data.hasValidHeroWord) {
+    if (isFrontSlam || isCutaway || !hasPersonMask) {
       targetBehindCtx = ctxFore;
       if (!hasPersonMask && isBehind && !_csMaskFailToastShown && !showAll) {
         _csMaskFailToastShown = true;
@@ -1809,13 +1886,16 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       }
     }
 
-    // Exit fade & scale down (finishes exactly before next caption starts)
+    // GHOSTING FIX 2: Skip any exit fade that would overlap next entrance. Hold at 100% opacity.
     let exitAlpha = 1.0;
     let exitScale = 1.0;
-    if (!showAll && capDur > exitWindow && stTime >= (capDur - exitWindow)) {
-      const exitP = Math.min(1.0, (stTime - (capDur - exitWindow)) / exitWindow);
-      exitAlpha = 1.0 - exitP;
-      exitScale = 1.0 - 0.05 * exitP;
+    if (!hasNextImmediate && !showAll) {
+      const exitWindow = Math.min(0.10, Math.max(0.04, capDur * 0.20));
+      if (capDur > exitWindow && stTime >= (capDur - exitWindow)) {
+        const exitP = Math.min(1.0, (stTime - (capDur - exitWindow)) / exitWindow);
+        exitAlpha = 1.0 - exitP;
+        exitScale = 1.0 - 0.05 * exitP;
+      }
     }
 
     let displayHeroText = data.heroText;
@@ -1891,7 +1971,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       }
       _reSmoothedYMap.set(stateKey, state);
 
-      // Logging: console.log('[BEHIND]', captionIndex, 'overlap', value, 'y', value) once per caption
       if (_lastLoggedBehindCapIdx !== capIdx && !showAll) {
         _lastLoggedBehindCapIdx = capIdx;
         console.log('[BEHIND]', capIdx, 'overlap', optOverlap.toFixed(2), 'y', Math.round(targetY));
@@ -1957,7 +2036,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const drawHeroDestCtx = useDepthShadow ? _reHeroCtx : targetBehindCtx;
 
     // ------------------------------------------------------------------------
-    // 1. DRAW HERO WORD (BEHIND LAYER)
+    // 1. DRAW HERO WORD (BEHIND LAYER - 100% OPACITY HOLD)
     // ------------------------------------------------------------------------
     drawHeroDestCtx.save();
     drawHeroDestCtx.globalAlpha = exitAlpha;
@@ -1980,6 +2059,15 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
     const totalCharW = charMetrics.reduce((acc, m) => acc + m, 0) + (letters.length - 1) * letterSpacing;
     let curCharX = Math.round((W - totalCharW) / 2) + parallaxX;
+
+    // ENTRANCE REVEAL CALCULATION: Complete within 0.25s total
+    const maxEntranceTotalTime = 0.25;
+    const charAnimDur = 0.12;
+    const numLetters = Math.max(1, letters.length);
+    // If word has > 7 letters, reduce stagger so total reveal stays <= 0.25s
+    const charStagger = numLetters > 1 
+      ? Math.min(0.03, (maxEntranceTotalTime - charAnimDur) / (numLetters - 1))
+      : 0;
 
     // Glitch passes on entrance (< 0.06s with at most 8% overlap)
     if (!showAll && stTime < GLITCH_DURATION) {
@@ -2006,7 +2094,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       drawHeroDestCtx.restore();
     }
 
-    // Main hero letters
+    // Main hero letters: 100% opacity during hold phase
     drawHeroDestCtx.font = heroFont;
     drawHeroDestCtx.textAlign = 'left';
     drawHeroDestCtx.textBaseline = 'top';
@@ -2016,18 +2104,18 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     drawHeroDestCtx.shadowOffsetY = 4;
 
     for (let ci = 0; ci < letters.length; ci++) {
-      const charDelay = ci * 0.03;
+      const charDelay = ci * charStagger;
       let charYOffset = 0;
       let charAlpha = 1.0;
 
-      if (!showAll && stTime < charDelay + 0.22) {
+      if (!showAll && stTime < charDelay + charAnimDur) {
         if (stTime < charDelay) {
-          charYOffset = 24;
+          charYOffset = 20;
           charAlpha = 0;
         } else {
-          const p = Math.min(1, (stTime - charDelay) / 0.20);
-          charYOffset = (1 - easeOutBack(p)) * 24;
-          charAlpha = Math.min(1, p * 2.5);
+          const p = Math.min(1.0, (stTime - charDelay) / charAnimDur);
+          charYOffset = (1 - easeOutBack(p)) * 20;
+          charAlpha = Math.min(1.0, p * 2.0);
         }
       }
 
