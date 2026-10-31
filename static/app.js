@@ -7069,6 +7069,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     }
 
     try {
+      const input = new Input({
+        formats: ALL_FORMATS,
+        source: source,
+      });
+
       const output = new Output({
         format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
         target: new BufferTarget(),
@@ -7848,11 +7853,12 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           return;
         } catch (frameErr) {
           frameExportFailure = frameErr;
-          console.error('startFrameExport failed with full stack trace:', frameErr.stack || frameErr);
+          console.error('[BEHIND] startFrameExport failed with full stack trace:', frameErr && frameErr.stack ? frameErr.stack : frameErr);
           
           // PROBLEM A Point 1: For any style that uses behind-person layering, ALWAYS use startFrameExport.
           // Never silently use the hybrid path. Show clear error for at least 8 seconds!
           if (isBehindStyle) {
+            console.error('[BEHIND] Behind-person export failed error stack:', frameErr && frameErr.stack ? frameErr.stack : frameErr);
             const failMsg = 'Behind-person export failed: ' + (frameErr.message || String(frameErr));
             showToast(failMsg, 8000);
             exportWorkingState.classList.add('hidden');
