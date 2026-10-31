@@ -1372,7 +1372,11 @@
     import * as Mediabunny from 'https://cdn.jsdelivr.net/npm/mediabunny@1.65.0/+esm';
     window.Mediabunny = Mediabunny;
   </script>
+  <script type="module">
+    import { FilesetResolver, ImageSegmenter } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm';
+    window.MediaPipeVision = { FilesetResolver, ImageSegmenter };
+  </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=4.46"></script>
+  <script src="/static/app.js?v=4.47"></script>
 </body>
 </html>

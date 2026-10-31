@@ -5348,6 +5348,235 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     drawCanvasTypography(ctx, null, sampleCap, sampleCap.words, 0, st || {}, W, H, isBehind, true);
   }
 
+
+// ==========================================================================
+// IN-BROWSER BEHIND-PERSON SEGMENTATION (MEDIAPIPE TASKS VISION)
+// ==========================================================================
+let segmenterInstance = null;
+let segmenterLoadingPromise = null;
+let segmenterLoadFailed = false;
+
+let segDownscaleCanvas = null;
+let segDownscaleCtx = null;
+let segMaskRawCanvas = null;
+let segMaskRawCtx = null;
+let segFinalCanvas = null;
+let segFinalCtx = null;
+let prevMaskFloats = null;
+
+let lastLiveSegTime = 0;
+let lastLiveMaskCanvas = null;
+let livePersonCanvas = null;
+let livePersonCtx = null;
+
+let segExportCleanCanvas = null;
+let segExportCleanCtx = null;
+let segExportCutoutCanvas = null;
+let segExportCutoutCtx = null;
+
+async function ensureSegmenterLoaded() {
+  if (segmenterInstance) return segmenterInstance;
+  if (segmenterLoadFailed) return null;
+  if (segmenterLoadingPromise) return segmenterLoadingPromise;
+
+  segmenterLoadingPromise = (async () => {
+    try {
+      showToast('⏳ Loading AI segmentation model...');
+      if (!window.MediaPipeVision) {
+        try {
+          const mod = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
+          window.MediaPipeVision = mod;
+        } catch (importErr) {
+          console.warn('Dynamic import fallback for MediaPipe Vision:', importErr);
+        }
+      }
+
+      if (!window.MediaPipeVision || !window.MediaPipeVision.FilesetResolver) {
+        throw new Error('MediaPipe Vision library not available on window');
+      }
+
+      const { FilesetResolver, ImageSegmenter } = window.MediaPipeVision;
+      let vision = null;
+      try {
+        vision = await FilesetResolver.forVisionTasks('/static/mediapipe/wasm');
+      } catch (localWasmErr) {
+        console.warn('Local wasm failed, trying CDN wasm:', localWasmErr);
+        vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+      }
+
+      const modelPath = '/static/mediapipe/selfie_segmenter.tflite';
+
+      try {
+        segmenterInstance = await ImageSegmenter.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: modelPath,
+            delegate: 'GPU'
+          },
+          runningMode: 'VIDEO',
+          outputConfidenceMasks: true,
+          outputCategoryMask: false
+        });
+      } catch (gpuErr) {
+        console.warn('GPU delegate failed, falling back to CPU:', gpuErr);
+        segmenterInstance = await ImageSegmenter.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: modelPath,
+            delegate: 'CPU'
+          },
+          runningMode: 'VIDEO',
+          outputConfidenceMasks: true,
+          outputCategoryMask: false
+        });
+      }
+
+      showToast('✨ AI Behind-Person model ready');
+      return segmenterInstance;
+    } catch (err) {
+      console.warn('Behind-person segmentation model failed to load:', err);
+      segmenterLoadFailed = true;
+      showToast('Behind-person effect unavailable on this device');
+      return null;
+    } finally {
+      segmenterLoadingPromise = null;
+    }
+  })();
+
+  return segmenterLoadingPromise;
+}
+
+function getPersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH) {
+  if (!segmenterInstance) return null;
+
+  const srcW = sourceCanvasOrFrame.videoWidth || sourceCanvasOrFrame.width || 256;
+  const srcH = sourceCanvasOrFrame.videoHeight || sourceCanvasOrFrame.height || 256;
+  const outW = targetW || srcW;
+  const outH = targetH || srcH;
+
+  const downScale = Math.min(1, 256 / Math.max(srcW, srcH));
+  const downW = Math.max(64, Math.round(srcW * downScale));
+  const downH = Math.max(64, Math.round(srcH * downScale));
+
+  if (!segDownscaleCanvas) {
+    segDownscaleCanvas = document.createElement('canvas');
+    segDownscaleCtx = segDownscaleCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  if (segDownscaleCanvas.width !== downW || segDownscaleCanvas.height !== downH) {
+    segDownscaleCanvas.width = downW;
+    segDownscaleCanvas.height = downH;
+  }
+
+  segDownscaleCtx.drawImage(sourceCanvasOrFrame, 0, 0, downW, downH);
+
+  let resultMaskCanvas = null;
+
+  try {
+    const validTime = Math.max(0, Number(timestampMs) || performance.now());
+    segmenterInstance.segmentForVideo(segDownscaleCanvas, validTime, (result) => {
+      try {
+        if (!result || !result.confidenceMasks || result.confidenceMasks.length === 0) return;
+        const confidenceMask = result.confidenceMasks[0];
+        const mW = confidenceMask.width;
+        const mH = confidenceMask.height;
+        const floatVals = confidenceMask.getAsFloat32Array();
+
+        if (!segMaskRawCanvas) {
+          segMaskRawCanvas = document.createElement('canvas');
+          segMaskRawCtx = segMaskRawCanvas.getContext('2d');
+        }
+        if (segMaskRawCanvas.width !== mW || segMaskRawCanvas.height !== mH) {
+          segMaskRawCanvas.width = mW;
+          segMaskRawCanvas.height = mH;
+        }
+
+        const imgData = segMaskRawCtx.createImageData(mW, mH);
+        const data = imgData.data;
+        const totalPx = floatVals.length;
+
+        if (!prevMaskFloats || prevMaskFloats.length !== totalPx) {
+          prevMaskFloats = new Float32Array(totalPx);
+          for (let i = 0; i < totalPx; i++) {
+            prevMaskFloats[i] = floatVals[i];
+          }
+        } else {
+          for (let i = 0; i < totalPx; i++) {
+            prevMaskFloats[i] = floatVals[i] * 0.7 + prevMaskFloats[i] * 0.3;
+          }
+        }
+
+        for (let i = 0; i < totalPx; i++) {
+          const conf = prevMaskFloats[i];
+          const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : Math.round(((conf - 0.25) / 0.5) * 255));
+          const idx = i * 4;
+          data[idx] = 255;
+          data[idx + 1] = 255;
+          data[idx + 2] = 255;
+          data[idx + 3] = alpha;
+        }
+
+        segMaskRawCtx.putImageData(imgData, 0, 0);
+
+        if (!segFinalCanvas) {
+          segFinalCanvas = document.createElement('canvas');
+          segFinalCtx = segFinalCanvas.getContext('2d');
+        }
+        if (segFinalCanvas.width !== outW || segFinalCanvas.height !== outH) {
+          segFinalCanvas.width = outW;
+          segFinalCanvas.height = outH;
+        }
+
+        segFinalCtx.clearRect(0, 0, outW, outH);
+        segFinalCtx.filter = 'blur(1.5px)';
+        segFinalCtx.drawImage(segMaskRawCanvas, 0, 0, outW, outH);
+        segFinalCtx.filter = 'none';
+
+        resultMaskCanvas = segFinalCanvas;
+      } finally {
+        if (result.confidenceMasks) {
+          result.confidenceMasks.forEach(m => {
+            try { m.close(); } catch (_) {}
+          });
+        }
+        try { result.close(); } catch (_) {}
+      }
+    });
+  } catch (segErr) {
+    console.warn('Segmentation frame failed, skipping:', segErr);
+    return null;
+  }
+
+  return resultMaskCanvas;
+}
+
+function applyLiveBehindPersonCutout(ctx, w, h, t) {
+  try {
+    const now = performance.now();
+    if (now - lastLiveSegTime >= 66) { // ~15 times per second
+      lastLiveSegTime = now;
+      const tMs = Math.round((vid.currentTime || t || 0) * 1000);
+      const mask = getPersonMask(vid, tMs, w, h);
+      if (mask) lastLiveMaskCanvas = mask;
+    }
+    if (lastLiveMaskCanvas) {
+      if (!livePersonCanvas) {
+        livePersonCanvas = document.createElement('canvas');
+        livePersonCtx = livePersonCanvas.getContext('2d');
+      }
+      if (livePersonCanvas.width !== w || livePersonCanvas.height !== h) {
+        livePersonCanvas.width = w;
+        livePersonCanvas.height = h;
+      }
+      livePersonCtx.clearRect(0, 0, w, h);
+      livePersonCtx.drawImage(vid, 0, 0, w, h);
+      livePersonCtx.globalCompositeOperation = 'destination-in';
+      livePersonCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
+      livePersonCtx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(livePersonCanvas, 0, 0, w, h);
+    }
+  } catch (err) {
+    console.warn('Live behind person preview cutout error:', err);
+  }
+}
+
   function renderCanvas() {
     const dpr = window.devicePixelRatio || 1;
     const w = captionCanvas.width / dpr;
@@ -5396,6 +5625,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     );
     drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false);
     drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+
+    // Live Preview Behind-Person Layering (throttled ~15 fps, paused stops)
+    if (isBehind && activeCap && !vid.paused && vid.readyState >= 2 && segmenterInstance) {
+      applyLiveBehindPersonCutout(ctx, w, h, t);
+    } else if (isBehind && activeCap && !segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
+      ensureSegmenterLoaded().catch(() => {});
+    }
+
     drawWatermark(ctx, w, h);
   }
 
@@ -6288,6 +6525,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     const { Input, Output, Mp4OutputFormat, BufferTarget, ALL_FORMATS, BlobSource, UrlSource } = window.Mediabunny;
 
+    const isBehindExport = Boolean(
+      S.style && (
+        S.style.behindPerson ||
+        S.style.depthAccent ||
+        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
+        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
+      )
+    );
+    if (isBehindExport && S.captions && S.captions.length > 0) {
+      try {
+        await ensureSegmenterLoaded();
+      } catch (segLoadErr) {
+        console.warn('Behind segmenter preload note:', segLoadErr);
+      }
+    }
+
     let source = null;
     if (S.file && S.file instanceof Blob) {
       source = new BlobSource(S.file);
@@ -6406,6 +6659,30 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             return idx !== -1 && idx % 4 === 1;
           })();
 
+          let exportCleanFrameCanvas = null;
+          if (isBehind && segmenterInstance) {
+            if (!segExportCleanCanvas) {
+              segExportCleanCanvas = document.createElement('canvas');
+              segExportCleanCtx = segExportCleanCanvas.getContext('2d');
+            }
+            if (segExportCleanCanvas.width !== W || segExportCleanCanvas.height !== H) {
+              segExportCleanCanvas.width = W;
+              segExportCleanCanvas.height = H;
+            }
+            segExportCleanCtx.clearRect(0, 0, W, H);
+            if (isZoomed) {
+              const zoom = (az && az.scale) || 1.10;
+              const zW = W * zoom;
+              const zH = H * zoom;
+              const zX = (W - zW) / 2;
+              const zY = (H - zH) / 2;
+              sample.draw(segExportCleanCtx, zX, zY, zW, zH);
+            } else {
+              sample.draw(segExportCleanCtx, 0, 0, W, H);
+            }
+            exportCleanFrameCanvas = segExportCleanCanvas;
+          }
+
           ctx.clearRect(0, 0, W, H);
           if (isZoomed) {
             const zoom = (az && az.scale) || 1.10;
@@ -6512,6 +6789,32 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             }));
             drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
             drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
+
+            // STEP 3: Behind-person cutout on second offscreen canvas
+            if (isBehind && exportCleanFrameCanvas && segmenterInstance) {
+              try {
+                const frameMs = Math.round(t * 1000);
+                const maskCanvas = getPersonMask(exportCleanFrameCanvas, frameMs, W, H);
+                if (maskCanvas) {
+                  if (!segExportCutoutCanvas) {
+                    segExportCutoutCanvas = document.createElement('canvas');
+                    segExportCutoutCtx = segExportCutoutCanvas.getContext('2d');
+                  }
+                  if (segExportCutoutCanvas.width !== W || segExportCutoutCanvas.height !== H) {
+                    segExportCutoutCanvas.width = W;
+                    segExportCutoutCanvas.height = H;
+                  }
+                  segExportCutoutCtx.clearRect(0, 0, W, H);
+                  segExportCutoutCtx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
+                  segExportCutoutCtx.globalCompositeOperation = 'destination-in';
+                  segExportCutoutCtx.drawImage(maskCanvas, 0, 0, W, H);
+                  segExportCutoutCtx.globalCompositeOperation = 'source-over';
+                  ctx.drawImage(segExportCutoutCanvas, 0, 0, W, H);
+                }
+              } catch (cutoutErr) {
+                console.warn('Frame export person cutout error:', cutoutErr);
+              }
+            }
           }
 
           drawWatermark(ctx, W, H);
