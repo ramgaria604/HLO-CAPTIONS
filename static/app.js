@@ -12,6 +12,22 @@
   const round = (n, d = 2) => Number(Number(n).toFixed(d));
   const cleanCaptionText = (value) => String(value ?? '').replace(/\*/g, '');
 
+  // High-performance text measurement caching for smooth 30fps exports
+  const MAX_EXPORT_PARTICLES = 20;
+  if (typeof CanvasRenderingContext2D !== 'undefined' && CanvasRenderingContext2D.prototype.measureText) {
+    const _nativeMeasureText = CanvasRenderingContext2D.prototype.measureText;
+    const _textMetricsCache = new Map();
+    CanvasRenderingContext2D.prototype.measureText = function (text) {
+      const key = (this.font || '') + ':::' + text;
+      let cached = _textMetricsCache.get(key);
+      if (cached) return cached;
+      cached = _nativeMeasureText.call(this, text);
+      if (_textMetricsCache.size >= 2500) _textMetricsCache.clear();
+      _textMetricsCache.set(key, cached);
+      return cached;
+    };
+  }
+
   // --- Global State ---
   const S = {
     file: null,
@@ -39,6 +55,10 @@
   aspect: 'original',
   chunkMode: '3',
   autoEmojis: 'above',
+    exportQuality: (() => {
+      const isPhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent));
+      return localStorage.getItem('captionstudio_export_quality') || (isPhone ? 'balanced' : 'high');
+    })(),
   autoSfx: true,
   sfxVolume: 0.7,
   watermark: { text: '', platform: 'instagram', position: 'bottom-right', opacity: 0.8 },
@@ -5026,6 +5046,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     ctx.restore();
   }
 
+  let cachedWatermarkCanvas = null;
+  let cachedWatermarkKey = '';
+
   function drawWatermark(ctx, W, H) {
     const wm = S.watermark;
     if (!wm || !wm.text || !wm.text.trim()) return;
@@ -5033,6 +5056,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const opacity = typeof wm.opacity === 'number' ? wm.opacity : 0.8;
     const pos = wm.position || 'bottom-right';
     const platform = wm.platform || 'instagram';
+
+    const cacheKey = `${text}|${opacity}|${pos}|${platform}|${W}|${H}`;
+    if (cachedWatermarkCanvas && cachedWatermarkKey === cacheKey) {
+      ctx.drawImage(cachedWatermarkCanvas, 0, 0);
+      return;
+    }
+
+    if (!cachedWatermarkCanvas) {
+      cachedWatermarkCanvas = document.createElement('canvas');
+    }
+    if (cachedWatermarkCanvas.width !== W || cachedWatermarkCanvas.height !== H) {
+      cachedWatermarkCanvas.width = W;
+      cachedWatermarkCanvas.height = H;
+    }
+    const wmCtx = cachedWatermarkCanvas.getContext('2d');
+    wmCtx.clearRect(0, 0, W, H);
 
     let icon = '';
     if (platform === 'instagram') icon = '📷 ';
@@ -5043,10 +5082,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const label = icon + text;
     const fontSize = Math.max(12, Math.min(20, Math.round(H * 0.02)));
 
-    ctx.save();
-    ctx.font = `700 ${fontSize}px "Poppins", sans-serif`;
-    ctx.textBaseline = 'middle';
-    const metrics = ctx.measureText(label);
+    wmCtx.save();
+    wmCtx.font = `700 ${fontSize}px "Poppins", sans-serif`;
+    wmCtx.textBaseline = 'middle';
+    const metrics = wmCtx.measureText(label);
     const padX = 10;
     const padY = 6;
     const boxW = metrics.width + padX * 2;
@@ -5066,20 +5105,23 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       y = H - boxH - margin;
     }
 
-    ctx.globalAlpha = opacity;
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-    ctx.lineWidth = 1;
+    wmCtx.globalAlpha = opacity;
+    wmCtx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    wmCtx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    wmCtx.lineWidth = 1;
     const r = 8;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y, boxW, boxH, r);
-    else ctx.rect(x, y, boxW, boxH);
-    ctx.fill();
-    ctx.stroke();
+    wmCtx.beginPath();
+    if (wmCtx.roundRect) wmCtx.roundRect(x, y, boxW, boxH, r);
+    else wmCtx.rect(x, y, boxW, boxH);
+    wmCtx.fill();
+    wmCtx.stroke();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(label, x + padX, y + boxH / 2);
-    ctx.restore();
+    wmCtx.fillStyle = '#ffffff';
+    wmCtx.fillText(label, x + padX, y + boxH / 2);
+    wmCtx.restore();
+
+    cachedWatermarkKey = cacheKey;
+    ctx.drawImage(cachedWatermarkCanvas, 0, 0);
   }
 
   function setChunkMode(mode) {
@@ -5387,6 +5429,7 @@ let segDownscaleCanvas = null;
 let segDownscaleCtx = null;
 let segMaskRawCanvas = null;
 let segMaskRawCtx = null;
+let segImageData = null;
 let segFinalCanvas = null;
 let segFinalCtx = null;
 let prevMaskFloats = null;
@@ -5488,7 +5531,7 @@ function getPersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH) {
   const outW = targetW || srcW;
   const outH = targetH || srcH;
 
-  const downScale = Math.min(1, 256 / Math.max(srcW, srcH));
+  const downScale = Math.min(1, 192 / Math.max(srcW, srcH));
   const downW = Math.max(64, Math.round(srcW * downScale));
   const downH = Math.max(64, Math.round(srcH * downScale));
 
@@ -5524,7 +5567,10 @@ function getPersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH) {
           segMaskRawCanvas.height = mH;
         }
 
-        const imgData = segMaskRawCtx.createImageData(mW, mH);
+        if (!segImageData || segImageData.width !== mW || segImageData.height !== mH) {
+          segImageData = segMaskRawCtx.createImageData(mW, mH);
+        }
+        const imgData = segImageData;
         const data = imgData.data;
         const totalPx = floatVals.length;
 
@@ -6491,7 +6537,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       }
     });
 
-    btnExport.addEventListener('click', startExport);
+    btnExport.addEventListener('click', () => { updateQualityPillsUI(); startExport(); });
 
     btnCloseExportModal.addEventListener('click', () => {
       modalExport.classList.add('hidden');
@@ -6505,6 +6551,42 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
     });
 
     btnRetryExport.addEventListener('click', startExport);
+    setupQualityPills();
+  }
+
+  
+  function updateQualityPillsUI() {
+    const curQ = S.exportQuality || 'balanced';
+    $$('.btn-quality-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-quality') === curQ);
+    });
+    const stepFinalizeTitle = $('stepFinalizeTitle');
+    if (stepFinalizeTitle) {
+      if (curQ === 'fast') stepFinalizeTitle.textContent = '960p MP4';
+      else if (curQ === 'high') stepFinalizeTitle.textContent = '1080p MP4';
+      else stepFinalizeTitle.textContent = '720p MP4';
+    }
+  }
+
+  function setupQualityPills() {
+    $$('.btn-quality-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const q = btn.getAttribute('data-quality');
+        if (!q || q === S.exportQuality) return;
+        S.exportQuality = q;
+        try { localStorage.setItem('captionstudio_export_quality', q); } catch (_) {}
+        updateQualityPillsUI();
+        if (activeDirectExport) {
+          try { activeDirectExport.stop(); } catch (_) {}
+          setTimeout(() => {
+            if (!modalExport.classList.contains('hidden')) {
+              startExport();
+            }
+          }, 80);
+        }
+      });
+    });
+    updateQualityPillsUI();
   }
 
   function renderFullTemplatesGrid(query) {
@@ -6763,375 +6845,509 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       throw new Error('No video source available for frame export');
     }
 
-    const input = new Input({
-      formats: ALL_FORMATS,
-      source: source,
-    });
-
-    const output = new Output({
-      format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
-      target: new BufferTarget(),
-    });
-
-    const rawW = vid.videoWidth || S.probe?.width || 1280;
-    const rawH = vid.videoHeight || S.probe?.height || 720;
-    let targetW = rawW;
-    let targetH = rawH;
-
-    const longSide = Math.max(targetW, targetH);
-    if (longSide > 1280) {
-      const scale = 1280 / longSide;
-      targetW = Math.round(targetW * scale);
-      targetH = Math.round(targetH * scale);
-    }
-    targetW = targetW % 2 === 0 ? targetW : targetW - 1;
-    targetH = targetH % 2 === 0 ? targetH : targetH - 1;
-    targetW = Math.max(2, targetW);
-    targetH = Math.max(2, targetH);
-
-    const isBehind = Boolean(
-      S.style && (
-        S.style.behindPerson ||
-        S.style.depthAccent ||
-        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
-        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
-      )
-    );
-
-    let canvas = null;
-    let ctx = null;
-
-    if (document.fonts && document.fonts.ready) {
-      try { await document.fonts.ready; } catch (_) {}
+    // Request Screen Wake Lock during export to keep phone awake (Requirement 5)
+    let wakeLock = null;
+    try {
+      if ('wakeLock' in navigator && navigator.wakeLock && typeof navigator.wakeLock.request === 'function') {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (wlErr) {
+      console.warn('Wake Lock request error (ignored):', wlErr);
     }
 
-    const brollElements = {};
-    if (S.brolls && S.brolls.length > 0) {
-      for (const b of S.brolls) {
-        if (b.url) {
-          try {
-            const bv = document.createElement('video');
-            bv.crossOrigin = 'anonymous';
-            bv.muted = true;
-            bv.playsInline = true;
-            bv.src = b.url;
-            await new Promise((resolve) => {
-              bv.onloadeddata = resolve;
-              bv.onerror = resolve;
-              setTimeout(resolve, 2500);
+    try {
+      const output = new Output({
+        format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+        target: new BufferTarget(),
+      });
+
+      const rawW = vid.videoWidth || S.probe?.width || 1280;
+      const rawH = vid.videoHeight || S.probe?.height || 720;
+      let targetW = rawW;
+      let targetH = rawH;
+
+      // Quality settings: Fast (960), Balanced (1280, default on phones), High (1920, default on desktop)
+      let maxLongSide = 1280;
+      const curQ = S.exportQuality || 'balanced';
+      if (curQ === 'fast') {
+        maxLongSide = 960;
+      } else if (curQ === 'high') {
+        maxLongSide = 1920;
+      } else {
+        maxLongSide = 1280;
+      }
+
+      const currentLongSide = Math.max(targetW, targetH);
+      if (currentLongSide > maxLongSide) {
+        const scale = maxLongSide / currentLongSide;
+        targetW = Math.round(targetW * scale);
+        targetH = Math.round(targetH * scale);
+      }
+      targetW = targetW % 2 === 0 ? targetW : targetW - 1;
+      targetH = targetH % 2 === 0 ? targetH : targetH - 1;
+      targetW = Math.max(2, targetW);
+      targetH = Math.max(2, targetH);
+
+      // Bitrate: ~2.5 Mbps at 960, ~4 Mbps at 720p/1280, ~6 Mbps at 1080p/1920
+      let targetBitrate = 4000000;
+      const chosenLong = Math.max(targetW, targetH);
+      if (chosenLong <= 960) {
+        targetBitrate = 2500000;
+      } else if (chosenLong <= 1280) {
+        targetBitrate = 4000000;
+      } else {
+        targetBitrate = 6000000;
+      }
+
+      const isBehind = Boolean(
+        S.style && (
+          S.style.behindPerson ||
+          S.style.depthAccent ||
+          (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
+          (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
+        )
+      );
+
+      let canvas = null;
+      let ctx = null;
+      let exportMaskFrameIdx = 0;
+      let lastExportMaskCanvas = null;
+      let segExportCachedMaskCanvas = null;
+      let segExportCachedMaskCtx = null;
+      let cachedProgressGrad = null;
+      let cachedProgressGradW = 0;
+      let cachedProgressGradY = 0;
+
+      if (document.fonts && document.fonts.ready) {
+        try { await document.fonts.ready; } catch (_) {}
+      }
+
+      const brollElements = {};
+      if (S.brolls && S.brolls.length > 0) {
+        for (const b of S.brolls) {
+          if (b.url) {
+            try {
+              const bv = document.createElement('video');
+              bv.crossOrigin = 'anonymous';
+              bv.muted = true;
+              bv.playsInline = true;
+              bv.src = b.url;
+              await new Promise((resolve) => {
+                bv.onloadeddata = resolve;
+                bv.onerror = resolve;
+                setTimeout(resolve, 2500);
+              });
+              brollElements[b.id] = bv;
+            } catch (_) {}
+          }
+        }
+      }
+
+      const dur = vid.duration || S.probe?.duration || 10;
+      const hasAudioOverlays = Boolean(
+        S.bgmFilename ||
+        (S.voiceoverFilename && btnReplaceVoiceover && btnReplaceVoiceover.classList.contains('active'))
+      );
+
+      let mixedAudioBuffer = null;
+      let audioSource = null;
+
+      if (hasAudioOverlays) {
+        try {
+          mixedAudioBuffer = await mixExportAudio(dur, videoBlobUrl || vid.src);
+          if (mixedAudioBuffer && window.Mediabunny.AudioBufferSource) {
+            audioSource = new window.Mediabunny.AudioBufferSource({
+              codec: 'aac',
+              bitrate: 192000
             });
-            brollElements[b.id] = bv;
-          } catch (_) {}
+            output.addAudioTrack(audioSource);
+          }
+        } catch (audioMixErr) {
+          console.warn('Audio mixing in frame export failed, continuing with original audio:', audioMixErr);
         }
       }
-    }
 
-    const dur = vid.duration || S.probe?.duration || 10;
-    const hasAudioOverlays = Boolean(
-      S.bgmFilename ||
-      (S.voiceoverFilename && btnReplaceVoiceover && btnReplaceVoiceover.classList.contains('active'))
-    );
+      const processFrame = (sample) => {
+        const W = targetW;
+        const H = targetH;
 
-    let mixedAudioBuffer = null;
-    let audioSource = null;
-
-    if (hasAudioOverlays) {
-      try {
-        mixedAudioBuffer = await mixExportAudio(dur, videoBlobUrl || vid.src);
-        if (mixedAudioBuffer && window.Mediabunny.AudioBufferSource) {
-          audioSource = new window.Mediabunny.AudioBufferSource({
-            codec: 'aac',
-            bitrate: 192000
-          });
-          output.addAudioTrack(audioSource);
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.width = W;
+          canvas.height = H;
+          ctx = canvas.getContext('2d');
         }
-      } catch (audioMixErr) {
-        console.warn('Audio mixing in frame export failed, continuing with original audio:', audioMixErr);
-      }
-    }
 
-    const conversion = await window.Mediabunny.Conversion.init({
-      input,
-      output,
-      composable: Boolean(audioSource),
-      audio: audioSource ? { discard: true } : { codec: 'aac' },
-      video: {
-        codec: 'avc',
-        width: targetW,
-        height: targetH,
-        fit: 'contain',
-        frameRate: 30,
-        process: (sample) => {
-          const W = targetW;
-          const H = targetH;
+        const t = sample.timestamp || 0;
 
-          if (!canvas) {
-            canvas = document.createElement('canvas');
-            canvas.width = W;
-            canvas.height = H;
-            ctx = canvas.getContext('2d');
+        // 1. Dynamic Auto-Zoom (Smooth, slow, user-configurable retention zoom)
+        const az = S.autoZoom;
+        const isZoomed = az && az.enabled && (() => {
+          if (az.interval > 0) {
+            return (t % az.interval) < (az.duration || 3.5);
           }
+          const idx = S.captions.findIndex(c => t >= c.start && t <= c.end);
+          return idx !== -1 && idx % 4 === 1;
+        })();
 
-          const t = sample.timestamp || 0;
+        const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
+        const hasProgressBar = Boolean(S.progressBar && S.progressBar.enabled !== false);
+        const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+        const hasWatermark = Boolean(S.watermark && S.watermark.text && S.watermark.text.trim());
 
-          // 1. Dynamic Auto-Zoom (Smooth, slow, user-configurable retention zoom)
-          const az = S.autoZoom;
-          const isZoomed = az && az.enabled && (() => {
-            if (az.interval > 0) {
-              return (t % az.interval) < (az.duration || 3.5);
-            }
-            const idx = S.captions.findIndex(c => t >= c.start && t <= c.end);
-            return idx !== -1 && idx % 4 === 1;
-          })();
-
-          let exportCleanFrameCanvas = null;
-          if (isBehind && segmenterInstance) {
-            if (!segExportCleanCanvas) {
-              segExportCleanCanvas = document.createElement('canvas');
-              segExportCleanCtx = segExportCleanCanvas.getContext('2d');
-            }
-            if (segExportCleanCanvas.width !== W || segExportCleanCanvas.height !== H) {
-              segExportCleanCanvas.width = W;
-              segExportCleanCanvas.height = H;
-            }
-            segExportCleanCtx.clearRect(0, 0, W, H);
-            if (isZoomed) {
-              const zoom = (az && az.scale) || 1.10;
-              const zW = W * zoom;
-              const zH = H * zoom;
-              const zX = (W - zW) / 2;
-              const zY = (H - zH) / 2;
-              sample.draw(segExportCleanCtx, zX, zY, zW, zH);
-            } else {
-              sample.draw(segExportCleanCtx, 0, 0, W, H);
-            }
-            exportCleanFrameCanvas = segExportCleanCanvas;
-          }
-
+        // Skip all drawing work on frames with no active caption or graphic (Requirement 3: pass video frame straight through)
+        if (!isZoomed && !activeBroll && !hasProgressBar && !activeCap && !hasWatermark) {
           ctx.clearRect(0, 0, W, H);
+          sample.draw(ctx, 0, 0, W, H);
+          lastExportMaskCanvas = null;
+          exportMaskFrameIdx = 0;
+          return canvas;
+        }
+
+        let exportCleanFrameCanvas = null;
+        if (isBehind && segmenterInstance && activeCap) {
+          if (!segExportCleanCanvas) {
+            segExportCleanCanvas = document.createElement('canvas');
+            segExportCleanCtx = segExportCleanCanvas.getContext('2d');
+          }
+          if (segExportCleanCanvas.width !== W || segExportCleanCanvas.height !== H) {
+            segExportCleanCanvas.width = W;
+            segExportCleanCanvas.height = H;
+          }
+          segExportCleanCtx.clearRect(0, 0, W, H);
           if (isZoomed) {
             const zoom = (az && az.scale) || 1.10;
             const zW = W * zoom;
             const zH = H * zoom;
             const zX = (W - zW) / 2;
             const zY = (H - zH) / 2;
-            sample.draw(ctx, zX, zY, zW, zH);
+            sample.draw(segExportCleanCtx, zX, zY, zW, zH);
           } else {
-            sample.draw(ctx, 0, 0, W, H);
+            sample.draw(segExportCleanCtx, 0, 0, W, H);
           }
+          exportCleanFrameCanvas = segExportCleanCanvas;
+        }
 
-          // Draw active B-Roll frame (if any) before drawing captions
-          const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
-          if (activeBroll && brollElements[activeBroll.id]) {
-            const bv = brollElements[activeBroll.id];
-            const brollT = Math.max(0, t - activeBroll.start);
-            if (Math.abs(bv.currentTime - brollT) > 0.15) {
-              try { bv.currentTime = brollT; } catch (_) {}
-            }
-            const layout = activeBroll.layout || 'full';
-            if (layout === 'above') {
-              ctx.drawImage(bv, 0, 0, W, H / 2);
-              ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-              ctx.lineWidth = 2;
-              ctx.beginPath();
-              ctx.moveTo(0, H / 2);
-              ctx.lineTo(W, H / 2);
-              ctx.stroke();
-            } else if (layout === 'below') {
-              ctx.drawImage(bv, 0, H / 2, W, H / 2);
-              ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-              ctx.lineWidth = 2;
-              ctx.beginPath();
-              ctx.moveTo(0, H / 2);
-              ctx.lineTo(W, H / 2);
-              ctx.stroke();
-            } else if (layout === 'circle') {
-              const diam = Math.min(W, H) * 0.38;
-              const winX = W - diam - (W * 0.04);
-              const winY = H * 0.04;
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
-              ctx.clip();
-              ctx.drawImage(bv, winX, winY, diam, diam);
-              ctx.restore();
-              // Circular border
-              ctx.save();
-              ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-              ctx.lineWidth = 4;
-              ctx.shadowColor = 'rgba(0,0,0,0.6)';
-              ctx.shadowBlur = 12;
-              ctx.beginPath();
-              ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
-              ctx.stroke();
-              ctx.restore();
-            } else if (layout === 'window' || layout === 'pip') {
-              const winW = W * 0.44;
-              const winH = H * 0.28;
-              const winX = W - winW - (W * 0.04);
-              const winY = H * 0.04;
-              ctx.save();
-              ctx.shadowColor = 'rgba(0,0,0,0.7)';
-              ctx.shadowBlur = 16;
-              ctx.drawImage(bv, winX, winY, winW, winH);
-              ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-              ctx.lineWidth = 3;
-              ctx.strokeRect(winX, winY, winW, winH);
-              ctx.restore();
-            } else {
-              ctx.drawImage(bv, 0, 0, W, H);
-            }
+        ctx.clearRect(0, 0, W, H);
+        if (isZoomed) {
+          const zoom = (az && az.scale) || 1.10;
+          const zW = W * zoom;
+          const zH = H * zoom;
+          const zX = (W - zW) / 2;
+          const zY = (H - zH) / 2;
+          sample.draw(ctx, zX, zY, zW, zH);
+        } else {
+          sample.draw(ctx, 0, 0, W, H);
+        }
+
+        // Draw active B-Roll frame (if any) before drawing captions
+        if (activeBroll && brollElements[activeBroll.id]) {
+          const bv = brollElements[activeBroll.id];
+          const brollT = Math.max(0, t - activeBroll.start);
+          if (Math.abs(bv.currentTime - brollT) > 0.15) {
+            try { bv.currentTime = brollT; } catch (_) {}
           }
-
-          // 2. Reel Progress Bar
-          if (S.progressBar && S.progressBar.enabled !== false) {
-            const dur = S.probe?.duration || vid.duration || 1;
-            const progress = Math.min(1, Math.max(0, t / dur));
-            const barH = Math.max(4, Math.round(H * 0.007));
-            const barY = S.progressBar.position === 'top' ? 0 : (H - barH);
+          const layout = activeBroll.layout || 'full';
+          if (layout === 'above') {
+            ctx.drawImage(bv, 0, 0, W, H / 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, H / 2);
+            ctx.lineTo(W, H / 2);
+            ctx.stroke();
+          } else if (layout === 'below') {
+            ctx.drawImage(bv, 0, H / 2, W, H / 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, H / 2);
+            ctx.lineTo(W, H / 2);
+            ctx.stroke();
+          } else if (layout === 'circle') {
+            const diam = Math.min(W, H) * 0.38;
+            const winX = W - diam - (W * 0.04);
+            const winY = H * 0.04;
             ctx.save();
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.fillRect(0, barY, W, barH);
-            const grad = ctx.createLinearGradient(0, barY, W, barY);
-            grad.addColorStop(0, '#ec4899');
-            grad.addColorStop(0.5, '#a855f7');
-            grad.addColorStop(1, '#00f0ff');
-            ctx.fillStyle = grad;
-            ctx.shadowColor = '#00f0ff';
-            ctx.shadowBlur = 8;
-            ctx.fillRect(0, barY, W * progress, barH);
+            ctx.beginPath();
+            ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(bv, winX, winY, diam, diam);
             ctx.restore();
+            // Circular border
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+            ctx.lineWidth = 4;
+            ctx.shadowColor = 'rgba(0,0,0,0.6)';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          } else if (layout === 'window' || layout === 'pip') {
+            const winW = W * 0.44;
+            const winH = H * 0.28;
+            const winX = W - winW - (W * 0.04);
+            const winY = H * 0.04;
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.7)';
+            ctx.shadowBlur = 16;
+            ctx.drawImage(bv, winX, winY, winW, winH);
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(winX, winY, winW, winH);
+            ctx.restore();
+          } else {
+            ctx.drawImage(bv, 0, 0, W, H);
           }
+        }
 
-          const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
-          if (activeCap) {
-            const words = (activeCap.words || []).map(w => ({
-              t: w.t || w.word || '',
-              s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
-              e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
-              key: Boolean(w.key),
-              color: w.color || undefined
-            }));
+        // 2. Reel Progress Bar (with cached gradient)
+        if (hasProgressBar) {
+          const dur = S.probe?.duration || vid.duration || 1;
+          const progress = Math.min(1, Math.max(0, t / dur));
+          const barH = Math.max(4, Math.round(H * 0.007));
+          const barY = S.progressBar.position === 'top' ? 0 : (H - barH);
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.fillRect(0, barY, W, barH);
+          if (!cachedProgressGrad || cachedProgressGradW !== W || cachedProgressGradY !== barY) {
+            cachedProgressGrad = ctx.createLinearGradient(0, barY, W, barY);
+            cachedProgressGrad.addColorStop(0, '#ec4899');
+            cachedProgressGrad.addColorStop(0.5, '#a855f7');
+            cachedProgressGrad.addColorStop(1, '#00f0ff');
+            cachedProgressGradW = W;
+            cachedProgressGradY = barY;
+          }
+          ctx.fillStyle = cachedProgressGrad;
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 8;
+          ctx.fillRect(0, barY, W * progress, barH);
+          ctx.restore();
+        }
 
-            if (isBehind && exportCleanFrameCanvas && segmenterInstance) {
-              if (!segExportBehindCanvas) {
-                segExportBehindCanvas = document.createElement('canvas');
-                segExportBehindCtx = segExportBehindCanvas.getContext('2d');
-              }
-              if (segExportBehindCanvas.width !== W || segExportBehindCanvas.height !== H) {
-                segExportBehindCanvas.width = W; segExportBehindCanvas.height = H;
-              }
-              segExportBehindCtx.clearRect(0, 0, W, H);
+        if (activeCap) {
+          const words = (activeCap.words || []).map(w => ({
+            t: w.t || w.word || '',
+            s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
+            e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
+            key: Boolean(w.key),
+            color: w.color || undefined
+          }));
 
-              if (!segExportForeCanvas) {
-                segExportForeCanvas = document.createElement('canvas');
-                segExportForeCtx = segExportForeCanvas.getContext('2d');
-              }
-              if (segExportForeCanvas.width !== W || segExportForeCanvas.height !== H) {
-                segExportForeCanvas.width = W; segExportForeCanvas.height = H;
-              }
-              segExportForeCtx.clearRect(0, 0, W, H);
+          if (isBehind && exportCleanFrameCanvas && segmenterInstance) {
+            if (!segExportBehindCanvas) {
+              segExportBehindCanvas = document.createElement('canvas');
+              segExportBehindCtx = segExportBehindCanvas.getContext('2d');
+            }
+            if (segExportBehindCanvas.width !== W || segExportBehindCanvas.height !== H) {
+              segExportBehindCanvas.width = W; segExportBehindCanvas.height = H;
+            }
+            segExportBehindCtx.clearRect(0, 0, W, H);
 
-              // Separate lines into behind and front contexts
-              drawCanvasTypography(segExportForeCtx, segExportBehindCtx, activeCap, words, t, S.style || {}, W, H, true, false);
+            if (!segExportForeCanvas) {
+              segExportForeCanvas = document.createElement('canvas');
+              segExportForeCtx = segExportForeCanvas.getContext('2d');
+            }
+            if (segExportForeCanvas.width !== W || segExportForeCanvas.height !== H) {
+              segExportForeCanvas.width = W; segExportForeCanvas.height = H;
+            }
+            segExportForeCtx.clearRect(0, 0, W, H);
 
+            // Separate lines into behind and front contexts
+            drawCanvasTypography(segExportForeCtx, segExportBehindCtx, activeCap, words, t, S.style || {}, W, H, true, false);
+
+            exportMaskFrameIdx++;
+            let maskCanvas = null;
+
+            // Run person mask only on every 2nd frame, and reuse previous mask in between (Requirement 2)
+            if (exportMaskFrameIdx % 2 === 1 || !lastExportMaskCanvas) {
               const frameMs = Math.round(t * 1000);
-              const maskCanvas = getPersonMask(exportCleanFrameCanvas, frameMs, W, H);
-
-              if (maskCanvas) {
-                // b) Draw only the lines whose layer is 'behind'
-                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
-
-                // c) Draw person cutout on top
-                if (!segExportCutoutCanvas) {
-                  segExportCutoutCanvas = document.createElement('canvas');
-                  segExportCutoutCtx = segExportCutoutCanvas.getContext('2d');
+              const newMask = getPersonMask(exportCleanFrameCanvas, frameMs, W, H);
+              if (newMask) {
+                if (!segExportCachedMaskCanvas) {
+                  segExportCachedMaskCanvas = document.createElement('canvas');
+                  segExportCachedMaskCtx = segExportCachedMaskCanvas.getContext('2d');
                 }
-                if (segExportCutoutCanvas.width !== W || segExportCutoutCanvas.height !== H) {
-                  segExportCutoutCanvas.width = W; segExportCutoutCanvas.height = H;
+                if (segExportCachedMaskCanvas.width !== W || segExportCachedMaskCanvas.height !== H) {
+                  segExportCachedMaskCanvas.width = W;
+                  segExportCachedMaskCanvas.height = H;
                 }
-                segExportCutoutCtx.clearRect(0, 0, W, H);
-                segExportCutoutCtx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
-                segExportCutoutCtx.globalCompositeOperation = 'destination-in';
-                segExportCutoutCtx.drawImage(maskCanvas, 0, 0, W, H);
-                segExportCutoutCtx.globalCompositeOperation = 'source-over';
-                ctx.drawImage(segExportCutoutCanvas, 0, 0, W, H);
-
-                // d) Draw only the lines whose layer is 'front' on top
-                ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
-                drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
-              } else {
-                // Fallback: if segmentation is unavailable, draw all lines normally in front
-                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
-                ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
-                drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
+                segExportCachedMaskCtx.clearRect(0, 0, W, H);
+                segExportCachedMaskCtx.drawImage(newMask, 0, 0, W, H);
+                lastExportMaskCanvas = segExportCachedMaskCanvas;
               }
+            }
+            maskCanvas = lastExportMaskCanvas;
+
+            if (maskCanvas) {
+              // b) Draw only lines whose layer is 'behind'
+              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+
+              // c) Draw person cutout on top
+              if (!segExportCutoutCanvas) {
+                segExportCutoutCanvas = document.createElement('canvas');
+                segExportCutoutCtx = segExportCutoutCanvas.getContext('2d');
+              }
+              if (segExportCutoutCanvas.width !== W || segExportCutoutCanvas.height !== H) {
+                segExportCutoutCanvas.width = W; segExportCutoutCanvas.height = H;
+              }
+              segExportCutoutCtx.clearRect(0, 0, W, H);
+              segExportCutoutCtx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
+              segExportCutoutCtx.globalCompositeOperation = 'destination-in';
+              segExportCutoutCtx.drawImage(maskCanvas, 0, 0, W, H);
+              segExportCutoutCtx.globalCompositeOperation = 'source-over';
+              ctx.drawImage(segExportCutoutCanvas, 0, 0, W, H);
+
+              // d) Draw only lines whose layer is 'front' on top
+              ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
+              drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
             } else {
-              // Standard non-behind preset path
-              drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
+              // Fallback: if segmentation is unavailable, draw all lines normally in front
+              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
               drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
             }
+          } else {
+            // Standard non-behind preset path
+            lastExportMaskCanvas = null;
+            exportMaskFrameIdx = 0;
+            drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
+            drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
           }
-
-          drawWatermark(ctx, W, H);
-
-          return canvas;
+        } else {
+          lastExportMaskCanvas = null;
+          exportMaskFrameIdx = 0;
         }
+
+        drawWatermark(ctx, W, H);
+
+        return canvas;
+      };
+
+      // Encoder configuration with prefer-hardware and automatic fallback to no-preference (Requirement 4)
+      let conversion = null;
+      const baseVideoConfig = {
+        codec: 'avc',
+        width: targetW,
+        height: targetH,
+        fit: 'contain',
+        frameRate: 30,
+        bitrate: targetBitrate,
+      };
+
+      try {
+        conversion = await window.Mediabunny.Conversion.init({
+          input,
+          output,
+          composable: Boolean(audioSource),
+          audio: audioSource ? { discard: true } : { codec: 'aac' },
+          video: {
+            ...baseVideoConfig,
+            hardwareAcceleration: 'prefer-hardware',
+            process: processFrame
+          }
+        });
+      } catch (hwInitErr) {
+        console.warn('Conversion with prefer-hardware failed, retrying with no-preference:', hwInitErr);
+        conversion = await window.Mediabunny.Conversion.init({
+          input,
+          output,
+          composable: Boolean(audioSource),
+          audio: audioSource ? { discard: true } : { codec: 'aac' },
+          video: {
+            ...baseVideoConfig,
+            hardwareAcceleration: 'no-preference',
+            process: processFrame
+          }
+        });
       }
-    });
 
-    if (!conversion.isValid) {
-      throw new Error('Mediabunny conversion is invalid');
-    }
-
-    activeDirectExport = {
-      stop: () => {
-        try { conversion.cancel(); } catch (_) {}
+      if (!conversion.isValid) {
+        throw new Error('Mediabunny conversion is invalid');
       }
-    };
 
-    conversion.onProgress = (progress) => {
-      const pct = Math.min(99, Math.max(1, Math.round(progress * 100)));
-      exportProgressBar.style.width = pct + '%';
-      exportPercent.textContent = pct + '%';
-      exportProgressText.textContent = `Rendering video with frame sync (${pct}%)...`;
-      exportProgressDetail.textContent = 'Hardware-accelerated client encoding in progress.';
-      updateExportPipeline(1, `${pct}%`, 'Queued');
-    };
+      activeDirectExport = {
+        stop: () => {
+          try { conversion.cancel(); } catch (_) {}
+        }
+      };
 
-    updateExportPipeline(1, 'Processing Frames...', 'Queued');
-    exportProgressText.textContent = 'Rendering video with frame sync...';
-    exportProgressDetail.textContent = 'Encoding synchronized frame-accurate captions.';
+      // Progress UI throttling (max ~4 times/sec) & ETA estimation (every second) (Requirement 5 & 6)
+      let lastUiUpdate = 0;
+      let lastEtaUpdateTime = 0;
+      let lastEtaText = 'calculating...';
 
-    if (audioSource && mixedAudioBuffer) {
-      await output.start();
-      await Promise.all([
-        conversion.execute(),
-        audioSource.add(mixedAudioBuffer).then(() => audioSource.close())
-      ]);
-      await output.finalize();
-    } else {
-      await conversion.execute();
+      conversion.onProgress = (progress) => {
+        const now = performance.now();
+        if (now - lastUiUpdate < 250 && progress < 0.99) {
+          return;
+        }
+        lastUiUpdate = now;
+
+        const pct = Math.min(99, Math.max(1, Math.round(progress * 100)));
+        exportProgressBar.style.width = pct + '%';
+        exportPercent.textContent = pct + '%';
+        exportProgressText.textContent = `Rendering video with frame sync (${pct}%)...`;
+        exportProgressDetail.textContent = 'Keep this screen open while exporting';
+        updateExportPipeline(1, `${pct}%`, 'Queued');
+
+        if (now - lastEtaUpdateTime >= 1000) {
+          lastEtaUpdateTime = now;
+          if (progress > 0.02) {
+            const elapsedSec = (Date.now() - exportStartTime) / 1000;
+            const totalEstimatedSec = elapsedSec / progress;
+            const remainingSec = Math.max(0, Math.ceil(totalEstimatedSec - elapsedSec));
+            const mins = Math.floor(remainingSec / 60);
+            const secs = remainingSec % 60;
+            lastEtaText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+          }
+        }
+
+        const etaVal = $('exportEtaVal');
+        if (etaVal) etaVal.textContent = lastEtaText;
+      };
+
+      updateExportPipeline(1, 'Processing Frames...', 'Queued');
+      exportProgressText.textContent = 'Rendering video with frame sync...';
+      exportProgressDetail.textContent = 'Encoding synchronized frame-accurate captions.';
+
+      if (audioSource && mixedAudioBuffer) {
+        await output.start();
+        await Promise.all([
+          conversion.execute(),
+          audioSource.add(mixedAudioBuffer).then(() => audioSource.close())
+        ]);
+        await output.finalize();
+      } else {
+        await conversion.execute();
+      }
+
+      updateExportPipeline(2, 'Done ✓', 'Packaging Video...');
+      exportProgressBar.style.width = '100%';
+      exportPercent.textContent = '100%';
+      exportProgressText.textContent = 'Finalizing MP4...';
+
+      const buffer = output.target.buffer;
+      if (!buffer || buffer.byteLength === 0) {
+        throw new Error('Export buffer is empty');
+      }
+
+      const blob = new Blob([buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+
+      deductCreditAfterExport();
+      updateExportPipeline(3);
+      showExportComplete(url);
+    } finally {
+      if (wakeLock) {
+        try {
+          await wakeLock.release();
+        } catch (_) {}
+        wakeLock = null;
+      }
     }
-
-    updateExportPipeline(2, 'Done ✓', 'Packaging Video...');
-    exportProgressBar.style.width = '100%';
-    exportPercent.textContent = '100%';
-    exportProgressText.textContent = 'Finalizing MP4...';
-
-    const buffer = output.target.buffer;
-    if (!buffer || buffer.byteLength === 0) {
-      throw new Error('Export buffer is empty');
-    }
-
-    const blob = new Blob([buffer], { type: 'video/mp4' });
-    const url = URL.createObjectURL(blob);
-
-    deductCreditAfterExport();
-    updateExportPipeline(3);
-    showExportComplete(url);
   }
-
 
   async function startDirectCanvasExport() {
     const rawW = vid.videoWidth || S.probe?.width || 1080;

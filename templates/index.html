@@ -1288,6 +1288,16 @@
       </div>
 
       <div id="exportWorkingState" class="export-state">
+        <!-- EXPORT QUALITY SELECTOR -->
+        <div class="export-quality-bar" id="exportQualityBar">
+          <span class="export-quality-title">Export Quality:</span>
+          <div class="export-quality-pills" id="exportQualityPills">
+            <button type="button" class="btn-quality-pill" data-quality="fast">Fast (960)</button>
+            <button type="button" class="btn-quality-pill active" data-quality="balanced">Balanced (1280)</button>
+            <button type="button" class="btn-quality-pill" data-quality="high">High (1920)</button>
+          </div>
+        </div>
+
         <div class="export-spinner-wrap">
           <div class="export-spinner"></div>
           <span class="export-live-dot" title="Active worker"></span>
@@ -1308,7 +1318,7 @@
           <div class="export-step-item" id="stepFinalize">
             <span class="step-num-badge" id="stepBadge2">2</span>
             <div class="step-label-group">
-              <span class="step-title">1080p MP4</span>
+              <span class="step-title" id="stepFinalizeTitle">720p MP4</span>
               <span class="step-status" id="stepStatus2">Queued</span>
             </div>
           </div>
@@ -1316,7 +1326,7 @@
 
         <div class="progress-box" style="margin-top:16px;">
           <div class="progress-label-row">
-            <span class="export-timer-display" id="exportTimerRow">⏱ Time Elapsed: <strong id="exportTimerVal">00:00</strong></span>
+            <span class="export-timer-display" id="exportTimerRow">⏱ Time: <strong id="exportTimerVal">00:00</strong> <span id="exportEtaWrap" style="margin-left:6px; opacity:0.88; font-size:12px;">(ETA: <strong id="exportEtaVal">calculating...</strong>)</span></span>
             <span id="exportPercent">0%</span>
           </div>
           <div class="progress-bar-track">
@@ -1324,7 +1334,7 @@
           </div>
         </div>
         
-        <p class="export-wait-tip" id="exportWaitTip">💡 Feel free to switch tabs — an alert chime will sound when your video is done!</p>
+        <p class="export-wait-tip" id="exportWaitTip">💡 Keep this screen open while exporting — an alert chime will sound when done!</p>
       </div>
 
       <div id="exportDoneState" class="export-state hidden">
@@ -1377,6 +1387,6 @@
     window.MediaPipeVision = { FilesetResolver, ImageSegmenter };
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=4.49"></script>
+  <script src="/static/app.js?v=4.51"></script>
 </body>
 </html>
