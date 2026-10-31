@@ -5324,6 +5324,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         codec: 'avc',
         width: targetW,
         height: targetH,
+        fit: 'contain',
         frameRate: 30,
         process: (sample) => {
           const W = targetW;
