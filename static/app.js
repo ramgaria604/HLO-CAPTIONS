@@ -5243,19 +5243,35 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   let activeDirectExport = null;
   async function startFrameExport() {
     if (!window.Mediabunny) {
-      throw new Error('Mediabunny is not loaded');
+      try {
+        window.Mediabunny = await import('https://cdn.jsdelivr.net/npm/mediabunny@1.65.0/+esm');
+      } catch (e) {
+        throw new Error('Mediabunny is not loaded: ' + e.message);
+      }
     }
 
     const { Input, Output, Mp4OutputFormat, BufferTarget, ALL_FORMATS, BlobSource, UrlSource } = window.Mediabunny;
 
-    let source;
+    let source = null;
     if (S.file && S.file instanceof Blob) {
       source = new BlobSource(S.file);
-    } else if (S.filename) {
-      source = new UrlSource('/video/' + encodeURIComponent(S.filename));
-    } else if (vid.src) {
-      source = new UrlSource(vid.src);
-    } else {
+    } else if (vid.src && vid.src.startsWith('blob:')) {
+      try {
+        const bRes = await fetch(vid.src);
+        const blobData = await bRes.blob();
+        source = new BlobSource(blobData);
+      } catch (_) {}
+    }
+
+    if (!source && S.filename) {
+      const fullUrl = new URL('/video/' + encodeURIComponent(S.filename), window.location.href).href;
+      source = new UrlSource(fullUrl);
+    } else if (!source && vid.src) {
+      const fullUrl = new URL(vid.src, window.location.href).href;
+      source = new UrlSource(fullUrl);
+    }
+
+    if (!source) {
       throw new Error('No video source available for frame export');
     }
 
@@ -5660,12 +5676,21 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       (S.voiceoverFilename && btnReplaceVoiceover && btnReplaceVoiceover.classList.contains('active'))
     );
 
-    if (hasWebCodecs && !hasAudioOverlays && window.Mediabunny) {
-      try {
-        await startFrameExport();
-        return;
-      } catch (frameErr) {
-        console.warn('startFrameExport failed, falling back to direct canvas export:', frameErr);
+    if (hasWebCodecs && !hasAudioOverlays) {
+      if (!window.Mediabunny) {
+        try {
+          window.Mediabunny = await import('https://cdn.jsdelivr.net/npm/mediabunny@1.65.0/+esm');
+        } catch (mErr) {
+          console.warn('Could not load Mediabunny dynamically:', mErr);
+        }
+      }
+      if (window.Mediabunny) {
+        try {
+          await startFrameExport();
+          return;
+        } catch (frameErr) {
+          console.error('startFrameExport failed, falling back to direct canvas export:', frameErr);
+        }
       }
     }
 
