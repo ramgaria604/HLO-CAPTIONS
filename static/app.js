@@ -83,6 +83,7 @@
     personGlow: true,
     lowerThird: true,
     locationTag: false,
+    depthShadow: !(/Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent))),
     presenterName: 'Alex Rivera',
     presenterRole: 'Luxury Real Estate Specialist'
   },
@@ -1361,10 +1362,24 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
 
   // ==========================================================================
-  // SPECIAL REAL ESTATE VIDEO TEMPLATE ENGINE
+  // SPECIAL REAL ESTATE VIDEO TEMPLATE ENGINE (AUTO-OVERLAP & DEPTH)
   // ==========================================================================
   const HERO_HEAD_GAP_RATIO = 0.28;
   const BEHIND_SAFE_MARGIN = 0.08;
+
+  // Auto-overlap & Depth Constants
+  const TARGET_OVERLAP = 0.30;
+  const MIN_OVERLAP = 0.18;
+  const MAX_OVERLAP = 0.45;
+  const MIN_VISIBLE_RATIO = 0.55;
+  const SHADOW_BLUR = 6;
+  const SHADOW_OFFSET_X = 8;
+  const SHADOW_OFFSET_Y = 8;
+  const SHADOW_OPACITY = 0.35;
+  const PARALLAX_MAX_PX = 6.0;
+  const Y_SMOOTH_TIME = 0.25;
+  const RECHECK_INTERVAL = 0.25;
+  const READABILITY_SHIFT_RATIO = 0.04;
 
   const REAL_ESTATE_KEYWORDS = new Set([
     'luxury', 'penthouse', 'bedroom', 'bedrooms', 'bath', 'baths', 'bathroom', 'bathrooms',
@@ -1455,7 +1470,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     return prefix + formattedVal + suffix;
   }
 
-  // Detect city from full transcript text
   function getDetectedCityLocation() {
     if (!S.captions || S.captions.length === 0) return 'BEVERLY HILLS, CA';
     const allText = S.captions.map(c => c.text || '').join(' ').toLowerCase();
@@ -1467,7 +1481,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     return 'BEVERLY HILLS, CA';
   }
 
-  // Extract head-top y coordinate from mask canvas
   function getPersonMaskHeadTop(maskCanvas, outH) {
     if (!maskCanvas || !maskCanvas.width || !maskCanvas.height) return null;
     try {
@@ -1491,7 +1504,105 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     return null;
   }
 
-  // Camera Punch calculation (throttled to at most once per 1.5s)
+  // Horizontal centroid for parallax tracking (-1 .. 1)
+  function getPersonCentroidX(maskCanvas) {
+    if (!maskCanvas || !maskCanvas.width || !maskCanvas.height) return 0;
+    try {
+      const mw = maskCanvas.width;
+      const mh = maskCanvas.height;
+      const mctx = maskCanvas.getContext('2d', { willReadFrequently: true }) || maskCanvas.getContext('2d');
+      if (!mctx) return 0;
+      const scanY = Math.floor(mh * 0.15);
+      const scanH = Math.floor(mh * 0.35);
+      const imgData = mctx.getImageData(0, scanY, mw, scanH);
+      const data = imgData.data;
+      let sumX = 0, count = 0;
+      for (let y = 0; y < scanH; y += 4) {
+        const row = y * mw * 4;
+        for (let x = 0; x < mw; x += 4) {
+          if (data[row + x * 4 + 3] > 64) {
+            sumX += x;
+            count++;
+          }
+        }
+      }
+      if (count > 0) {
+        const avgX = (sumX / count) / mw;
+        return (avgX - 0.5) * 2;
+      }
+    } catch (_) {}
+    return 0;
+  }
+
+  // Fast overlap calculator: fraction of hero bounding box covered by person mask
+  function computeHeroMaskOverlap(maskCanvas, heroX, heroY, heroW, heroH, W, H) {
+    if (!maskCanvas || !maskCanvas.width || !maskCanvas.height) return 0;
+    try {
+      const mw = maskCanvas.width;
+      const mh = maskCanvas.height;
+      const mctx = maskCanvas.getContext('2d', { willReadFrequently: true }) || maskCanvas.getContext('2d');
+      if (!mctx) return 0;
+
+      const sx = Math.max(0, Math.min(mw - 1, Math.floor((heroX / W) * mw)));
+      const sy = Math.max(0, Math.min(mh - 1, Math.floor((heroY / H) * mh)));
+      const sw = Math.max(1, Math.min(mw - sx, Math.ceil((heroW / W) * mw)));
+      const sh = Math.max(1, Math.min(mh - sy, Math.ceil((heroH / H) * mh)));
+
+      const imgData = mctx.getImageData(sx, sy, sw, sh);
+      const data = imgData.data;
+      const numX = 12;
+      const numY = 6;
+      let covered = 0;
+      let total = 0;
+
+      for (let iy = 0; iy < numY; iy++) {
+        const sampleY = Math.floor((iy + 0.5) * (sh / numY));
+        const rowOffset = sampleY * sw * 4;
+        for (let ix = 0; ix < numX; ix++) {
+          const sampleX = Math.floor((ix + 0.5) * (sw / numX));
+          total++;
+          if (data[rowOffset + sampleX * 4 + 3] > 64) {
+            covered++;
+          }
+        }
+      }
+      return total > 0 ? (covered / total) : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // Auto-overlap optimizer: tests candidate vertical positions in 2% steps
+  function findOptimalAutoOverlapY(maskCanvas, heroX, heroW, heroH, headTopY, W, H) {
+    const yMin = Math.max(H * BEHIND_SAFE_MARGIN, (headTopY !== null ? headTopY - 0.05 * H : H * 0.20));
+    const chestY = headTopY !== null ? (headTopY + 0.40 * H) : (H * 0.55);
+    const yMax = Math.min(H * (1 - BEHIND_SAFE_MARGIN) - heroH, chestY);
+    const step = 0.02 * H;
+
+    let bestY = null;
+    let bestDiff = 999;
+    let bestOverlap = 0;
+
+    for (let candY = yMin; candY <= yMax; candY += step) {
+      const overlap = computeHeroMaskOverlap(maskCanvas, heroX, candY, heroW, heroH, W, H);
+      if (overlap >= MIN_OVERLAP && overlap <= MAX_OVERLAP) {
+        const diff = Math.abs(overlap - TARGET_OVERLAP);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestY = candY;
+          bestOverlap = overlap;
+        }
+      }
+    }
+
+    if (bestY === null) {
+      bestY = headTopY !== null ? (headTopY + H * HERO_HEAD_GAP_RATIO) : (H * 0.30);
+      bestOverlap = computeHeroMaskOverlap(maskCanvas, heroX, bestY, heroW, heroH, W, H);
+    }
+
+    return { y: bestY, overlap: bestOverlap };
+  }
+
   function getRealEstateCameraPunch(t, captions) {
     if (!captions || captions.length === 0) return 1.0;
     let lastPunchTime = -999;
@@ -1520,7 +1631,16 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     return 1.0;
   }
 
-  // Caption analysis with per-caption caching
+  // Scored word ranking helper
+  function scoreRealEstateWord(w, idx) {
+    const clean = (w.t || w.word || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (Boolean(w.key)) return 1000 - idx;
+    if (REAL_ESTATE_KEYWORDS.has(clean)) return 800 - idx;
+    if (isPriceOrNumber(w.t || w.word || '')) return 700 - idx;
+    if (clean.length >= 3 && !REAL_ESTATE_STOPWORDS.has(clean)) return 400 + clean.length * 10 - idx;
+    return 100 - idx;
+  }
+
   const _reCaptionCache = new Map();
 
   function analyzeRealEstateCaption(cap, words, capIdx) {
@@ -1529,52 +1649,33 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       return _reCaptionCache.get(cacheKey);
     }
 
-    // 1. Pick Hero Word by Priority
-    let heroIdx = -1;
-    // Priority 1: w.key === true
-    heroIdx = words.findIndex(w => Boolean(w.key));
+    // Rank words by hero score
+    const ranked = words.map((w, idx) => ({
+      word: w,
+      idx,
+      score: scoreRealEstateWord(w, idx)
+    })).sort((a, b) => b.score - a.score);
 
-    // Priority 2: Real estate keywords
-    if (heroIdx === -1) {
-      heroIdx = words.findIndex(w => {
-        const clean = (w.t || w.word || '').toLowerCase().replace(/[^a-z]/g, '');
-        return REAL_ESTATE_KEYWORDS.has(clean);
-      });
-    }
-
-    // Priority 3: Price, digits, currency
-    if (heroIdx === -1) {
-      heroIdx = words.findIndex(w => isPriceOrNumber(w.t || w.word || ''));
-    }
-
-    // Priority 4: Longest non-stopword (>= 3 chars)
-    if (heroIdx === -1) {
-      let maxLen = 0;
-      words.forEach((w, idx) => {
-        const clean = (w.t || w.word || '').toLowerCase().replace(/[^a-z]/g, '');
-        if (clean.length >= 3 && !REAL_ESTATE_STOPWORDS.has(clean)) {
-          if (clean.length > maxLen) {
-            maxLen = clean.length;
-            heroIdx = idx;
-          }
-        }
-      });
-    }
-
-    // Fallback: first word
-    if (heroIdx === -1) {
-      heroIdx = 0;
-    }
-
+    const heroIdx = ranked.length > 0 ? ranked[0].idx : 0;
     const heroWord = words[heroIdx] || { t: 'ESTATE' };
     const heroText = (heroWord.t || heroWord.word || '').toUpperCase();
     const heroIsNum = isPriceOrNumber(heroText);
 
-    // 2. Separate into Top Words and Bottom Words (0 words dropped!)
-    const topWords = words.slice(0, heroIdx);
-    const bottomWords = words.slice(heroIdx + 1);
+    // 1-2 words captions: all words go behind
+    const isSmallCaption = words.length <= 2;
 
-    // If >= 3 bottom words, split into dynamic chunk lines (2-3 words per line)
+    // 4+ words: identify potential second-best behind word
+    let secondBehindIdx = -1;
+    if (words.length >= 4 && ranked.length > 1) {
+      secondBehindIdx = ranked[1].idx;
+    }
+
+    // Top words (before hero, excluding second behind word if used)
+    const topWords = words.filter((w, idx) => idx < heroIdx && idx !== secondBehindIdx);
+
+    // Bottom words (after hero, excluding second behind word if used)
+    const bottomWords = words.filter((w, idx) => idx > heroIdx && idx !== secondBehindIdx);
+
     const bottomLines = [];
     if (bottomWords.length >= 3) {
       const chunkSize = bottomWords.length >= 5 ? 3 : 2;
@@ -1585,7 +1686,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       bottomLines.push(bottomWords);
     }
 
-    // 3. Palette Assignment
     let palette;
     const lock = (S.realEstateConfig && S.realEstateConfig.paletteLock) || 'auto';
     if (lock !== 'auto' && REAL_ESTATE_PALETTES[lock]) {
@@ -1602,6 +1702,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       heroWord,
       heroText,
       heroIsNum,
+      secondBehindIdx,
+      secondWord: secondBehindIdx !== -1 ? words[secondBehindIdx] : null,
+      isSmallCaption,
       topWords,
       bottomLines,
       palette,
@@ -1613,6 +1716,19 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     return analyzed;
   }
 
+  // Reusable offscreen canvases for Depth Shadow & Parallax
+  let _reHeroCanvas = null;
+  let _reHeroCtx = null;
+  let _reShadowCanvas = null;
+  let _reShadowCtx = null;
+  let _lastShadowFrameKey = '';
+
+  // Persistent smoothing and logging states
+  const _reSmoothedYMap = new Map();
+  const _reParallaxMap = new Map();
+  let _lastLoggedBehindCapIdx = -1;
+  let _csMaskFailToastShown = false;
+
   // Draw Core Special Real Estate Caption Layout
   function drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
     if (!ctxFore || !cap || !words || words.length === 0) return;
@@ -1623,6 +1739,29 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const stTime = Math.max(0, t - cap.start);
     const capDur = Math.max(0.1, cap.end - cap.start);
 
+    // 1 in 5 captions: front "slam" layout (all words drawn in front for visual variety)
+    const isFrontSlam = (capIdx % 5 === 2) || (seededRandom(capIdx + 909) < 0.20);
+
+    // Active cutaway check
+    const isCutaway = Boolean(S.brolls && S.brolls.some(b => b.url && t >= b.start && t <= b.end && (b.layout === 'full' || !b.layout)));
+
+    // Current mask canvas resolution
+    const maskCanvas = (typeof lastLiveMaskCanvas !== 'undefined' && lastLiveMaskCanvas) || 
+                       (typeof lastExportMaskCanvas !== 'undefined' && lastExportMaskCanvas) || 
+                       (typeof segExportCachedMaskCanvas !== 'undefined' && segExportCachedMaskCanvas) || null;
+
+    const hasPersonMask = Boolean(maskCanvas && maskCanvas.width && maskCanvas.height);
+
+    // If B-roll cutaway, front slam, or no person mask, route everything in front
+    let targetBehindCtx = (isBehind && ctxBehind && ctxBehind !== ctxFore) ? ctxBehind : ctxFore;
+    if (isFrontSlam || isCutaway || !hasPersonMask) {
+      targetBehindCtx = ctxFore;
+      if (!hasPersonMask && isBehind && !_csMaskFailToastShown && !showAll) {
+        _csMaskFailToastShown = true;
+        showToast('Person mask unavailable, captions shown in front', 3000);
+      }
+    }
+
     // Exit fade & scale down (last 0.12s)
     let exitAlpha = 1.0;
     let exitScale = 1.0;
@@ -1632,47 +1771,97 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       exitScale = 1.0 - 0.05 * exitP;
     }
 
-    // Target behind canvas: if ctxBehind is null or !isBehind, draw onto ctxFore
-    const targetBehindCtx = (isBehind && ctxBehind && ctxBehind !== ctxFore) ? ctxBehind : ctxFore;
-
-    // Head-top positioning
-    const isOdd = (capIdx % 2 === 1);
-    let headTopY = null;
-    if (typeof lastLiveMaskCanvas !== 'undefined' && lastLiveMaskCanvas) {
-      headTopY = getPersonMaskHeadTop(lastLiveMaskCanvas, H);
-    } else if (typeof lastExportMaskCanvas !== 'undefined' && lastExportMaskCanvas) {
-      headTopY = getPersonMaskHeadTop(lastExportMaskCanvas, H);
-    }
-
-    let heroY;
-    if (headTopY !== null && headTopY > H * 0.05 && headTopY < H * 0.70) {
-      heroY = isOdd ? (headTopY + H * HERO_HEAD_GAP_RATIO) : (headTopY + H * 0.44);
-    } else {
-      heroY = isOdd ? (H * 0.30) : (H * 0.55);
-    }
-
-    // Clamp heroY within 8% safe margins
-    heroY = Math.max(H * BEHIND_SAFE_MARGIN, Math.min(H * 0.72, heroY));
-
     // Typography metrics
     const heroFontSize = Math.round(W * 0.19);
     const heroFont = `900 ${heroFontSize}px 'Montserrat', 'Impact', 'Anton', sans-serif`;
 
-    // Format animated number if applicable
     let displayHeroText = data.heroText;
     if (data.heroIsNum && !showAll) {
       const numProgress = Math.min(1, Math.max(0, stTime / 0.50));
       displayHeroText = formatNumberCounter(data.heroText, numProgress);
     }
 
-    // Measure Hero Word
-    targetBehindCtx.save();
-    targetBehindCtx.font = heroFont;
-    const heroMetrics = targetBehindCtx.measureText(displayHeroText);
+    // Measure hero word
+    ctxFore.save();
+    ctxFore.font = heroFont;
+    const heroMetrics = ctxFore.measureText(displayHeroText);
     const heroW = heroMetrics.width;
     const heroH = heroFontSize * 0.82;
-    const heroX = Math.round((W - heroW) / 2);
-    targetBehindCtx.restore();
+    ctxFore.restore();
+
+    // Base horizontal position (centered within safe margins)
+    let heroX = Math.round((W - heroW) / 2);
+    heroX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - heroW, heroX));
+
+    // Head-top detection
+    let headTopY = null;
+    if (hasPersonMask) {
+      headTopY = getPersonMaskHeadTop(maskCanvas, H);
+    }
+
+    // AUTO-OVERLAP EVALUATION (Evaluated at caption start and re-checked every 0.25s)
+    const checkStep = Math.floor(stTime / RECHECK_INTERVAL);
+    const stateKey = cap.id || String(capIdx);
+    let state = _reSmoothedYMap.get(stateKey);
+
+    if (!state || state.step !== checkStep || showAll) {
+      let targetY = H * 0.32;
+      let optOverlap = 0.30;
+      if (hasPersonMask) {
+        const opt = findOptimalAutoOverlapY(maskCanvas, heroX, heroW, heroH, headTopY, W, H);
+        targetY = opt.y;
+        optOverlap = opt.overlap;
+      } else {
+        const isOdd = (capIdx % 2 === 1);
+        targetY = isOdd ? (H * 0.30) : (H * 0.55);
+      }
+
+      if (!state) {
+        state = { currentY: targetY, targetY, step: checkStep, lastT: t, overlap: optOverlap };
+      } else {
+        state.targetY = targetY;
+        state.step = checkStep;
+        state.overlap = optOverlap;
+      }
+      _reSmoothedYMap.set(stateKey, state);
+
+      // Logging: console.log('[BEHIND]', captionIndex, 'overlap', value, 'y', value) once per caption
+      if (_lastLoggedBehindCapIdx !== capIdx && !showAll) {
+        _lastLoggedBehindCapIdx = capIdx;
+        console.log('[BEHIND]', capIdx, 'overlap', optOverlap.toFixed(2), 'y', Math.round(targetY));
+      }
+    }
+
+    // Smooth y over time (0.25s)
+    const dt = Math.max(0.016, Math.min(0.25, t - (state.lastT || t)));
+    state.lastT = t;
+    state.currentY = state.currentY + (state.targetY - state.currentY) * Math.min(1, dt / Y_SMOOTH_TIME);
+    let heroY = state.currentY;
+
+    // READABILITY GUARD: if visible ratio < 0.55, shift up by 4% of frame height
+    if (hasPersonMask && !showAll) {
+      const curOverlap = computeHeroMaskOverlap(maskCanvas, heroX, heroY, heroW, heroH, W, H);
+      const visibleRatio = 1.0 - curOverlap;
+      if (visibleRatio < MIN_VISIBLE_RATIO) {
+        heroY = Math.max(H * BEHIND_SAFE_MARGIN, heroY - H * READABILITY_SHIFT_RATIO);
+      }
+    }
+
+    // Clamp heroY within 8% safe margins
+    heroY = Math.max(H * BEHIND_SAFE_MARGIN, Math.min(H * (1 - BEHIND_SAFE_MARGIN) - heroH, heroY));
+
+    // Slight parallax offset: opposite to person horizontal movement, at most 6px, smoothed
+    let parallaxX = 0;
+    if (hasPersonMask && !showAll) {
+      const personNormX = getPersonCentroidX(maskCanvas);
+      const targetParallax = -personNormX * PARALLAX_MAX_PX;
+      let pState = _reParallaxMap.get(stateKey) || { current: 0 };
+      pState.current = pState.current + (targetParallax - pState.current) * Math.min(1, dt / Y_SMOOTH_TIME);
+      _reParallaxMap.set(stateKey, pState);
+      parallaxX = pState.current;
+    }
+    heroX += parallaxX;
+    heroX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - heroW, heroX));
 
     // Floating subtle sine wave
     const floatY = (!showAll) ? Math.sin(stTime * (2 * Math.PI / 2.5)) * 3 : 0;
@@ -1684,69 +1873,81 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       flipScaleX = -1.0 + 2.0 * (stTime / 0.08);
     }
 
+    // Prepare offscreen canvas for depth shadow compositing
+    const useDepthShadow = Boolean(S.realEstateConfig && S.realEstateConfig.depthShadow !== false && hasPersonMask && targetBehindCtx !== ctxFore);
+
+    if (useDepthShadow) {
+      if (!_reHeroCanvas) {
+        _reHeroCanvas = document.createElement('canvas');
+        _reHeroCtx = _reHeroCanvas.getContext('2d');
+      }
+      if (_reHeroCanvas.width !== W || _reHeroCanvas.height !== H) {
+        _reHeroCanvas.width = W;
+        _reHeroCanvas.height = H;
+      }
+      _reHeroCtx.clearRect(0, 0, W, H);
+    }
+
+    const drawHeroDestCtx = useDepthShadow ? _reHeroCtx : targetBehindCtx;
+
     // ------------------------------------------------------------------------
     // 1. DRAW HERO WORD (BEHIND LAYER)
     // ------------------------------------------------------------------------
-    targetBehindCtx.save();
-    targetBehindCtx.globalAlpha = exitAlpha;
+    drawHeroDestCtx.save();
+    drawHeroDestCtx.globalAlpha = exitAlpha;
 
-    // Apply flip & exit scale around hero word center
-    const heroCenterX = W / 2;
+    const heroCenterX = heroX + heroW / 2;
     const heroCenterY = heroY + heroH / 2;
-    targetBehindCtx.translate(heroCenterX, heroCenterY + floatY);
-    targetBehindCtx.scale(flipScaleX * exitScale, exitScale);
-    targetBehindCtx.translate(-heroCenterX, -heroCenterY);
+    drawHeroDestCtx.translate(heroCenterX, heroCenterY + floatY);
+    drawHeroDestCtx.scale(flipScaleX * exitScale, exitScale);
+    drawHeroDestCtx.translate(-heroCenterX, -heroCenterY);
 
-    // Diagonal 45-degree Gradient
-    const heroGrad = targetBehindCtx.createLinearGradient(heroX, heroY, heroX + heroW, heroY + heroH);
+    const heroGrad = drawHeroDestCtx.createLinearGradient(heroX, heroY, heroX + heroW, heroY + heroH);
     heroGrad.addColorStop(0, data.palette.gradient[0]);
     heroGrad.addColorStop(1, data.palette.gradient[1]);
 
-    // Entrance letter rise stagger
     const letters = displayHeroText.split('');
     const charMetrics = [];
-    targetBehindCtx.font = heroFont;
+    drawHeroDestCtx.font = heroFont;
     for (let ci = 0; ci < letters.length; ci++) {
-      charMetrics.push(targetBehindCtx.measureText(letters[ci]).width);
+      charMetrics.push(drawHeroDestCtx.measureText(letters[ci]).width);
     }
     const letterSpacing = 2;
     const totalCharW = charMetrics.reduce((acc, m) => acc + m, 0) + (letters.length - 1) * letterSpacing;
-    let curCharX = Math.round((W - totalCharW) / 2);
+    let curCharX = Math.round((W - totalCharW) / 2) + parallaxX;
 
     // Glitch passes on entrance (< 0.10s)
     if (!showAll && stTime < 0.10) {
       const glitchP = 1.0 - (stTime / 0.10);
       const glitchOffset = 4.0 * glitchP;
 
-      // Cyan pass
-      targetBehindCtx.save();
-      targetBehindCtx.translate(glitchOffset, 0);
-      targetBehindCtx.fillStyle = `rgba(0, 245, 212, ${0.45 * glitchP})`;
-      targetBehindCtx.font = heroFont;
-      targetBehindCtx.textAlign = 'left';
-      targetBehindCtx.textBaseline = 'top';
-      targetBehindCtx.fillText(displayHeroText, heroX, heroY);
-      targetBehindCtx.restore();
+      drawHeroDestCtx.save();
+      drawHeroDestCtx.translate(glitchOffset, 0);
+      drawHeroDestCtx.fillStyle = `rgba(0, 245, 212, ${0.45 * glitchP})`;
+      drawHeroDestCtx.font = heroFont;
+      drawHeroDestCtx.textAlign = 'left';
+      drawHeroDestCtx.textBaseline = 'top';
+      drawHeroDestCtx.fillText(displayHeroText, heroX, heroY);
+      drawHeroDestCtx.restore();
 
-      // Magenta pass
-      targetBehindCtx.save();
-      targetBehindCtx.translate(-glitchOffset, 0);
-      targetBehindCtx.fillStyle = `rgba(255, 0, 127, ${0.45 * glitchP})`;
-      targetBehindCtx.font = heroFont;
-      targetBehindCtx.textAlign = 'left';
-      targetBehindCtx.textBaseline = 'top';
-      targetBehindCtx.fillText(displayHeroText, heroX, heroY);
-      targetBehindCtx.restore();
+      drawHeroDestCtx.save();
+      drawHeroDestCtx.translate(-glitchOffset, 0);
+      drawHeroDestCtx.fillStyle = `rgba(255, 0, 127, ${0.45 * glitchP})`;
+      drawHeroDestCtx.font = heroFont;
+      drawHeroDestCtx.textAlign = 'left';
+      drawHeroDestCtx.textBaseline = 'top';
+      drawHeroDestCtx.fillText(displayHeroText, heroX, heroY);
+      drawHeroDestCtx.restore();
     }
 
-    // Draw main hero word letters
-    targetBehindCtx.font = heroFont;
-    targetBehindCtx.textAlign = 'left';
-    targetBehindCtx.textBaseline = 'top';
-    targetBehindCtx.fillStyle = heroGrad;
-    targetBehindCtx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-    targetBehindCtx.shadowBlur = 12;
-    targetBehindCtx.shadowOffsetY = 4;
+    // Main hero letters
+    drawHeroDestCtx.font = heroFont;
+    drawHeroDestCtx.textAlign = 'left';
+    drawHeroDestCtx.textBaseline = 'top';
+    drawHeroDestCtx.fillStyle = heroGrad;
+    drawHeroDestCtx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    drawHeroDestCtx.shadowBlur = 12;
+    drawHeroDestCtx.shadowOffsetY = 4;
 
     for (let ci = 0; ci < letters.length; ci++) {
       const charDelay = ci * 0.03;
@@ -1765,10 +1966,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       }
 
       if (charAlpha > 0) {
-        targetBehindCtx.save();
-        targetBehindCtx.globalAlpha = exitAlpha * charAlpha;
-        targetBehindCtx.fillText(letters[ci], curCharX, heroY + charYOffset);
-        targetBehindCtx.restore();
+        drawHeroDestCtx.save();
+        drawHeroDestCtx.globalAlpha = exitAlpha * charAlpha;
+        drawHeroDestCtx.fillText(letters[ci], curCharX, heroY + charYOffset);
+        drawHeroDestCtx.restore();
       }
       curCharX += charMetrics[ci] + letterSpacing;
     }
@@ -1777,20 +1978,109 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (!showAll || showAll) {
       const swipeP = showAll ? 1.0 : Math.min(1.0, Math.max(0, stTime / 0.20));
       const barW = heroW * swipeP;
-      targetBehindCtx.save();
-      targetBehindCtx.shadowColor = data.palette.accent;
-      targetBehindCtx.shadowBlur = 8;
-      targetBehindCtx.fillStyle = data.palette.accent;
-      targetBehindCtx.fillRect(heroX, heroY + heroH + 6, barW, Math.max(3, Math.round(H * 0.005)));
-      targetBehindCtx.restore();
+      drawHeroDestCtx.save();
+      drawHeroDestCtx.shadowColor = data.palette.accent;
+      drawHeroDestCtx.shadowBlur = 8;
+      drawHeroDestCtx.fillStyle = data.palette.accent;
+      drawHeroDestCtx.fillRect(heroX, heroY + heroH + 6, barW, Math.max(3, Math.round(H * 0.005)));
+      drawHeroDestCtx.restore();
     }
 
-    targetBehindCtx.restore();
+    // SECOND STRONG WORD BEHIND (Captions of 4+ words: second-best word drawn smaller if it fits)
+    let secondBehindDrawn = false;
+    if (data.secondWord && !data.isSmallCaption) {
+      const secondText = (data.secondWord.t || data.secondWord.word || '').toUpperCase();
+      const secondFontSize = Math.round(W * 0.105);
+      const secondFont = `800 ${secondFontSize}px 'Montserrat', sans-serif`;
+
+      drawHeroDestCtx.font = secondFont;
+      const secondMetrics = drawHeroDestCtx.measureText(secondText);
+      const secondW = secondMetrics.width;
+      const secondH = secondFontSize * 0.85;
+      const secondX = Math.round((W - secondW) / 2) + parallaxX;
+
+      // Position check: above or below hero word without overlapping
+      let secondY = heroY - secondH - 14;
+      const fitsAbove = secondY >= H * BEHIND_SAFE_MARGIN;
+      const fitsBelow = (heroY + heroH + 18 + secondH) <= H * (1 - BEHIND_SAFE_MARGIN);
+
+      if (fitsAbove && data.secondBehindIdx < data.heroIdx) {
+        secondBehindDrawn = true;
+      } else if (fitsBelow && data.secondBehindIdx > data.heroIdx) {
+        secondY = heroY + heroH + 18;
+        secondBehindDrawn = true;
+      }
+
+      if (secondBehindDrawn) {
+        drawHeroDestCtx.save();
+        drawHeroDestCtx.fillStyle = '#FFFFFF';
+        drawHeroDestCtx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        drawHeroDestCtx.shadowBlur = 8;
+        drawHeroDestCtx.fillText(secondText, secondX, secondY);
+        drawHeroDestCtx.restore();
+      }
+    }
+
+    // 1-2 words captions: if 2nd word exists, draw it behind as well
+    if (data.isSmallCaption && words.length === 2) {
+      const smallWord2 = words[1];
+      const smallText2 = (smallWord2.t || smallWord2.word || '').toUpperCase();
+      const smallFontSize = Math.round(W * 0.12);
+      drawHeroDestCtx.font = `800 ${smallFontSize}px 'Montserrat', sans-serif`;
+      const smMetrics = drawHeroDestCtx.measureText(smallText2);
+      const smW = smMetrics.width;
+      const smX = Math.round((W - smW) / 2) + parallaxX;
+      const smY = heroY + heroH + 14;
+      if (smY + smallFontSize <= H * (1 - BEHIND_SAFE_MARGIN)) {
+        drawHeroDestCtx.save();
+        drawHeroDestCtx.fillStyle = data.palette.accent;
+        drawHeroDestCtx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        drawHeroDestCtx.shadowBlur = 8;
+        drawHeroDestCtx.fillText(smallText2, smX, smY);
+        drawHeroDestCtx.restore();
+      }
+    }
+
+    drawHeroDestCtx.restore();
+
+    // DEPTH CUE: Soft shadow of the person onto the hero word
+    if (useDepthShadow && maskCanvas) {
+      if (!_reShadowCanvas) {
+        _reShadowCanvas = document.createElement('canvas');
+        _reShadowCtx = _reShadowCanvas.getContext('2d');
+      }
+      if (_reShadowCanvas.width !== W || _reShadowCanvas.height !== H) {
+        _reShadowCanvas.width = W;
+        _reShadowCanvas.height = H;
+      }
+
+      const frameKey = `${W}x${H}::${t.toFixed(2)}`;
+      if (_lastShadowFrameKey !== frameKey) {
+        _lastShadowFrameKey = frameKey;
+        _reShadowCtx.clearRect(0, 0, W, H);
+        _reShadowCtx.filter = `blur(${SHADOW_BLUR}px)`;
+        _reShadowCtx.drawImage(maskCanvas, SHADOW_OFFSET_X, SHADOW_OFFSET_Y, W, H);
+        _reShadowCtx.filter = 'none';
+        _reShadowCtx.globalCompositeOperation = 'source-in';
+        _reShadowCtx.fillStyle = `rgba(0, 0, 0, ${SHADOW_OPACITY})`;
+        _reShadowCtx.fillRect(0, 0, W, H);
+        _reShadowCtx.globalCompositeOperation = 'source-over';
+      }
+
+      // Apply shadow exclusively to hero letters via source-atop
+      _reHeroCtx.save();
+      _reHeroCtx.globalCompositeOperation = 'source-atop';
+      _reHeroCtx.drawImage(_reShadowCanvas, 0, 0, W, H);
+      _reHeroCtx.restore();
+
+      // Composite hero layer to target behind context
+      targetBehindCtx.drawImage(_reHeroCanvas, 0, 0, W, H);
+    }
 
     // ------------------------------------------------------------------------
     // 2. DRAW TOP LINE (FRONT LAYER)
     // ------------------------------------------------------------------------
-    if (data.topWords && data.topWords.length > 0) {
+    if (data.topWords && data.topWords.length > 0 && !data.isSmallCaption) {
       const topText = data.topWords.map(w => w.t || w.word || '').join(' ').toUpperCase();
       const topFontSize = Math.round(W * 0.046);
       const topFont = `700 ${topFontSize}px 'Montserrat', 'Poppins', sans-serif`;
@@ -1805,7 +2095,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const topAlpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.15) * exitAlpha;
       ctxFore.globalAlpha = topAlpha;
 
-      // Dark translucent pill behind top line
       ctxFore.fillStyle = 'rgba(15, 23, 42, 0.65)';
       const pillPadX = 12;
       const pillPadY = 4;
@@ -1813,7 +2102,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       ctxFore.roundRect(topX - pillPadX, topY - pillPadY, topW + pillPadX * 2, topFontSize + pillPadY * 2, 6);
       ctxFore.fill();
 
-      // Top line text
       ctxFore.fillStyle = '#FFFFFF';
       ctxFore.textAlign = 'left';
       ctxFore.textBaseline = 'top';
@@ -1826,7 +2114,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     // ------------------------------------------------------------------------
     // 3. DRAW BOTTOM LINES (FRONT LAYER)
     // ------------------------------------------------------------------------
-    if (data.bottomLines && data.bottomLines.length > 0) {
+    if (data.bottomLines && data.bottomLines.length > 0 && !data.isSmallCaption) {
       const bottomFontSize = Math.round(W * 0.054);
       const bottomFont = `800 ${bottomFontSize}px 'Montserrat', 'Poppins', sans-serif`;
       const lineSpacing = bottomFontSize * 1.32;
@@ -1840,7 +2128,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         const lineW = lineMetrics.width;
         const lineX = Math.round((W - lineW) / 2);
 
-        // Entrance slide up with 0.05s stagger per line
         const lineStart = 0.08 + lineIdx * 0.05;
         let lineYOffset = 0;
         let lineAlpha = 1.0;
@@ -1861,7 +2148,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         if (lineAlpha > 0) {
           ctxFore.globalAlpha = lineAlpha * exitAlpha;
 
-          // Glass pill behind bottom line
           ctxFore.fillStyle = 'rgba(15, 23, 42, 0.70)';
           const bPadX = 14;
           const bPadY = 5;
@@ -1869,7 +2155,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           ctxFore.roundRect(lineX - bPadX, curLineY - bPadY, lineW + bPadX * 2, bottomFontSize + bPadY * 2, 8);
           ctxFore.fill();
 
-          // Bottom line text
           ctxFore.fillStyle = '#FFFFFF';
           ctxFore.textAlign = 'left';
           ctxFore.textBaseline = 'top';
@@ -1883,8 +2168,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
   }
 
-  // Draw Overlays: Lower Third, Location Tag, PiP Inset
-  function drawRealEstateOverlays(ctx, W, H, t) {
+    function drawRealEstateOverlays(ctx, W, H, t) {
     if (!ctx) return;
     const cfg = S.realEstateConfig || {};
     if (!cfg.enabled && (!S.style || S.style.videoTemplate !== 'specialRealEstate')) return;
@@ -7438,6 +7722,18 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     const chkGlow = $('chkRealEstateGlow');
     const chkLowerThird = $('chkRealEstateLowerThird');
     const chkLocation = $('chkRealEstateLocation');
+    const chkDepthShadow = $('chkRealEstateDepthShadow');
+    const isPhoneUser = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent));
+    if (chkDepthShadow) {
+      chkDepthShadow.checked = !isPhoneUser;
+      if (!S.realEstateConfig) S.realEstateConfig = {};
+      S.realEstateConfig.depthShadow = !isPhoneUser;
+      chkDepthShadow.addEventListener('change', () => {
+        if (!S.realEstateConfig) S.realEstateConfig = {};
+        S.realEstateConfig.depthShadow = chkDepthShadow.checked;
+        renderCanvas();
+      });
+    }
     const inputName = $('inputRealEstateName');
     const inputRole = $('inputRealEstateRole');
 
