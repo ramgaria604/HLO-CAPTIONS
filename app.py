@@ -960,7 +960,13 @@ def auth_google():
             pass
     user_file.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
 
-    # Sync User Account Credits from Server Records by exact email address
+    existing = {}
+    if user_file.exists():
+        try:
+            existing = json.loads(user_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
     dev_file = DATA_DIR / "device_credits.json"
     dev_data = {}
     if dev_file.exists():
@@ -969,28 +975,35 @@ def auth_google():
         except Exception:
             pass
 
+    client_credits = d.get("client_credits")
+    free_used = bool(d.get("free_used"))
     user_record = dev_data.get(email)
-    if not user_record:
-        # First time this Gmail account has logged in -> Grant 1 Free Export!
-        user_record = {"credits": 1, "used": 0, "email": email, "name": name, "created_at": time.time()}
+    if not user_record and "credits" in existing:
+        user_record = {"credits": existing["credits"], "used": existing.get("used", 0), "email": email, "name": name}
         dev_data[email] = user_record
-        try:
-            dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+    elif not user_record:
+        init_credits = 0 if free_used or client_credits == 0 else (client_credits if isinstance(client_credits, int) and client_credits > 0 else 1)
+        user_record = {"credits": init_credits, "used": 1 if init_credits == 0 else 0, "email": email, "name": name, "created_at": time.time()}
+        dev_data[email] = user_record
     else:
-        # User has logged in before -> Update name/email metadata
         user_record["email"] = email
         if name: user_record["name"] = name
         user_record["last_login"] = time.time()
         dev_data[email] = user_record
-        try:
-            dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+
+    try:
+        dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
 
     user_credits = user_record.get("credits", 0)
     user_used = user_record.get("used", 0)
+    user_data["credits"] = user_credits
+    user_data["used"] = user_used
+    try:
+        user_file.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
 
     return jsonify(ok=True, user=user_data, credits=user_credits, used=user_used)
 
@@ -1094,9 +1107,11 @@ def load_coupons():
 @app.post("/api/credits/check")
 def check_device_credits():
     """Checks server-side device export history so refresh or private tab cannot bypass."""
-    d = request.get_json(force=True)
+    d = request.get_json(force=True) or {}
     device_id = (d.get("device_id") or "").strip()
     user_email = (d.get("email") or "").strip().lower()
+    client_credits = d.get("client_credits")
+    free_used = bool(d.get("free_used"))
     key = user_email or device_id
     if not key:
         return jsonify(credits=1, used=0)
@@ -1109,23 +1124,45 @@ def check_device_credits():
         except Exception:
             pass
 
-    # If logged in user, look up by email first, fallback to device_id
+    user_id = re.sub(r"\W", "_", user_email) if user_email else None
+    user_file = (USERS_DIR / f"{user_id}.json") if user_id else None
+    user_profile = {}
+    if user_file and user_file.exists():
+        try:
+            user_profile = json.loads(user_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
     record = None
     if user_email and user_email in data:
         record = data[user_email]
     elif device_id and device_id in data:
         record = data[device_id]
+    elif user_profile and "credits" in user_profile:
+        record = {"credits": user_profile["credits"], "used": user_profile.get("used", 1), "email": user_email}
+        data[user_email] = record
 
     if not record:
-        # Brand new user or device: give 1 free export
-        record = {"credits": 1, "used": 0, "created_at": time.time()}
+        if free_used or (isinstance(client_credits, int) and client_credits == 0):
+            record = {"credits": 0, "used": 1, "created_at": time.time()}
+        elif isinstance(client_credits, int) and client_credits > 0:
+            record = {"credits": client_credits, "used": 0, "created_at": time.time()}
+        else:
+            record = {"credits": 1, "used": 0, "created_at": time.time()}
         if user_email: record["email"] = user_email
         data[key] = record
         try:
             dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
         except Exception:
             pass
-        return jsonify(credits=1, used=0)
+        if user_file:
+            user_profile["credits"] = record["credits"]
+            user_profile["used"] = record.get("used", 0)
+            try:
+                user_file.write_text(json.dumps(user_profile, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+        return jsonify(credits=record["credits"], used=record.get("used", 0))
 
     # Check for expiration of pack
     cur_credits = record.get("credits", 0)
@@ -1145,7 +1182,7 @@ def check_device_credits():
 @app.post("/api/credits/consume")
 def consume_device_credit():
     """Deducts credit server-side upon video export and tracks exact user email & usage."""
-    d = request.get_json(force=True)
+    d = request.get_json(force=True) or {}
     device_id = (d.get("device_id") or "").strip()
     user_email = (d.get("email") or "").strip().lower()
     user_name = (d.get("name") or "").strip()
@@ -1162,8 +1199,9 @@ def consume_device_credit():
             pass
 
     record = data.get(key, {"credits": 1, "used": 0})
-    cur_credits = record.get("credits", 0)
-    record["credits"] = max(0, cur_credits - 1)
+    cur_credits = record.get("credits", 1)
+    new_credits = max(0, cur_credits - 1)
+    record["credits"] = new_credits
     record["used"] = record.get("used", 0) + 1
     record["last_export"] = time.time()
     if user_email:
@@ -1171,13 +1209,71 @@ def consume_device_credit():
     if user_name:
         record["name"] = user_name
     data[key] = record
+    if device_id and device_id != key:
+        data[device_id] = {**record, "credits": new_credits}
 
     try:
         dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
     except Exception:
         pass
 
-    return jsonify(ok=True, remaining_credits=record["credits"])
+    if user_email:
+        user_id = re.sub(r"\W", "_", user_email)
+        user_file = USERS_DIR / f"{user_id}.json"
+        if user_file.exists():
+            try:
+                u_data = json.loads(user_file.read_text(encoding="utf-8"))
+                u_data["credits"] = new_credits
+                u_data["used"] = record["used"]
+                user_file.write_text(json.dumps(u_data, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+
+    return jsonify(ok=True, remaining_credits=new_credits)
+
+
+@app.post("/api/credits/sync")
+def sync_device_credits():
+    """Allows client to sync preserved valid credits if server restarted."""
+    d = request.get_json(force=True) or {}
+    device_id = (d.get("device_id") or "").strip()
+    user_email = (d.get("email") or "").strip().lower()
+    credits = d.get("credits")
+    if not isinstance(credits, int) or credits < 0:
+        return jsonify(ok=False), 400
+    key = user_email or device_id
+    if not key:
+        return jsonify(ok=False), 400
+
+    dev_file = DATA_DIR / "device_credits.json"
+    data = {}
+    if dev_file.exists():
+        try:
+            data = json.loads(dev_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    record = data.get(key, {})
+    if credits > record.get("credits", 0):
+        record["credits"] = credits
+        if user_email: record["email"] = user_email
+        data[key] = record
+        try:
+            dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+        if user_email:
+            user_id = re.sub(r"\W", "_", user_email)
+            u_file = USERS_DIR / f"{user_id}.json"
+            if u_file.exists():
+                try:
+                    u_data = json.loads(u_file.read_text(encoding="utf-8"))
+                    u_data["credits"] = credits
+                    u_file.write_text(json.dumps(u_data, indent=2), encoding="utf-8")
+                except Exception:
+                    pass
+
+    return jsonify(ok=True, credits=record.get("credits", credits))
 
 
 @app.get("/api/admin/users")

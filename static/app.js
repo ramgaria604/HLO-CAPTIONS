@@ -1684,10 +1684,40 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // INSTAGRAM VIP COUPON & EXPORT CREDITS SYSTEM
   // ==========================================================================
   function saveUserCredits(val) {
-    S.credits = val;
-    localStorage.setItem('cs_credits', String(val));
-    if (S.user && S.user.email) {
-      try { localStorage.setItem('cs_credits_' + S.user.email.trim().toLowerCase(), String(val)); } catch(_) {}
+    const num = Math.max(0, parseInt(val, 10) || 0);
+    S.credits = num;
+    localStorage.setItem('cs_credits', String(num));
+    if (num === 0) {
+      localStorage.setItem('cs_free_used', 'true');
+    }
+    const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
+    if (userEmail) {
+      try {
+        localStorage.setItem('cs_credits_' + userEmail, String(num));
+        if (num === 0) {
+          localStorage.setItem('cs_free_used_' + userEmail, 'true');
+        }
+      } catch (_) {}
+    }
+  }
+
+  function deductCreditAfterExport() {
+    saveUserCredits(Math.max(0, S.credits - 1));
+    updateCreditsUI();
+
+    const devId = localStorage.getItem('cs_device_id');
+    const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
+    const userName = S.user ? (S.user.name || '') : '';
+    if (devId || userEmail) {
+      fetch('/api/credits/consume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: devId,
+          email: userEmail,
+          name: userName
+        })
+      }).catch(() => {});
     }
   }
 
@@ -1738,17 +1768,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // Load credits strictly linked to Gmail/Account if logged in
     const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
     const userCreditKey = userEmail ? ('cs_credits_' + userEmail) : 'cs_credits';
+    const freeUsedKey = userEmail ? ('cs_free_used_' + userEmail) : 'cs_free_used';
+
     let saved = localStorage.getItem(userCreditKey) ?? localStorage.getItem('cs_credits');
-    // If not logged in, default to 1, if logged in read exact saved
-    S.credits = saved !== null ? parseInt(saved, 10) : 1;
-    if (isNaN(S.credits)) S.credits = 0;
+    let hasUsedFree = localStorage.getItem(freeUsedKey) === 'true' || localStorage.getItem('cs_free_used') === 'true';
+
+    if (saved !== null && !isNaN(parseInt(saved, 10))) {
+      S.credits = Math.max(0, parseInt(saved, 10));
+    } else if (hasUsedFree) {
+      S.credits = 0;
+    } else {
+      S.credits = 1;
+      localStorage.setItem('cs_credits', '1');
+      if (userEmail) localStorage.setItem(userCreditKey, '1');
+    }
     updateCreditsUI();
 
     // Enforce 1-Free-Export per Gmail/Device with authoritative server sync
     const checkPayload = {
       device_id: deviceId,
       email: userEmail,
-      user_id: S.user ? S.user.id : null
+      user_id: S.user ? S.user.id : null,
+      client_credits: S.credits,
+      free_used: hasUsedFree || S.credits === 0
     };
     fetch('/api/credits/check', {
       method: 'POST',
@@ -1756,10 +1798,21 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       body: JSON.stringify(checkPayload)
     }).then(r => r.json()).then(data => {
       if (typeof data.credits === 'number') {
-        // Authoritative server balance: refresh will NOT reset consumed credits
-        S.credits = data.credits;
-        localStorage.setItem('cs_credits', String(S.credits));
-        if (userEmail) localStorage.setItem('cs_credits_' + userEmail, String(S.credits));
+        if (hasUsedFree && data.credits === 1 && data.used === 0) {
+          S.credits = 0;
+          saveUserCredits(0);
+        } else if (saved !== null && parseInt(saved, 10) > data.credits && data.credits === 1 && data.used === 0) {
+          S.credits = parseInt(saved, 10);
+          saveUserCredits(S.credits);
+          fetch('/api/credits/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_id: deviceId, email: userEmail, credits: S.credits })
+          }).catch(() => {});
+        } else {
+          S.credits = Math.max(0, data.credits);
+          saveUserCredits(S.credits);
+        }
         updateCreditsUI();
       }
     }).catch(e => console.warn('Credit check notice:', e));
@@ -5399,24 +5452,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const blob = new Blob([buffer], { type: 'video/mp4' });
     const url = URL.createObjectURL(blob);
 
-    saveUserCredits(Math.max(0, S.credits - 1));
-    updateCreditsUI();
-
-    const devId = localStorage.getItem('cs_device_id');
-    const userEmail = S.user ? (S.user.email || '') : '';
-    const userName = S.user ? (S.user.name || '') : '';
-    if (devId || userEmail) {
-      fetch('/api/credits/consume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          device_id: devId,
-          email: userEmail,
-          name: userName
-        })
-      }).catch(() => {});
-    }
-
+    deductCreditAfterExport();
     updateExportPipeline(3);
     showExportComplete(url);
   }
@@ -5562,25 +5598,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           const recordedBlob = new Blob(chunks, { type: chosenMime || 'video/webm' });
           const ext = (chosenMime && chosenMime.includes('mp4')) ? 'mp4' : 'webm';
 
-          S.credits = Math.max(0, S.credits - 1);
-          localStorage.setItem('cs_credits', String(S.credits));
-          updateCreditsUI();
-
-          const devId = localStorage.getItem('cs_device_id');
-          const userEmail = S.user ? (S.user.email || '') : '';
-          const userName = S.user ? (S.user.name || '') : '';
-          if (devId || userEmail) {
-            fetch('/api/credits/consume', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                device_id: devId,
-                email: userEmail,
-                name: userName
-              })
-            }).catch(() => {});
-          }
-
           const formData = new FormData();
           formData.append('video', recordedBlob, `captions_overlay.${ext}`);
           formData.append('originalVideo', S.filename || '');
@@ -5607,6 +5624,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           }
 
           if (!serverDownloadUrl) throw new Error('Server export failed');
+          deductCreditAfterExport();
           updateExportPipeline(3);
           showExportComplete(serverDownloadUrl);
           resolve();
@@ -5735,18 +5753,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       S.exportPayload = payload;
       S.exportRecovered = false;
       S.exportJobId = await queueExport(payload);
-          S.credits = Math.max(0, S.credits - 1);
-          localStorage.setItem('cs_credits', String(S.credits));
-          updateCreditsUI();
-          // Sync deduction with server
-          const devId = localStorage.getItem('cs_device_id');
-          const uEmail = S.user ? (S.user.email || '') : '';
-          const uName = S.user ? (S.user.name || '') : '';
-          fetch('/api/credits/consume', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device_id: devId, email: uEmail, name: uName })
-          }).catch(() => {});
       pollExportStatus(S.exportJobId);
 
     } catch (err) {
@@ -5827,6 +5833,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         if (data.status === 'done' || data.download) {
           clearInterval(S.exportTimer);
           if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+          deductCreditAfterExport();
           updateExportPipeline(3);
           showExportComplete(data.download);
         } else if (data.status === 'error') {
