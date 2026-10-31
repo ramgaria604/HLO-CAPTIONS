@@ -81,11 +81,11 @@
     paletteLock: 'auto',
     cameraPunch: true,
     personGlow: true,
-    lowerThird: true,
+    lowerThird: false,
     locationTag: false,
     depthShadow: !(/Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent))),
-    presenterName: 'Alex Rivera',
-    presenterRole: 'Luxury Real Estate Specialist'
+    presenterName: '',
+    presenterRole: ''
   },
   };
 
@@ -1362,10 +1362,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
 
   // ==========================================================================
-  // SPECIAL REAL ESTATE VIDEO TEMPLATE ENGINE (AUTO-OVERLAP & DEPTH)
+  // SPECIAL REAL ESTATE VIDEO TEMPLATE ENGINE (AUTO-OVERLAP, FIT & DEPTH)
   // ==========================================================================
   const HERO_HEAD_GAP_RATIO = 0.28;
   const BEHIND_SAFE_MARGIN = 0.08;
+  const HERO_MAX_WIDTH_RATIO = 0.84;
+  const GLITCH_DURATION = 0.06;
 
   // Auto-overlap & Depth Constants
   const TARGET_OVERLAP = 0.30;
@@ -1390,13 +1392,26 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     'rooftop', 'designer', 'elegance', 'exquisite', 'master', 'closet', 'garden', 'patio'
   ]);
 
+  const POWER_HERO_WORDS = new Set([
+    'free', 'click', 'comment', 'caption', 'captions', 'animated', 'colorful',
+    'premium', 'link', 'style', 'viral', 'reels', 'easy', 'fast'
+  ]);
+
   const REAL_ESTATE_STOPWORDS = new Set([
+    // English stopwords
     'this', 'that', 'with', 'from', 'have', 'what', 'your', 'about', 'video', 'just', 'like',
     'there', 'their', 'when', 'which', 'will', 'then', 'they', 'the', 'and', 'for', 'are',
     'but', 'not', 'you', 'all', 'any', 'can', 'had', 'her', 'was', 'one', 'our', 'out',
     'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two',
     'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use', 'into',
-    'here', 'come', 'look', 'take', 'make', 'good', 'some', 'than', 'them', 'very'
+    'here', 'come', 'look', 'take', 'make', 'good', 'some', 'than', 'them', 'very',
+    // Extended Hindi / Hinglish / Pronoun / Filler stopwords
+    'tu', 'tujhe', 'tujhko', 'tera', 'teri', 'tere', 'main', 'mujhe', 'mera', 'meri', 'mere',
+    'hum', 'humein', 'aap', 'aapko', 'tum', 'tumhein', 'bas', 'ek', 'hi', 'bhi', 'toh',
+    'na', 'nahi', 'wo', 'woh', 'ye', 'yeh', 'jo', 'jab', 'tab', 'kar', 'karo', 'karna',
+    'karta', 'karti', 'kuch', 'sab', 'mein', 'me', 'se', 'ko', 'ka', 'ki', 'ke', 'par',
+    'pe', 'ne', 'aur', 'ya', 'likh', 'bhej', 'de', 'doonga', 'dunga', 'chahiye', 'hai',
+    'hain', 'tha', 'the'
   ]);
 
   const REAL_ESTATE_PALETTES = {
@@ -1442,6 +1457,23 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
   function easeOutCubic(x) {
     return 1 - Math.pow(1 - x, 3);
+  }
+
+  // Strip leading and trailing punctuation (commas, periods, quotes, ?, !, etc.)
+  function cleanWordForHero(wordStr) {
+    if (!wordStr) return '';
+    return String(wordStr)
+      .trim()
+      .toLowerCase()
+      .replace(/^[^a-zA-Z0-9$€£¥₹]+|[^a-zA-Z0-9$€£¥₹]+$/g, '');
+  }
+
+  function getCleanDisplayHeroText(wordStr) {
+    if (!wordStr) return '';
+    return String(wordStr)
+      .trim()
+      .replace(/^[^a-zA-Z0-9$€£¥₹]+|[^a-zA-Z0-9$€£¥₹]+$/g, '')
+      .toUpperCase();
   }
 
   function isPriceOrNumber(str) {
@@ -1504,7 +1536,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     return null;
   }
 
-  // Horizontal centroid for parallax tracking (-1 .. 1)
   function getPersonCentroidX(maskCanvas) {
     if (!maskCanvas || !maskCanvas.width || !maskCanvas.height) return 0;
     try {
@@ -1534,7 +1565,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     return 0;
   }
 
-  // Fast overlap calculator: fraction of hero bounding box covered by person mask
   function computeHeroMaskOverlap(maskCanvas, heroX, heroY, heroW, heroH, W, H) {
     if (!maskCanvas || !maskCanvas.width || !maskCanvas.height) return 0;
     try {
@@ -1572,7 +1602,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
   }
 
-  // Auto-overlap optimizer: tests candidate vertical positions in 2% steps
   function findOptimalAutoOverlapY(maskCanvas, heroX, heroW, heroH, headTopY, W, H) {
     const yMin = Math.max(H * BEHIND_SAFE_MARGIN, (headTopY !== null ? headTopY - 0.05 * H : H * 0.20));
     const chestY = headTopY !== null ? (headTopY + 0.40 * H) : (H * 0.55);
@@ -1610,8 +1639,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const cap = captions[i];
       const words = cap.words || [];
       const hasTrigger = words.some(w => {
-        const txt = (w.t || w.word || '').toLowerCase();
-        return isPriceOrNumber(txt) || REAL_ESTATE_KEYWORDS.has(txt.replace(/[^a-z]/g, ''));
+        const clean = cleanWordForHero(w.t || w.word || '');
+        return isPriceOrNumber(clean) || REAL_ESTATE_KEYWORDS.has(clean) || POWER_HERO_WORDS.has(clean);
       });
       if (hasTrigger && cap.start - lastPunchTime >= 1.5) {
         lastPunchTime = cap.start;
@@ -1631,14 +1660,15 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     return 1.0;
   }
 
-  // Scored word ranking helper
+  // Scored word ranking with power words & strict stopword rejection
   function scoreRealEstateWord(w, idx) {
-    const clean = (w.t || w.word || '').toLowerCase().replace(/[^a-z]/g, '');
+    const clean = cleanWordForHero(w.t || w.word || '');
+    if (!clean || REAL_ESTATE_STOPWORDS.has(clean)) return -100;
     if (Boolean(w.key)) return 1000 - idx;
-    if (REAL_ESTATE_KEYWORDS.has(clean)) return 800 - idx;
-    if (isPriceOrNumber(w.t || w.word || '')) return 700 - idx;
-    if (clean.length >= 3 && !REAL_ESTATE_STOPWORDS.has(clean)) return 400 + clean.length * 10 - idx;
-    return 100 - idx;
+    if (POWER_HERO_WORDS.has(clean) || REAL_ESTATE_KEYWORDS.has(clean)) return 800 - idx;
+    if (isPriceOrNumber(clean)) return 700 - idx;
+    if (clean.length >= 4) return 400 + clean.length * 10 - idx;
+    return -50;
   }
 
   const _reCaptionCache = new Map();
@@ -1656,9 +1686,13 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       score: scoreRealEstateWord(w, idx)
     })).sort((a, b) => b.score - a.score);
 
+    // If no word scores as a valid hero word (all are stopwords, short fillers, or pronouns)
+    const hasValidHeroWord = ranked.length > 0 && ranked[0].score >= 400;
+
     const heroIdx = ranked.length > 0 ? ranked[0].idx : 0;
     const heroWord = words[heroIdx] || { t: 'ESTATE' };
-    const heroText = (heroWord.t || heroWord.word || '').toUpperCase();
+    const rawHeroText = heroWord.t || heroWord.word || '';
+    const heroText = getCleanDisplayHeroText(rawHeroText);
     const heroIsNum = isPriceOrNumber(heroText);
 
     // 1-2 words captions: all words go behind
@@ -1666,7 +1700,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
     // 4+ words: identify potential second-best behind word
     let secondBehindIdx = -1;
-    if (words.length >= 4 && ranked.length > 1) {
+    if (words.length >= 4 && ranked.length > 1 && ranked[1].score >= 400) {
       secondBehindIdx = ranked[1].idx;
     }
 
@@ -1702,6 +1736,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       heroWord,
       heroText,
       heroIsNum,
+      hasValidHeroWord,
       secondBehindIdx,
       secondWord: secondBehindIdx !== -1 ? words[secondBehindIdx] : null,
       isSmallCaption,
@@ -1723,7 +1758,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   let _reShadowCtx = null;
   let _lastShadowFrameKey = '';
 
-  // Persistent smoothing and logging states
   const _reSmoothedYMap = new Map();
   const _reParallaxMap = new Map();
   let _lastLoggedBehindCapIdx = -1;
@@ -1739,8 +1773,21 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const stTime = Math.max(0, t - cap.start);
     const capDur = Math.max(0.1, cap.end - cap.start);
 
-    // 1 in 5 captions: front "slam" layout (all words drawn in front for visual variety)
-    const isFrontSlam = (capIdx % 5 === 2) || (seededRandom(capIdx + 909) < 0.20);
+    // GHOSTING FIX: If next caption has already started, do not draw this hero word
+    const nextCap = (S.captions && capIdx + 1 < S.captions.length) ? S.captions[capIdx + 1] : null;
+    let exitWindow = 0.12;
+    if (nextCap && typeof nextCap.start === 'number' && nextCap.start > cap.start) {
+      if (t >= nextCap.start && !showAll) {
+        return; // Suppress drawing so two hero words never overlap in time
+      }
+      const gapToNext = nextCap.start - cap.end;
+      if (gapToNext < exitWindow) {
+        exitWindow = Math.max(0.02, Math.min(exitWindow, nextCap.start - cap.start - 0.04));
+      }
+    }
+
+    // 1 in 8 captions: front "slam" layout (all words drawn in front for visual variety)
+    const isFrontSlam = (capIdx % 8 === 3) || (seededRandom(capIdx + 909) < 0.125);
 
     // Active cutaway check
     const isCutaway = Boolean(S.brolls && S.brolls.some(b => b.url && t >= b.start && t <= b.end && (b.layout === 'full' || !b.layout)));
@@ -1752,9 +1799,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
     const hasPersonMask = Boolean(maskCanvas && maskCanvas.width && maskCanvas.height);
 
-    // If B-roll cutaway, front slam, or no person mask, route everything in front
+    // If B-roll cutaway, front slam, no valid hero word, or no person mask, route everything in front
     let targetBehindCtx = (isBehind && ctxBehind && ctxBehind !== ctxFore) ? ctxBehind : ctxFore;
-    if (isFrontSlam || isCutaway || !hasPersonMask) {
+    if (isFrontSlam || isCutaway || !hasPersonMask || !data.hasValidHeroWord) {
       targetBehindCtx = ctxFore;
       if (!hasPersonMask && isBehind && !_csMaskFailToastShown && !showAll) {
         _csMaskFailToastShown = true;
@@ -1762,34 +1809,53 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       }
     }
 
-    // Exit fade & scale down (last 0.12s)
+    // Exit fade & scale down (finishes exactly before next caption starts)
     let exitAlpha = 1.0;
     let exitScale = 1.0;
-    if (!showAll && capDur > 0.12 && stTime >= capDur - 0.12) {
-      const exitP = Math.min(1, (stTime - (capDur - 0.12)) / 0.12);
+    if (!showAll && capDur > exitWindow && stTime >= (capDur - exitWindow)) {
+      const exitP = Math.min(1.0, (stTime - (capDur - exitWindow)) / exitWindow);
       exitAlpha = 1.0 - exitP;
       exitScale = 1.0 - 0.05 * exitP;
     }
-
-    // Typography metrics
-    const heroFontSize = Math.round(W * 0.19);
-    const heroFont = `900 ${heroFontSize}px 'Montserrat', 'Impact', 'Anton', sans-serif`;
 
     let displayHeroText = data.heroText;
     if (data.heroIsNum && !showAll) {
       const numProgress = Math.min(1, Math.max(0, stTime / 0.50));
       displayHeroText = formatNumberCounter(data.heroText, numProgress);
     }
+    // Never draw trailing punctuation on the hero word
+    displayHeroText = getCleanDisplayHeroText(displayHeroText);
 
-    // Measure hero word
+    // FIT CALCULATION: Reduce font size until measured width at PEAK entrance scale <= 0.84 * W
+    const maxAllowedHeroWidth = HERO_MAX_WIDTH_RATIO * W;
+    const peakEntranceScale = 1.10; // Peak overshoot from easeOutBack
+    const letterSpacing = 2;
+    const strokePadding = 8; // Stroke width & italic overhang
+
+    let heroFontSize = Math.round(W * 0.19);
     ctxFore.save();
+    while (heroFontSize > 14) {
+      const testFont = `900 ${heroFontSize}px 'Montserrat', 'Impact', 'Anton', sans-serif`;
+      ctxFore.font = testFont;
+      const m = ctxFore.measureText(displayHeroText);
+      const rawW = m.width + Math.max(0, displayHeroText.length - 1) * letterSpacing + strokePadding;
+      const peakW = rawW * peakEntranceScale;
+      if (peakW <= maxAllowedHeroWidth) {
+        break;
+      }
+      heroFontSize = Math.max(14, Math.floor(heroFontSize * (maxAllowedHeroWidth / peakW)));
+    }
+    const heroFont = `900 ${heroFontSize}px 'Montserrat', 'Impact', 'Anton', sans-serif`;
+    if (typeof document !== 'undefined' && document.fonts && document.fonts.load) {
+      try { document.fonts.load(heroFont); } catch (_) {}
+    }
     ctxFore.font = heroFont;
     const heroMetrics = ctxFore.measureText(displayHeroText);
-    const heroW = heroMetrics.width;
+    const heroW = heroMetrics.width + Math.max(0, displayHeroText.length - 1) * letterSpacing;
     const heroH = heroFontSize * 0.82;
     ctxFore.restore();
 
-    // Base horizontal position (centered within safe margins)
+    // Base horizontal position clamped strictly within 8% safe margins
     let heroX = Math.round((W - heroW) / 2);
     heroX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - heroW, heroX));
 
@@ -1866,8 +1932,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     // Floating subtle sine wave
     const floatY = (!showAll) ? Math.sin(stTime * (2 * Math.PI / 2.5)) * 3 : 0;
 
-    // Horizontal mirror flip (1 in 5 captions, seeded)
-    const hasFlip = (capIdx % 5 === 2) || (seededRandom(capIdx + 77) < 0.20);
+    // Horizontal mirror flip (1 in 8 captions, seeded)
+    const hasFlip = (capIdx % 8 === 3) || (seededRandom(capIdx + 77) < 0.125);
     let flipScaleX = 1.0;
     if (hasFlip && !showAll && stTime < 0.08) {
       flipScaleX = -1.0 + 2.0 * (stTime / 0.08);
@@ -1912,18 +1978,18 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     for (let ci = 0; ci < letters.length; ci++) {
       charMetrics.push(drawHeroDestCtx.measureText(letters[ci]).width);
     }
-    const letterSpacing = 2;
     const totalCharW = charMetrics.reduce((acc, m) => acc + m, 0) + (letters.length - 1) * letterSpacing;
     let curCharX = Math.round((W - totalCharW) / 2) + parallaxX;
 
-    // Glitch passes on entrance (< 0.10s)
-    if (!showAll && stTime < 0.10) {
-      const glitchP = 1.0 - (stTime / 0.10);
-      const glitchOffset = 4.0 * glitchP;
+    // Glitch passes on entrance (< 0.06s with at most 8% overlap)
+    if (!showAll && stTime < GLITCH_DURATION) {
+      const glitchP = 1.0 - (stTime / GLITCH_DURATION);
+      const maxGlitchOffset = Math.min(heroFontSize * 0.08, 3.5);
+      const glitchOffset = maxGlitchOffset * glitchP;
 
       drawHeroDestCtx.save();
       drawHeroDestCtx.translate(glitchOffset, 0);
-      drawHeroDestCtx.fillStyle = `rgba(0, 245, 212, ${0.45 * glitchP})`;
+      drawHeroDestCtx.fillStyle = `rgba(0, 245, 212, ${0.40 * glitchP})`;
       drawHeroDestCtx.font = heroFont;
       drawHeroDestCtx.textAlign = 'left';
       drawHeroDestCtx.textBaseline = 'top';
@@ -1932,7 +1998,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
       drawHeroDestCtx.save();
       drawHeroDestCtx.translate(-glitchOffset, 0);
-      drawHeroDestCtx.fillStyle = `rgba(255, 0, 127, ${0.45 * glitchP})`;
+      drawHeroDestCtx.fillStyle = `rgba(255, 0, 127, ${0.40 * glitchP})`;
       drawHeroDestCtx.font = heroFont;
       drawHeroDestCtx.textAlign = 'left';
       drawHeroDestCtx.textBaseline = 'top';
@@ -1974,10 +2040,11 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       curCharX += charMetrics[ci] + letterSpacing;
     }
 
-    // Underline swipe
+    // Underline swipe (matching measured word width clamped to safe margins)
     if (!showAll || showAll) {
       const swipeP = showAll ? 1.0 : Math.min(1.0, Math.max(0, stTime / 0.20));
-      const barW = heroW * swipeP;
+      const maxUnderlineW = Math.min(heroW, (W * (1 - BEHIND_SAFE_MARGIN)) - heroX);
+      const barW = Math.max(0, maxUnderlineW * swipeP);
       drawHeroDestCtx.save();
       drawHeroDestCtx.shadowColor = data.palette.accent;
       drawHeroDestCtx.shadowBlur = 8;
@@ -1988,8 +2055,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
     // SECOND STRONG WORD BEHIND (Captions of 4+ words: second-best word drawn smaller if it fits)
     let secondBehindDrawn = false;
-    if (data.secondWord && !data.isSmallCaption) {
-      const secondText = (data.secondWord.t || data.secondWord.word || '').toUpperCase();
+    if (data.secondWord && !data.isSmallCaption && data.hasValidHeroWord) {
+      const secondText = getCleanDisplayHeroText(data.secondWord.t || data.secondWord.word || '');
       const secondFontSize = Math.round(W * 0.105);
       const secondFont = `800 ${secondFontSize}px 'Montserrat', sans-serif`;
 
@@ -1999,7 +2066,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const secondH = secondFontSize * 0.85;
       const secondX = Math.round((W - secondW) / 2) + parallaxX;
 
-      // Position check: above or below hero word without overlapping
       let secondY = heroY - secondH - 14;
       const fitsAbove = secondY >= H * BEHIND_SAFE_MARGIN;
       const fitsBelow = (heroY + heroH + 18 + secondH) <= H * (1 - BEHIND_SAFE_MARGIN);
@@ -2024,7 +2090,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     // 1-2 words captions: if 2nd word exists, draw it behind as well
     if (data.isSmallCaption && words.length === 2) {
       const smallWord2 = words[1];
-      const smallText2 = (smallWord2.t || smallWord2.word || '').toUpperCase();
+      const smallText2 = getCleanDisplayHeroText(smallWord2.t || smallWord2.word || '');
       const smallFontSize = Math.round(W * 0.12);
       drawHeroDestCtx.font = `800 ${smallFontSize}px 'Montserrat', sans-serif`;
       const smMetrics = drawHeroDestCtx.measureText(smallText2);
@@ -2067,18 +2133,16 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         _reShadowCtx.globalCompositeOperation = 'source-over';
       }
 
-      // Apply shadow exclusively to hero letters via source-atop
       _reHeroCtx.save();
       _reHeroCtx.globalCompositeOperation = 'source-atop';
       _reHeroCtx.drawImage(_reShadowCanvas, 0, 0, W, H);
       _reHeroCtx.restore();
 
-      // Composite hero layer to target behind context
       targetBehindCtx.drawImage(_reHeroCanvas, 0, 0, W, H);
     }
 
     // ------------------------------------------------------------------------
-    // 2. DRAW TOP LINE (FRONT LAYER)
+    // 2. DRAW TOP LINE (FRONT LAYER - HIGH CONTRAST)
     // ------------------------------------------------------------------------
     if (data.topWords && data.topWords.length > 0 && !data.isSmallCaption) {
       const topText = data.topWords.map(w => w.t || w.word || '').join(' ').toUpperCase();
@@ -2089,30 +2153,38 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       ctxFore.font = topFont;
       const topMetrics = ctxFore.measureText(topText);
       const topW = topMetrics.width;
-      const topX = Math.round((W - topW) / 2);
+      let topX = Math.round((W - topW) / 2);
+      topX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - topW, topX));
       const topY = Math.max(H * BEHIND_SAFE_MARGIN, heroY - topFontSize - 14);
 
-      const topAlpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.15) * exitAlpha;
+      // Full opacity within 0.12s
+      const topAlpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.12) * exitAlpha;
       ctxFore.globalAlpha = topAlpha;
 
-      ctxFore.fillStyle = 'rgba(15, 23, 42, 0.65)';
+      ctxFore.fillStyle = 'rgba(15, 23, 42, 0.70)';
       const pillPadX = 12;
       const pillPadY = 4;
       ctxFore.beginPath();
       ctxFore.roundRect(topX - pillPadX, topY - pillPadY, topW + pillPadX * 2, topFontSize + pillPadY * 2, 6);
       ctxFore.fill();
 
-      ctxFore.fillStyle = '#FFFFFF';
+      // High contrast: dark stroke of 3px plus soft shadow
       ctxFore.textAlign = 'left';
       ctxFore.textBaseline = 'top';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctxFore.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+      ctxFore.lineWidth = 3;
+      ctxFore.lineJoin = 'round';
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
       ctxFore.shadowBlur = 6;
+      ctxFore.strokeText(topText, topX, topY);
+
+      ctxFore.fillStyle = '#FFFFFF';
       ctxFore.fillText(topText, topX, topY);
       ctxFore.restore();
     }
 
     // ------------------------------------------------------------------------
-    // 3. DRAW BOTTOM LINES (FRONT LAYER)
+    // 3. DRAW BOTTOM LINES (FRONT LAYER - HIGH CONTRAST)
     // ------------------------------------------------------------------------
     if (data.bottomLines && data.bottomLines.length > 0 && !data.isSmallCaption) {
       const bottomFontSize = Math.round(W * 0.054);
@@ -2126,20 +2198,22 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         ctxFore.font = bottomFont;
         const lineMetrics = ctxFore.measureText(lineText);
         const lineW = lineMetrics.width;
-        const lineX = Math.round((W - lineW) / 2);
+        let lineX = Math.round((W - lineW) / 2);
+        lineX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - lineW, lineX));
 
-        const lineStart = 0.08 + lineIdx * 0.05;
-        let lineYOffset = 0;
+        // Reach full opacity within 0.12s with stagger at most 0.04s per line
+        const lineStart = lineIdx * 0.04;
         let lineAlpha = 1.0;
+        let lineYOffset = 0;
 
-        if (!showAll && stTime < lineStart + 0.25) {
+        if (!showAll && stTime < lineStart + 0.12) {
           if (stTime < lineStart) {
-            lineYOffset = 18;
             lineAlpha = 0;
+            lineYOffset = 12;
           } else {
-            const p = Math.min(1, (stTime - lineStart) / 0.22);
-            lineYOffset = (1 - easeOutQuad(p)) * 18;
+            const p = Math.min(1.0, (stTime - lineStart) / 0.12);
             lineAlpha = p;
+            lineYOffset = (1 - easeOutQuad(p)) * 12;
           }
         }
 
@@ -2148,18 +2222,24 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         if (lineAlpha > 0) {
           ctxFore.globalAlpha = lineAlpha * exitAlpha;
 
-          ctxFore.fillStyle = 'rgba(15, 23, 42, 0.70)';
+          ctxFore.fillStyle = 'rgba(15, 23, 42, 0.75)';
           const bPadX = 14;
           const bPadY = 5;
           ctxFore.beginPath();
           ctxFore.roundRect(lineX - bPadX, curLineY - bPadY, lineW + bPadX * 2, bottomFontSize + bPadY * 2, 8);
           ctxFore.fill();
 
-          ctxFore.fillStyle = '#FFFFFF';
+          // High contrast: dark stroke of 3px plus soft shadow
           ctxFore.textAlign = 'left';
           ctxFore.textBaseline = 'top';
+          ctxFore.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+          ctxFore.lineWidth = 3;
+          ctxFore.lineJoin = 'round';
           ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-          ctxFore.shadowBlur = 8;
+          ctxFore.shadowBlur = 6;
+          ctxFore.strokeText(lineText, lineX, curLineY);
+
+          ctxFore.fillStyle = '#FFFFFF';
           ctxFore.fillText(lineText, lineX, curLineY);
         }
 
@@ -2173,8 +2253,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const cfg = S.realEstateConfig || {};
     if (!cfg.enabled && (!S.style || S.style.videoTemplate !== 'specialRealEstate')) return;
 
-    // 1. Lower Third (First 3.0 seconds)
-    if (cfg.lowerThird !== false && t >= 0.25 && t <= 2.90) {
+    // 1. Lower Third (First 3.0 seconds) - Only drawn if presenter name is typed
+    const presName = (cfg.presenterName || '').trim();
+    if (cfg.lowerThird !== false && presName.length > 0 && t >= 0.25 && t <= 2.90) {
       let ltAlpha = 1.0;
       let ltSlideY = 0;
       if (t < 0.60) {
