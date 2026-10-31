@@ -3510,13 +3510,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }, 280);
   }
 
-  function showToast(msg) {
+  function showToast(msg, duration = 2400) {
+    if (!toastNotification) return;
     toastNotification.textContent = msg;
     toastNotification.classList.remove('hidden');
     clearTimeout(toastNotification._timer);
     toastNotification._timer = setTimeout(() => {
       toastNotification.classList.add('hidden');
-    }, 2400);
+    }, duration);
   }
 
   // ==========================================================================
@@ -6608,6 +6609,91 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
     }
   }
 
+
+  // Web Audio OfflineAudioContext helper for multi-track audio mixing
+  async function mixExportAudio(duration, videoBlobOrUrl) {
+    const sampleRate = 44100;
+    const totalFrames = Math.max(1, Math.ceil(duration * sampleRate));
+    const offlineCtx = new OfflineAudioContext(2, totalFrames, sampleRate);
+
+    const replaceOriginal = Boolean(
+      S.voiceoverFilename &&
+      btnReplaceVoiceover &&
+      btnReplaceVoiceover.classList.contains('active')
+    );
+
+    async function decodeAudioSource(src) {
+      if (!src) return null;
+      try {
+        let arrayBuf = null;
+        if (typeof src === 'string') {
+          const res = await fetch(src);
+          if (!res.ok) return null;
+          arrayBuf = await res.arrayBuffer();
+        } else if (src instanceof Blob) {
+          arrayBuf = await src.arrayBuffer();
+        }
+        if (arrayBuf && arrayBuf.byteLength > 0) {
+          const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const audioBuf = await tempCtx.decodeAudioData(arrayBuf);
+          try { tempCtx.close(); } catch (_) {}
+          return audioBuf;
+        }
+      } catch (err) {
+        console.warn('Audio decode error:', err);
+      }
+      return null;
+    }
+
+    let hasAudioTrack = false;
+
+    // 1. Voiceover (if replacing original) OR Original Video Audio
+    if (replaceOriginal && S.voiceoverFilename) {
+      const voBuf = await decodeAudioSource('/work/' + encodeURIComponent(S.voiceoverFilename));
+      if (voBuf) {
+        const voNode = offlineCtx.createBufferSource();
+        voNode.buffer = voBuf;
+        voNode.connect(offlineCtx.destination);
+        voNode.start(0);
+        hasAudioTrack = true;
+      }
+    } else if (videoBlobOrUrl) {
+      const origBuf = await decodeAudioSource(videoBlobOrUrl);
+      if (origBuf) {
+        const origNode = offlineCtx.createBufferSource();
+        origNode.buffer = origBuf;
+        const gainNode = offlineCtx.createGain();
+        gainNode.gain.value = S.vidVolume != null ? S.vidVolume : 1.0;
+        origNode.connect(gainNode);
+        gainNode.connect(offlineCtx.destination);
+        origNode.start(0);
+        hasAudioTrack = true;
+      }
+    }
+
+    // 2. Background Music (looped to video length with S.bgmVolume)
+    if (S.bgmFilename) {
+      let bgmBuf = await decodeAudioSource('/work/' + encodeURIComponent(S.bgmFilename));
+      if (!bgmBuf) {
+        bgmBuf = await decodeAudioSource('/static/samples/' + encodeURIComponent(S.bgmFilename));
+      }
+      if (bgmBuf) {
+        const bgmNode = offlineCtx.createBufferSource();
+        bgmNode.buffer = bgmBuf;
+        bgmNode.loop = true;
+        const bgmGain = offlineCtx.createGain();
+        bgmGain.gain.value = S.bgmVolume != null ? S.bgmVolume : 0.3;
+        bgmNode.connect(bgmGain);
+        bgmGain.connect(offlineCtx.destination);
+        bgmNode.start(0);
+        hasAudioTrack = true;
+      }
+    }
+
+    if (!hasAudioTrack) return null;
+    return await offlineCtx.startRendering();
+  }
+
   let activeDirectExport = null;
   async function startFrameExport() {
     if (!window.Mediabunny) {
@@ -6637,22 +6723,40 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
     }
 
     let source = null;
-    if (S.file && S.file instanceof Blob) {
-      source = new BlobSource(S.file);
-    } else if (vid.src && vid.src.startsWith('blob:')) {
-      try {
-        const bRes = await fetch(vid.src);
-        const blobData = await bRes.blob();
-        source = new BlobSource(blobData);
-      } catch (_) {}
-    }
+    let videoBlobUrl = null;
 
-    if (!source && S.filename) {
-      const fullUrl = new URL('/video/' + encodeURIComponent(S.filename), window.location.href).href;
-      source = new UrlSource(fullUrl);
-    } else if (!source && vid.src) {
-      const fullUrl = new URL(vid.src, window.location.href).href;
-      source = new UrlSource(fullUrl);
+    // (a) S.file as Mediabunny BlobSource whenever it exists
+    if (S.file && (S.file instanceof Blob || S.file instanceof File)) {
+      source = new BlobSource(S.file);
+      try { videoBlobUrl = URL.createObjectURL(S.file); } catch (_) {}
+    } else {
+      // (b) If S.file is missing, fetch the video URL ONCE, convert response to a Blob, use BlobSource
+      let videoUrl = '';
+      if (vid.src && vid.src.startsWith('blob:')) {
+        videoUrl = vid.src;
+      } else if (S.filename) {
+        videoUrl = new URL('/video/' + encodeURIComponent(S.filename), window.location.href).href;
+      } else if (vid.src) {
+        videoUrl = new URL(vid.src, window.location.href).href;
+      }
+
+      if (videoUrl) {
+        try {
+          const res = await fetch(videoUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status} fetching video blob`);
+          const blobData = await res.blob();
+          source = new BlobSource(blobData);
+          try { videoBlobUrl = URL.createObjectURL(blobData); } catch (_) {}
+        } catch (fetchErr) {
+          console.warn('Blob fetch failed, falling back to UrlSource:', fetchErr);
+          // (c) Only if that fails, use UrlSource
+          try {
+            source = new UrlSource(videoUrl);
+          } catch (urlErr) {
+            console.error('UrlSource failed:', urlErr);
+          }
+        }
+      }
     }
 
     if (!source) {
@@ -6722,9 +6826,35 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       }
     }
 
+    const dur = vid.duration || S.probe?.duration || 10;
+    const hasAudioOverlays = Boolean(
+      S.bgmFilename ||
+      (S.voiceoverFilename && btnReplaceVoiceover && btnReplaceVoiceover.classList.contains('active'))
+    );
+
+    let mixedAudioBuffer = null;
+    let audioSource = null;
+
+    if (hasAudioOverlays) {
+      try {
+        mixedAudioBuffer = await mixExportAudio(dur, videoBlobUrl || vid.src);
+        if (mixedAudioBuffer && window.Mediabunny.AudioBufferSource) {
+          audioSource = new window.Mediabunny.AudioBufferSource({
+            codec: 'aac',
+            bitrate: 192000
+          });
+          output.addAudioTrack(audioSource);
+        }
+      } catch (audioMixErr) {
+        console.warn('Audio mixing in frame export failed, continuing with original audio:', audioMixErr);
+      }
+    }
+
     const conversion = await window.Mediabunny.Conversion.init({
       input,
       output,
+      composable: Boolean(audioSource),
+      audio: audioSource ? { discard: true } : { codec: 'aac' },
       video: {
         codec: 'avc',
         width: targetW,
@@ -6973,7 +7103,16 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
     exportProgressText.textContent = 'Rendering video with frame sync...';
     exportProgressDetail.textContent = 'Encoding synchronized frame-accurate captions.';
 
-    await conversion.execute();
+    if (audioSource && mixedAudioBuffer) {
+      await output.start();
+      await Promise.all([
+        conversion.execute(),
+        audioSource.add(mixedAudioBuffer).then(() => audioSource.close())
+      ]);
+      await output.finalize();
+    } else {
+      await conversion.execute();
+    }
 
     updateExportPipeline(2, 'Done ✓', 'Packaging Video...');
     exportProgressBar.style.width = '100%';
@@ -7223,15 +7362,12 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
     updateExportPipeline(1, 'Recording Canvas...', 'Queued');
 
     // Dual-engine export selector:
-    // WebCodecs hardware accelerated client frame export with exact timestamp sync
-    // Fallback: direct canvas export pipeline
+    // Primary: WebCodecs hardware-accelerated client frame export with exact timestamp sync
+    // Fallback: direct canvas export pipeline (never silent)
     const hasWebCodecs = typeof VideoEncoder !== 'undefined' && typeof VideoDecoder !== 'undefined';
-    const hasAudioOverlays = Boolean(
-      S.bgmFilename ||
-      (S.voiceoverFilename && btnReplaceVoiceover && btnReplaceVoiceover.classList.contains('active'))
-    );
+    let frameExportFailure = null;
 
-    if (hasWebCodecs && !hasAudioOverlays) {
+    if (hasWebCodecs) {
       if (!window.Mediabunny) {
         try {
           window.Mediabunny = await import('https://cdn.jsdelivr.net/npm/mediabunny@1.65.0/+esm');
@@ -7244,14 +7380,25 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
           await startFrameExport();
           return;
         } catch (frameErr) {
-          console.error('startFrameExport failed, falling back to direct canvas export:', frameErr);
+          frameExportFailure = frameErr;
+          console.error('startFrameExport failed with full stack trace:', frameErr.stack || frameErr);
+          const failMsg = 'Frame export failed: ' + (frameErr.message || String(frameErr));
+          showToast(failMsg, 8000);
+          if (exportProgressDetail) {
+            exportProgressDetail.textContent = failMsg + ' (Falling back to compatibility mode)';
+          }
         }
+      } else {
+        frameExportFailure = new Error('Mediabunny library failed to load');
+        console.error('Mediabunny missing:', frameExportFailure.stack || frameExportFailure);
+        showToast('Frame export unavailable: Mediabunny not loaded', 8000);
       }
+    } else {
+      frameExportFailure = new Error('Browser WebCodecs (VideoEncoder/Decoder) not supported on this device');
+      console.error('WebCodecs missing:', frameExportFailure.stack || frameExportFailure);
+      showToast('WebCodecs unsupported on this device. Using compatibility mode.', 8000);
     }
 
-    if (typeof showToast === 'function') {
-      showToast('Using compatibility mode');
-    }
     await startDirectCanvasExport();
   }
 

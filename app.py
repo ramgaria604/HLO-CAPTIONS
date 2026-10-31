@@ -957,7 +957,7 @@ def serve_video(filename):
     safe = safe_name(filename)
     local_f = WORK / safe
     if local_f.exists():
-        return send_from_directory(WORK, safe)
+        return send_from_directory(WORK, safe, conditional=True)
     if cloud_storage.storage.is_enabled():
         cloud_url = cloud_storage.storage.upload_file(local_f, cloud_key=safe)
         if cloud_url:
