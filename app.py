@@ -37,6 +37,42 @@ PROJECTS_DIR = DATA_DIR / "projects"
 PROJECTS_DIR.mkdir(exist_ok=True)
 USERS_DIR = DATA_DIR / "users"
 USERS_DIR.mkdir(exist_ok=True)
+
+# Restore device credits and accounts from cloud storage if available on cold start
+if cloud_storage.storage.is_enabled():
+    try:
+        cloud_storage.storage.download_file("device_credits.json", DATA_DIR / "device_credits.json")
+    except Exception:
+        pass
+
+def save_device_credits_data(dev_data):
+    dev_file = DATA_DIR / "device_credits.json"
+    try:
+        dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
+        if cloud_storage.storage.is_enabled():
+            cloud_storage.storage.upload_file(dev_file, "device_credits.json")
+    except Exception:
+        pass
+
+def save_user_profile(user_id, u_data):
+    u_file = USERS_DIR / f"{user_id}.json"
+    try:
+        u_file.write_text(json.dumps(u_data, indent=2), encoding="utf-8")
+        if cloud_storage.storage.is_enabled():
+            cloud_storage.storage.upload_file(u_file, f"users/{user_id}.json")
+    except Exception:
+        pass
+
+def load_user_profile(user_id):
+    u_file = USERS_DIR / f"{user_id}.json"
+    if not u_file.exists() and cloud_storage.storage.is_enabled():
+        cloud_storage.storage.download_file(f"users/{user_id}.json", u_file)
+    if u_file.exists():
+        try:
+            return json.loads(u_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
 CONFIG = BASE / "config.json"
 ALLOWED = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".3gp", ".ts", ".flv", ".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"}
 ALLOWED_AUDIO = {".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"}
@@ -951,21 +987,9 @@ def auth_google():
         "created_at": time.time(),
         "last_login": time.time()
     }
-    user_file = USERS_DIR / f"{user_id}.json"
-    if user_file.exists():
-        try:
-            existing = json.loads(user_file.read_text(encoding="utf-8"))
-            user_data["created_at"] = existing.get("created_at", user_data["created_at"])
-        except Exception:
-            pass
-    user_file.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
-
-    existing = {}
-    if user_file.exists():
-        try:
-            existing = json.loads(user_file.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+    existing = load_user_profile(user_id)
+    if existing:
+        user_data["created_at"] = existing.get("created_at", user_data["created_at"])
 
     dev_file = DATA_DIR / "device_credits.json"
     dev_data = {}
@@ -991,19 +1015,13 @@ def auth_google():
         user_record["last_login"] = time.time()
         dev_data[email] = user_record
 
-    try:
-        dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
-    except Exception:
-        pass
+    save_device_credits_data(dev_data)
 
     user_credits = user_record.get("credits", 0)
     user_used = user_record.get("used", 0)
     user_data["credits"] = user_credits
     user_data["used"] = user_used
-    try:
-        user_file.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
-    except Exception:
-        pass
+    save_user_profile(user_id, user_data)
 
     return jsonify(ok=True, user=user_data, credits=user_credits, used=user_used)
 

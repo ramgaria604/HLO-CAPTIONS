@@ -101,6 +101,19 @@ class CloudStorageManager:
             print(f"Cloud upload error for {cloud_key}: {e}")
             return None
 
+    def download_file(self, cloud_key, local_path):
+        """Downloads a cloud file to local_path. Returns True if succeeded."""
+        if not self.is_enabled():
+            return False
+        try:
+            from pathlib import Path
+            p = Path(local_path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            self._s3_client.download_file(self.bucket, cloud_key, str(p))
+            return True
+        except Exception:
+            return False
+
 
 # Global singleton instance
 storage = CloudStorageManager()

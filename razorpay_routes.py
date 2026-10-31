@@ -181,6 +181,24 @@ def register_razorpay_routes(app, WORK):
         except Exception:
             pass
 
+        if user_email:
+            try:
+                import re
+                u_id = re.sub(r"\W", "_", user_email)
+                u_dir = (WORK.parent / "data") / "users"
+                u_dir.mkdir(parents=True, exist_ok=True)
+                u_file = u_dir / f"{u_id}.json"
+                u_data = {}
+                if u_file.exists():
+                    try: u_data = json.loads(u_file.read_text(encoding="utf-8"))
+                    except Exception: pass
+                u_data["credits"] = dev_data.get(user_email, {}).get("credits", credits_to_add)
+                u_data["email"] = user_email
+                if user_name: u_data["name"] = user_name
+                u_file.write_text(json.dumps(u_data, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+
         return jsonify({
             "ok": True,
             "message": f"Payment of ₹{pack['amount_inr']} successful! {credits_to_add} Video Exports added to your account.",

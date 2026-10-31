@@ -1387,7 +1387,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const logout = () => {
       S.user = null;
       try { localStorage.removeItem('cs_user'); } catch (_) {}
+      S.credits = 0;
       syncUserUI();
+      updateCreditsUI();
       showToast('👋 Logged out');
     };
     if (btnHomeLogout) btnHomeLogout.addEventListener('click', logout);
@@ -1406,7 +1408,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           const res = await fetch('/api/auth/google', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email })
+            body: JSON.stringify({
+              name,
+              email,
+              client_credits: S.credits,
+              free_used: localStorage.getItem('cs_free_used') === 'true' || S.credits === 0
+            })
           });
           const data = await res.json();
           if (!res.ok || !data.ok) {
@@ -1415,10 +1422,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           if (data.ok && data.user) {
             S.user = data.user;
             try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
-            // Sync exact server credits for this user
+            // Sync exact server credits for this user across any device
             if (typeof data.credits === 'number') {
-              S.credits = data.credits;
-              localStorage.setItem('cs_credits', String(S.credits));
+              saveUserCredits(data.credits);
             }
             syncUserUI();
             updateCreditsUI();
@@ -1498,16 +1504,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           id: payload.sub,
           email: payload.email,
           name: payload.name,
-          picture: payload.picture
+          picture: payload.picture,
+          client_credits: S.credits,
+          free_used: localStorage.getItem('cs_free_used') === 'true' || S.credits === 0
         })
       }).then(r => r.json()).then(data => {
         if (data.ok && data.user) {
           S.user = data.user;
           try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
-          // Sync exact server credits for this Gmail account
+          // Sync exact server credits for this Gmail account across any device
           if (typeof data.credits === 'number') {
-            S.credits = data.credits;
-            localStorage.setItem('cs_credits', String(S.credits));
+            saveUserCredits(data.credits);
           }
           syncUserUI();
           updateCreditsUI();
