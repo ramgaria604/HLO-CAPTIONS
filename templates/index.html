@@ -102,10 +102,9 @@
           <textarea id="scriptInput" class="script-textarea" placeholder="Paste your video's exact spoken words here..."></textarea>
         </details>
 
-        <button type="button" class="btn-generate-home" id="btnGenerateCaptions">
-          <span>Generate captions</span><span aria-hidden="true">→</span>
-        </button>
-        <p class="generate-hint">Your selected style will be ready in the editor.</p>
+        <p class="generate-hint" style="margin-top: 14px; font-size: 13px; color: #a1a1aa;">
+          ⚡ Select any video &bull; Captions generate automatically when editor opens
+        </p>
 
         <div id="uploadError" class="error-msg hidden"></div>
       </div>
@@ -335,6 +334,23 @@
               <div class="timeline-lane" id="timelineLane">
                 <!-- Dynamically populated caption blocks -->
               </div>
+
+              <!-- Main Video Track (A-Roll Main Role Lane) -->
+              <div class="timeline-video-lane" id="timelineVideoLane">
+                <div class="timeline-video-track" id="timelineVideoTrack" title="Drag left or right to scrub video">
+                  <div class="video-track-badge">
+                    <span class="video-badge-icon">🎬</span>
+                    <span class="video-badge-text">A-roll</span>
+                  </div>
+                  <div class="video-track-stripes"></div>
+                  <span class="video-track-dur" id="videoTrackDur">0:00</span>
+                </div>
+              </div>
+
+              <!-- More Tracks Dropdown indicator (Moonshot Style) -->
+              <div class="timeline-more-tracks" id="timelineMoreTracks">
+                <span>More tracks ▾</span>
+              </div>
             </div>
           </div>
         </div>
@@ -351,9 +367,9 @@
             <span id="drawerTitle">🎨 Templates</span>
           </div>
           <div class="drawer-actions">
-            <button id="btnDrawerExpand" class="btn-drawer-tool" title="Expand / Compact preview">
-              <svg id="iconExpand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-              <svg id="iconCollapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><path d="M4 14h6m0 0v6m0-6L3 21m17-11h-6m0 0V4m0 6l7-7"/></svg>
+            <button id="btnDrawerExpand" class="btn-drawer-tool btn-drawer-fullscreen-pill" title="Toggle Half / Fullscreen">
+              <span id="drawerModeIcon">⛶</span>
+              <span id="drawerModeText">Fullscreen</span>
             </button>
             <button id="btnDrawerClose" class="btn-drawer-tool" title="Close drawer to see timeline">
               &times;
@@ -1357,6 +1373,6 @@
     window.Mediabunny = Mediabunny;
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=4.45"></script>
+  <script src="/static/app.js?v=4.46"></script>
 </body>
 </html>

@@ -7601,3 +7601,175 @@ button {
 .stage {
   border-radius: 18px !important;
 }
+
+
+/* ==========================================================================
+   MAIN VIDEO ROLE TRACK (A-ROLL TIMELINE) & HALF / FULLSCREEN DRAWER MODES
+   ========================================================================== */
+
+/* Main Video Role Lane (Underneath Captions) */
+.timeline-video-lane {
+  position: relative;
+  height: 46px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.timeline-video-track {
+  position: relative;
+  height: 42px;
+  background: linear-gradient(90deg, #181d2e 0%, #20273d 50%, #181d2e 100%);
+  border: 1.5px solid rgba(99, 102, 241, 0.45);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  cursor: grab;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.15s ease;
+}
+
+.timeline-video-track:hover {
+  border-color: rgba(99, 102, 241, 0.75);
+}
+
+.timeline-video-track:active {
+  cursor: grabbing;
+}
+
+.video-track-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(99, 102, 241, 0.25);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #c7d2fe;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.video-track-stripes {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 36px,
+    rgba(255, 255, 255, 0.04) 36px,
+    rgba(255, 255, 255, 0.04) 38px
+  );
+  pointer-events: none;
+  border-radius: 6px;
+}
+
+.video-track-dur {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* More Tracks Pill Indicator */
+.timeline-more-tracks {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: default;
+  user-select: none;
+}
+
+/* Drawer Header Fullscreen / Half Mode Toggle Pill */
+.btn-drawer-fullscreen-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: rgba(99, 102, 241, 0.18) !important;
+  border: 1px solid rgba(99, 102, 241, 0.35) !important;
+  color: #c7d2fe !important;
+  border-radius: 6px !important;
+  padding: 4px 9px !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-drawer-fullscreen-pill:hover {
+  background: rgba(99, 102, 241, 0.32) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+/* Drawer Half Split: 50% Top Video Preview, 50% Bottom Drawer Section */
+.editor-body.drawer-open .stage-section {
+  flex: 0 0 46vh !important;
+  height: 46vh !important;
+  min-height: 220px !important;
+  max-height: 48vh !important;
+  overflow: hidden !important;
+  padding: 4px 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+
+.editor-body.drawer-open .stage-wrapper {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  max-height: calc(46vh - 84px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.editor-body.drawer-open .stage {
+  max-height: 100% !important;
+  height: 100% !important;
+  width: auto !important;
+  aspect-ratio: 9 / 16;
+}
+
+.editor-body.drawer-open .drawer-panel {
+  position: relative !important;
+  flex: 1 1 0 !important;
+  height: auto !important;
+  min-height: 44vh !important;
+  max-height: 54vh !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-top-left-radius: 18px !important;
+  border-top-right-radius: 18px !important;
+  background: #0f1019 !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6) !important;
+  z-index: 25 !important;
+}
+
+/* Real 100% Fullscreen Mode for any Section */
+.editor-body.drawer-open .drawer-panel.fullscreen {
+  position: fixed !important;
+  top: 48px !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 50px !important;
+  width: 100% !important;
+  height: calc(100vh - 98px) !important;
+  max-height: calc(100vh - 98px) !important;
+  min-height: 0 !important;
+  border-radius: 0 !important;
+  z-index: 90 !important;
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.85) !important;
+}

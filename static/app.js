@@ -2314,6 +2314,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       renderCaptionsList();
       const dragHint = $('captionDragHint');
       if (dragHint) dragHint.classList.toggle('hidden', !S.captions.length);
+
+      // Auto-generate captions automatically when editor opens if not generated yet
+      if ((!S.captions || S.captions.length === 0) && S.filename && !S.isTranscribing) {
+        startTranscription();
+      }
     } else {
       viewEditor.classList.add('hidden');
       viewUpload.classList.remove('hidden');
@@ -2340,8 +2345,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       fileInput.value = '';
       selectedMediaName.textContent = '';
       selectedMediaName.classList.add('hidden');
-      btnGenerateCaptions.disabled = false;
-      btnGenerateCaptions.innerHTML = '<span>Generate captions</span><span aria-hidden="true">→</span>';
+      if (btnGenerateCaptions) {
+        btnGenerateCaptions.disabled = false;
+        btnGenerateCaptions.innerHTML = '<span>Generate captions</span><span aria-hidden="true">→</span>';
+      }
       uploadError.classList.add('hidden');
       dropZone.classList.remove('is-uploading');
       uploadProgressBox.classList.add('hidden');
@@ -2361,15 +2368,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       fileInput.click();
     });
 
-    btnGenerateCaptions.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!S.file) {
-        S.generateAfterPicker = true;
-        fileInput.click();
-        return;
-      }
-      processSelectedFile(S.file);
-    });
+    if (btnGenerateCaptions) {
+      btnGenerateCaptions.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!S.file) {
+          S.generateAfterPicker = true;
+          fileInput.click();
+          return;
+        }
+        processSelectedFile(S.file);
+      });
+    }
 
     dropZone.addEventListener('click', (e) => {
       // Allow clicking anywhere inside the drop card to open file chooser
@@ -2433,15 +2442,20 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     uploadError.classList.add('hidden');
     uploadProgressBox.classList.add('hidden');
-    btnGenerateCaptions.disabled = false;
-    btnGenerateCaptions.innerHTML = '<span>Generate captions</span><span aria-hidden="true">→</span>';
+    if (btnGenerateCaptions) {
+      btnGenerateCaptions.disabled = false;
+      btnGenerateCaptions.innerHTML = '<span>Generate captions</span><span aria-hidden="true">→</span>';
+    }
   }
 
   async function processSelectedFile(file) {
-    if (!file || btnGenerateCaptions.disabled) return;
+    if (!file) return;
+    if (btnGenerateCaptions && btnGenerateCaptions.disabled) return;
     S.file = file;
-    btnGenerateCaptions.disabled = true;
-    btnGenerateCaptions.innerHTML = '<span>Generating captions…</span><span class="generate-spinner" aria-hidden="true"></span>';
+    if (btnGenerateCaptions) {
+      btnGenerateCaptions.disabled = true;
+      btnGenerateCaptions.innerHTML = '<span>Generating captions…</span><span class="generate-spinner" aria-hidden="true"></span>';
+    }
     dropZone.classList.add('is-uploading');
     uploadProgressBox.classList.remove('hidden');
     uploadProgressBar.style.width = '5%';
@@ -2598,8 +2612,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     uploadError.classList.remove('hidden');
     uploadProgressBox.classList.add('hidden');
     dropZone.classList.remove('is-uploading');
-    btnGenerateCaptions.disabled = false;
-    btnGenerateCaptions.innerHTML = '<span>Try generating again</span><span aria-hidden="true">↻</span>';
+    if (btnGenerateCaptions) {
+      btnGenerateCaptions.disabled = false;
+      btnGenerateCaptions.innerHTML = '<span>Try generating again</span><span aria-hidden="true">↻</span>';
+    }
   }
 
   function normalizeCaptions(raw) {
@@ -2961,6 +2977,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       timelineScrollContainer.addEventListener('pointerup', onScrubEnd);
       timelineScrollContainer.addEventListener('pointercancel', onScrubEnd);
 
+      const timelineVideoTrack = $('timelineVideoTrack');
+      if (timelineVideoTrack) {
+        timelineVideoTrack.addEventListener('pointerdown', onScrubStart);
+      }
+
       // Mouse wheel / trackpad scroll handler
       timelineScrollContainer.addEventListener('wheel', (e) => {
         if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -3056,6 +3077,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     timelineRuler.style.width = trackWidth + 'px';
     if (timelineRibbon) {
       timelineRibbon.style.width = trackWidth + 'px';
+    }
+
+    // Main Video Track (A-Roll) below captions
+    const timelineVideoLane = $('timelineVideoLane');
+    const timelineVideoTrack = $('timelineVideoTrack');
+    const videoTrackDur = $('videoTrackDur');
+    if (timelineVideoLane && timelineVideoTrack) {
+      timelineVideoLane.style.width = trackWidth + 'px';
+      timelineVideoTrack.style.width = trackWidth + 'px';
+      if (videoTrackDur) {
+        videoTrackDur.textContent = (typeof formatMoonshotTime === 'function') ? formatMoonshotTime(dur) : (dur.toFixed(1) + 's');
+      }
     }
 
     // Ruler marks every 1 second
@@ -3422,9 +3455,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function toggleDrawerFullscreen() {
     S.drawerFullscreen = !S.drawerFullscreen;
     drawerPanel.classList.toggle('fullscreen', S.drawerFullscreen);
-    iconExpand.classList.toggle('hidden', S.drawerFullscreen);
-    iconCollapse.classList.toggle('hidden', !S.drawerFullscreen);
+    const drawerModeIcon = $('drawerModeIcon');
+    const drawerModeText = $('drawerModeText');
+    if (drawerModeIcon) drawerModeIcon.textContent = S.drawerFullscreen ? '🗗' : '⛶';
+    if (drawerModeText) drawerModeText.textContent = S.drawerFullscreen ? 'Half View' : 'Fullscreen';
+    if (btnDrawerExpand) {
+      btnDrawerExpand.title = S.drawerFullscreen ? 'Switch to Half screen preview' : 'Expand section to Fullscreen';
+    }
     requestAnimationFrame(fitCanvas);
+    showToast(S.drawerFullscreen ? '⛶ Section in Fullscreen mode' : '🗗 Section in Half screen mode');
   }
 
   function triggerGenerateActiveTemplate() {
