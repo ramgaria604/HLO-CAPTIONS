@@ -5123,8 +5123,183 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   let pexelsOrientation = 'portrait';
   let isAutoBrolling = false;
+  let lastActiveBrollId = null;
+
+  const FILLER_WORDS_SET = new Set([
+    'um', 'umm', 'ummm', 'uh', 'uhh', 'uhhh', 'er', 'err', 'ah', 'ahh', 'hmm', 'hmmm', 'mhm'
+  ]);
+
+  function isFillerWord(w) {
+    if (!w) return false;
+    const clean = String(w).toLowerCase().replace(/[^a-z]/g, '');
+    return FILLER_WORDS_SET.has(clean);
+  }
+
+  // Remove silent / hesitation filler words ("um", "uh", "ah", "hmm") from captions
+  function removeFillerWords(showFeedback = true) {
+    if (!S.captions || S.captions.length === 0) {
+      if (showFeedback) showToast('No captions loaded yet.');
+      return 0;
+    }
+
+    let removedCount = 0;
+    const newCaptions = [];
+
+    for (const cap of S.captions) {
+      const words = cap.words || [];
+      const filteredWords = words.filter(w => {
+        const text = w.t || w.word || '';
+        if (isFillerWord(text)) {
+          removedCount++;
+          return false;
+        }
+        return true;
+      });
+
+      if (filteredWords.length > 0) {
+        const newText = filteredWords.map(w => w.t || w.word || '').join(' ').trim();
+        newCaptions.push({
+          ...cap,
+          text: newText,
+          words: filteredWords,
+          start: filteredWords[0].s !== undefined ? filteredWords[0].s : (filteredWords[0].start !== undefined ? filteredWords[0].start : cap.start),
+          end: filteredWords[filteredWords.length - 1].e !== undefined ? filteredWords[filteredWords.length - 1].e : (filteredWords[filteredWords.length - 1].end !== undefined ? filteredWords[filteredWords.length - 1].end : cap.end)
+        });
+      }
+    }
+
+    S.captions = newCaptions;
+    renderCaptionsList();
+    renderTimeline();
+    renderCanvas();
+
+    if (showFeedback) {
+      if (removedCount > 0) {
+        showToast(`✂️ Removed ${removedCount} filler word${removedCount > 1 ? 's' : ''} ("um", "uh")!`);
+      } else {
+        showToast('✓ No filler words found — captions are already clean!');
+      }
+    }
+    return removedCount;
+  }
+
+  // 1-Click Magic Auto Edit: cleans "um/uh", adds B-rolls (Circle, Above, Below) & enables transition SFX
+  async function runAutoEdit() {
+    if (!S.captions || S.captions.length === 0) {
+      showToast('Please upload a video or transcribe captions first!');
+      return;
+    }
+
+    const btnHeader = $('btnAutoEditHeader');
+    const btnHero = $('btnAutoEditHero');
+    if (btnHeader) {
+      btnHeader.disabled = true;
+      btnHeader.innerHTML = '<span class="auto-edit-sparkle">⏳</span><span>Auto Editing...</span>';
+    }
+    if (btnHero) btnHero.disabled = true;
+
+    try {
+      showToast('⚡ Running Magic Auto Edit...');
+
+      // 1. Remove filler words ("um", "uh", "ah", "hmm")
+      const removedFillers = removeFillerWords(false);
+
+      // 2. Ensure Auto SFX is active for punchy B-roll transitions
+      S.autoSfx = true;
+
+      // 3. Auto Add B-Rolls with smart rotating layouts: circle, above, below, window, full
+      const duration = vid.duration || S.probe?.duration || 0;
+      let addedBrollsCount = 0;
+
+      if (duration > 2) {
+        const suggestRes = await fetch('/api/broll/suggest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ captions: S.captions, duration })
+        });
+        const suggestData = await suggestRes.json();
+        const slots = suggestData.slots || [];
+
+        if (slots.length > 0) {
+          const layoutPattern = ['circle', 'above', 'below', 'window', 'full'];
+          const newBrolls = [];
+
+          for (let i = 0; i < slots.length; i++) {
+            const slot = slots[i];
+            try {
+              const searchRes = await fetch('/api/broll/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: slot.query, orientation: pexelsOrientation })
+              });
+              const searchData = await searchRes.json();
+              const results = searchData.results || [];
+              if (results.length > 0) {
+                const pick = results[0];
+                const layout = layoutPattern[i % layoutPattern.length];
+                newBrolls.push({
+                  id: 'broll_' + Date.now() + '_' + i,
+                  query: slot.query,
+                  text: slot.text || slot.query,
+                  start: Number(slot.start),
+                  end: Number(slot.end),
+                  url: pick.url,
+                  thumb: pick.thumb,
+                  duration: pick.duration || (slot.end - slot.start),
+                  credit: pick.credit || '',
+                  layout: layout
+                });
+              }
+            } catch (_) {}
+          }
+
+          if (newBrolls.length > 0) {
+            S.brolls = newBrolls;
+            addedBrollsCount = newBrolls.length;
+            renderBrollTab();
+            syncBrollPlayback();
+          }
+        }
+      }
+
+      // 4. Feedback
+      let msg = '⚡ Magic Auto Edit Complete!';
+      if (removedFillers > 0 && addedBrollsCount > 0) {
+        msg = `✨ Auto Edit: Removed ${removedFillers} "um/uh" fillers & added ${addedBrollsCount} B-rolls (Circle, Above, Below) with transition SFX!`;
+      } else if (addedBrollsCount > 0) {
+        msg = `✨ Auto Edit: Added ${addedBrollsCount} B-rolls (Circle, Above, Below) with transition SFX!`;
+      } else if (removedFillers > 0) {
+        msg = `✨ Auto Edit: Removed ${removedFillers} "um/uh" filler words!`;
+      }
+      showToast(msg);
+
+      // Play transition whoosh sound effect and preview
+      playSfx('whoosh');
+      if (S.brolls && S.brolls.length > 0) {
+        vid.currentTime = Math.max(0, S.brolls[0].start - 0.5);
+        syncBrollPlayback();
+        vid.play().catch(() => {});
+      }
+
+    } catch (err) {
+      showToast('Auto Edit error: ' + err.message);
+    } finally {
+      if (btnHeader) {
+        btnHeader.disabled = false;
+        btnHeader.innerHTML = '<span class="auto-edit-sparkle">⚡</span><span>Auto Edit</span>';
+      }
+      if (btnHero) btnHero.disabled = false;
+    }
+  }
 
   function setupBrollHandlers() {
+    const btnAutoEditHeader = $('btnAutoEditHeader');
+    const btnAutoEditHero = $('btnAutoEditHero');
+    const btnRemoveFillers = $('btnRemoveFillers');
+
+    if (btnAutoEditHeader) btnAutoEditHeader.addEventListener('click', runAutoEdit);
+    if (btnAutoEditHero) btnAutoEditHero.addEventListener('click', runAutoEdit);
+    if (btnRemoveFillers) btnRemoveFillers.addEventListener('click', () => removeFillerWords(true));
     const btnAutoBroll = $('btnAutoBroll');
     const btnTogglePexelsSearch = $('btnTogglePexelsSearch');
     const btnSearchPexels = $('btnSearchPexels');
@@ -5259,8 +5434,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
       setMsg(`✨ Found ${slots.length} moments! Fetching stock videos from Pexels...`);
 
-      // Intelligent layout rotation: Full, Above, Window, Below
-      const layoutPattern = ['full', 'above', 'window', 'below'];
+      // Intelligent layout rotation: Circle, Above, Below, Window, Full
+      const layoutPattern = ['circle', 'above', 'below', 'window', 'full'];
       const newBrolls = [];
 
       for (let i = 0; i < slots.length; i++) {
@@ -5440,6 +5615,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               <span class="layout-btn-icon">⬇️</span>
               <span>Below</span>
             </button>
+            <button type="button" class="broll-layout-btn ${layout === 'circle' ? 'active' : ''}" data-layout="circle" title="Circular Bubble">
+              <span class="layout-btn-icon">⭕</span>
+              <span>Circle</span>
+            </button>
             <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Small Picture-in-Picture Floating Window">
               <span class="layout-btn-icon">🪟</span>
               <span>Window</span>
@@ -5525,14 +5704,23 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (!brollVid.paused) {
         brollVid.pause();
       }
+      lastActiveBrollId = null;
       return;
+    }
+
+    // Play punchy transition whoosh sound effect when a B-Roll appears!
+    if (activeBroll.id !== lastActiveBrollId) {
+      lastActiveBrollId = activeBroll.id;
+      if (!vid.paused && S.autoSfx !== false) {
+        playSfx('whoosh');
+      }
     }
 
     // Active B-Roll found
     brollLayer.classList.remove('hidden');
 
     // Update layout classes
-    brollLayer.classList.remove('broll-layout-full', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window');
+    brollLayer.classList.remove('broll-layout-full', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window', 'broll-layout-circle');
     const layout = activeBroll.layout || 'full';
     brollLayer.classList.add('broll-layout-' + layout);
 
@@ -5898,6 +6086,26 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               ctx.moveTo(0, H / 2);
               ctx.lineTo(W, H / 2);
               ctx.stroke();
+            } else if (layout === 'circle') {
+              const diam = Math.min(W, H) * 0.38;
+              const winX = W - diam - (W * 0.04);
+              const winY = H * 0.04;
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
+              ctx.clip();
+              ctx.drawImage(bv, winX, winY, diam, diam);
+              ctx.restore();
+              // Circular border
+              ctx.save();
+              ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+              ctx.lineWidth = 4;
+              ctx.shadowColor = 'rgba(0,0,0,0.6)';
+              ctx.shadowBlur = 12;
+              ctx.beginPath();
+              ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.restore();
             } else if (layout === 'window' || layout === 'pip') {
               const winW = W * 0.44;
               const winH = H * 0.28;

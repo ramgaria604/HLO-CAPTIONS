@@ -2272,6 +2272,13 @@ def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None,
             y_offset = H - h_half
             scale_filter = f"scale={W}:{h_half}:force_original_aspect_ratio=increase,crop={W}:{h_half}"
             x_pos, y_pos = "0", f"{y_offset}"
+        elif layout == "circle":
+            diam = int(min(W, H) * 0.38) - (int(min(W, H) * 0.38) % 2)
+            margin_x = int(W * 0.04)
+            margin_y = int(H * 0.04)
+            x_pos = f"{W - diam - margin_x}"
+            y_pos = f"{margin_y}"
+            scale_filter = f"scale={diam}:{diam}:force_original_aspect_ratio=increase,crop={diam}:{diam},geq=lum='p(X,Y)':a='if(lte(hypot(X-W/2,Y-H/2),{diam/2:.1f}),255,0)'"
         elif layout in ("window", "pip"):
             w_win = int(W * 0.44) - (int(W * 0.44) % 2)
             h_win = int(H * 0.28) - (int(H * 0.28) % 2)

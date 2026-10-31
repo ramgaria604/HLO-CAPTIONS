@@ -7000,7 +7000,7 @@ button {
 }
 .broll-layout-selector {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   background: #090a12;
   padding: 4px;
@@ -7113,4 +7113,72 @@ button {
 .broll-key-status {
   font-size: 11.5px;
   color: #22c55e;
+}
+
+
+/* 5. Circle B-Roll (Floating circular video bubble) */
+.broll-stage-layer.broll-layout-circle {
+  top: 14px;
+  right: 14px;
+  width: 38%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50% !important;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 16px rgba(168, 85, 247, 0.4);
+  overflow: hidden;
+}
+.broll-stage-layer.broll-layout-circle video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Magic Auto Edit Buttons */
+.btn-auto-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #ec4899, #a855f7, #6366f1);
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(236, 72, 153, 0.4), 0 0 12px rgba(168, 85, 247, 0.3);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-auto-edit:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.6), 0 0 16px rgba(168, 85, 247, 0.5);
+}
+.btn-auto-edit .auto-edit-sparkle {
+  font-size: 14px;
+  filter: drop-shadow(0 0 4px #ffe600);
+}
+
+.btn-auto-edit-hero {
+  width: 100%;
+  background: linear-gradient(135deg, #ec4899, #a855f7, #6366f1) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(236, 72, 153, 0.4);
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+}
+.btn-auto-edit-hero:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }

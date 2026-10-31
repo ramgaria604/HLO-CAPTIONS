@@ -183,6 +183,10 @@
         <button id="btnSaveProject" class="btn-save-project" title="Save this project to your account">
           <span>💾 Save</span>
         </button>
+        <button type="button" id="btnAutoEditHeader" class="btn-auto-edit" title="One-Click Magic Auto Edit: Remove 'um/uh' filler words, auto-add B-rolls (Circle, Above, Below) & transition SFX!">
+          <span class="auto-edit-sparkle">⚡</span>
+          <span>Auto Edit</span>
+        </button>
         <button id="btnExport" class="btn-export">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -374,6 +378,9 @@
                 </button>
                 <button id="btnSyncScriptModal" class="btn-subaction">
                   ✍️ Sync Script
+                </button>
+                <button id="btnRemoveFillers" type="button" class="btn-subaction" title="Remove hesitation & silent filler words (um, uh, er, ah, hmm)">
+                  ✂️ Remove "um" & "uh"
                 </button>
                 <button id="btnCleanCaptions" class="btn-subaction" title="Remove filler sounds (uh, um), repeated words, and close gaps">
                   🧹 Clean Gaps & Fillers
@@ -792,8 +799,13 @@
                   </div>
                 </div>
                 <div class="broll-actions-row">
+                  <button type="button" id="btnAutoEditHero" class="btn-subaction btn-auto-edit-hero" title="Magic 1-Click Auto Edit">
+                    <span>⚡ Magic Auto Edit (B-Rolls + Clean 'um' + SFX)</span>
+                  </button>
+                </div>
+                <div class="broll-actions-row" style="margin-top: 8px;">
                   <button type="button" id="btnAutoBroll" class="btn-subaction btn-primary-gradient">
-                    <span>⚡ Auto Add B-Rolls</span>
+                    <span>🎬 Auto B-Rolls Only</span>
                   </button>
                   <button type="button" id="btnTogglePexelsSearch" class="btn-subaction">
                     <span>🔍 Search Pexels</span>
@@ -1200,6 +1212,6 @@
     window.Mediabunny = Mediabunny;
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=4.41"></script>
+  <script src="/static/app.js?v=4.42"></script>
 </body>
 </html>
