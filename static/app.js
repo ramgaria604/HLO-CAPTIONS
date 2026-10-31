@@ -1299,10 +1299,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   const offsetX = (Number(st.offsetX) || 0) * W;
   ctxFore.save(); ctxFore.translate(offsetX, 0);
   if (ctxBehind && ctxBehind !== ctxFore) { ctxBehind.save(); ctxBehind.translate(offsetX, 0); }
-  if (isBehind) {
+  if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
     drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll);
-  } else if (Boolean(st.isDuo || st.category === 'duo')) {
-    drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, false, showAll);
   } else if (st.isSpecial && st.depthAccent) {
     drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, cap.id);
   } else if (st.isSpecial) {
@@ -2185,6 +2183,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       applyPreset(preset, false);
       const selName = $('frontSelectedName') || $('duoSelectedName');
       if (selName) selName.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+      $$('.front-preset-card').forEach(c => {
+        const isActive = c.getAttribute('data-id') === preset.id;
+        c.classList.toggle('active', isActive);
+        c.setAttribute('aria-pressed', String(isActive));
+      });
     });
 
     return card;
@@ -2256,30 +2259,21 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       try {
         const stored = JSON.parse(localStorage.getItem('cs_presets') || '[]');
         if (Array.isArray(stored) && stored.length > 0) {
-          const haveIds = new Set(S.presets.map(p => p.id));
           const haveNames = new Set(S.presets.map(p => p.name));
           stored.forEach(p => {
-            if (p && p.id && !haveIds.has(p.id) && !haveNames.has(p.name)) {
+            if (!haveNames.has(p.name)) {
               S.presets.push(p);
-              haveIds.add(p.id);
               haveNames.add(p.name);
             }
           });
         }
       } catch(e) {}
 
-      // Sort standard viral presets first, keep list clean
-      S.presets.sort((a, b) => {
-        const order = { 'viral': 0, 'box': 1, 'neon': 2, 'colourful': 3, 'classic': 4, 'minimal': 5, 'duo': 6, 'real-estate': 7 };
-        const catA = order[a.category] !== undefined ? order[a.category] : 99;
-        const catB = order[b.category] !== undefined ? order[b.category] : 99;
-        return catA - catB;
-      });
+      S.presets.sort((a, b) => Number(Boolean(b.isDuo)) - Number(Boolean(a.isDuo)));
       renderFrontShowcasePresets('all');
       setupFrontCategoryPills();
       if (S.presets.length > 0) {
-        // Pick a clean, single-style viral preset as default instead of a multi-style Duo
-        const initial = S.presets.find(p => !p.isDuo && p.category !== 'duo' && (p.id === 'box_pop' || p.id === 'yellow_box' || p.name?.toLowerCase().includes('box') || p.name?.toLowerCase().includes('pop'))) || S.presets[0];
+        const initial = S.presets.find(p => p.isDuo) || S.presets[0];
         applyPreset(initial, false);
       }
       renderPresetsTab('all');
@@ -3614,6 +3608,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     card.addEventListener('click', () => {
       const wasActive = card.classList.contains('active');
       applyPreset(preset, false);
+      $$('.preset-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-id') === preset.id));
       if (isModal) {
         if (wasActive) {
           modalTemplates.classList.add('hidden');
@@ -3664,13 +3659,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
     const frontSelectedName = $('frontSelectedName') || $('duoSelectedName');
     if (frontSelectedName) frontSelectedName.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
-    const targetId = String(preset.id || '');
-    $$('.preset-card, .front-preset-card, .duo-front-card').forEach(c => {
-      const isMatch = (c.getAttribute('data-id') === targetId);
+    $$('.preset-card').forEach(c => {
+      const isMatch = c.getAttribute('data-id') === preset.id;
       c.classList.toggle('active', isMatch);
-      if (c.hasAttribute('aria-pressed')) {
-        c.setAttribute('aria-pressed', String(isMatch));
-      }
+    });
+    $$('.front-preset-card').forEach(card => {
+      const isMatch = card.getAttribute('data-id') === preset.id || card.getAttribute('aria-label') === `Choose ${preset.name}`;
+      card.classList.toggle('active', isMatch);
+      card.setAttribute('aria-pressed', String(isMatch));
+    });
+    $$('.duo-front-card').forEach(card => {
+      card.setAttribute('aria-pressed', String(card.getAttribute('aria-label') === `Choose ${preset.name}`));
     });
 
     if (selectFont && preset.key?.font) {
