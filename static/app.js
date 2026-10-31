@@ -115,7 +115,11 @@
   const stage = $('stage');
   const vid = $('vid');
   const captionCanvas = $('captionCanvas');
-  const ctx = captionCanvas.getContext('2d');
+  const ctx = captionCanvas ? captionCanvas.getContext('2d') : null;
+  const behindCanvas = $('behindCanvas');
+  const behindCtx = behindCanvas ? behindCanvas.getContext('2d') : null;
+  const personCanvas = $('personCanvas');
+  const personCtx = personCanvas ? personCanvas.getContext('2d') : null;
   const btnStageFullscreen = $('btnStageFullscreen');
 
   // Transport elements
@@ -1826,7 +1830,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   }
 
   // Draw Core Special Real Estate Caption Layout (BELOW / IN FRONT PLACEMENT)
-  function drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
+  function drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
     if (!ctxFore || !cap || !words || words.length === 0) return;
 
     const capIdx = S.captions.indexOf(cap) !== -1 ? S.captions.indexOf(cap) : 0;
@@ -2269,10 +2273,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   }
 
 
-function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
+function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   if (!ctxFore) return;
   if (st && (st.videoTemplate === 'specialRealEstate' || (S.realEstateConfig && S.realEstateConfig.enabled))) {
-    drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll);
+    drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
     return;
   }
   const base = Math.max(260, Math.min(W, H)) * Math.max(0.7, Math.min(1.5, Number(st.fontScale) || 1));
@@ -3315,6 +3319,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   // VIEW SWITCHING
   // ==========================================================================
+  
+  let _previewBannerDismissedThisSession = false;
+  function showPreviewQualityNoticeBanner() {
+    if (_previewBannerDismissedThisSession || window._previewBannerDismissedThisSession) return;
+    const banner = $('previewQualityBanner');
+    if (banner) banner.classList.remove('hidden');
+  }
+
   function showView(viewId) {
     if (viewId === 'viewEditor') {
       viewUpload.classList.add('hidden');
@@ -3608,6 +3620,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
       setTimeout(() => {
         showView('viewEditor');
+        showPreviewQualityNoticeBanner();
         try {
           if (voiceoverText && !voiceoverText.value.trim() && S.captions && S.captions.length > 0) {
             voiceoverText.value = S.captions.map(c => c.text).join(' ');
@@ -3709,14 +3722,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     vid.addEventListener('pause', () => {
       iconPlay.classList.remove('hidden');
       iconPause.classList.add('hidden');
-      renderCanvas();
+      cancelScheduledFrame();
+      renderCanvas(true);
+      syncTimelinePlayhead();
     });
 
     let lastSfxCapId = null;
     vid.addEventListener('timeupdate', () => {
       updateTransportUI();
-      renderCanvas();
-      syncTimelinePlayhead();
+      if (vid.paused) {
+        renderCanvas(true);
+        syncTimelinePlayhead();
+      }
       syncBrollPlayback();
       syncAutoZoom();
       syncReelProgressBar();
@@ -3743,6 +3760,28 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
 
     setupAspectRatioHandlers();
+
+    // Preview Quality Selector Wiring
+    const selectPreviewQuality = $('selectPreviewQuality');
+    if (selectPreviewQuality) {
+      selectPreviewQuality.value = S.previewQuality || 'auto';
+      selectPreviewQuality.addEventListener('change', (e) => {
+        S.previewQuality = e.target.value;
+        updatePreviewQualityUI();
+        fitCanvas();
+      });
+    }
+    updatePreviewQualityUI();
+
+    // Dismissible Preview Quality Banner Wiring (Session-only in-memory)
+    const btnCloseBanner = $('btnClosePreviewQualityBanner');
+    if (btnCloseBanner) {
+      btnCloseBanner.addEventListener('click', () => {
+        window._previewBannerDismissedThisSession = true;
+        const banner = $('previewQualityBanner');
+        if (banner) banner.classList.add('hidden');
+      });
+    }
 
     vid.addEventListener('loadedmetadata', () => {
       timeDuration.textContent = formatTime(vid.duration || 0);
@@ -5837,43 +5876,258 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     stage.addEventListener('lostpointercapture', finish);
   }
 
-  function fitCanvas() {
-    const rect = stage.getBoundingClientRect();
-    const isPhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                    (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent));
-    // PROBLEM B Point 4: On phones, draw preview canvas at half resolution (CSS scales it up)
-    const dpr = isPhone ? 0.5 : (window.devicePixelRatio || 1);
-    if (rect.width > 0 && rect.height > 0) {
-      captionCanvas.width = Math.max(2, Math.round(rect.width * dpr));
-      captionCanvas.height = Math.max(2, Math.round(rect.height * dpr));
-      captionCanvas.style.width = '100%';
-      captionCanvas.style.height = '100%';
-      renderCanvas();
+  // ==========================================================================
+  // PREVIEW PERFORMANCE ENGINE & ADAPTIVE QUALITY
+  // ==========================================================================
+  const PREVIEW_QUALITY_CONFIG = {
+    smooth: {
+      maxDpr: 1.0,
+      fpsCap: 24,
+      minFrameInterval: 1000 / 24,       // ~41.67 ms
+      maxMaskRate: 6,
+      minMaskInterval: 1000 / 6,          // ~166.67 ms
+      maskDownscaleTarget: 128,
+      enableDepthShadow: false,
+      enableGlow: false,
+      maxParticles: 0,
+      enableFilterBlur: false
+    },
+    balanced: {
+      maxDpr: 1.5,
+      fpsCap: 30,
+      minFrameInterval: 1000 / 30,       // ~33.33 ms
+      maxMaskRate: 10,
+      minMaskInterval: 1000 / 10,         // 100 ms
+      maskDownscaleTarget: 160,
+      enableDepthShadow: false,
+      enableGlow: true,
+      maxParticles: 10,
+      enableFilterBlur: true
+    },
+    full: {
+      maxDpr: 999, // uncapped
+      fpsCap: 60,
+      minFrameInterval: 0,
+      maxMaskRate: 15,
+      minMaskInterval: 1000 / 15,         // ~66.67 ms
+      maskDownscaleTarget: 192,
+      enableDepthShadow: true,
+      enableGlow: true,
+      maxParticles: 50,
+      enableFilterBlur: true
+    }
+  };
+
+  const isTouchPhoneDevice = (typeof navigator !== 'undefined' && (
+    (navigator.maxTouchPoints > 0 && window.innerWidth < 900) ||
+    (navigator.deviceMemory && navigator.deviceMemory <= 4)
+  ));
+
+  S.effectiveAutoQuality = isTouchPhoneDevice ? 'smooth' : 'balanced';
+  S.previewQuality = 'auto'; // 'auto' | 'smooth' | 'balanced' | 'full'
+
+  function getEffectivePreviewQuality() {
+    if (S.previewQuality && S.previewQuality !== 'auto') {
+      return S.previewQuality;
+    }
+    return S.effectiveAutoQuality || 'balanced';
+  }
+
+  let _previewDrawTimes = [];
+  let _previewLowDrawStreakStart = 0;
+  let _maskRunsInLastSec = 0;
+  let _maskRateDisplay = 0;
+  let _debugFrameCount = 0;
+  let _currentFps = 0;
+  let _lastDebugFpsTime = performance.now();
+  let _overlayWasCleared = false;
+  let lastUiUpdateTime = 0;
+
+  function recordPreviewDrawTime(durationMs) {
+    _previewDrawTimes.push(durationMs);
+    if (_previewDrawTimes.length > 30) _previewDrawTimes.shift();
+
+    if (_previewDrawTimes.length >= 10) {
+      const avg = _previewDrawTimes.reduce((a, b) => a + b, 0) / _previewDrawTimes.length;
+      const now = performance.now();
+
+      // If average draw time > 24ms, step down one level
+      if (avg > 24) {
+        if (S.effectiveAutoQuality === 'full') {
+          S.effectiveAutoQuality = 'balanced';
+          _previewDrawTimes = [];
+          _previewLowDrawStreakStart = 0;
+          updatePreviewQualityUI();
+          fitCanvas();
+        } else if (S.effectiveAutoQuality === 'balanced') {
+          S.effectiveAutoQuality = 'smooth';
+          _previewDrawTimes = [];
+          _previewLowDrawStreakStart = 0;
+          updatePreviewQualityUI();
+          fitCanvas();
+        }
+      } else if (avg < 10) {
+        // If stays under 10ms for 3 seconds, allow stepping up one level
+        if (!_previewLowDrawStreakStart) {
+          _previewLowDrawStreakStart = now;
+        } else if (now - _previewLowDrawStreakStart >= 3000) {
+          _previewLowDrawStreakStart = now;
+          if (S.previewQuality === 'auto') {
+            if (S.effectiveAutoQuality === 'smooth') {
+              S.effectiveAutoQuality = 'balanced';
+              updatePreviewQualityUI();
+              fitCanvas();
+            } else if (S.effectiveAutoQuality === 'balanced') {
+              S.effectiveAutoQuality = 'full';
+              updatePreviewQualityUI();
+              fitCanvas();
+            }
+          }
+        }
+      } else {
+        _previewLowDrawStreakStart = 0;
+      }
     }
   }
 
-  // PROBLEM B Point 2: Use requestVideoFrameCallback (fallback to requestAnimationFrame)
+  function updateDebugBadge(drawDurationMs, effQuality) {
+    const badge = $('previewDebugBadge');
+    if (!badge) return;
+    if (!window.location.search.includes('debug=1')) {
+      if (!badge.classList.contains('hidden')) badge.classList.add('hidden');
+      return;
+    }
+    badge.classList.remove('hidden');
+
+    _debugFrameCount++;
+    const now = performance.now();
+    if (now - _lastDebugFpsTime >= 1000) {
+      _currentFps = Math.round((_debugFrameCount * 1000) / Math.max(1, now - _lastDebugFpsTime));
+      _debugFrameCount = 0;
+      _lastDebugFpsTime = now;
+      _maskRateDisplay = _maskRunsInLastSec;
+      _maskRunsInLastSec = 0;
+    }
+
+    const avgDraw = _previewDrawTimes.length > 0 
+      ? (_previewDrawTimes.reduce((a, b) => a + b, 0) / _previewDrawTimes.length).toFixed(1) 
+      : drawDurationMs.toFixed(1);
+
+    badge.textContent = `FPS: ${_currentFps} | Draw: ${avgDraw}ms | Quality: ${effQuality} (${S.previewQuality}) | Mask: ${_maskRateDisplay}/s`;
+  }
+
+  function updatePreviewQualityUI() {
+    const eff = getEffectivePreviewQuality();
+    const hint = $('previewPermanentHint');
+    if (hint) {
+      if (eff === 'smooth' || eff === 'balanced') {
+        hint.classList.remove('hidden');
+      } else {
+        hint.classList.add('hidden');
+      }
+    }
+    const select = $('selectPreviewQuality');
+    if (select && select.value !== S.previewQuality) {
+      select.value = S.previewQuality || 'auto';
+    }
+  }
+
+  function fitCanvas() {
+    const rect = stage.getBoundingClientRect();
+    const effQuality = getEffectivePreviewQuality();
+    const cfg = PREVIEW_QUALITY_CONFIG[effQuality] || PREVIEW_QUALITY_CONFIG.balanced;
+    const dpr = Math.min(cfg.maxDpr, window.devicePixelRatio || 1);
+
+    if (rect.width > 0 && rect.height > 0) {
+      const cw = Math.max(2, Math.round(rect.width * dpr));
+      const ch = Math.max(2, Math.round(rect.height * dpr));
+
+      [captionCanvas, behindCanvas, personCanvas].forEach(cnv => {
+        if (cnv) {
+          if (cnv.width !== cw || cnv.height !== ch) {
+            cnv.width = cw;
+            cnv.height = ch;
+          }
+          cnv.style.width = '100%';
+          cnv.style.height = '100%';
+        }
+      });
+
+      renderCanvas(true);
+    }
+  }
+
+  // Adaptive scheduling with requestVideoFrameCallback (fallback to requestAnimationFrame)
   let activePreviewFrameHandle = null;
+  let lastPreviewDrawTime = 0;
+  let isPreviewScheduled = false;
+
+  function cancelScheduledFrame() {
+    if (activePreviewFrameHandle !== null) {
+      if ('cancelVideoFrameCallback' in vid && typeof vid.cancelVideoFrameCallback === 'function') {
+        try { vid.cancelVideoFrameCallback(activePreviewFrameHandle); } catch (_) {}
+      } else {
+        try { cancelAnimationFrame(activePreviewFrameHandle); } catch (_) {}
+      }
+      activePreviewFrameHandle = null;
+    }
+    isPreviewScheduled = false;
+  }
+
   function schedulePreviewFrame() {
-    if (vid.paused || vid.ended) return;
+    if (vid.paused || vid.ended || document.hidden) {
+      cancelScheduledFrame();
+      return;
+    }
+    if (isPreviewScheduled) return;
+    isPreviewScheduled = true;
+
+    const onFrame = () => {
+      isPreviewScheduled = false;
+      activePreviewFrameHandle = null;
+      if (vid.paused || vid.ended || document.hidden) return;
+
+      const effQuality = getEffectivePreviewQuality();
+      const cfg = PREVIEW_QUALITY_CONFIG[effQuality] || PREVIEW_QUALITY_CONFIG.balanced;
+      const now = performance.now();
+
+      // Skip draw if last draw was less than level's frame interval ago
+      if (cfg.minFrameInterval > 0 && (now - lastPreviewDrawTime) < (cfg.minFrameInterval - 2)) {
+        schedulePreviewFrame();
+        return;
+      }
+
+      lastPreviewDrawTime = now;
+      renderCanvas(true);
+
+      // Throttle timeline/playhead UI updates to at most 4 times per second (>= 250ms)
+      if (now - lastUiUpdateTime >= 250) {
+        lastUiUpdateTime = now;
+        syncTimelinePlayhead();
+      }
+
+      schedulePreviewFrame();
+    };
+
     if ('requestVideoFrameCallback' in vid && typeof vid.requestVideoFrameCallback === 'function') {
-      activePreviewFrameHandle = vid.requestVideoFrameCallback(() => {
-        renderCanvas();
-        syncTimelinePlayhead();
-        schedulePreviewFrame();
-      });
+      activePreviewFrameHandle = vid.requestVideoFrameCallback(onFrame);
     } else {
-      activePreviewFrameHandle = requestAnimationFrame(() => {
-        renderCanvas();
-        syncTimelinePlayhead();
-        schedulePreviewFrame();
-      });
+      activePreviewFrameHandle = requestAnimationFrame(onFrame);
     }
   }
 
   function renderLoop() {
     schedulePreviewFrame();
   }
+
+  // Stop preview loop and segmentation when tab is hidden
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      cancelScheduledFrame();
+    } else if (!vid.paused && !vid.ended) {
+      schedulePreviewFrame();
+    }
+  });
 
 
   // ==========================================================================
@@ -6572,8 +6826,8 @@ async function createExportSegmenter() {
   }
 }
 
-// PROBLEM B: Preview mask helper with ~160px downscale when playing, 256px on pause/scrub
-function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, isHighQuality) {
+// Preview mask helper with adaptive downscale (128px smooth, 160px balanced, 256px paused)
+function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, isHighQuality = false, downscaleTarget = 160, enableBlur = true) {
   if (!segmenterInstance) return null;
 
   const srcW = sourceCanvasOrFrame.videoWidth || sourceCanvasOrFrame.width || 256;
@@ -6581,8 +6835,7 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
   const outW = targetW || srcW;
   const outH = targetH || srcH;
 
-  // PROBLEM B Point 1: About 160 px on downscaled copy when playing
-  const targetLong = isHighQuality ? 256 : 160;
+  const targetLong = isHighQuality ? 256 : (downscaleTarget || 160);
   const downScale = Math.min(1, targetLong / Math.max(srcW, srcH));
   const downW = Math.max(64, Math.round(srcW * downScale));
   const downH = Math.max(64, Math.round(srcH * downScale));
@@ -6667,9 +6920,13 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
         }
 
         liveFinalCtx.clearRect(0, 0, outW, outH);
-        liveFinalCtx.filter = 'blur(1.5px)';
-        liveFinalCtx.drawImage(liveMaskRawCanvas, 0, 0, outW, outH);
-        liveFinalCtx.filter = 'none';
+        if (enableBlur || isHighQuality) {
+          liveFinalCtx.filter = 'blur(1.5px)';
+          liveFinalCtx.drawImage(liveMaskRawCanvas, 0, 0, outW, outH);
+          liveFinalCtx.filter = 'none';
+        } else {
+          liveFinalCtx.drawImage(liveMaskRawCanvas, 0, 0, outW, outH);
+        }
 
         resultMaskCanvas = liveFinalCanvas;
       } finally {
@@ -6800,146 +7057,154 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   return resultMaskCanvas;
 }
 
-  function renderCanvas() {
-    const isPhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                    (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent));
-    // PROBLEM B Point 4: Preview canvas at half resolution on phones
-    const dpr = isPhone ? 0.5 : (window.devicePixelRatio || 1);
-    const w = captionCanvas.width / dpr;
-    const h = captionCanvas.height / dpr;
+  function renderCanvas(isPreview = true) {
+    const drawStart = performance.now();
+    try {
+      const effQuality = isPreview ? getEffectivePreviewQuality() : 'full';
+      const cfg = PREVIEW_QUALITY_CONFIG[effQuality] || PREVIEW_QUALITY_CONFIG.balanced;
+      const dpr = isPreview ? Math.min(cfg.maxDpr, window.devicePixelRatio || 1) : 1;
 
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
-    ctx.scale(dpr, dpr);
+      const w = captionCanvas.width / dpr;
+      const h = captionCanvas.height / dpr;
 
-    const t = vid.currentTime || 0;
-    let activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
+      ctx.scale(dpr, dpr);
 
-    // If no active caption at the exact currentTime:
-    if (!activeCap) {
-      if (S.captions.length > 0) {
-        if (vid.paused) {
-          activeCap = S.captions.find(c => t <= c.end) || S.captions[0];
+      if (behindCtx) {
+        behindCtx.setTransform(1, 0, 0, 1, 0, 0);
+        behindCtx.clearRect(0, 0, behindCanvas.width, behindCanvas.height);
+        behindCtx.scale(dpr, dpr);
+      }
+      if (personCtx) {
+        personCtx.setTransform(1, 0, 0, 1, 0, 0);
+        personCtx.clearRect(0, 0, personCanvas.width, personCanvas.height);
+        personCtx.scale(dpr, dpr);
+      }
+
+      const t = vid.currentTime || 0;
+      let activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+
+      // Requirement 6: Do less work when nothing changes / no active caption
+      if (!activeCap) {
+        if (S.captions.length > 0) {
+          if (vid.paused) {
+            activeCap = S.captions.find(c => t <= c.end) || S.captions[0];
+          } else {
+            if (!_overlayWasCleared) {
+              drawWatermark(ctx, w, h);
+              _overlayWasCleared = true;
+            }
+            if (isPreview) {
+              const elp = performance.now() - drawStart;
+              recordPreviewDrawTime(elp);
+              updateDebugBadge(elp, effQuality);
+            }
+            return;
+          }
         } else {
+          drawSampleCaptionPreview(ctx, w, h, S.style || {});
           drawWatermark(ctx, w, h);
+          _overlayWasCleared = false;
+          if (isPreview) {
+            const elp = performance.now() - drawStart;
+            recordPreviewDrawTime(elp);
+            updateDebugBadge(elp, effQuality);
+          }
           return;
         }
-      } else {
-        drawSampleCaptionPreview(ctx, w, h, S.style || {});
-        drawWatermark(ctx, w, h);
-        return;
       }
-    }
+      _overlayWasCleared = false;
 
-    const words = (activeCap.words || []).map(w => ({
-      t: w.t || w.word || '',
-      s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
-      e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
-      key: Boolean(w.key)
-    }));
+      const words = (activeCap.words || []).map(w => ({
+        t: w.t || w.word || '',
+        s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
+        e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
+        key: Boolean(w.key)
+      }));
 
-    const isBehind = Boolean(
-                  (S.style && (
-        S.style.behindPerson ||
-        S.style.depthAccent ||
-        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
-        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
-      ))
-    );
+      const isBehind = Boolean(
+        S.style && (
+          S.style.behindPerson ||
+          S.style.depthAccent ||
+          (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
+          (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
+        )
+      );
 
-    // PROBLEM B Point 6: Skip segmentation completely on frames where no behind-person caption is visible
-    if (isBehind && activeCap && segmenterInstance && vid.readyState >= 2) {
-      if (!liveBehindCanvas) {
-        liveBehindCanvas = document.createElement('canvas');
-        liveBehindCtx = liveBehindCanvas.getContext('2d');
-      }
-      if (liveBehindCanvas.width !== w || liveBehindCanvas.height !== h) {
-        liveBehindCanvas.width = w; liveBehindCanvas.height = h;
-      }
-      liveBehindCtx.clearRect(0, 0, w, h);
+      // Requirement 8: Stacked canvases - hero text (behindCanvas) -> personCutout (personCanvas) -> front text (captionCanvas)
+      if (isBehind && activeCap && segmenterInstance && vid.readyState >= 2) {
+        // Draw typography: front lines to ctx, behind words to behindCtx
+        drawCanvasTypography(ctx, behindCtx || ctx, activeCap, words, t, S.style || {}, w, h, true, false, isPreview);
 
-      if (!liveForeCanvas) {
-        liveForeCanvas = document.createElement('canvas');
-        liveForeCtx = liveForeCanvas.getContext('2d');
-      }
-      if (liveForeCanvas.width !== w || liveForeCanvas.height !== h) {
-        liveForeCanvas.width = w; liveForeCanvas.height = h;
-      }
-      liveForeCtx.clearRect(0, 0, w, h);
-
-      // Separate lines into behind and front contexts
-      drawCanvasTypography(liveForeCtx, liveBehindCtx, activeCap, words, t, S.style || {}, w, h, true, false);
-
-      // PROBLEM B Point 1 & 5: When playing, throttled rate (8 fps in Perf Mode, 15 fps otherwise)
-      if (!vid.paused) {
-        const minInterval = S.previewPerfMode !== false ? 125 : 66;
-        const now = performance.now();
-        if (now - lastLiveSegTime >= minInterval) {
-          lastLiveSegTime = now;
-          const tMs = Math.round(t * 1000);
-          const mask = getLivePersonMask(vid, tMs, w, h, false);
-          if (mask) lastLiveMaskCanvas = mask;
-        }
-      } else {
-        // PROBLEM B Point 3: When paused or scrubbed, compute one high-quality mask
-        if (Math.abs(t - lastPausedSegTime) > 0.02 || !lastLiveMaskCanvas) {
-          lastPausedSegTime = t;
-          const tMs = Math.round(t * 1000);
-          const mask = getLivePersonMask(vid, tMs, w, h, true);
-          if (mask) lastLiveMaskCanvas = mask;
-        }
-      }
-
-      if (lastLiveMaskCanvas) {
-        // Draw order:
-        // 1. behind captions
-        ctx.drawImage(liveBehindCanvas, 0, 0, w, h);
-
-        // Special Real Estate: Person Glow behind person cutout
-        if (((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) && lastLiveMaskCanvas) {
-          const capIdxGlow = S.captions.indexOf(activeCap) !== -1 ? S.captions.indexOf(activeCap) : 0;
-          const dataGlow = analyzeRealEstateCaption(activeCap, words, capIdxGlow);
-          const glowColor = (dataGlow && dataGlow.palette && dataGlow.palette.accent) || '#00f5d4';
-          ctx.save();
-          ctx.shadowColor = glowColor;
-          ctx.shadowBlur = 8;
-          ctx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
-          ctx.restore();
+        // Throttled segmentation
+        if (!vid.paused) {
+          const minInterval = cfg.minMaskInterval;
+          const now = performance.now();
+          if (now - lastLiveSegTime >= minInterval) {
+            lastLiveSegTime = now;
+            const tMs = Math.round(t * 1000);
+            const mask = getLivePersonMask(vid, tMs, w, h, false, cfg.maskDownscaleTarget, cfg.enableFilterBlur);
+            if (mask) {
+              lastLiveMaskCanvas = mask;
+              _maskRunsInLastSec++;
+            }
+          }
+        } else {
+          // Paused: compute 1 high-quality mask and stop
+          if (Math.abs(t - lastPausedSegTime) > 0.02 || !lastLiveMaskCanvas) {
+            lastPausedSegTime = t;
+            const tMs = Math.round(t * 1000);
+            const mask = getLivePersonMask(vid, tMs, w, h, true, 192, true);
+            if (mask) lastLiveMaskCanvas = mask;
+          }
         }
 
-        // 2. person cutout
-        if (!livePersonCanvas) {
-          livePersonCanvas = document.createElement('canvas');
-          livePersonCtx = livePersonCanvas.getContext('2d');
-        }
-        if (livePersonCanvas.width !== w || livePersonCanvas.height !== h) {
-          livePersonCanvas.width = w; livePersonCanvas.height = h;
-        }
-        livePersonCtx.clearRect(0, 0, w, h);
-        livePersonCtx.drawImage(vid, 0, 0, w, h);
-        livePersonCtx.globalCompositeOperation = 'destination-in';
-        livePersonCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
-        livePersonCtx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(livePersonCanvas, 0, 0, w, h);
+        if (lastLiveMaskCanvas && personCtx) {
+          // Person glow (only if level enables glow)
+          if (cfg.enableGlow && ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate'))) {
+            const capIdxGlow = S.captions.indexOf(activeCap) !== -1 ? S.captions.indexOf(activeCap) : 0;
+            const dataGlow = analyzeRealEstateCaption(activeCap, words, capIdxGlow);
+            const glowColor = (dataGlow && dataGlow.palette && dataGlow.palette.accent) || '#00f5d4';
+            personCtx.save();
+            personCtx.shadowColor = glowColor;
+            personCtx.shadowBlur = 8;
+            personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
+            personCtx.restore();
+          }
 
-        // 3. front captions
-        ctx.drawImage(liveForeCanvas, 0, 0, w, h);
+          // Person cutout directly drawn onto personCanvas (layer 3)
+          personCtx.save();
+          personCtx.drawImage(vid, 0, 0, w, h);
+          personCtx.globalCompositeOperation = 'destination-in';
+          personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
+          personCtx.restore();
+        }
+
         drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
       } else {
-        ctx.drawImage(liveBehindCanvas, 0, 0, w, h);
-        ctx.drawImage(liveForeCanvas, 0, 0, w, h);
+        if (isBehind && activeCap && !segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
+          ensureSegmenterLoaded().catch(() => {});
+        }
+        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false, isPreview);
         drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
       }
-    } else {
-      if (isBehind && activeCap && !segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
-        ensureSegmenterLoaded().catch(() => {});
-      }
-      drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false);
-      drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
-    }
 
-    drawRealEstateOverlays(ctx, w, h, t);
-    drawWatermark(ctx, w, h);
+      drawRealEstateOverlays(ctx, w, h, t);
+      drawWatermark(ctx, w, h);
+
+      if (isPreview) {
+        const elapsed = performance.now() - drawStart;
+        recordPreviewDrawTime(elapsed);
+        updateDebugBadge(elapsed, effQuality);
+      }
+    } catch (renderErr) {
+      // Requirement 10: Safety fallback
+      console.warn('[PREVIEW RENDER FALLBACK]', renderErr);
+      try {
+        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false, false);
+      } catch (_) {}
+    }
   }
 
   // ==========================================================================
@@ -7524,14 +7789,19 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     if ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) {
       const punchScale = getRealEstateCameraPunch(vid.currentTime || 0, S.captions);
       if (punchScale > 1.001) {
-        vid.style.transform = `scale(${punchScale.toFixed(4)})`;
-        captionCanvas.style.transform = `scale(${punchScale.toFixed(4)})`;
-        captionCanvas.style.transformOrigin = 'center center';
-        vid.style.transformOrigin = 'center center';
+        const scaleStr = `scale(${punchScale.toFixed(4)})`;
+        [vid, captionCanvas, behindCanvas, personCanvas].forEach(el => {
+          if (el) {
+            el.style.transform = scaleStr;
+            el.style.transformOrigin = 'center center';
+          }
+        });
         return;
       }
     }
-    if (captionCanvas.style.transform) captionCanvas.style.transform = '';
+    [captionCanvas, behindCanvas, personCanvas].forEach(el => {
+      if (el && el.style.transform) el.style.transform = '';
+    });
     if (!S.autoZoom || !S.autoZoom.enabled) {
       vid.style.transform = 'scale(1.0)';
       return;

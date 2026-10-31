@@ -211,16 +211,26 @@
 
       <!-- TOP: Video Stage -->
       <section class="stage-section">
+        <!-- Dismissible Preview Quality Banner (Shown once per session on video load) -->
+        <div id="previewQualityBanner" class="preview-quality-banner hidden">
+          <span class="preview-banner-text">Preview is optimized for smooth playback and may look slightly lower quality. Your exported video will be full quality.</span>
+          <button type="button" id="btnClosePreviewQualityBanner" class="btn-banner-close" aria-label="Close">&times;</button>
+        </div>
+
         <div class="stage-wrapper" id="stageWrapper">
           <div class="stage" id="stage">
-            <video id="vid" playsinline preload="auto"></video>
+            <video id="vid" playsinline preload="auto" disablepictureinpicture></video>
             <div id="brollStageLayer" class="broll-stage-layer hidden">
-              <video id="brollVid" playsinline muted preload="auto" crossorigin="anonymous"></video>
+              <video id="brollVid" playsinline muted preload="auto" crossorigin="anonymous" disablepictureinpicture></video>
             </div>
             <div id="reelProgressBar" class="reel-progress-bar">
               <div id="reelProgressFill" class="reel-progress-fill"></div>
             </div>
-            <canvas id="captionCanvas"></canvas>
+            <!-- STACKED COMPOSITING CANVASES: Behind (2) -> Cutout (3) -> Fore (4) -->
+            <canvas id="behindCanvas" class="stage-canvas-layer stage-layer-behind"></canvas>
+            <canvas id="personCanvas" class="stage-canvas-layer stage-layer-person"></canvas>
+            <canvas id="captionCanvas" class="stage-canvas-layer stage-layer-fore"></canvas>
+            <div id="previewDebugBadge" class="preview-debug-badge hidden"></div>
             <span id="stagePresetName" style="display:none;"></span>
             <!-- Moonshot Floating Stage Settings Icon -->
             <button type="button" id="btnStageSettings" class="btn-stage-settings" title="Stage & Zoom Settings">
@@ -263,6 +273,16 @@
             <button type="button" id="btnTlZoomOut" class="btn-step-icon" title="Zoom Out Timeline">−</button>
             <button type="button" id="btnTlZoomIn" class="btn-step-icon" title="Zoom In Timeline">+</button>
 
+            <!-- Preview Quality Level Selector -->
+            <div class="preview-quality-wrap">
+              <select id="selectPreviewQuality" class="preview-quality-select" title="Only affects this preview. Your export uses the quality you choose when exporting.">
+                <option value="auto">Auto Quality</option>
+                <option value="smooth">Smooth</option>
+                <option value="balanced">Balanced</option>
+                <option value="full">Full</option>
+              </select>
+            </div>
+
             <div class="fit-dropdown-wrap">
               <button type="button" id="btnFitDropdown" class="btn-fit-dropdown" title="Aspect Ratio">
                 <span id="fitLabelText">Fit</span>
@@ -290,6 +310,9 @@
             <button id="btnToggleTimeline" style="display:none;"></button>
           </div>
         </div>
+
+        <!-- Permanent preview notice hint -->
+        <div id="previewPermanentHint" class="preview-permanent-hint">Preview quality is reduced for speed. Export is full quality.</div>
 
         <!-- Moonshot Sub-toolbar Row: Section Style & Center Time Pill -->
         <div class="moonshot-sub-row">
@@ -1376,6 +1399,7 @@
             <button type="button" class="btn-quality-pill active" data-quality="balanced">Balanced (1280)</button>
             <button type="button" class="btn-quality-pill" data-quality="high">High (1920)</button>
           </div>
+          <p class="export-dialog-quality-notice">Your final video will be rendered in full quality using the export quality you select.</p>
         </div>
 
         <div class="export-spinner-wrap">

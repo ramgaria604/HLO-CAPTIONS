@@ -8071,3 +8071,142 @@ button {
   gap: 4px;
   font-style: italic;
 }
+
+/* ==========================================================================
+   LIVE PREVIEW OPTIMIZATION & STACKED COMPOSITING CANVASES
+   ========================================================================== */
+
+/* Stacked compositing canvases for behind-person effects */
+.stage canvas.stage-canvas-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.stage .stage-layer-behind {
+  z-index: 2;
+}
+
+.stage .stage-layer-person {
+  z-index: 3;
+}
+
+.stage .stage-layer-fore,
+.stage #captionCanvas {
+  z-index: 4;
+}
+
+/* Dismissible preview notice banner */
+.preview-quality-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  color: #e2e8f0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  padding: 6px 12px;
+  border-radius: 8px;
+  margin: 0 auto 6px auto;
+  max-width: 94%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  z-index: 20;
+}
+
+.preview-quality-banner.hidden {
+  display: none !important;
+}
+
+.preview-banner-text {
+  flex: 1;
+  word-break: break-word;
+}
+
+.btn-banner-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.btn-banner-close:hover {
+  color: #ffffff;
+}
+
+/* Permanent hint under preview transport bar */
+.preview-permanent-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  text-align: center;
+  margin: 4px 0 0 0;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.preview-permanent-hint.hidden {
+  display: none !important;
+}
+
+/* Preview Quality Selector in toolbar */
+.preview-quality-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
+.preview-quality-select {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 6px;
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+}
+
+.preview-quality-select:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #ffffff;
+}
+
+/* Export dialog quality notice */
+.export-dialog-quality-notice {
+  font-size: 11px;
+  color: #94a3b8;
+  text-align: center;
+  margin: 6px 0 0 0;
+  line-height: 1.35;
+}
+
+/* Live FPS and debug counter overlay */
+.preview-debug-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #00f5d4;
+  font-family: monospace;
+  font-size: 10px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 50;
+  border: 1px solid rgba(0, 245, 212, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.preview-debug-badge.hidden {
+  display: none !important;
+}
+
