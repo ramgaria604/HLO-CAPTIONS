@@ -402,6 +402,78 @@
               </button>
             </div>
 
+            <!-- SPECIAL VIDEO TEMPLATE FEATURED CARD -->
+            <div class="vtemplate-card" id="cardSpecialRealEstate">
+              <div class="vtemplate-header">
+                <div class="vtemplate-title-col">
+                  <div class="vtemplate-badge-row">
+                    <span class="vtemplate-pill-badge">👑 VIDEO TEMPLATE</span>
+                    <span class="vtemplate-ai-badge">AI Depth</span>
+                  </div>
+                  <h3 class="vtemplate-name">Special Real Estate</h3>
+                  <p class="vtemplate-sub">Hero words behind person • City gradients • PiP Inset & Lower Third</p>
+                </div>
+                <div class="vtemplate-toggle-col">
+                  <label class="switch-toggle" title="Toggle Special Real Estate Template">
+                    <input type="checkbox" id="toggleSpecialRealEstate">
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="vtemplate-settings-body" id="vtemplateRealEstateBody">
+                <!-- Palette Picker -->
+                <div class="vtemplate-row">
+                  <span class="vtemplate-row-label">Palette:</span>
+                  <div class="palette-swatch-list" id="realEstatePaletteSwatches">
+                    <button type="button" class="swatch-pill active" data-palette="auto" title="Auto Rotate Palettes">Auto</button>
+                    <button type="button" class="swatch-pill" data-palette="teal" title="Teal Cyan" style="background: linear-gradient(135deg, #00f5d4, #00bbf9);"></button>
+                    <button type="button" class="swatch-pill" data-palette="purple" title="Purple Violet" style="background: linear-gradient(135deg, #d946ef, #8b5cf6);"></button>
+                    <button type="button" class="swatch-pill" data-palette="pink" title="Pink Magenta" style="background: linear-gradient(135deg, #ff007f, #ff758c);"></button>
+                    <button type="button" class="swatch-pill" data-palette="lime" title="Lime Green" style="background: linear-gradient(135deg, #a3e635, #22c55e);"></button>
+                    <button type="button" class="swatch-pill" data-palette="sky" title="Sky Blue" style="background: linear-gradient(135deg, #38bdf8, #2563eb);"></button>
+                    <button type="button" class="swatch-pill" data-palette="gold" title="Gold Amber" style="background: linear-gradient(135deg, #fde047, #f59e0b);"></button>
+                  </div>
+                </div>
+
+                <!-- Feature Toggles -->
+                <div class="vtemplate-checks-grid">
+                  <label class="vtemplate-check-label">
+                    <input type="checkbox" id="chkRealEstatePunch" checked>
+                    <span>⚡ Camera Punch</span>
+                  </label>
+                  <label class="vtemplate-check-label">
+                    <input type="checkbox" id="chkRealEstateGlow" checked>
+                    <span>👑 Person Glow</span>
+                  </label>
+                  <label class="vtemplate-check-label">
+                    <input type="checkbox" id="chkRealEstateLowerThird" checked>
+                    <span>👤 Lower Third (3s)</span>
+                  </label>
+                  <label class="vtemplate-check-label">
+                    <input type="checkbox" id="chkRealEstateLocation">
+                    <span>📍 Location Tag</span>
+                  </label>
+                </div>
+
+                <!-- Lower Third Name & Role Inputs -->
+                <div class="vtemplate-inputs-grid" id="vtemplateLowerThirdInputs">
+                  <div class="vtemplate-input-box">
+                    <label>Presenter Name</label>
+                    <input type="text" id="inputRealEstateName" value="Alex Rivera" placeholder="Presenter Name">
+                  </div>
+                  <div class="vtemplate-input-box">
+                    <label>Role / Company</label>
+                    <input type="text" id="inputRealEstateRole" value="Luxury Real Estate Specialist" placeholder="Role or Brokerage">
+                  </div>
+                </div>
+
+                <div class="vtemplate-footer-note">
+                  <span>💡 Uses AI person detection for the behind-person effect</span>
+                </div>
+              </div>
+            </div>
+
             <!-- Horizontal/Scrollable Presets Cards Grid -->
             <div class="presets-grid" id="presetsGrid">
               <!-- Populated via JavaScript -->
@@ -1391,6 +1463,6 @@
     window.MediaPipeVision = { FilesetResolver, ImageSegmenter };
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=4.53"></script>
+  <script src="/static/app.js?v=4.54"></script>
 </body>
 </html>

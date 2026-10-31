@@ -76,6 +76,16 @@
     scale: 1.10
   },
   progressBar: { enabled: true, position: 'bottom' },
+  realEstateConfig: {
+    enabled: false,
+    paletteLock: 'auto',
+    cameraPunch: true,
+    personGlow: true,
+    lowerThird: true,
+    locationTag: false,
+    presenterName: 'Alex Rivera',
+    presenterRole: 'Luxury Real Estate Specialist'
+  },
   };
 
   // --- DOM Elements ---
@@ -1349,8 +1359,647 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   });
 }
 
+
+  // ==========================================================================
+  // SPECIAL REAL ESTATE VIDEO TEMPLATE ENGINE
+  // ==========================================================================
+  const HERO_HEAD_GAP_RATIO = 0.28;
+  const BEHIND_SAFE_MARGIN = 0.08;
+
+  const REAL_ESTATE_KEYWORDS = new Set([
+    'luxury', 'penthouse', 'bedroom', 'bedrooms', 'bath', 'baths', 'bathroom', 'bathrooms',
+    'sqft', 'pool', 'view', 'views', 'price', 'million', 'modern', 'kitchen', 'terrace',
+    'balcony', 'estate', 'mansion', 'villa', 'property', 'interior', 'exterior', 'garage',
+    'amenities', 'location', 'downtown', 'skyline', 'suite', 'residence', 'residences',
+    'custom', 'architecture', 'smart', 'private', 'gated', 'waterfront', 'oceanfront',
+    'rooftop', 'designer', 'elegance', 'exquisite', 'master', 'closet', 'garden', 'patio'
+  ]);
+
+  const REAL_ESTATE_STOPWORDS = new Set([
+    'this', 'that', 'with', 'from', 'have', 'what', 'your', 'about', 'video', 'just', 'like',
+    'there', 'their', 'when', 'which', 'will', 'then', 'they', 'the', 'and', 'for', 'are',
+    'but', 'not', 'you', 'all', 'any', 'can', 'had', 'her', 'was', 'one', 'our', 'out',
+    'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two',
+    'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use', 'into',
+    'here', 'come', 'look', 'take', 'make', 'good', 'some', 'than', 'them', 'very'
+  ]);
+
+  const REAL_ESTATE_PALETTES = {
+    teal:   { id: 'teal',   name: 'Teal Cyan',      gradient: ['#00f5d4', '#00bbf9'], accent: '#00f5d4' },
+    purple: { id: 'purple', name: 'Purple Violet',  gradient: ['#d946ef', '#8b5cf6'], accent: '#d946ef' },
+    pink:   { id: 'pink',   name: 'Pink Magenta',   gradient: ['#ff007f', '#ff758c'], accent: '#ff007f' },
+    lime:   { id: 'lime',   name: 'Lime Green',     gradient: ['#a3e635', '#22c55e'], accent: '#a3e635' },
+    sky:    { id: 'sky',    name: 'Sky Blue',       gradient: ['#38bdf8', '#2563eb'], accent: '#38bdf8' },
+    gold:   { id: 'gold',   name: 'Gold Amber',     gradient: ['#fde047', '#f59e0b'], accent: '#fde047' }
+  };
+
+  const REAL_ESTATE_PALETTE_KEYS = ['teal', 'purple', 'pink', 'lime', 'sky', 'gold'];
+
+  const KNOWN_CITY_LOCATIONS = [
+    { key: 'beverly hills', label: 'BEVERLY HILLS, CA' },
+    { key: 'los angeles',   label: 'LOS ANGELES, CA' },
+    { key: 'manhattan',     label: 'MANHATTAN, NY' },
+    { key: 'new york',      label: 'NEW YORK, NY' },
+    { key: 'miami',         label: 'MIAMI, FL' },
+    { key: 'dubai',         label: 'DOWNTOWN DUBAI' },
+    { key: 'london',        label: 'MAYFAIR, LONDON' },
+    { key: 'austin',        label: 'AUSTIN, TX' },
+    { key: 'malibu',        label: 'MALIBU, CA' },
+    { key: 'aspen',         label: 'ASPEN, CO' },
+    { key: 'monaco',        label: 'MONTE CARLO, MONACO' },
+    { key: 'sydney',        label: 'SYDNEY, AUSTRALIA' }
+  ];
+
+  function seededRandom(seed) {
+    const x = Math.sin(Number(seed) * 9999 + 1) * 10000;
+    return x - Math.floor(x);
+  }
+
+  function easeOutBack(x) {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+  }
+
+  function easeOutQuad(x) {
+    return 1 - (1 - x) * (1 - x);
+  }
+
+  function easeOutCubic(x) {
+    return 1 - Math.pow(1 - x, 3);
+  }
+
+  function isPriceOrNumber(str) {
+    if (!str) return false;
+    return /[\$€£¥₹]|\d/.test(str);
+  }
+
+  function formatNumberCounter(text, progress) {
+    if (progress >= 1) return text;
+    const m = String(text).match(/^([^0-9.]*)([0-9,.]+)(.*)$/);
+    if (!m) return text;
+    const prefix = m[1] || '';
+    const numStr = m[2].replace(/,/g, '');
+    const suffix = m[3] || '';
+    const targetNum = parseFloat(numStr);
+    if (isNaN(targetNum)) return text;
+
+    const currentVal = targetNum * Math.max(0, Math.min(1, progress));
+    let formattedVal;
+    if (numStr.includes('.')) {
+      const decimals = (numStr.split('.')[1] || '').length;
+      formattedVal = currentVal.toFixed(decimals);
+    } else {
+      formattedVal = Math.round(currentVal).toLocaleString();
+    }
+    return prefix + formattedVal + suffix;
+  }
+
+  // Detect city from full transcript text
+  function getDetectedCityLocation() {
+    if (!S.captions || S.captions.length === 0) return 'BEVERLY HILLS, CA';
+    const allText = S.captions.map(c => c.text || '').join(' ').toLowerCase();
+    for (const item of KNOWN_CITY_LOCATIONS) {
+      if (allText.includes(item.key)) {
+        return item.label;
+      }
+    }
+    return 'BEVERLY HILLS, CA';
+  }
+
+  // Extract head-top y coordinate from mask canvas
+  function getPersonMaskHeadTop(maskCanvas, outH) {
+    if (!maskCanvas || !maskCanvas.width || !maskCanvas.height) return null;
+    try {
+      const mw = maskCanvas.width;
+      const mh = maskCanvas.height;
+      const mctx = maskCanvas.getContext('2d', { willReadFrequently: true }) || maskCanvas.getContext('2d');
+      if (!mctx) return null;
+      const imgData = mctx.getImageData(0, 0, mw, mh);
+      const data = imgData.data;
+      const xStart = Math.floor(mw * 0.25);
+      const xEnd = Math.floor(mw * 0.75);
+      for (let y = 0; y < mh; y += 2) {
+        const rowOffset = y * mw * 4;
+        for (let x = xStart; x < xEnd; x += 4) {
+          if (data[rowOffset + x * 4 + 3] > 64) {
+            return (y / mh) * outH;
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // Camera Punch calculation (throttled to at most once per 1.5s)
+  function getRealEstateCameraPunch(t, captions) {
+    if (!captions || captions.length === 0) return 1.0;
+    let lastPunchTime = -999;
+    for (let i = 0; i < captions.length; i++) {
+      const cap = captions[i];
+      const words = cap.words || [];
+      const hasTrigger = words.some(w => {
+        const txt = (w.t || w.word || '').toLowerCase();
+        return isPriceOrNumber(txt) || REAL_ESTATE_KEYWORDS.has(txt.replace(/[^a-z]/g, ''));
+      });
+      if (hasTrigger && cap.start - lastPunchTime >= 1.5) {
+        lastPunchTime = cap.start;
+        const dt = t - cap.start;
+        if (dt >= 0 && dt <= 0.95) {
+          if (dt < 0.25) {
+            return 1.0 + 0.05 * easeOutCubic(dt / 0.25);
+          } else if (dt <= 0.55) {
+            return 1.05;
+          } else {
+            const p = (dt - 0.55) / 0.40;
+            return 1.05 - 0.05 * easeOutQuad(Math.min(1, p));
+          }
+        }
+      }
+    }
+    return 1.0;
+  }
+
+  // Caption analysis with per-caption caching
+  const _reCaptionCache = new Map();
+
+  function analyzeRealEstateCaption(cap, words, capIdx) {
+    const cacheKey = (cap.id || capIdx) + ':::' + words.map(w => w.t || w.word || '').join('|');
+    if (_reCaptionCache.has(cacheKey)) {
+      return _reCaptionCache.get(cacheKey);
+    }
+
+    // 1. Pick Hero Word by Priority
+    let heroIdx = -1;
+    // Priority 1: w.key === true
+    heroIdx = words.findIndex(w => Boolean(w.key));
+
+    // Priority 2: Real estate keywords
+    if (heroIdx === -1) {
+      heroIdx = words.findIndex(w => {
+        const clean = (w.t || w.word || '').toLowerCase().replace(/[^a-z]/g, '');
+        return REAL_ESTATE_KEYWORDS.has(clean);
+      });
+    }
+
+    // Priority 3: Price, digits, currency
+    if (heroIdx === -1) {
+      heroIdx = words.findIndex(w => isPriceOrNumber(w.t || w.word || ''));
+    }
+
+    // Priority 4: Longest non-stopword (>= 3 chars)
+    if (heroIdx === -1) {
+      let maxLen = 0;
+      words.forEach((w, idx) => {
+        const clean = (w.t || w.word || '').toLowerCase().replace(/[^a-z]/g, '');
+        if (clean.length >= 3 && !REAL_ESTATE_STOPWORDS.has(clean)) {
+          if (clean.length > maxLen) {
+            maxLen = clean.length;
+            heroIdx = idx;
+          }
+        }
+      });
+    }
+
+    // Fallback: first word
+    if (heroIdx === -1) {
+      heroIdx = 0;
+    }
+
+    const heroWord = words[heroIdx] || { t: 'ESTATE' };
+    const heroText = (heroWord.t || heroWord.word || '').toUpperCase();
+    const heroIsNum = isPriceOrNumber(heroText);
+
+    // 2. Separate into Top Words and Bottom Words (0 words dropped!)
+    const topWords = words.slice(0, heroIdx);
+    const bottomWords = words.slice(heroIdx + 1);
+
+    // If >= 3 bottom words, split into dynamic chunk lines (2-3 words per line)
+    const bottomLines = [];
+    if (bottomWords.length >= 3) {
+      const chunkSize = bottomWords.length >= 5 ? 3 : 2;
+      for (let i = 0; i < bottomWords.length; i += chunkSize) {
+        bottomLines.push(bottomWords.slice(i, i + chunkSize));
+      }
+    } else if (bottomWords.length > 0) {
+      bottomLines.push(bottomWords);
+    }
+
+    // 3. Palette Assignment
+    let palette;
+    const lock = (S.realEstateConfig && S.realEstateConfig.paletteLock) || 'auto';
+    if (lock !== 'auto' && REAL_ESTATE_PALETTES[lock]) {
+      palette = REAL_ESTATE_PALETTES[lock];
+    } else if (heroIsNum || heroText.includes('MILLION') || heroText.includes('PRICE')) {
+      palette = REAL_ESTATE_PALETTES.gold;
+    } else {
+      const pIdx = capIdx % REAL_ESTATE_PALETTE_KEYS.length;
+      palette = REAL_ESTATE_PALETTES[REAL_ESTATE_PALETTE_KEYS[pIdx]];
+    }
+
+    const analyzed = {
+      heroIdx,
+      heroWord,
+      heroText,
+      heroIsNum,
+      topWords,
+      bottomLines,
+      palette,
+      capIdx
+    };
+
+    if (_reCaptionCache.size > 200) _reCaptionCache.clear();
+    _reCaptionCache.set(cacheKey, analyzed);
+    return analyzed;
+  }
+
+  // Draw Core Special Real Estate Caption Layout
+  function drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
+    if (!ctxFore || !cap || !words || words.length === 0) return;
+
+    const capIdx = S.captions.indexOf(cap) !== -1 ? S.captions.indexOf(cap) : 0;
+    const data = analyzeRealEstateCaption(cap, words, capIdx);
+
+    const stTime = Math.max(0, t - cap.start);
+    const capDur = Math.max(0.1, cap.end - cap.start);
+
+    // Exit fade & scale down (last 0.12s)
+    let exitAlpha = 1.0;
+    let exitScale = 1.0;
+    if (!showAll && capDur > 0.12 && stTime >= capDur - 0.12) {
+      const exitP = Math.min(1, (stTime - (capDur - 0.12)) / 0.12);
+      exitAlpha = 1.0 - exitP;
+      exitScale = 1.0 - 0.05 * exitP;
+    }
+
+    // Target behind canvas: if ctxBehind is null or !isBehind, draw onto ctxFore
+    const targetBehindCtx = (isBehind && ctxBehind && ctxBehind !== ctxFore) ? ctxBehind : ctxFore;
+
+    // Head-top positioning
+    const isOdd = (capIdx % 2 === 1);
+    let headTopY = null;
+    if (typeof lastLiveMaskCanvas !== 'undefined' && lastLiveMaskCanvas) {
+      headTopY = getPersonMaskHeadTop(lastLiveMaskCanvas, H);
+    } else if (typeof lastExportMaskCanvas !== 'undefined' && lastExportMaskCanvas) {
+      headTopY = getPersonMaskHeadTop(lastExportMaskCanvas, H);
+    }
+
+    let heroY;
+    if (headTopY !== null && headTopY > H * 0.05 && headTopY < H * 0.70) {
+      heroY = isOdd ? (headTopY + H * HERO_HEAD_GAP_RATIO) : (headTopY + H * 0.44);
+    } else {
+      heroY = isOdd ? (H * 0.30) : (H * 0.55);
+    }
+
+    // Clamp heroY within 8% safe margins
+    heroY = Math.max(H * BEHIND_SAFE_MARGIN, Math.min(H * 0.72, heroY));
+
+    // Typography metrics
+    const heroFontSize = Math.round(W * 0.19);
+    const heroFont = `900 ${heroFontSize}px 'Montserrat', 'Impact', 'Anton', sans-serif`;
+
+    // Format animated number if applicable
+    let displayHeroText = data.heroText;
+    if (data.heroIsNum && !showAll) {
+      const numProgress = Math.min(1, Math.max(0, stTime / 0.50));
+      displayHeroText = formatNumberCounter(data.heroText, numProgress);
+    }
+
+    // Measure Hero Word
+    targetBehindCtx.save();
+    targetBehindCtx.font = heroFont;
+    const heroMetrics = targetBehindCtx.measureText(displayHeroText);
+    const heroW = heroMetrics.width;
+    const heroH = heroFontSize * 0.82;
+    const heroX = Math.round((W - heroW) / 2);
+    targetBehindCtx.restore();
+
+    // Floating subtle sine wave
+    const floatY = (!showAll) ? Math.sin(stTime * (2 * Math.PI / 2.5)) * 3 : 0;
+
+    // Horizontal mirror flip (1 in 5 captions, seeded)
+    const hasFlip = (capIdx % 5 === 2) || (seededRandom(capIdx + 77) < 0.20);
+    let flipScaleX = 1.0;
+    if (hasFlip && !showAll && stTime < 0.08) {
+      flipScaleX = -1.0 + 2.0 * (stTime / 0.08);
+    }
+
+    // ------------------------------------------------------------------------
+    // 1. DRAW HERO WORD (BEHIND LAYER)
+    // ------------------------------------------------------------------------
+    targetBehindCtx.save();
+    targetBehindCtx.globalAlpha = exitAlpha;
+
+    // Apply flip & exit scale around hero word center
+    const heroCenterX = W / 2;
+    const heroCenterY = heroY + heroH / 2;
+    targetBehindCtx.translate(heroCenterX, heroCenterY + floatY);
+    targetBehindCtx.scale(flipScaleX * exitScale, exitScale);
+    targetBehindCtx.translate(-heroCenterX, -heroCenterY);
+
+    // Diagonal 45-degree Gradient
+    const heroGrad = targetBehindCtx.createLinearGradient(heroX, heroY, heroX + heroW, heroY + heroH);
+    heroGrad.addColorStop(0, data.palette.gradient[0]);
+    heroGrad.addColorStop(1, data.palette.gradient[1]);
+
+    // Entrance letter rise stagger
+    const letters = displayHeroText.split('');
+    const charMetrics = [];
+    targetBehindCtx.font = heroFont;
+    for (let ci = 0; ci < letters.length; ci++) {
+      charMetrics.push(targetBehindCtx.measureText(letters[ci]).width);
+    }
+    const letterSpacing = 2;
+    const totalCharW = charMetrics.reduce((acc, m) => acc + m, 0) + (letters.length - 1) * letterSpacing;
+    let curCharX = Math.round((W - totalCharW) / 2);
+
+    // Glitch passes on entrance (< 0.10s)
+    if (!showAll && stTime < 0.10) {
+      const glitchP = 1.0 - (stTime / 0.10);
+      const glitchOffset = 4.0 * glitchP;
+
+      // Cyan pass
+      targetBehindCtx.save();
+      targetBehindCtx.translate(glitchOffset, 0);
+      targetBehindCtx.fillStyle = `rgba(0, 245, 212, ${0.45 * glitchP})`;
+      targetBehindCtx.font = heroFont;
+      targetBehindCtx.textAlign = 'left';
+      targetBehindCtx.textBaseline = 'top';
+      targetBehindCtx.fillText(displayHeroText, heroX, heroY);
+      targetBehindCtx.restore();
+
+      // Magenta pass
+      targetBehindCtx.save();
+      targetBehindCtx.translate(-glitchOffset, 0);
+      targetBehindCtx.fillStyle = `rgba(255, 0, 127, ${0.45 * glitchP})`;
+      targetBehindCtx.font = heroFont;
+      targetBehindCtx.textAlign = 'left';
+      targetBehindCtx.textBaseline = 'top';
+      targetBehindCtx.fillText(displayHeroText, heroX, heroY);
+      targetBehindCtx.restore();
+    }
+
+    // Draw main hero word letters
+    targetBehindCtx.font = heroFont;
+    targetBehindCtx.textAlign = 'left';
+    targetBehindCtx.textBaseline = 'top';
+    targetBehindCtx.fillStyle = heroGrad;
+    targetBehindCtx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    targetBehindCtx.shadowBlur = 12;
+    targetBehindCtx.shadowOffsetY = 4;
+
+    for (let ci = 0; ci < letters.length; ci++) {
+      const charDelay = ci * 0.03;
+      let charYOffset = 0;
+      let charAlpha = 1.0;
+
+      if (!showAll && stTime < charDelay + 0.22) {
+        if (stTime < charDelay) {
+          charYOffset = 24;
+          charAlpha = 0;
+        } else {
+          const p = Math.min(1, (stTime - charDelay) / 0.20);
+          charYOffset = (1 - easeOutBack(p)) * 24;
+          charAlpha = Math.min(1, p * 2.5);
+        }
+      }
+
+      if (charAlpha > 0) {
+        targetBehindCtx.save();
+        targetBehindCtx.globalAlpha = exitAlpha * charAlpha;
+        targetBehindCtx.fillText(letters[ci], curCharX, heroY + charYOffset);
+        targetBehindCtx.restore();
+      }
+      curCharX += charMetrics[ci] + letterSpacing;
+    }
+
+    // Underline swipe
+    if (!showAll || showAll) {
+      const swipeP = showAll ? 1.0 : Math.min(1.0, Math.max(0, stTime / 0.20));
+      const barW = heroW * swipeP;
+      targetBehindCtx.save();
+      targetBehindCtx.shadowColor = data.palette.accent;
+      targetBehindCtx.shadowBlur = 8;
+      targetBehindCtx.fillStyle = data.palette.accent;
+      targetBehindCtx.fillRect(heroX, heroY + heroH + 6, barW, Math.max(3, Math.round(H * 0.005)));
+      targetBehindCtx.restore();
+    }
+
+    targetBehindCtx.restore();
+
+    // ------------------------------------------------------------------------
+    // 2. DRAW TOP LINE (FRONT LAYER)
+    // ------------------------------------------------------------------------
+    if (data.topWords && data.topWords.length > 0) {
+      const topText = data.topWords.map(w => w.t || w.word || '').join(' ').toUpperCase();
+      const topFontSize = Math.round(W * 0.046);
+      const topFont = `700 ${topFontSize}px 'Montserrat', 'Poppins', sans-serif`;
+
+      ctxFore.save();
+      ctxFore.font = topFont;
+      const topMetrics = ctxFore.measureText(topText);
+      const topW = topMetrics.width;
+      const topX = Math.round((W - topW) / 2);
+      const topY = Math.max(H * BEHIND_SAFE_MARGIN, heroY - topFontSize - 14);
+
+      const topAlpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.15) * exitAlpha;
+      ctxFore.globalAlpha = topAlpha;
+
+      // Dark translucent pill behind top line
+      ctxFore.fillStyle = 'rgba(15, 23, 42, 0.65)';
+      const pillPadX = 12;
+      const pillPadY = 4;
+      ctxFore.beginPath();
+      ctxFore.roundRect(topX - pillPadX, topY - pillPadY, topW + pillPadX * 2, topFontSize + pillPadY * 2, 6);
+      ctxFore.fill();
+
+      // Top line text
+      ctxFore.fillStyle = '#FFFFFF';
+      ctxFore.textAlign = 'left';
+      ctxFore.textBaseline = 'top';
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctxFore.shadowBlur = 6;
+      ctxFore.fillText(topText, topX, topY);
+      ctxFore.restore();
+    }
+
+    // ------------------------------------------------------------------------
+    // 3. DRAW BOTTOM LINES (FRONT LAYER)
+    // ------------------------------------------------------------------------
+    if (data.bottomLines && data.bottomLines.length > 0) {
+      const bottomFontSize = Math.round(W * 0.054);
+      const bottomFont = `800 ${bottomFontSize}px 'Montserrat', 'Poppins', sans-serif`;
+      const lineSpacing = bottomFontSize * 1.32;
+      const startBottomY = heroY + heroH + 22;
+
+      data.bottomLines.forEach((lineChunk, lineIdx) => {
+        const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
+        ctxFore.save();
+        ctxFore.font = bottomFont;
+        const lineMetrics = ctxFore.measureText(lineText);
+        const lineW = lineMetrics.width;
+        const lineX = Math.round((W - lineW) / 2);
+
+        // Entrance slide up with 0.05s stagger per line
+        const lineStart = 0.08 + lineIdx * 0.05;
+        let lineYOffset = 0;
+        let lineAlpha = 1.0;
+
+        if (!showAll && stTime < lineStart + 0.25) {
+          if (stTime < lineStart) {
+            lineYOffset = 18;
+            lineAlpha = 0;
+          } else {
+            const p = Math.min(1, (stTime - lineStart) / 0.22);
+            lineYOffset = (1 - easeOutQuad(p)) * 18;
+            lineAlpha = p;
+          }
+        }
+
+        const curLineY = startBottomY + lineIdx * lineSpacing + lineYOffset;
+
+        if (lineAlpha > 0) {
+          ctxFore.globalAlpha = lineAlpha * exitAlpha;
+
+          // Glass pill behind bottom line
+          ctxFore.fillStyle = 'rgba(15, 23, 42, 0.70)';
+          const bPadX = 14;
+          const bPadY = 5;
+          ctxFore.beginPath();
+          ctxFore.roundRect(lineX - bPadX, curLineY - bPadY, lineW + bPadX * 2, bottomFontSize + bPadY * 2, 8);
+          ctxFore.fill();
+
+          // Bottom line text
+          ctxFore.fillStyle = '#FFFFFF';
+          ctxFore.textAlign = 'left';
+          ctxFore.textBaseline = 'top';
+          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
+          ctxFore.shadowBlur = 8;
+          ctxFore.fillText(lineText, lineX, curLineY);
+        }
+
+        ctxFore.restore();
+      });
+    }
+  }
+
+  // Draw Overlays: Lower Third, Location Tag, PiP Inset
+  function drawRealEstateOverlays(ctx, W, H, t) {
+    if (!ctx) return;
+    const cfg = S.realEstateConfig || {};
+    if (!cfg.enabled && (!S.style || S.style.videoTemplate !== 'specialRealEstate')) return;
+
+    // 1. Lower Third (First 3.0 seconds)
+    if (cfg.lowerThird !== false && t >= 0.25 && t <= 2.90) {
+      let ltAlpha = 1.0;
+      let ltSlideY = 0;
+      if (t < 0.60) {
+        const pIn = (t - 0.25) / 0.35;
+        ltAlpha = Math.min(1, Math.max(0, pIn));
+        ltSlideY = (1 - easeOutQuad(pIn)) * 30;
+      } else if (t > 2.50) {
+        const pOut = (t - 2.50) / 0.40;
+        ltAlpha = Math.max(0, 1 - pOut);
+        ltSlideY = pOut * 20;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = ltAlpha;
+
+      const ltW = Math.round(W * 0.75);
+      const ltH = Math.round(H * 0.08);
+      const ltX = Math.round(W * 0.08);
+      const ltY = Math.round(H * 0.84 + ltSlideY);
+
+      // Dark glass container
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.roundRect(ltX, ltY, ltW, ltH, 12);
+      ctx.fill();
+
+      // Gold/Cyan accent bar
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.roundRect(ltX + 3, ltY + 8, 4, ltH - 16, 2);
+      ctx.fill();
+
+      // Presenter Name
+      const presName = (cfg.presenterName || 'Alex Rivera').trim();
+      const presRole = (cfg.presenterRole || 'Luxury Real Estate Specialist').trim();
+
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `800 ${Math.round(ltH * 0.38)}px 'Montserrat', sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(presName, ltX + 18, ltY + Math.round(ltH * 0.16));
+
+      // Presenter Role
+      ctx.fillStyle = '#fde047';
+      ctx.font = `600 ${Math.round(ltH * 0.26)}px 'Montserrat', sans-serif`;
+      ctx.fillText(presRole, ltX + 18, ltY + Math.round(ltH * 0.58));
+
+      ctx.restore();
+    }
+
+    // 2. Location Tag (Top Left)
+    if (cfg.locationTag) {
+      const cityText = getDetectedCityLocation();
+      const pulse = 1.0 + 0.035 * Math.sin(t * (2 * Math.PI / 3.0));
+
+      ctx.save();
+      const tagFontSize = Math.round(W * 0.028);
+      ctx.font = `700 ${tagFontSize}px 'Montserrat', sans-serif`;
+      const textMetrics = ctx.measureText(cityText);
+      const tagW = textMetrics.width + 36;
+      const tagH = tagFontSize + 16;
+      const tagX = Math.round(W * 0.08);
+      const tagY = Math.round(H * 0.08);
+
+      ctx.translate(tagX + tagW / 2, tagY + tagH / 2);
+      ctx.scale(pulse, pulse);
+      ctx.translate(-(tagX + tagW / 2), -(tagY + tagH / 2));
+
+      // Glass pill
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.80)';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.roundRect(tagX, tagY, tagW, tagH, tagH / 2);
+      ctx.fill();
+
+      // Vector Pin Icon
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      const pinX = tagX + 14;
+      const pinY = tagY + tagH / 2;
+      ctx.arc(pinX, pinY - 2, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(pinX - 4, pinY - 2);
+      ctx.lineTo(pinX, pinY + 5);
+      ctx.lineTo(pinX + 4, pinY - 2);
+      ctx.fill();
+
+      // Location Text
+      ctx.fillStyle = '#f8fafc';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cityText, tagX + 24, tagY + tagH / 2);
+
+      ctx.restore();
+    }
+  }
+
+
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
   if (!ctxFore) return;
+  if (st && (st.videoTemplate === 'specialRealEstate' || (S.realEstateConfig && S.realEstateConfig.enabled))) {
+    drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll);
+    return;
+  }
   const base = Math.max(260, Math.min(W, H)) * Math.max(0.7, Math.min(1.5, Number(st.fontScale) || 1));
   const presetId = st.id || '';
   const offsetX = (Number(st.offsetX) || 0) * W;
@@ -2326,6 +2975,21 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         }
       } catch(e) {}
 
+      // Register Special Real Estate Video Template preset
+      const hasRealEstatePreset = S.presets.some(p => p.videoTemplate === 'specialRealEstate' || p.id === 'special_real_estate');
+      if (!hasRealEstatePreset) {
+        S.presets.unshift({
+          id: 'special_real_estate',
+          name: 'Special Real Estate',
+          category: 'real-estate',
+          videoTemplate: 'specialRealEstate',
+          behindPerson: true,
+          highlightColor: '#fde047',
+          fontFamily: 'Montserrat',
+          fontScale: 1.0,
+          position: 0.50
+        });
+      }
       S.presets.sort((a, b) => Number(Boolean(b.isDuo)) - Number(Boolean(a.isDuo)));
       renderFrontShowcasePresets('all');
       setupFrontCategoryPills();
@@ -5876,12 +6540,14 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     }));
 
     const isBehind = Boolean(
-      S.style && (
+      (S.realEstateConfig && S.realEstateConfig.enabled) ||
+      (S.style && S.style.videoTemplate === 'specialRealEstate') ||
+      (S.style && (
         S.style.behindPerson ||
         S.style.depthAccent ||
         (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
         (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
-      )
+      ))
     );
 
     // PROBLEM B Point 6: Skip segmentation completely on frames where no behind-person caption is visible
@@ -5932,6 +6598,18 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         // 1. behind captions
         ctx.drawImage(liveBehindCanvas, 0, 0, w, h);
 
+        // Special Real Estate: Person Glow behind person cutout
+        if (((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) && lastLiveMaskCanvas) {
+          const capIdxGlow = S.captions.indexOf(activeCap) !== -1 ? S.captions.indexOf(activeCap) : 0;
+          const dataGlow = analyzeRealEstateCaption(activeCap, words, capIdxGlow);
+          const glowColor = (dataGlow && dataGlow.palette && dataGlow.palette.accent) || '#00f5d4';
+          ctx.save();
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = 8;
+          ctx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
+          ctx.restore();
+        }
+
         // 2. person cutout
         if (!livePersonCanvas) {
           livePersonCanvas = document.createElement('canvas');
@@ -5963,6 +6641,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
     }
 
+    drawRealEstateOverlays(ctx, w, h, t);
     drawWatermark(ctx, w, h);
   }
 
@@ -6545,6 +7224,17 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
   // Dynamic Auto-Zoom (Slow, calm, user-configurable retention zoom)
   function syncAutoZoom() {
+    if ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) {
+      const punchScale = getRealEstateCameraPunch(vid.currentTime || 0, S.captions);
+      if (punchScale > 1.001) {
+        vid.style.transform = `scale(${punchScale.toFixed(4)})`;
+        captionCanvas.style.transform = `scale(${punchScale.toFixed(4)})`;
+        captionCanvas.style.transformOrigin = 'center center';
+        vid.style.transformOrigin = 'center center';
+        return;
+      }
+    }
+    if (captionCanvas.style.transform) captionCanvas.style.transform = '';
     if (!S.autoZoom || !S.autoZoom.enabled) {
       vid.style.transform = 'scale(1.0)';
       return;
@@ -6739,7 +7429,106 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     });
 
     btnRetryExport.addEventListener('click', startExport);
-    setupQualityPills();
+  
+  // Initialize Special Real Estate Video Template UI Controls
+  function initSpecialRealEstateUI() {
+    const toggle = $('toggleSpecialRealEstate');
+    const body = $('vtemplateRealEstateBody');
+    const chkPunch = $('chkRealEstatePunch');
+    const chkGlow = $('chkRealEstateGlow');
+    const chkLowerThird = $('chkRealEstateLowerThird');
+    const chkLocation = $('chkRealEstateLocation');
+    const inputName = $('inputRealEstateName');
+    const inputRole = $('inputRealEstateRole');
+
+    if (toggle) {
+      toggle.addEventListener('change', () => {
+        const enabled = toggle.checked;
+        if (!S.realEstateConfig) S.realEstateConfig = {};
+        S.realEstateConfig.enabled = enabled;
+        if (body) body.classList.toggle('is-disabled', !enabled);
+
+        if (enabled) {
+          if (!S.style) S.style = {};
+          S.style.videoTemplate = 'specialRealEstate';
+          S.style.behindPerson = true;
+          if (segmenterInstance === null && !segmenterLoadingPromise) {
+            ensureSegmenterLoaded().catch(() => {});
+          }
+          showToast('👑 Special Real Estate Template activated!');
+        } else {
+          if (S.style && S.style.videoTemplate === 'specialRealEstate') {
+            delete S.style.videoTemplate;
+          }
+        }
+        renderCanvas();
+      });
+    }
+
+    // Palette Swatches
+    const swatches = $$('#realEstatePaletteSwatches .swatch-pill');
+    swatches.forEach(btn => {
+      btn.addEventListener('click', () => {
+        swatches.forEach(b => b.classList.toggle('active', b === btn));
+        const pal = btn.getAttribute('data-palette') || 'auto';
+        if (!S.realEstateConfig) S.realEstateConfig = {};
+        S.realEstateConfig.paletteLock = pal;
+        showToast('🎨 Palette set to: ' + pal.toUpperCase());
+        renderCanvas();
+      });
+    });
+
+    if (chkPunch) {
+      chkPunch.addEventListener('change', () => {
+        if (!S.realEstateConfig) S.realEstateConfig = {};
+        S.realEstateConfig.cameraPunch = chkPunch.checked;
+        renderCanvas();
+      });
+    }
+
+    if (chkGlow) {
+      chkGlow.addEventListener('change', () => {
+        if (!S.realEstateConfig) S.realEstateConfig = {};
+        S.realEstateConfig.personGlow = chkGlow.checked;
+        renderCanvas();
+      });
+    }
+
+    if (chkLowerThird) {
+      chkLowerThird.addEventListener('change', () => {
+        if (!S.realEstateConfig) S.realEstateConfig = {};
+        S.realEstateConfig.lowerThird = chkLowerThird.checked;
+        renderCanvas();
+      });
+    }
+
+    if (chkLocation) {
+      chkLocation.addEventListener('change', () => {
+        if (!S.realEstateConfig) S.realEstateConfig = {};
+        S.realEstateConfig.locationTag = chkLocation.checked;
+        renderCanvas();
+      });
+    }
+
+    if (inputName) {
+      inputName.addEventListener('input', () => {
+        if (!S.realEstateConfig) S.realEstateConfig = {};
+        S.realEstateConfig.presenterName = inputName.value;
+        renderCanvas();
+      });
+    }
+
+    if (inputRole) {
+      inputRole.addEventListener('input', () => {
+        if (!S.realEstateConfig) S.realEstateConfig = {};
+        S.realEstateConfig.presenterRole = inputRole.value;
+        renderCanvas();
+      });
+    }
+  }
+
+  initSpecialRealEstateUI();
+  setupQualityPills();
     setupPreviewPerfModeToggle();
   }
 
@@ -6999,12 +7788,14 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     const { Input, Output, Mp4OutputFormat, BufferTarget, ALL_FORMATS, BlobSource, UrlSource } = window.Mediabunny;
 
     const isBehindExport = Boolean(
-      S.style && (
+      (S.realEstateConfig && S.realEstateConfig.enabled) ||
+      (S.style && S.style.videoTemplate === 'specialRealEstate') ||
+      (S.style && (
         S.style.behindPerson ||
         S.style.depthAccent ||
         (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
         (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
-      )
+      ))
     );
 
     // PROBLEM A Point 2: Create a SEPARATE ImageSegmenter instance just for export
@@ -7244,10 +8035,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             segExportCleanCanvas.height = H;
           }
           segExportCleanCtx.clearRect(0, 0, W, H);
-          if (isZoomed) {
-            const zoom = (az && az.scale) || 1.10;
-            const zW = W * zoom;
-            const zH = H * zoom;
+          const rePunch = ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) ? getRealEstateCameraPunch(t, S.captions) : 1.0;
+          const effZoom = isZoomed ? ((az && az.scale) || 1.10) * rePunch : rePunch;
+          if (effZoom > 1.001) {
+            const zW = W * effZoom;
+            const zH = H * effZoom;
             const zX = (W - zW) / 2;
             const zY = (H - zH) / 2;
             sample.draw(segExportCleanCtx, zX, zY, zW, zH);
@@ -7260,10 +8052,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         // PROBLEM A Point 3: Per frame, order must be:
         // a) video frame
         ctx.clearRect(0, 0, W, H);
-        if (isZoomed) {
-          const zoom = (az && az.scale) || 1.10;
-          const zW = W * zoom;
-          const zH = H * zoom;
+        const reExportPunch = ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) ? getRealEstateCameraPunch(t, S.captions) : 1.0;
+        const effExportZoom = isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch;
+        if (effExportZoom > 1.001) {
+          const zW = W * effExportZoom;
+          const zH = H * effExportZoom;
           const zX = (W - zW) / 2;
           const zY = (H - zH) / 2;
           sample.draw(ctx, zX, zY, zW, zH);
@@ -7433,6 +8226,18 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
               // b) behind captions/graphics
               ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
 
+              // Special Real Estate: Person Glow behind person cutout
+              if (((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) && maskCanvas) {
+                const capIdxGlow = S.captions.indexOf(activeCap) !== -1 ? S.captions.indexOf(activeCap) : 0;
+                const dataGlow = analyzeRealEstateCaption(activeCap, words, capIdxGlow);
+                const glowColor = (dataGlow && dataGlow.palette && dataGlow.palette.accent) || '#00f5d4';
+                ctx.save();
+                ctx.shadowColor = glowColor;
+                ctx.shadowBlur = 8;
+                ctx.drawImage(maskCanvas, 0, 0, W, H);
+                ctx.restore();
+              }
+
               // c) person cutout (mask applied with destination-in on a separate canvas)
               if (!segExportCutoutCanvas) {
                 segExportCutoutCanvas = document.createElement('canvas');
@@ -7464,6 +8269,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           exportMaskFrameIdx = 0;
         }
 
+        drawRealEstateOverlays(ctx, W, H, t);
         drawWatermark(ctx, W, H);
 
         return canvas;
@@ -7707,6 +8513,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         drawAutoEmojis(recCtx, activeCap, words, targetTime, S.style || {}, W, H);
       }
 
+      drawRealEstateOverlays(recCtx, W, H, targetTime);
       drawWatermark(recCtx, W, H);
 
       // Update progress UI only every 10 frames (less lag)
@@ -7831,12 +8638,14 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     let frameExportFailure = null;
 
     const isBehindStyle = Boolean(
-      S.style && (
+      (S.realEstateConfig && S.realEstateConfig.enabled) ||
+      (S.style && S.style.videoTemplate === 'specialRealEstate') ||
+      (S.style && (
         S.style.behindPerson ||
         S.style.depthAccent ||
         (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
         (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
-      )
+      ))
     );
 
     if (hasWebCodecs) {
