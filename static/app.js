@@ -1717,21 +1717,20 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       console.log('[HERO PICK]', capIdx, chosenWord, candidateSummary);
     }
 
-    // 1-2 words captions: all words go behind (if valid)
-    const isSmallCaption = words.length <= 2;
-
-    // 4+ words: identify potential second-best behind word
-    let secondBehindIdx = -1;
-    if (words.length >= 4 && validCandidates.length > 1) {
-      secondBehindIdx = validCandidates[1].idx;
+    // ALL words before heroIdx (0 words dropped!)
+    const topWords = heroIdx > 0 ? words.slice(0, heroIdx) : [];
+    const topLines = [];
+    if (topWords.length >= 3) {
+      const chunkSize = topWords.length >= 5 ? 3 : 2;
+      for (let i = 0; i < topWords.length; i += chunkSize) {
+        topLines.push(topWords.slice(i, i + chunkSize));
+      }
+    } else if (topWords.length > 0) {
+      topLines.push(topWords);
     }
 
-    // Top words (before hero, excluding second behind word if used)
-    const topWords = words.filter((w, idx) => idx < heroIdx && idx !== secondBehindIdx);
-
-    // Bottom words (after hero, excluding second behind word if used)
-    const bottomWords = words.filter((w, idx) => idx > heroIdx && idx !== secondBehindIdx);
-
+    // ALL words after heroIdx (0 words dropped!)
+    const bottomWords = heroIdx >= 0 && heroIdx < words.length - 1 ? words.slice(heroIdx + 1) : [];
     const bottomLines = [];
     if (bottomWords.length >= 3) {
       const chunkSize = bottomWords.length >= 5 ? 3 : 2;
@@ -1759,10 +1758,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       heroText,
       heroIsNum,
       hasValidHeroWord,
-      secondBehindIdx,
-      secondWord: secondBehindIdx !== -1 ? words[secondBehindIdx] : null,
-      isSmallCaption,
       topWords,
+      topLines,
+      bottomWords,
       bottomLines,
       palette,
       capIdx
@@ -1788,7 +1786,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
 
     const totalH = lines.length * lineSpacing;
-    const startY = Math.round(H * 0.70 - (totalH / 2));
+    const startY = Math.round(H * 0.72 - (totalH / 2));
     const alpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.12);
 
     lines.forEach((lineChunk, lineIdx) => {
@@ -1826,18 +1824,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       ctx.restore();
     });
   }
-
-  // Reusable offscreen canvases for Depth Shadow & Parallax
-  let _reHeroCanvas = null;
-  let _reHeroCtx = null;
-  let _reShadowCanvas = null;
-  let _reShadowCtx = null;
-  let _lastShadowFrameKey = '';
-
-  const _reSmoothedYMap = new Map();
-  const _reParallaxMap = new Map();
-  let _lastLoggedBehindCapIdx = -1;
-  let _csMaskFailToastShown = false;
 
   // Draw Core Special Real Estate Caption Layout (BELOW / IN FRONT PLACEMENT)
   function drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
@@ -1921,19 +1907,20 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     // ========================================================================
     // VERTICAL PLACEMENT: BELOW (LOWER-THIRD / BOTTOM AREA OF VIDEO)
     // ========================================================================
-    const hasTop = Boolean(data.topWords && data.topWords.length > 0 && !data.isSmallCaption);
-    const topFontSize = Math.round(W * 0.045);
-    const topH = hasTop ? (topFontSize + 14) : 0;
+    const numTopLines = data.topLines ? data.topLines.length : 0;
+    const topFontSize = Math.round(W * 0.046);
+    const topLineSpacing = topFontSize * 1.30;
+    const totalTopH = numTopLines > 0 ? (numTopLines * topLineSpacing + 6) : 0;
 
-    const numBottomLines = (!data.isSmallCaption && data.bottomLines) ? data.bottomLines.length : 0;
+    const numBottomLines = data.bottomLines ? data.bottomLines.length : 0;
     const bottomFontSize = Math.round(W * 0.052);
     const bottomLineSpacing = bottomFontSize * 1.30;
-    const bottomH = numBottomLines > 0 ? (numBottomLines * bottomLineSpacing + 10) : 0;
+    const totalBottomH = numBottomLines > 0 ? (numBottomLines * bottomLineSpacing + 8) : 0;
 
     // Total block height
-    const totalBlockH = topH + heroH + 14 + bottomH;
+    const totalBlockH = totalTopH + heroH + 16 + totalBottomH;
 
-    // Anchor block around 75% down the screen (BELOW), clamped inside safe margins
+    // Anchor block around 74% down the screen (BELOW), clamped inside safe margins
     let blockTopY = Math.round(H * 0.74 - (totalBlockH * 0.45));
     if (blockTopY + totalBlockH > H * (1 - BEHIND_SAFE_MARGIN)) {
       blockTopY = H * (1 - BEHIND_SAFE_MARGIN) - totalBlockH;
@@ -1942,8 +1929,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       blockTopY = Math.round(H * 0.45);
     }
 
-    const topY = blockTopY;
-    const heroY = blockTopY + topH + 4;
+    const startTopY = blockTopY;
+    const heroY = blockTopY + totalTopH + (totalTopH > 0 ? 6 : 0);
     const startBottomY = heroY + heroH + 16;
 
     // Floating subtle sine wave
@@ -1957,7 +1944,48 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
 
     // ------------------------------------------------------------------------
-    // 1. DRAW HERO WORD (IN FRONT, BELOW)
+    // 1. DRAW TOP LINES (IN FRONT, BELOW) - ALL WORDS BEFORE HERO
+    // ------------------------------------------------------------------------
+    if (numTopLines > 0) {
+      const topFont = `700 ${topFontSize}px 'Montserrat', 'Poppins', sans-serif`;
+
+      data.topLines.forEach((lineChunk, lineIdx) => {
+        const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
+        targetCtx.save();
+        targetCtx.font = topFont;
+        const metrics = targetCtx.measureText(lineText);
+        const lineW = metrics.width;
+        let lineX = Math.round((W - lineW) / 2);
+        lineX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - lineW, lineX));
+        const curY = startTopY + lineIdx * topLineSpacing;
+
+        const topAlpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.12) * exitAlpha;
+        targetCtx.globalAlpha = topAlpha;
+
+        targetCtx.fillStyle = 'rgba(15, 23, 42, 0.70)';
+        const pillPadX = 12;
+        const pillPadY = 4;
+        targetCtx.beginPath();
+        targetCtx.roundRect(lineX - pillPadX, curY - pillPadY, lineW + pillPadX * 2, topFontSize + pillPadY * 2, 6);
+        targetCtx.fill();
+
+        targetCtx.textAlign = 'left';
+        targetCtx.textBaseline = 'top';
+        targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+        targetCtx.lineWidth = 3;
+        targetCtx.lineJoin = 'round';
+        targetCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+        targetCtx.shadowBlur = 6;
+        targetCtx.strokeText(lineText, lineX, curY);
+
+        targetCtx.fillStyle = '#FFFFFF';
+        targetCtx.fillText(lineText, lineX, curY);
+        targetCtx.restore();
+      });
+    }
+
+    // ------------------------------------------------------------------------
+    // 2. DRAW HERO WORD (IN FRONT, BELOW)
     // ------------------------------------------------------------------------
     targetCtx.save();
     targetCtx.globalAlpha = exitAlpha;
@@ -1968,7 +1996,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     targetCtx.scale(flipScaleX * exitScale, exitScale);
     targetCtx.translate(-heroCenterX, -heroCenterY);
 
-    // Diagonal 45-degree Gradient
     const heroGrad = targetCtx.createLinearGradient(heroX, heroY, heroX + heroW, heroY + heroH);
     heroGrad.addColorStop(0, data.palette.gradient[0]);
     heroGrad.addColorStop(1, data.palette.gradient[1]);
@@ -2015,7 +2042,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       targetCtx.restore();
     }
 
-    // High-contrast 4px dark stroke around hero letters so it pops over any video
+    // High-contrast 4px dark stroke around hero letters
     targetCtx.font = heroFont;
     targetCtx.textAlign = 'left';
     targetCtx.textBaseline = 'top';
@@ -2068,73 +2095,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       targetCtx.restore();
     }
 
-    // 1-2 words captions: if 2nd word exists, draw it below hero
-    if (data.isSmallCaption && words.length === 2) {
-      const smallWord2 = words[1];
-      const smallText2 = getCleanDisplayHeroText(smallWord2.t || smallWord2.word || '');
-      const smallFontSize = Math.round(W * 0.10);
-      targetCtx.font = `800 ${smallFontSize}px 'Montserrat', sans-serif`;
-      const smMetrics = targetCtx.measureText(smallText2);
-      const smW = smMetrics.width;
-      const smX = Math.round((W - smW) / 2);
-      const smY = heroY + heroH + 16;
-      if (smY + smallFontSize <= H * (1 - BEHIND_SAFE_MARGIN)) {
-        targetCtx.save();
-        targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-        targetCtx.lineWidth = 3;
-        targetCtx.strokeText(smallText2, smX, smY);
-        targetCtx.fillStyle = data.palette.accent;
-        targetCtx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-        targetCtx.shadowBlur = 8;
-        targetCtx.fillText(smallText2, smX, smY);
-        targetCtx.restore();
-      }
-    }
-
     targetCtx.restore();
 
     // ------------------------------------------------------------------------
-    // 2. DRAW TOP LINE (IN FRONT, BELOW)
-    // ------------------------------------------------------------------------
-    if (hasTop) {
-      const topText = data.topWords.map(w => w.t || w.word || '').join(' ').toUpperCase();
-      const topFont = `700 ${topFontSize}px 'Montserrat', 'Poppins', sans-serif`;
-
-      targetCtx.save();
-      targetCtx.font = topFont;
-      const topMetrics = targetCtx.measureText(topText);
-      const topW = topMetrics.width;
-      let topX = Math.round((W - topW) / 2);
-      topX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - topW, topX));
-
-      // Full opacity within 0.12s
-      const topAlpha = showAll ? 1.0 : Math.min(1.0, stTime / 0.12) * exitAlpha;
-      targetCtx.globalAlpha = topAlpha;
-
-      targetCtx.fillStyle = 'rgba(15, 23, 42, 0.70)';
-      const pillPadX = 12;
-      const pillPadY = 4;
-      targetCtx.beginPath();
-      targetCtx.roundRect(topX - pillPadX, topY - pillPadY, topW + pillPadX * 2, topFontSize + pillPadY * 2, 6);
-      targetCtx.fill();
-
-      // High contrast: dark stroke of 3px plus soft shadow
-      targetCtx.textAlign = 'left';
-      targetCtx.textBaseline = 'top';
-      targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
-      targetCtx.lineWidth = 3;
-      targetCtx.lineJoin = 'round';
-      targetCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      targetCtx.shadowBlur = 6;
-      targetCtx.strokeText(topText, topX, topY);
-
-      targetCtx.fillStyle = '#FFFFFF';
-      targetCtx.fillText(topText, topX, topY);
-      targetCtx.restore();
-    }
-
-    // ------------------------------------------------------------------------
-    // 3. DRAW BOTTOM LINES (IN FRONT, BELOW)
+    // 3. DRAW BOTTOM LINES (IN FRONT, BELOW) - ALL WORDS AFTER HERO
     // ------------------------------------------------------------------------
     if (numBottomLines > 0) {
       const bottomFont = `800 ${bottomFontSize}px 'Montserrat', 'Poppins', sans-serif`;
@@ -2143,8 +2107,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
         targetCtx.save();
         targetCtx.font = bottomFont;
-        const lineMetrics = targetCtx.measureText(lineText);
-        const lineW = lineMetrics.width;
+        const metrics = targetCtx.measureText(lineText);
+        const lineW = metrics.width;
         let lineX = Math.round((W - lineW) / 2);
         lineX = Math.max(W * BEHIND_SAFE_MARGIN, Math.min(W * (1 - BEHIND_SAFE_MARGIN) - lineW, lineX));
 
@@ -2194,7 +2158,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       });
     }
   }
-
   function drawRealEstateOverlays(ctx, W, H, t) {
     if (!ctx) return;
     const cfg = S.realEstateConfig || {};
