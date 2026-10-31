@@ -2396,7 +2396,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               name,
               email,
               client_credits: S.credits,
-              free_used: localStorage.getItem('cs_free_used') === 'true' || S.credits === 0
+              free_used: S.credits === 0 && localStorage.getItem('cs_free_used') === 'true'
             })
           });
           const data = await res.json();
@@ -2490,7 +2490,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           name: payload.name,
           picture: payload.picture,
           client_credits: S.credits,
-          free_used: localStorage.getItem('cs_free_used') === 'true' || S.credits === 0
+          free_used: S.credits === 0 && localStorage.getItem('cs_free_used') === 'true'
         })
       }).then(r => r.json()).then(data => {
         if (data.ok && data.user) {
@@ -2678,17 +2678,23 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const num = Math.max(0, parseInt(val, 10) || 0);
     S.credits = num;
     localStorage.setItem('cs_credits', String(num));
-    if (num === 0) {
-      localStorage.setItem('cs_free_used', 'true');
-    }
     const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
     if (userEmail) {
       try {
         localStorage.setItem('cs_credits_' + userEmail, String(num));
-        if (num === 0) {
-          localStorage.setItem('cs_free_used_' + userEmail, 'true');
-        }
       } catch (_) {}
+    }
+    if (num === 0) {
+      localStorage.setItem('cs_free_used', 'true');
+      if (userEmail) {
+        try { localStorage.setItem('cs_free_used_' + userEmail, 'true'); } catch (_) {}
+      }
+    } else {
+      // User has positive credits! Clear free_used flags so refresh never wipes valid credits
+      localStorage.removeItem('cs_free_used');
+      if (userEmail) {
+        try { localStorage.removeItem('cs_free_used_' + userEmail); } catch (_) {}
+      }
     }
   }
 
@@ -2761,17 +2767,34 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const userCreditKey = userEmail ? ('cs_credits_' + userEmail) : 'cs_credits';
     const freeUsedKey = userEmail ? ('cs_free_used_' + userEmail) : 'cs_free_used';
 
-    let saved = localStorage.getItem(userCreditKey) ?? localStorage.getItem('cs_credits');
+    const savedUserVal = userEmail ? localStorage.getItem(userCreditKey) : null;
+    const savedGlobalVal = localStorage.getItem('cs_credits');
+
+    let savedCredits = null;
+    if (savedUserVal !== null && !isNaN(parseInt(savedUserVal, 10))) {
+      savedCredits = parseInt(savedUserVal, 10);
+    }
+    if (savedGlobalVal !== null && !isNaN(parseInt(savedGlobalVal, 10))) {
+      const gVal = parseInt(savedGlobalVal, 10);
+      savedCredits = (savedCredits !== null) ? Math.max(savedCredits, gVal) : gVal;
+    }
+
     let hasUsedFree = localStorage.getItem(freeUsedKey) === 'true' || localStorage.getItem('cs_free_used') === 'true';
 
-    if (saved !== null && !isNaN(parseInt(saved, 10))) {
-      S.credits = Math.max(0, parseInt(saved, 10));
+    if (savedCredits !== null && savedCredits >= 0) {
+      S.credits = savedCredits;
+      if (savedCredits > 0) {
+        hasUsedFree = false;
+        localStorage.removeItem('cs_free_used');
+        if (userEmail) {
+          try { localStorage.removeItem(freeUsedKey); } catch (_) {}
+        }
+      }
     } else if (hasUsedFree) {
       S.credits = 0;
     } else {
       S.credits = 1;
-      localStorage.setItem('cs_credits', '1');
-      if (userEmail) localStorage.setItem(userCreditKey, '1');
+      saveUserCredits(1);
     }
     updateCreditsUI();
 
@@ -2781,28 +2804,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       email: userEmail,
       user_id: S.user ? S.user.id : null,
       client_credits: S.credits,
-      free_used: hasUsedFree || S.credits === 0
+      free_used: (S.credits === 0 && hasUsedFree)
     };
+
     fetch('/api/credits/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(checkPayload)
     }).then(r => r.json()).then(data => {
       if (typeof data.credits === 'number') {
-        if (hasUsedFree && data.credits === 1 && data.used === 0) {
-          S.credits = 0;
-          saveUserCredits(0);
-        } else if (saved !== null && parseInt(saved, 10) > data.credits && data.credits === 1 && data.used === 0) {
-          S.credits = parseInt(saved, 10);
+        const serverCredits = Math.max(0, data.credits);
+        // If client has more valid credits than server (e.g. server restarted),
+        // PRESERVE the client's credits and sync them up to the server!
+        if (S.credits > serverCredits) {
           saveUserCredits(S.credits);
           fetch('/api/credits/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ device_id: deviceId, email: userEmail, credits: S.credits })
           }).catch(() => {});
+        } else if (serverCredits > S.credits) {
+          saveUserCredits(serverCredits);
         } else {
-          S.credits = Math.max(0, data.credits);
-          saveUserCredits(S.credits);
+          saveUserCredits(serverCredits);
         }
         updateCreditsUI();
       }
@@ -2978,8 +3002,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               }
 
               // Update Credits in UI
-              S.credits = verifyData.total_credits || ((S.credits || 0) + (verifyData.credits_added || 1));
-              localStorage.setItem('cs_credits', String(S.credits));
+              const newBalance = verifyData.total_credits || ((S.credits || 0) + (verifyData.credits_added || 1));
+              saveUserCredits(newBalance);
               updateCreditsUI();
 
               showToast(`🎉 Payment Successful! ${verifyData.credits_added} Video Exports unlocked.`);

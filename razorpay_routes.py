@@ -168,7 +168,7 @@ def register_razorpay_routes(app, WORK):
             else:
                 dev_data[key] = {
                     "credits": credits_to_add,
-                    "used": 1,
+                    "used": 0,
                     "created_at": time.time(),
                     "email": user_email,
                     "name": user_name
@@ -178,6 +178,9 @@ def register_razorpay_routes(app, WORK):
 
         try:
             dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
+            import cloud_storage
+            if cloud_storage.storage.is_enabled():
+                cloud_storage.storage.upload_file(dev_file, "device_credits.json")
         except Exception:
             pass
 

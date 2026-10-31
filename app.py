@@ -1001,15 +1001,19 @@ def auth_google():
 
     client_credits = d.get("client_credits")
     free_used = bool(d.get("free_used"))
+    client_c = client_credits if isinstance(client_credits, int) and client_credits > 0 else 0
     user_record = dev_data.get(email)
     if not user_record and "credits" in existing:
-        user_record = {"credits": existing["credits"], "used": existing.get("used", 0), "email": email, "name": name}
+        base_c = max(existing["credits"], client_c)
+        user_record = {"credits": base_c, "used": existing.get("used", 0), "email": email, "name": name}
         dev_data[email] = user_record
     elif not user_record:
-        init_credits = 0 if free_used or client_credits == 0 else (client_credits if isinstance(client_credits, int) and client_credits > 0 else 1)
+        init_credits = max(client_c, 0 if free_used else 1)
         user_record = {"credits": init_credits, "used": 1 if init_credits == 0 else 0, "email": email, "name": name, "created_at": time.time()}
         dev_data[email] = user_record
     else:
+        if client_c > user_record.get("credits", 0):
+            user_record["credits"] = client_c
         user_record["email"] = email
         if name: user_record["name"] = name
         user_record["last_login"] = time.time()
@@ -1130,6 +1134,7 @@ def check_device_credits():
     user_email = (d.get("email") or "").strip().lower()
     client_credits = d.get("client_credits")
     free_used = bool(d.get("free_used"))
+    client_c = client_credits if (isinstance(client_credits, int) and client_credits >= 0) else None
     key = user_email or device_id
     if not key:
         return jsonify(credits=1, used=0)
@@ -1151,50 +1156,84 @@ def check_device_credits():
         except Exception:
             pass
 
-    record = None
-    if user_email and user_email in data:
-        record = data[user_email]
-    elif device_id and device_id in data:
-        record = data[device_id]
-    elif user_profile and "credits" in user_profile:
-        record = {"credits": user_profile["credits"], "used": user_profile.get("used", 1), "email": user_email}
-        data[user_email] = record
+    recorded_credits = 0
+    has_record = False
+    used_count = 0
+    expires_at = None
 
-    if not record:
-        if free_used or (isinstance(client_credits, int) and client_credits == 0):
-            record = {"credits": 0, "used": 1, "created_at": time.time()}
-        elif isinstance(client_credits, int) and client_credits > 0:
-            record = {"credits": client_credits, "used": 0, "created_at": time.time()}
+    if user_email and user_email in data:
+        has_record = True
+        rec = data[user_email]
+        recorded_credits = max(recorded_credits, rec.get("credits", 0))
+        used_count = max(used_count, rec.get("used", 0))
+        if rec.get("expires_at"): expires_at = rec.get("expires_at")
+
+    if device_id and device_id in data:
+        has_record = True
+        rec = data[device_id]
+        recorded_credits = max(recorded_credits, rec.get("credits", 0))
+        used_count = max(used_count, rec.get("used", 0))
+        if rec.get("expires_at"): expires_at = rec.get("expires_at")
+
+    if user_profile and "credits" in user_profile:
+        has_record = True
+        recorded_credits = max(recorded_credits, user_profile.get("credits", 0))
+        used_count = max(used_count, user_profile.get("used", 0))
+
+    if not has_record:
+        if client_c is not None and client_c > 0:
+            final_credits = client_c
+            final_used = 0
+        elif free_used or client_c == 0:
+            final_credits = 0
+            final_used = 1
         else:
-            record = {"credits": 1, "used": 0, "created_at": time.time()}
+            final_credits = 1
+            final_used = 0
+
+        record = {"credits": final_credits, "used": final_used, "created_at": time.time()}
         if user_email: record["email"] = user_email
         data[key] = record
-        try:
-            dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+        if device_id: data[device_id] = record
+        save_device_credits_data(data)
         if user_file:
-            user_profile["credits"] = record["credits"]
-            user_profile["used"] = record.get("used", 0)
+            user_profile["credits"] = final_credits
+            user_profile["used"] = final_used
             try:
                 user_file.write_text(json.dumps(user_profile, indent=2), encoding="utf-8")
             except Exception:
                 pass
-        return jsonify(credits=record["credits"], used=record.get("used", 0))
+        return jsonify(credits=final_credits, used=final_used)
+
+    final_credits = recorded_credits
+    if client_c is not None and client_c > final_credits:
+        final_credits = client_c
 
     # Check for expiration of pack
-    cur_credits = record.get("credits", 0)
-    exp_time = record.get("expires_at")
-    if exp_time and time.time() > exp_time:
-        cur_credits = 0
-        record["credits"] = 0
-        record["expired"] = True
+    if expires_at and time.time() > expires_at:
+        final_credits = 0
+
+    # Sync back the consistent highest credits to both keys in data
+    for k in set(filter(None, [user_email, device_id])):
+        if k in data:
+            data[k]["credits"] = final_credits
+            if expires_at: data[k]["expires_at"] = expires_at
+        else:
+            data[k] = {"credits": final_credits, "used": used_count, "created_at": time.time()}
+            if expires_at: data[k]["expires_at"] = expires_at
+            if user_email: data[k]["email"] = user_email
+
+    save_device_credits_data(data)
+
+    if user_file:
+        user_profile["credits"] = final_credits
+        user_profile["used"] = used_count
         try:
-            dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            user_file.write_text(json.dumps(user_profile, indent=2), encoding="utf-8")
         except Exception:
             pass
 
-    return jsonify(credits=cur_credits, used=record.get("used", 0), expires_at=record.get("expires_at"))
+    return jsonify(credits=final_credits, used=used_count, expires_at=expires_at)
 
 
 @app.post("/api/credits/consume")
@@ -1227,13 +1266,12 @@ def consume_device_credit():
     if user_name:
         record["name"] = user_name
     data[key] = record
-    if device_id and device_id != key:
+    if device_id:
         data[device_id] = {**record, "credits": new_credits}
+    if user_email:
+        data[user_email] = {**record, "credits": new_credits}
 
-    try:
-        dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except Exception:
-        pass
+    save_device_credits_data(data)
 
     if user_email:
         user_id = re.sub(r"\W", "_", user_email)
@@ -1271,27 +1309,29 @@ def sync_device_credits():
         except Exception:
             pass
 
-    record = data.get(key, {})
-    if credits > record.get("credits", 0):
-        record["credits"] = credits
-        if user_email: record["email"] = user_email
-        data[key] = record
-        try:
-            dev_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        except Exception:
-            pass
-        if user_email:
-            user_id = re.sub(r"\W", "_", user_email)
-            u_file = USERS_DIR / f"{user_id}.json"
-            if u_file.exists():
-                try:
-                    u_data = json.loads(u_file.read_text(encoding="utf-8"))
-                    u_data["credits"] = credits
-                    u_file.write_text(json.dumps(u_data, indent=2), encoding="utf-8")
-                except Exception:
-                    pass
+    keys_to_update = set(filter(None, [device_id, user_email]))
+    for k in keys_to_update:
+        if k in data:
+            data[k]["credits"] = max(data[k].get("credits", 0), credits)
+            if user_email: data[k]["email"] = user_email
+        else:
+            data[k] = {"credits": credits, "used": 0, "created_at": time.time()}
+            if user_email: data[k]["email"] = user_email
 
-    return jsonify(ok=True, credits=record.get("credits", credits))
+    save_device_credits_data(data)
+
+    if user_email:
+        user_id = re.sub(r"\W", "_", user_email)
+        u_file = USERS_DIR / f"{user_id}.json"
+        if u_file.exists():
+            try:
+                u_data = json.loads(u_file.read_text(encoding="utf-8"))
+                u_data["credits"] = max(u_data.get("credits", 0), credits)
+                save_user_profile(user_id, u_data)
+            except Exception:
+                pass
+
+    return jsonify(ok=True, credits=credits)
 
 
 @app.get("/api/admin/users")
@@ -1395,11 +1435,18 @@ def redeem_coupon():
             dev_data[k] = {"credits": credits_to_add, "used": 0, "created_at": time.time()}
             if expires_at: dev_data[k]["expires_at"] = expires_at
             if user_email: dev_data[k]["email"] = user_email
-    total_synced_credits = (dev_data.get(user_email) or dev_data.get(device_id) or {}).get("credits", credits_to_add)
-    try:
-        dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
-    except Exception:
-        pass
+    total_synced_credits = max(
+        (dev_data.get(user_email) or {}).get("credits", 0),
+        (dev_data.get(device_id) or {}).get("credits", 0),
+        credits_to_add
+    )
+    save_device_credits_data(dev_data)
+    if user_email:
+        uid = re.sub(r"\W", "_", user_email)
+        u_profile = load_user_profile(uid)
+        if u_profile:
+            u_profile["credits"] = total_synced_credits
+            save_user_profile(uid, u_profile)
 
     return jsonify(
         ok=True,
