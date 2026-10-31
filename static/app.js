@@ -5248,8 +5248,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     let W = rawW;
     let H = rawH;
-    if (W > 1920 || H > 1920) {
-      const scale = Math.min(1920 / W, 1920 / H);
+    if (W > 1280 || H > 1280) {
+      const scale = Math.min(1280 / W, 1280 / H);
       W = Math.round(W * scale);
       H = Math.round(H * scale);
     }
@@ -5287,7 +5287,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const canvasStream = recCanvas.captureStream ? recCanvas.captureStream(fps) : recCanvas.mozCaptureStream(fps);
 
     const recOptions = {
-      videoBitsPerSecond: 16000000
+      videoBitsPerSecond: 5000000
     };
     if (chosenMime) recOptions.mimeType = chosenMime;
 
@@ -5327,18 +5327,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // Pure mathematical green-screen overlay rendering
     // Background is #00FF00 (pure green). Captions, shadows, and text are drawn on top.
     // FFmpeg chromakeys out 0x00FF00 with 100% precision, leaving pristine typography on original video!
-    const frameDelayMs = Math.round(1000 / fps); // 33ms per frame
+    const startPerf = performance.now();
+    let frameIdx = 0;
 
-    for (let frameIdx = 0; frameIdx < totalFrames; frameIdx++) {
-      if (isCancelled) break;
+    while (!isCancelled) {
+      // Caption time comes from the real clock so it always matches the recording
+      const targetTime = (performance.now() - startPerf) / 1000;
+      if (targetTime >= duration) break;
 
-      const targetTime = frameIdx * frameInterval;
-
-      // 1. Fill canvas with chromakey green #00FF00
       recCtx.fillStyle = '#00FF00';
       recCtx.fillRect(0, 0, W, H);
 
-      // 2. Draw active captions with EXACT Same Canvas Engine (drawCanvasTypography)
       const activeCap = S.captions.find(c => targetTime >= c.start && targetTime <= c.end);
       if (activeCap) {
         const words = (activeCap.words || []).map(w => ({
@@ -5348,24 +5347,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           key: Boolean(w.key),
           color: w.color || undefined
         }));
-
         drawCanvasTypography(recCtx, null, activeCap, words, targetTime, S.style || {}, W, H, isBehind, false);
         drawAutoEmojis(recCtx, activeCap, words, targetTime, S.style || {}, W, H);
       }
 
-      // 3. Draw Watermark
       drawWatermark(recCtx, W, H);
 
-      // 4. Progress update
-      const pct = Math.min(95, Math.max(5, Math.round(((frameIdx + 1) / totalFrames) * 95)));
-      exportProgressBar.style.width = pct + '%';
-      exportPercent.textContent = pct + '%';
-      exportProgressText.textContent = `Rendering text overlay frame ${frameIdx + 1}/${totalFrames} (${pct}%)...`;
-      exportProgressDetail.textContent = 'Generating full 1080p captions overlay with 100% exact colors.';
-      updateExportPipeline(1, `Frame ${frameIdx + 1}/${totalFrames}`, 'Queued');
+      // Update progress UI only every 10 frames (less lag)
+      if (frameIdx % 10 === 0) {
+        const pct = Math.min(95, Math.max(5, Math.round((targetTime / duration) * 95)));
+        exportProgressBar.style.width = pct + '%';
+        exportPercent.textContent = pct + '%';
+        exportProgressText.textContent = `Rendering captions ${pct}%... keep this tab open`;
+      }
+      frameIdx++;
 
-      // Steady 33ms per frame ensures MediaRecorder records the full 100% duration of the video!
-      await new Promise(r => setTimeout(r, frameDelayMs));
+      await new Promise(r => requestAnimationFrame(r));
     }
 
     // Flush recorder buffer
@@ -5374,10 +5371,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (isCancelled) return;
 
     updateExportPipeline(2, 'Done ✓', 'Compositing Final Video...');
-    exportProgressText.textContent = 'Compositing final 1080p MP4...';
-    exportProgressDetail.textContent = 'Overlaying transparent captions onto original video with lossless audio.';
-    exportProgressBar.style.width = '100%';
-    exportPercent.textContent = '100%';
+    exportProgressText.textContent = 'Finalizing on server... this can take 1-2 minutes';
+    exportProgressDetail.textContent = 'Please keep this tab open. Do not refresh.';
+    exportProgressBar.style.width = '96%';
+    exportPercent.textContent = '96%';
 
     const finishExportPromise = new Promise((resolve) => {
       recorder.onstop = async () => {
@@ -5430,13 +5427,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           }
 
           if (!serverDownloadUrl) throw new Error('Server export failed');
-          const finalUrl = serverDownloadUrl;
           updateExportPipeline(3);
-          showExportComplete(finalUrl);
+          showExportComplete(serverDownloadUrl);
           resolve();
         } catch (postErr) {
           console.warn('save_canvas_export error:', postErr);
-          showExportError('Export failed, please try again');
+          exportProgressText.textContent = 'Export failed, please try again.';
+          exportProgressDetail.textContent = 'The server could not finish the video.';
           resolve();
         }
       };

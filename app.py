@@ -2615,10 +2615,10 @@ def save_canvas_export():
             idx += 1
             cmd += ["-stream_loop", "-1", "-i", str(bgm_file)]
 
-        fc = ["[1:v][0:v]scale2ref=flags=bicubic[ovs][bg];"
+        fc = ["[0:v]scale='min(1280,iw)':'min(1280,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2[bg0];"
+              "[1:v][bg0]scale2ref=flags=bicubic[ovs][bg];"
               "[ovs]chromakey=0x00FF00:0.18:0.08,format=yuva420p[ov];"
-              "[bg][ov]overlay=0:0:eof_action=pass,"
-              "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[vout]"]
+              "[bg][ov]overlay=0:0:eof_action=pass,format=yuv420p[vout]"]
 
         if vo_idx is not None:
             main_a = f"[{vo_idx}:a]"
@@ -2640,7 +2640,7 @@ def save_canvas_export():
         cmd += ["-filter_complex", ";".join(fc), "-map", "[vout]", "-map", amap]
         if duration:
             cmd += ["-t", f"{duration:.3f}"]
-        cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+        cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
                 "-r", "30", "-pix_fmt", "yuv420p", "-threads", "2",
                 "-c:a", "aac", "-b:a", "192k",
                 "-movflags", "+faststart", str(tmp_output)]
@@ -2685,7 +2685,6 @@ def save_canvas_export():
         "filename": out_name,
         "video_url": cloud_url or f"/video/{out_name}"
     })
-
 
 @app.get("/download/<path:filename>")
 def download(filename):
