@@ -5241,6 +5241,169 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   let activeDirectExport = null;
+  async function startFrameExport() {
+    if (!window.Mediabunny) {
+      throw new Error('Mediabunny is not loaded');
+    }
+
+    const { Input, Output, Mp4OutputFormat, BufferTarget, ALL_FORMATS, BlobSource, UrlSource } = window.Mediabunny;
+
+    let source;
+    if (S.file && S.file instanceof Blob) {
+      source = new BlobSource(S.file);
+    } else if (S.filename) {
+      source = new UrlSource('/video/' + encodeURIComponent(S.filename));
+    } else if (vid.src) {
+      source = new UrlSource(vid.src);
+    } else {
+      throw new Error('No video source available for frame export');
+    }
+
+    const input = new Input({
+      formats: ALL_FORMATS,
+      source: source,
+    });
+
+    const output = new Output({
+      format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+      target: new BufferTarget(),
+    });
+
+    const rawW = vid.videoWidth || S.probe?.width || 1280;
+    const rawH = vid.videoHeight || S.probe?.height || 720;
+    let targetW = rawW;
+    let targetH = rawH;
+
+    const longSide = Math.max(targetW, targetH);
+    if (longSide > 1280) {
+      const scale = 1280 / longSide;
+      targetW = Math.round(targetW * scale);
+      targetH = Math.round(targetH * scale);
+    }
+    targetW = targetW % 2 === 0 ? targetW : targetW - 1;
+    targetH = targetH % 2 === 0 ? targetH : targetH - 1;
+    targetW = Math.max(2, targetW);
+    targetH = Math.max(2, targetH);
+
+    const isBehind = Boolean(
+      S.style && (
+        S.style.behindPerson ||
+        S.style.depthAccent ||
+        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
+        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
+      )
+    );
+
+    let canvas = null;
+    let ctx = null;
+
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (_) {}
+    }
+
+    const conversion = await window.Mediabunny.Conversion.init({
+      input,
+      output,
+      video: {
+        codec: 'avc',
+        width: targetW,
+        height: targetH,
+        frameRate: 30,
+        process: (sample) => {
+          const W = targetW;
+          const H = targetH;
+
+          if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.width = W;
+            canvas.height = H;
+            ctx = canvas.getContext('2d');
+          }
+
+          ctx.clearRect(0, 0, W, H);
+          sample.draw(ctx, 0, 0, W, H);
+
+          const t = sample.timestamp || 0;
+          const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+          if (activeCap) {
+            const words = (activeCap.words || []).map(w => ({
+              t: w.t || w.word || '',
+              s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
+              e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
+              key: Boolean(w.key),
+              color: w.color || undefined
+            }));
+            drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
+            drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
+          }
+
+          drawWatermark(ctx, W, H);
+
+          return canvas;
+        }
+      }
+    });
+
+    if (!conversion.isValid) {
+      throw new Error('Mediabunny conversion is invalid');
+    }
+
+    activeDirectExport = {
+      stop: () => {
+        try { conversion.cancel(); } catch (_) {}
+      }
+    };
+
+    conversion.onProgress = (progress) => {
+      const pct = Math.min(99, Math.max(1, Math.round(progress * 100)));
+      exportProgressBar.style.width = pct + '%';
+      exportPercent.textContent = pct + '%';
+      exportProgressText.textContent = `Rendering video with frame sync (${pct}%)...`;
+      exportProgressDetail.textContent = 'Hardware-accelerated client encoding in progress.';
+      updateExportPipeline(1, `${pct}%`, 'Queued');
+    };
+
+    updateExportPipeline(1, 'Processing Frames...', 'Queued');
+    exportProgressText.textContent = 'Rendering video with frame sync...';
+    exportProgressDetail.textContent = 'Encoding synchronized frame-accurate captions.';
+
+    await conversion.execute();
+
+    updateExportPipeline(2, 'Done ✓', 'Packaging Video...');
+    exportProgressBar.style.width = '100%';
+    exportPercent.textContent = '100%';
+    exportProgressText.textContent = 'Finalizing MP4...';
+
+    const buffer = output.target.buffer;
+    if (!buffer || buffer.byteLength === 0) {
+      throw new Error('Export buffer is empty');
+    }
+
+    const blob = new Blob([buffer], { type: 'video/mp4' });
+    const url = URL.createObjectURL(blob);
+
+    saveUserCredits(Math.max(0, S.credits - 1));
+    updateCreditsUI();
+
+    const devId = localStorage.getItem('cs_device_id');
+    const userEmail = S.user ? (S.user.email || '') : '';
+    const userName = S.user ? (S.user.name || '') : '';
+    if (devId || userEmail) {
+      fetch('/api/credits/consume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: devId,
+          email: userEmail,
+          name: userName
+        })
+      }).catch(() => {});
+    }
+
+    updateExportPipeline(3);
+    showExportComplete(url);
+  }
+
 
   async function startDirectCanvasExport() {
     const rawW = vid.videoWidth || S.probe?.width || 1080;
@@ -5488,9 +5651,24 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     updateExportPipeline(1, 'Recording Canvas...', 'Queued');
 
-    // High-Fidelity Server Export:
-    // STRICT SAME-ENGINE CANVAS EXPORT:
-    // Guarantees 100% exact colors, typography, highlights and ZERO lag!
+    // Dual-engine export selector:
+    // WebCodecs hardware accelerated client frame export with exact timestamp sync
+    // Fallback: direct canvas export pipeline
+    const hasWebCodecs = typeof VideoEncoder !== 'undefined' && typeof VideoDecoder !== 'undefined';
+    const hasAudioOverlays = Boolean(
+      S.bgmFilename ||
+      (S.voiceoverFilename && btnReplaceVoiceover && btnReplaceVoiceover.classList.contains('active'))
+    );
+
+    if (hasWebCodecs && !hasAudioOverlays && window.Mediabunny) {
+      try {
+        await startFrameExport();
+        return;
+      } catch (frameErr) {
+        console.warn('startFrameExport failed, falling back to direct canvas export:', frameErr);
+      }
+    }
+
     await startDirectCanvasExport();
   }
 
