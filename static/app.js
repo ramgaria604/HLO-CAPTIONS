@@ -43,6 +43,8 @@
   sfxVolume: 0.7,
   watermark: { text: '', platform: 'instagram', position: 'bottom-right', opacity: 0.8 },
   brolls: [],
+  autoZoom: true,
+  progressBar: { enabled: true, position: 'bottom' },
   };
 
   // --- DOM Elements ---
@@ -2680,6 +2682,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       renderCanvas();
       syncTimelinePlayhead();
       syncBrollPlayback();
+      syncAutoZoom();
+      syncReelProgressBar();
 
       if (S.autoSfx !== false && !vid.paused) {
         const curT = vid.currentTime || 0;
@@ -2720,6 +2724,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       renderCanvas();
       syncTimelinePlayhead();
       syncBrollPlayback();
+      syncAutoZoom();
+      syncReelProgressBar();
     });
 
     vid.addEventListener('play', () => syncBrollPlayback());
@@ -4231,6 +4237,65 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         renderCanvas();
       });
     }
+
+    // Auto-Zoom Toggle Handlers
+    const btnQuickAutoZoom = $('btnQuickAutoZoom');
+    if (btnQuickAutoZoom) {
+      btnQuickAutoZoom.addEventListener('click', () => {
+        S.autoZoom = !S.autoZoom;
+        btnQuickAutoZoom.classList.toggle('active', S.autoZoom);
+        btnQuickAutoZoom.textContent = S.autoZoom ? '🎥 Zoom: ON' : '🎥 Zoom: OFF';
+        $$('#autoZoomToggleGroup .btn-toggle').forEach(b => b.classList.toggle('active', (b.getAttribute('data-zoom') === 'on') === S.autoZoom));
+        const badge = $('valAutoZoomBadge');
+        if (badge) {
+          badge.textContent = S.autoZoom ? 'Active (1.15x)' : 'Disabled';
+          badge.className = S.autoZoom ? 'val-badge badge-green' : 'val-badge';
+        }
+        syncAutoZoom();
+        showToast(S.autoZoom ? '🎥 Dynamic Auto-Zoom enabled' : 'Auto-Zoom disabled');
+      });
+    }
+
+    $$('#autoZoomToggleGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#autoZoomToggleGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        S.autoZoom = (btn.getAttribute('data-zoom') === 'on');
+        if (btnQuickAutoZoom) {
+          btnQuickAutoZoom.classList.toggle('active', S.autoZoom);
+          btnQuickAutoZoom.textContent = S.autoZoom ? '🎥 Zoom: ON' : '🎥 Zoom: OFF';
+        }
+        const badge = $('valAutoZoomBadge');
+        if (badge) {
+          badge.textContent = S.autoZoom ? 'Active (1.15x)' : 'Disabled';
+          badge.className = S.autoZoom ? 'val-badge badge-green' : 'val-badge';
+        }
+        syncAutoZoom();
+      });
+    });
+
+    // Reel Progress Bar Handlers
+    $$('#progressBarToggleGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#progressBarToggleGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        if (!S.progressBar) S.progressBar = { enabled: true, position: 'bottom' };
+        S.progressBar.enabled = (btn.getAttribute('data-progress') === 'on');
+        const badge = $('valProgressBarBadge');
+        if (badge) {
+          badge.textContent = S.progressBar.enabled ? 'Active' : 'Hidden';
+          badge.className = S.progressBar.enabled ? 'val-badge badge-green' : 'val-badge';
+        }
+        syncReelProgressBar();
+      });
+    });
+
+    $$('#progressBarPosGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#progressBarPosGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        if (!S.progressBar) S.progressBar = { enabled: true, position: 'bottom' };
+        S.progressBar.position = btn.getAttribute('data-pos') || 'bottom';
+        syncReelProgressBar();
+      });
+    });
   }
 
   // ==========================================================================
@@ -4889,7 +4954,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function generateViralHooks() {
     const fullText = S.captions.map(c => c.text).join(' ');
     const words = fullText.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    const topicWord = words.find(w => !['this', 'that', 'with', 'from', 'have', 'what', 'your', 'about'].includes(w)) || 'secret';
+    const stopWords = new Set(['this', 'that', 'with', 'from', 'have', 'what', 'your', 'about', 'video', 'just', 'like', 'there', 'their', 'when', 'which', 'will', 'then', 'they']);
+    const topicWords = words.filter(w => !stopWords.has(w));
+    const topicWord = topicWords[0] || 'secret';
+    const topicWord2 = topicWords[1] || 'strategy';
 
     const hooks = [
       {
@@ -4898,7 +4966,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       },
       {
         badge: '🛑 STOP SCROLLING',
-        text: `Stop scrolling! 99% of people are doing this completely wrong ❌`
+        text: `Stop scrolling! 99% of people get ${topicWord} completely wrong ❌`
       },
       {
         badge: '🚀 VIRAL VALUE',
@@ -4906,9 +4974,23 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
     ];
 
+    const aiCaption = `Here is the truth about ${topicWord} and ${topicWord2} that nobody talks about 👇\n\n` +
+      `Most people make the mistake of overcomplicating things. Once you understand this one simple rule, everything shifts.\n\n` +
+      `📌 Save this reel so you don't lose it later!\n` +
+      `💬 Drop a comment below with your thoughts.\n` +
+      `🚀 Follow for daily actionable tips!`;
+
+    const hashtags = [
+      `#${topicWord}`, `#${topicWord2}`, '#reels', '#viralreels', '#reelsindia',
+      '#explorepage', '#trending', '#creator', '#contentcreator', '#hacks',
+      '#growth', '#motivation', '#tipsandtricks', '#learn', '#dailyreels'
+    ];
+
     const list = $('hooksList');
     if (!list) return;
     list.innerHTML = '';
+
+    // 1. Hook Cards
     hooks.forEach(h => {
       const card = document.createElement('div');
       card.className = 'hook-card';
@@ -4917,14 +4999,45 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           <span class="hook-badge">${h.badge}</span>
           <div class="hook-text">${h.text}</div>
         </div>
-        <button type="button" class="btn-insert-hook">+ Insert at 0s-3s</button>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn-insert-hook" title="Insert as 0s-3s first caption">+ Insert</button>
+          <button type="button" class="btn-copy-hook" style="background:#27273a; border:1px solid rgba(255,255,255,0.15); border-radius:6px; color:#fff; padding:0 10px; cursor:pointer;" title="Copy Hook">📋</button>
+        </div>
       `;
       card.querySelector('.btn-insert-hook').addEventListener('click', () => {
         insertHookCaption(h.text);
         $('modalHooks').classList.add('hidden');
       });
+      card.querySelector('.btn-copy-hook').addEventListener('click', () => {
+        navigator.clipboard.writeText(h.text).then(() => showToast('Hook copied to clipboard!'));
+      });
       list.appendChild(card);
     });
+
+    // 2. AI Ready-to-Post Caption & Hashtags Card
+    const postCard = document.createElement('div');
+    postCard.className = 'ai-caption-card';
+    postCard.innerHTML = `
+      <div class="ai-caption-header">
+        <span class="ai-caption-title">📝 Ready-to-Post Instagram / Shorts Caption</span>
+      </div>
+      <div class="ai-caption-text">${aiCaption}</div>
+      <div class="ai-hashtags-wrap">
+        ${hashtags.map(t => `<span class="ai-tag-pill">${t}</span>`).join('')}
+      </div>
+      <button type="button" class="btn-copy-ai-post">
+        <span>📋 Copy Full Post & Hashtags</span>
+      </button>
+    `;
+
+    postCard.querySelector('.btn-copy-ai-post').addEventListener('click', () => {
+      const fullPost = `${aiCaption}\n\n${hashtags.join(' ')}`;
+      navigator.clipboard.writeText(fullPost).then(() => {
+        showToast('✨ Caption & hashtags copied to clipboard!');
+      });
+    });
+
+    list.appendChild(postCard);
 
     $('modalHooks').classList.remove('hidden');
   }
@@ -5690,6 +5803,41 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
   }
 
+
+  // Dynamic Auto-Zoom (1.15x punch cut on alternating sentences - Hormozi style)
+  function syncAutoZoom() {
+    if (!S.autoZoom) {
+      vid.style.transform = 'scale(1.0)';
+      return;
+    }
+    const t = vid.currentTime || 0;
+    const activeCapIdx = S.captions.findIndex(c => t >= c.start && t <= c.end);
+    if (activeCapIdx !== -1 && activeCapIdx % 2 === 1) {
+      vid.style.transform = 'scale(1.15)';
+      vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
+    } else {
+      vid.style.transform = 'scale(1.0)';
+      vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
+    }
+  }
+
+  // Animated Reel Progress Bar
+  function syncReelProgressBar() {
+    const bar = $('reelProgressBar');
+    const fill = $('reelProgressFill');
+    if (!bar || !fill) return;
+    if (!S.progressBar || S.progressBar.enabled === false) {
+      bar.style.display = 'none';
+      return;
+    }
+    bar.style.display = 'block';
+    bar.classList.toggle('position-top', S.progressBar.position === 'top');
+    const dur = vid.duration || S.probe?.duration || 0;
+    const t = vid.currentTime || 0;
+    const pct = dur > 0 ? Math.min(100, Math.max(0, (t / dur) * 100)) : 0;
+    fill.style.width = pct + '%';
+  }
+
   // Live real-time B-Roll playback sync with main video
   function syncBrollPlayback() {
     const brollLayer = $('brollStageLayer');
@@ -5723,6 +5871,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     brollLayer.classList.remove('broll-layout-full', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window', 'broll-layout-circle');
     const layout = activeBroll.layout || 'full';
     brollLayer.classList.add('broll-layout-' + layout);
+
+    // Trigger slick pop / slide entry animations
+    if (activeBroll.id !== lastActiveBrollId) {
+      brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up');
+      void brollLayer.offsetWidth; // trigger reflow
+      if (layout === 'circle' || layout === 'window') {
+        brollLayer.classList.add('broll-animate-pop');
+      } else if (layout === 'above') {
+        brollLayer.classList.add('broll-animate-slide-down');
+      } else if (layout === 'below') {
+        brollLayer.classList.add('broll-animate-slide-up');
+      }
+    }
 
     // Sync video source
     if (brollVid.src !== activeBroll.url && brollVid.currentSrc !== activeBroll.url) {
@@ -6056,10 +6217,25 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             ctx = canvas.getContext('2d');
           }
 
-          ctx.clearRect(0, 0, W, H);
-          sample.draw(ctx, 0, 0, W, H);
-
           const t = sample.timestamp || 0;
+
+          // 1. Dynamic Auto-Zoom (1.15x cut zoom on odd alternating sentences)
+          const isZoomed = S.autoZoom && (() => {
+            const idx = S.captions.findIndex(c => t >= c.start && t <= c.end);
+            return idx !== -1 && idx % 2 === 1;
+          })();
+
+          ctx.clearRect(0, 0, W, H);
+          if (isZoomed) {
+            const zoom = 1.15;
+            const zW = W * zoom;
+            const zH = H * zoom;
+            const zX = (W - zW) / 2;
+            const zY = (H - zH) / 2;
+            sample.draw(ctx, zX, zY, zW, zH);
+          } else {
+            sample.draw(ctx, 0, 0, W, H);
+          }
 
           // Draw active B-Roll frame (if any) before drawing captions
           const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
@@ -6123,6 +6299,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               ctx.drawImage(bv, 0, 0, W, H);
             }
           }
+
+          // 2. Reel Progress Bar
+          if (S.progressBar && S.progressBar.enabled !== false) {
+            const dur = S.probe?.duration || vid.duration || 1;
+            const progress = Math.min(1, Math.max(0, t / dur));
+            const barH = Math.max(4, Math.round(H * 0.007));
+            const barY = S.progressBar.position === 'top' ? 0 : (H - barH);
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fillRect(0, barY, W, barH);
+            const grad = ctx.createLinearGradient(0, barY, W, barY);
+            grad.addColorStop(0, '#ec4899');
+            grad.addColorStop(0.5, '#a855f7');
+            grad.addColorStop(1, '#00f0ff');
+            ctx.fillStyle = grad;
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 8;
+            ctx.fillRect(0, barY, W * progress, barH);
+            ctx.restore();
+          }
+
           const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
           if (activeCap) {
             const words = (activeCap.words || []).map(w => ({
@@ -6468,6 +6665,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         quality: 'balanced',
         aspect: S.aspect || 'original',
         speed: 1.0,
+        zoom: Boolean(S.autoZoom),
+        progressBar: S.progressBar,
         watermark: S.watermark,
         auto_sfx: Boolean(S.autoSfx !== false)
       };

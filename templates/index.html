@@ -209,6 +209,9 @@
             <div id="brollStageLayer" class="broll-stage-layer hidden">
               <video id="brollVid" playsinline muted preload="auto" crossorigin="anonymous"></video>
             </div>
+            <div id="reelProgressBar" class="reel-progress-bar">
+              <div id="reelProgressFill" class="reel-progress-fill"></div>
+            </div>
             <canvas id="captionCanvas"></canvas>
             <span id="stagePresetName" style="display:none;"></span>
           </div>
@@ -239,6 +242,7 @@
             <button type="button" class="btn-aspect active" data-aspect="9:16" title="9:16 Reels & Shorts">📱 9:16</button>
             <button type="button" class="btn-aspect" data-aspect="original" title="Original video ratio">Fit</button>
             <button type="button" class="btn-aspect" data-aspect="1:1" title="1:1 Square Feed">1:1</button>
+            <button type="button" class="btn-aspect active" id="btnQuickAutoZoom" title="Dynamic 1.15x Punch Cut (Hormozi Style)">🎥 Zoom: ON</button>
           </div>
 
           <!-- Undo & Redo History Controls -->
@@ -604,6 +608,74 @@
                   <button type="button" class="btn-toggle active" data-case="upper">ALL CAPS</button>
                   <button type="button" class="btn-toggle" data-case="normal">Normal</button>
                 </div>
+              </div>
+
+              <!-- 10. Dynamic Auto-Zoom (Hormozi / MrBeast Style) -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>🎥 Dynamic Auto-Zoom (Retention Punch Cut)</label>
+                  <span id="valAutoZoomBadge" class="val-badge badge-green">Active (1.15x)</span>
+                </div>
+                <p class="voiceover-help">Subtly punch-zooms (1.15x) on alternating punchlines to reset viewer attention and maximize retention.</p>
+                <div class="btn-group" id="autoZoomToggleGroup">
+                  <button type="button" class="btn-toggle active" data-zoom="on">Auto-Zoom: ON</button>
+                  <button type="button" class="btn-toggle" data-zoom="off">Auto-Zoom: OFF</button>
+                </div>
+              </div>
+
+              <!-- 11. Reel Progress Bar -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>📊 Reel Progress Bar</label>
+                  <span id="valProgressBarBadge" class="val-badge badge-green">Active</span>
+                </div>
+                <p class="voiceover-help">Animated neon progress line running across the bottom or top of the video.</p>
+                <div class="btn-group" id="progressBarToggleGroup" style="margin-bottom: 8px;">
+                  <button type="button" class="btn-toggle active" data-progress="on">Progress Bar: ON</button>
+                  <button type="button" class="btn-toggle" data-progress="off">Progress Bar: OFF</button>
+                </div>
+                <div class="broll-orient-row">
+                  <span class="broll-orient-label">Position:</span>
+                  <div class="btn-group" id="progressBarPosGroup">
+                    <button type="button" class="btn-toggle active" data-pos="bottom">Bottom Line</button>
+                    <button type="button" class="btn-toggle" data-pos="top">Top Line</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 12. Creator Social Handle & Watermark -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>🏷️ Creator Handle & Watermark</label>
+                  <span class="val-badge">Branding</span>
+                </div>
+                <p class="voiceover-help">Adds a clean, frosted social handle pill to prevent people from stealing your reels.</p>
+                <div class="broll-search-row">
+                  <input type="text" id="inputWatermarkText" class="styled-text-input" placeholder="@yourhandle (e.g. @nikhil)">
+                </div>
+                <div class="broll-orient-row" style="margin-top: 10px;">
+                  <span class="broll-orient-label">Platform:</span>
+                  <div class="btn-group" id="wmPlatformGroup">
+                    <button type="button" class="btn-toggle active" data-platform="instagram">📷 Instagram</button>
+                    <button type="button" class="btn-toggle" data-platform="youtube">▶️ YouTube</button>
+                    <button type="button" class="btn-toggle" data-platform="tiktok">🎵 TikTok</button>
+                    <button type="button" class="btn-toggle" data-platform="twitter">𝕏 Twitter</button>
+                  </div>
+                </div>
+                <div class="broll-orient-row" style="margin-top: 10px;">
+                  <span class="broll-orient-label">Position:</span>
+                  <div class="btn-group" id="wmPosGroup">
+                    <button type="button" class="btn-toggle" data-pos="top-left">Top-L</button>
+                    <button type="button" class="btn-toggle" data-pos="top-right">Top-R</button>
+                    <button type="button" class="btn-toggle" data-pos="bottom-left">Bottom-L</button>
+                    <button type="button" class="btn-toggle active" data-pos="bottom-right">Bottom-R</button>
+                  </div>
+                </div>
+                <div class="control-header" style="margin-top: 10px;">
+                  <label>Watermark Opacity</label>
+                  <span id="valWmOpacity" class="val-badge">80%</span>
+                </div>
+                <input type="range" id="inputWmOpacity" min="20" max="100" value="80" class="styled-slider">
               </div>
 
             </div>
@@ -1104,8 +1176,8 @@
     <div class="modal-card modal-medium">
       <div class="modal-header">
         <div>
-          <h2 class="modal-title">💡 Viral Hook Generator</h2>
-          <p class="modal-desc">The first 3 seconds decide 80% of video retention. Click any hook to insert it at 0s-3s.</p>
+          <h2 class="modal-title">🤖 AI Viral Hooks, Captions & Hashtags</h2>
+          <p class="modal-desc">AI-generated high-retention hooks, ready-to-post Instagram/Shorts captions, and trending hashtags tailored to your video.</p>
         </div>
         <button id="btnCloseHooksModal" class="btn-close">&times;</button>
       </div>
@@ -1212,6 +1284,6 @@
     window.Mediabunny = Mediabunny;
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=4.42"></script>
+  <script src="/static/app.js?v=4.43"></script>
 </body>
 </html>
