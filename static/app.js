@@ -2332,6 +2332,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   if (!ctxFore) return;
+  if (st && (st.videoTemplate === 'popStudio' || (S.popStudioConfig && S.popStudioConfig.enabled))) {
+    return;
+  }
 
   // B3 Export Parity: Caption manual positioning & scale (ratio offsets relative to W, H)
   const capDx = (Number(cap && cap.dx) || 0) * W;
@@ -7242,6 +7245,34 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         key: Boolean(w.key)
       }));
 
+      // Check for Pop Studio Scene-Based Video Template
+      const isPopStudio = Boolean(
+        (S.style && S.style.videoTemplate === 'popStudio') ||
+        (S.popStudioConfig && S.popStudioConfig.enabled)
+      );
+
+      if (isPopStudio) {
+        const popBeat = getPopBeatAtTime(t, S.captions);
+        const isCardScene = Boolean(popBeat && (popBeat.scene === 'S2' || popBeat.scene === 'S4' || popBeat.scene === 'S5'));
+        if (isCardScene) {
+          if (vid.style.opacity !== '0') vid.style.opacity = '0';
+        } else {
+          if (vid.style.opacity !== '1') vid.style.opacity = '1';
+        }
+
+        drawPopStudioFrame(ctx, behindCtx || ctx, t, w, h, isPreview, isCardScene ? vid : null);
+        drawWatermark(ctx, w, h);
+
+        if (isPreview) {
+          const elp = performance.now() - drawStart;
+          recordPreviewDrawTime(elp);
+          updateDebugBadge(elp, effQuality);
+        }
+        return;
+      } else {
+        if (vid && vid.style.opacity !== '1') vid.style.opacity = '1';
+      }
+
       const isBehind = Boolean(
         S.style && (
           S.style.behindPerson ||
@@ -8256,6 +8287,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   }
 
   initSpecialRealEstateUI();
+  initPopStudioUI();
   setupQualityPills();
     setupPreviewPerfModeToggle();
   }
@@ -8779,6 +8811,17 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             sample.draw(segExportCleanCtx, 0, 0, W, H);
           }
           exportCleanFrameCanvas = segExportCleanCanvas;
+        }
+
+        // Pop Studio Scene Export Hook
+        const isPopStudioExport = Boolean(
+          (S.style && S.style.videoTemplate === 'popStudio') ||
+          (S.popStudioConfig && S.popStudioConfig.enabled)
+        );
+        if (isPopStudioExport) {
+          ctx.clearRect(0, 0, W, H);
+          drawPopStudioFrame(ctx, segExportBehindCtx || ctx, t, W, H, false, sample);
+          return canvas;
         }
 
         // PROBLEM A Point 3: Per frame, order must be:
@@ -9365,8 +9408,19 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
     updateExportPipeline(1, 'Recording Canvas...', 'Queued');
 
+    // Fast exporter check for Pop Studio
+    if (S.popStudioConfig && S.popStudioConfig.enabled) {
+      await ensurePopStudioFonts();
+    }
+
     // Dual-engine export selector:
     const hasWebCodecs = typeof VideoEncoder !== 'undefined' && typeof VideoDecoder !== 'undefined';
+    if (S.popStudioConfig && S.popStudioConfig.enabled && !hasWebCodecs) {
+      if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+      modalExport.classList.add('hidden');
+      alert("Pop Studio needs the fast exporter. Try Chrome, Edge or a newer browser");
+      return;
+    }
     let frameExportFailure = null;
 
     const isBehindStyle = Boolean(
@@ -10588,4 +10642,1386 @@ function setupTemplateSearch() {
       });
     });
   }
+}
+
+// ============================================================================
+// POP STUDIO SCENE-BASED VIDEO TEMPLATE ENGINE
+// ============================================================================
+
+const POP_PALETTES = {
+  sunset: {
+    id: 'sunset',
+    name: 'Sunset Pop',
+    bgA: '#2A1B5E',
+    bgB: '#5B2EBF',
+    sticker: '#FFD93D',
+    accent: '#FF4D8D',
+    accent2: '#3EE0FF',
+    ink: '#14102B',
+    light: '#FFFFFF'
+  },
+  mint: {
+    id: 'mint',
+    name: 'Mint Fresh',
+    bgA: '#0F3D3E',
+    bgB: '#127A6B',
+    sticker: '#7CFFCB',
+    accent: '#FF6B5A',
+    accent2: '#FFE066',
+    ink: '#0B1F20',
+    light: '#FFFFFF'
+  },
+  cherry: {
+    id: 'cherry',
+    name: 'Cherry Cream',
+    bgA: '#FFF3E6',
+    bgB: '#FFE0D1',
+    sticker: '#FF4D6D',
+    accent: '#2B2D42',
+    accent2: '#4D96FF',
+    ink: '#2B2D42',
+    light: '#FFFFFF'
+  },
+  neon: {
+    id: 'neon',
+    name: 'Midnight Neon',
+    bgA: '#0B0F1F',
+    bgB: '#1B1F4B',
+    sticker: '#00F0FF',
+    accent: '#FF2E93',
+    accent2: '#B5FF3D',
+    ink: '#05060F',
+    light: '#FFFFFF'
+  },
+  bubblegum: {
+    id: 'bubblegum',
+    name: 'Bubblegum',
+    bgA: '#FFD6E8',
+    bgB: '#E6C7FF',
+    sticker: '#7B4DFF',
+    accent: '#FF4D8D',
+    accent2: '#FFE14D',
+    ink: '#1E1236',
+    light: '#FFFFFF'
+  }
+};
+const POP_PALETTE_KEYS = ['sunset', 'mint', 'cherry', 'neon', 'bubblegum'];
+
+// Hard Constants (scaled in units u = frameWidth / 100)
+const POP_CONSTANTS = {
+  stickerRadius: 3.0,     // 3u
+  stickerOutline: 0.7,    // 0.7u
+  stickerShadow: 1.4,     // (1.4u, 1.4u)
+  cornerPinSize: 1.1,     // 1.1u
+  cardRadius: 5.0,        // 5u
+  cardOutline: 0.9,       // 0.9u
+  cardShadow: 2.0,        // (2u, 2u)
+  transitionDur: 0.28,    // 0.28s total (0.14s cut midpoint)
+  safeMargin: 0.06        // 6% safe margins
+};
+
+// Seeded random number generator: pure function of seed
+function seededPopRandom(seed) {
+  const x = Math.sin(Number(seed) * 9301.0 + 49297.0) * 233280.0;
+  return x - Math.floor(x);
+}
+
+// Easing functions
+function popEaseOutBack(x) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  const t = Math.max(0, Math.min(1, x));
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+function popEaseOutCubic(x) {
+  const t = Math.max(0, Math.min(1, x));
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function popEaseInOutQuad(x) {
+  const t = Math.max(0, Math.min(1, x));
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+// Global Video Templates Engine registry
+const VIDEO_TEMPLATES = {
+  specialRealEstate: {
+    id: 'specialRealEstate',
+    name: 'Special Real Estate',
+    category: 'real-estate'
+  },
+  popStudio: {
+    id: 'popStudio',
+    name: 'Pop Studio',
+    category: 'pop'
+  }
+};
+
+// Cache structures for offscreen sticker sprites and beats
+let _popBeatsCache = null;
+let _popBeatsCacheKey = '';
+let _popStickerSpriteCache = {};
+let _lastLoggedPopBeat = -1;
+let _popSharedOffscreen = null;
+let _popSharedOffscreenCtx = null;
+
+function getPopSharedOffscreen(w, h) {
+  if (!_popSharedOffscreen) {
+    _popSharedOffscreen = document.createElement('canvas');
+    _popSharedOffscreenCtx = _popSharedOffscreen.getContext('2d');
+  }
+  if (_popSharedOffscreen.width !== w || _popSharedOffscreen.height !== h) {
+    _popSharedOffscreen.width = w;
+    _popSharedOffscreen.height = h;
+  }
+  _popSharedOffscreenCtx.clearRect(0, 0, w, h);
+  return { canvas: _popSharedOffscreen, ctx: _popSharedOffscreenCtx };
+}
+
+/**
+ * Ensure Poppins ExtraBold, SemiBold, and Anton fonts are loaded
+ */
+async function ensurePopStudioFonts() {
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.load) {
+    try {
+      await Promise.all([
+        document.fonts.load('800 48px Poppins'),
+        document.fonts.load('900 48px Poppins'),
+        document.fonts.load('600 32px Poppins'),
+        document.fonts.load('900 64px Anton')
+      ]);
+    } catch (_) {}
+  }
+}
+
+/**
+ * Auto director: Resolve captions into dynamic beats (2.2s to 4.5s)
+ */
+function resolvePopBeats(captions) {
+  if (!captions || captions.length === 0) return [];
+
+  const cacheKey = JSON.stringify(captions.map(c => [c.id, c.start, c.end, c.text])) +
+                   '_' + (S.popStudioConfig?.sceneMix || 'balanced') +
+                   '_' + (S.popStudioConfig?.palette || 'auto') +
+                   '_' + JSON.stringify(S.popStudioConfig?.beatOverrides || {});
+
+  if (_popBeatsCache && _popBeatsCacheKey === cacheKey) {
+    return _popBeatsCache;
+  }
+
+  const beats = [];
+  let currentGroup = [];
+  let groupStart = captions[0].start;
+
+  captions.forEach((cap, idx) => {
+    currentGroup.push(cap);
+    const dur = cap.end - groupStart;
+    const endsWithPunct = /[.!?]$/.test((cap.text || '').trim());
+    const isLast = (idx === captions.length - 1);
+
+    if (isLast || (dur >= 2.2 && (endsWithPunct || dur >= 4.2))) {
+      beats.push({
+        captions: currentGroup,
+        start: groupStart,
+        end: cap.end
+      });
+      currentGroup = [];
+      if (!isLast) {
+        groupStart = captions[idx + 1].start;
+      }
+    }
+  });
+
+  // Merge trailing beat shorter than 1.8s
+  if (beats.length > 1) {
+    const lastBeat = beats[beats.length - 1];
+    if (lastBeat.end - lastBeat.start < 1.8) {
+      const prevBeat = beats[beats.length - 2];
+      prevBeat.end = lastBeat.end;
+      prevBeat.captions = prevBeat.captions.concat(lastBeat.captions);
+      beats.pop();
+    }
+  }
+
+  let lastScene = null;
+  let lastS4Time = -999;
+  let lastPalIdx = -1;
+
+  beats.forEach((beat, bIdx) => {
+    beat.index = bIdx;
+    const allWords = [];
+    beat.captions.forEach(c => {
+      (c.words || []).forEach(w => allWords.push(w));
+    });
+    beat.words = allWords;
+
+    // Pick Title phrase and hero word
+    const titleInfo = pickPopTitlePhrase(beat.captions, allWords, bIdx);
+    beat.titlePhrase = titleInfo.phrase;
+    beat.heroWord = titleInfo.heroWord;
+    beat.hasNumber = titleInfo.hasNumber;
+    beat.targetNumber = titleInfo.targetNumber;
+    beat.numberLabel = titleInfo.numberLabel;
+
+    // Palette rotation (never same sticker color twice in a row)
+    const palKey = S.popStudioConfig?.palette || 'auto';
+    if (palKey === 'auto') {
+      let nextPalIdx = (bIdx % POP_PALETTE_KEYS.length);
+      if (nextPalIdx === lastPalIdx) {
+        nextPalIdx = (nextPalIdx + 1) % POP_PALETTE_KEYS.length;
+      }
+      lastPalIdx = nextPalIdx;
+      beat.paletteKey = POP_PALETTE_KEYS[nextPalIdx];
+    } else {
+      beat.paletteKey = POP_PALETTES[palKey] ? palKey : 'sunset';
+    }
+    beat.palette = POP_PALETTES[beat.paletteKey] || POP_PALETTES.sunset;
+
+    // Scene assignment
+    const override = S.popStudioConfig?.beatOverrides?.[bIdx];
+    if (override && override !== 'auto') {
+      beat.scene = override;
+    } else if (bIdx === 0) {
+      beat.scene = 'S1';
+    } else {
+      const isBrollActive = (S.brolls || []).some(b => b.url && b.start < beat.end && b.end > beat.start);
+      const sceneMix = S.popStudioConfig?.sceneMix || 'balanced';
+
+      if (isBrollActive && lastScene !== 'S5') {
+        beat.scene = 'S5';
+      } else if (beat.hasNumber && (beat.start - lastS4Time >= 8.0) && lastScene !== 'S4' && (sceneMix !== 'calm' || seededPopRandom(bIdx * 3) > 0.4)) {
+        beat.scene = 'S4';
+        lastS4Time = beat.start;
+      } else if (beat.heroWord && lastScene !== 'S3' && (sceneMix === 'wild' || bIdx % 3 === 2)) {
+        beat.scene = 'S3';
+      } else {
+        if (lastScene === 'S2') {
+          beat.scene = 'S1';
+        } else if (lastScene === 'S1') {
+          beat.scene = 'S2';
+        } else {
+          beat.scene = (bIdx % 2 === 1) ? 'S2' : 'S1';
+        }
+      }
+    }
+
+    if (beat.scene === lastScene) {
+      beat.scene = (lastScene === 'S1') ? 'S2' : 'S1';
+    }
+    lastScene = beat.scene;
+
+    // Seeded transition type (0: diagonal wipe, 1: circle iris, 2: vertical push)
+    beat.transitionType = Math.floor(seededPopRandom(bIdx * 37 + 101) * 3);
+  });
+
+  _popBeatsCache = beats;
+  _popBeatsCacheKey = cacheKey;
+  return beats;
+}
+
+/**
+ * Pick Title Phrase (2-4 consecutive words around best hero word)
+ */
+function pickPopTitlePhrase(captions, words, seed) {
+  const fullText = captions.map(c => c.text || '').join(' ');
+
+  const numMatch = fullText.match(/(\b\d+(?:\.\d+)?%?|\$\d+(?:\.\d+)?|\b\d+k\b|\b\d+m\b)/i);
+  let hasNumber = Boolean(numMatch);
+  let targetNumber = numMatch ? numMatch[1] : '';
+  let numberLabel = '';
+
+  if (hasNumber && numMatch) {
+    const after = fullText.slice(numMatch.index + numMatch[0].length).trim().split(/\s+/).slice(0, 2).join(' ');
+    numberLabel = after || 'Growth';
+  }
+
+  const STOPWORDS = new Set([
+    'bhai', 'bro', 'yaar', 'dost', 'sun', 'dekho', 'chalo', 'abhi', 'phir', 'fir',
+    'bol', 'bolo', 'batao', 'dena', 'lena', 'likh', 'bhej', 'doonga', 'tujhe', 'mein', 'tu',
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'it', 'its', 'this', 'that',
+    'have', 'has', 'had', 'do', 'does', 'did', 'so', 'if', 'as', 'by', 'from'
+  ]);
+
+  let bestWord = null;
+  let bestScore = -1;
+  let bestIdx = -1;
+
+  words.forEach((w, idx) => {
+    const raw = (w.t || w.word || '').trim();
+    const clean = raw.toLowerCase().replace(/^[^\w]+|[^\w]+$/g, '');
+    if (!clean || STOPWORDS.has(clean) || clean.length < 2) return;
+
+    let score = clean.length;
+    if (w.key) score += 8;
+    if (/[A-Z]/.test(raw[0])) score += 2;
+    if (/\d/.test(clean)) score += 5;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestWord = raw;
+      bestIdx = idx;
+    }
+  });
+
+  let phrase = '';
+  if (bestIdx >= 0 && words.length > 0) {
+    const startIdx = Math.max(0, bestIdx - 1);
+    const endIdx = Math.min(words.length, startIdx + 3);
+    const sliceWords = words.slice(startIdx, endIdx).map(w => (w.t || w.word || '').trim());
+    phrase = sliceWords.join(' ');
+  } else if (words.length > 0) {
+    phrase = words.slice(0, Math.min(3, words.length)).map(w => (w.t || w.word || '').trim()).join(' ');
+  } else {
+    phrase = 'Pop Studio';
+  }
+
+  phrase = phrase.replace(/[^\w\s]+$/, '');
+  if (phrase.length > 0) {
+    phrase = phrase.charAt(0).toUpperCase() + phrase.slice(1);
+  }
+
+  return { phrase, heroWord: bestWord, hasNumber, targetNumber, numberLabel };
+}
+
+/**
+ * Get active Pop beat at time t
+ */
+function getPopBeatAtTime(t, captions) {
+  const beats = resolvePopBeats(captions || S.captions || []);
+  if (beats.length === 0) return null;
+
+  let active = beats.find(b => t >= b.start && t < b.end);
+  if (!active) {
+    active = (t >= beats[beats.length - 1].end) ? beats[beats.length - 1] : beats[0];
+  }
+
+  if (active && active.index !== _lastLoggedPopBeat) {
+    _lastLoggedPopBeat = active.index;
+    console.log('[POP]', active.index, active.scene, active.titlePhrase);
+  }
+
+  return active;
+}
+
+/**
+ * Pre-render and cache sticker sprite (1 per beat, offscreen)
+ */
+function getOrRenderStickerSprite(beat, u, W) {
+  const spriteKey = `${beat.index}_${beat.titlePhrase}_${beat.paletteKey}_${Math.round(u * 10)}`;
+  if (_popStickerSpriteCache[spriteKey]) {
+    return _popStickerSpriteCache[spriteKey];
+  }
+
+  const p = beat.palette;
+  const offCanvas = document.createElement('canvas');
+  const offCtx = offCanvas.getContext('2d');
+
+  // Measure text and auto-fit to max 2 lines, width <= 78% of frameWidth
+  const maxW = W * 0.78;
+  let fontSize = Math.max(16, Math.min(9.0 * u, Math.max(5.5 * u, u * 7.5)));
+
+  offCtx.font = `800 ${fontSize}px "Poppins", sans-serif`;
+  let words = beat.titlePhrase.split(/\s+/);
+  let lines = [];
+
+  // Line wrapping logic
+  let curLine = '';
+  words.forEach(w => {
+    const testLine = curLine ? (curLine + ' ' + w) : w;
+    if (offCtx.measureText(testLine).width <= maxW - 6.0 * u) {
+      curLine = testLine;
+    } else {
+      if (curLine) lines.push(curLine);
+      curLine = w;
+    }
+  });
+  if (curLine) lines.push(curLine);
+  if (lines.length > 2) {
+    // Squeeze into 2 lines
+    fontSize = Math.max(14, fontSize * 0.85);
+    offCtx.font = `800 ${fontSize}px "Poppins", sans-serif`;
+    lines = [lines.slice(0, Math.ceil(lines.length / 2)).join(' '), lines.slice(Math.ceil(lines.length / 2)).join(' ')];
+  }
+
+  let textW = 0;
+  lines.forEach(l => {
+    textW = Math.max(textW, offCtx.measureText(l).width);
+  });
+
+  const padX = 3.5 * u;
+  const padY = 2.0 * u;
+  const lineH = fontSize * 1.25;
+  const boxW = Math.min(maxW, textW + padX * 2);
+  const boxH = lines.length * lineH + padY * 2;
+
+  const shadowOff = POP_CONSTANTS.stickerShadow * u;
+  const canvasW = Math.ceil(boxW + shadowOff + 4 * u);
+  const canvasH = Math.ceil(boxH + shadowOff + 4 * u);
+
+  offCanvas.width = canvasW;
+  offCanvas.height = canvasH;
+
+  const rad = POP_CONSTANTS.stickerRadius * u;
+  const outW = POP_CONSTANTS.stickerOutline * u;
+  const pinRad = POP_CONSTANTS.cornerPinSize * u;
+
+  // 1. HARD shadow offset in ink (no blur)
+  offCtx.fillStyle = p.ink;
+  offCtx.beginPath();
+  offCtx.roundRect ? offCtx.roundRect(shadowOff, shadowOff, boxW, boxH, rad) : offCtx.rect(shadowOff, shadowOff, boxW, boxH);
+  offCtx.fill();
+
+  // 2. Sticker Fill
+  offCtx.fillStyle = p.sticker;
+  offCtx.beginPath();
+  offCtx.roundRect ? offCtx.roundRect(0, 0, boxW, boxH, rad) : offCtx.rect(0, 0, boxW, boxH);
+  offCtx.fill();
+
+  // 3. Outline in ink
+  offCtx.strokeStyle = p.ink;
+  offCtx.lineWidth = outW;
+  offCtx.stroke();
+
+  // 4. Corner pin (circle in accent at top-right with tiny 'x')
+  const pinX = boxW - pinRad * 1.6;
+  const pinY = pinRad * 1.6;
+  offCtx.fillStyle = p.accent;
+  offCtx.beginPath();
+  offCtx.arc(pinX, pinY, pinRad, 0, Math.PI * 2);
+  offCtx.fill();
+  offCtx.strokeStyle = p.ink;
+  offCtx.lineWidth = Math.max(1, outW * 0.6);
+  offCtx.stroke();
+
+  // Tiny x mark
+  const xArm = pinRad * 0.45;
+  offCtx.beginPath();
+  offCtx.moveTo(pinX - xArm, pinY - xArm);
+  offCtx.lineTo(pinX + xArm, pinY + xArm);
+  offCtx.moveTo(pinX + xArm, pinY - xArm);
+  offCtx.lineTo(pinX - xArm, pinY + xArm);
+  offCtx.stroke();
+
+  // 5. Text in Poppins ExtraBold (palette.ink)
+  offCtx.fillStyle = p.ink;
+  offCtx.font = `800 ${fontSize}px "Poppins", sans-serif`;
+  offCtx.textAlign = 'center';
+  offCtx.textBaseline = 'middle';
+
+  const startY = padY + lineH / 2;
+  lines.forEach((l, i) => {
+    offCtx.fillText(l, boxW / 2, startY + i * lineH);
+  });
+
+  _popStickerSpriteCache[spriteKey] = {
+    canvas: offCanvas,
+    w: boxW,
+    h: boxH,
+    totalW: canvasW,
+    totalH: canvasH
+  };
+
+  return _popStickerSpriteCache[spriteKey];
+}
+
+/**
+ * Draw Animated Sticker Card onto Context
+ */
+function drawPopStickerCard(ctx, beat, t, centerX, centerY, u, W) {
+  const sprite = getOrRenderStickerSprite(beat, u, W);
+  if (!sprite) return;
+
+  const tau = Math.max(0, t - beat.start);
+  const remaining = Math.max(0, beat.end - t);
+
+  // Entrance: pop-in easeOutBack scale 0.6 -> 1.0 over 0.30s
+  let scale = 1.0;
+  if (tau < 0.30) {
+    scale = 0.6 + 0.4 * popEaseOutBack(tau / 0.30);
+  }
+
+  // Exit: over 0.12s scale 0.9 + fade
+  let alpha = 1.0;
+  if (remaining < 0.12) {
+    const exitP = remaining / 0.12;
+    scale *= (0.9 + 0.1 * exitP);
+    alpha = Math.max(0, exitP);
+  }
+
+  // Tilt: settles from -6 deg to beat tilt (alternate -3 deg and +2.5 deg)
+  const targetTilt = (beat.index % 2 === 0 ? -3.0 : 2.5) * (Math.PI / 180);
+  const startTilt = -6.0 * (Math.PI / 180);
+  let rot = targetTilt;
+  if (tau < 0.35) {
+    rot = startTilt + (targetTilt - startTilt) * popEaseOutCubic(tau / 0.35);
+  }
+
+  // Idle bob: 0.4u at 1.2 Hz
+  const bobY = Math.sin(tau * 1.2 * 2 * Math.PI) * 0.4 * u;
+
+  ctx.save();
+  ctx.translate(centerX, centerY + bobY);
+  ctx.rotate(rot);
+  ctx.scale(scale, scale);
+  ctx.globalAlpha *= alpha;
+
+  ctx.drawImage(sprite.canvas, -sprite.w / 2, -sprite.h / 2);
+  ctx.restore();
+}
+
+/**
+ * Draw Karaoke Subtitle Line
+ */
+function drawPopKaraokeSubtitles(ctx, beat, activeCap, t, cX, cY, u, W) {
+  if (!activeCap) return;
+  const words = activeCap.words || [];
+  if (words.length === 0) return;
+
+  const p = beat.palette;
+  const fs = Math.max(14, 4.6 * u);
+  const strokeW = Math.max(1.5, 0.6 * u);
+
+  ctx.save();
+  ctx.font = `800 ${fs}px "Poppins", sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  // Strip trailing punctuation from rendered words
+  const cleanWords = words.map(w => {
+    const raw = (w.t || w.word || '').trim();
+    const clean = raw.replace(/[.,/#!$%^&*;:{}=\-_`~()]+$/g, '');
+    const wWidth = ctx.measureText(clean).width;
+    return { w, clean, width: wWidth };
+  });
+
+  const spaceW = ctx.measureText(' ').width;
+  const maxLineW = W * 0.88;
+
+  // Split into 1 or 2 lines
+  let lines = [];
+  let curLine = [];
+  let curW = 0;
+
+  cleanWords.forEach(wo => {
+    if (curLine.length > 0 && curW + spaceW + wo.width > maxLineW) {
+      lines.push(curLine);
+      curLine = [wo];
+      curW = wo.width;
+    } else {
+      curLine.push(wo);
+      curW += (curLine.length > 1 ? spaceW : 0) + wo.width;
+    }
+  });
+  if (curLine.length > 0) lines.push(curLine);
+
+  const lineH = fs * 1.25;
+  const totalH = lines.length * lineH;
+  const startY = cY - totalH / 2 + fs * 0.85;
+
+  lines.forEach((lWords, lIdx) => {
+    const lW = lWords.reduce((acc, wo) => acc + wo.width, 0) + Math.max(0, lWords.length - 1) * spaceW;
+    let wordX = cX - lW / 2;
+    const wordY = startY + lIdx * lineH;
+
+    lWords.forEach(wo => {
+      const s = typeof wo.w.s === 'number' ? wo.w.s : (activeCap.start || 0);
+      const e = typeof wo.w.e === 'number' ? wo.w.e : (activeCap.end || 0);
+      const isCurrent = (t >= s && t <= e);
+      const isPast = (t > e);
+
+      ctx.save();
+
+      if (isCurrent) {
+        // Current word: palette.sticker color, scale 1.08 with easeOutBack over 0.12s
+        const popProgress = Math.min(1.0, (t - s) / 0.12);
+        const wScale = 1.0 + 0.08 * popEaseOutBack(popProgress);
+
+        ctx.translate(wordX + wo.width / 2, wordY - fs * 0.35);
+        ctx.scale(wScale, wScale);
+        ctx.translate(-(wordX + wo.width / 2), -(wordY - fs * 0.35));
+
+        // Stroke in ink
+        ctx.strokeStyle = p.ink;
+        ctx.lineWidth = strokeW;
+        ctx.strokeText(wo.clean, wordX, wordY);
+
+        // Fill in sticker
+        ctx.fillStyle = p.sticker;
+        ctx.fillText(wo.clean, wordX, wordY);
+
+        // Underline swipe in palette.accent
+        const swipeW = wo.width * popEaseOutCubic(popProgress);
+        ctx.fillStyle = p.accent;
+        ctx.fillRect(wordX, wordY + 0.3 * u, swipeW, 0.45 * u);
+      } else if (isPast) {
+        // Spoken: full light color with ink stroke
+        ctx.strokeStyle = p.ink;
+        ctx.lineWidth = strokeW;
+        ctx.strokeText(wo.clean, wordX, wordY);
+
+        ctx.fillStyle = p.light;
+        ctx.fillText(wo.clean, wordX, wordY);
+      } else {
+        // Not yet spoken: 45% opacity
+        ctx.globalAlpha *= 0.45;
+        ctx.strokeStyle = p.ink;
+        ctx.lineWidth = strokeW;
+        ctx.strokeText(wo.clean, wordX, wordY);
+
+        ctx.fillStyle = p.light;
+        ctx.fillText(wo.clean, wordX, wordY);
+      }
+
+      ctx.restore();
+      wordX += wo.width + spaceW;
+    });
+  });
+
+  ctx.restore();
+}
+
+/**
+ * Draw S2 Doodles (Sparkles, Animated Squiggle, Circle/Plus, Emoji Sticker)
+ */
+function drawPopDoodles(ctx, p, beat, t, cardRect, u, isSmooth) {
+  if (isSmooth) return; // Skip on smooth preview mode
+
+  const tau = Math.max(0, t - beat.start);
+
+  // 1. Four-point sparkles at card corners (twinkle sine wave)
+  const sparkles = [
+    { x: cardRect.x - 1.5 * u, y: cardRect.y - 1.5 * u, phase: 0 },
+    { x: cardRect.x + cardRect.w + 1.5 * u, y: cardRect.y - 1.5 * u, phase: 1.5 },
+    { x: cardRect.x - 1.5 * u, y: cardRect.y + cardRect.h + 1.5 * u, phase: 3.0 },
+    { x: cardRect.x + cardRect.w + 1.5 * u, y: cardRect.y + cardRect.h + 1.5 * u, phase: 4.5 }
+  ];
+
+  ctx.fillStyle = p.accent2;
+  sparkles.forEach(sp => {
+    const twinkle = 0.5 + 0.5 * Math.sin(tau * 4.0 + sp.phase);
+    const spSize = (1.2 + 0.8 * twinkle) * u;
+    ctx.save();
+    ctx.translate(sp.x, sp.y);
+    ctx.beginPath();
+    ctx.moveTo(0, -spSize);
+    ctx.quadraticCurveTo(0, 0, spSize, 0);
+    ctx.quadraticCurveTo(0, 0, 0, spSize);
+    ctx.quadraticCurveTo(0, 0, -spSize, 0);
+    ctx.quadraticCurveTo(0, 0, 0, -spSize);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // 2. Animated Squiggle near title (drawn over 0.5s via line dash offset)
+  const squigProgress = Math.min(1.0, tau / 0.50);
+  const squigX = cardRect.x + 3 * u;
+  const squigY = cardRect.y - 4.5 * u;
+  const squigW = 10 * u;
+
+  ctx.save();
+  ctx.strokeStyle = p.accent;
+  ctx.lineWidth = 0.55 * u;
+  ctx.lineCap = 'round';
+  ctx.setLineDash([squigW * squigProgress, squigW]);
+
+  ctx.beginPath();
+  ctx.moveTo(squigX, squigY);
+  ctx.bezierCurveTo(squigX + 2.5 * u, squigY - 1.5 * u, squigX + 5 * u, squigY + 1.5 * u, squigX + 7.5 * u, squigY - 1.2 * u);
+  ctx.bezierCurveTo(squigX + 8.5 * u, squigY - 0.5 * u, squigX + 9.5 * u, squigY + 1.0 * u, squigX + squigW, squigY);
+  ctx.stroke();
+  ctx.restore();
+
+  // 3. Accent circle & Plus sign
+  ctx.fillStyle = p.accent;
+  ctx.beginPath();
+  ctx.arc(cardRect.x + cardRect.w - 5 * u, cardRect.y - 3.5 * u, 0.7 * u, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = p.sticker;
+  ctx.lineWidth = 0.5 * u;
+  const plusX = cardRect.x - 2 * u;
+  const plusY = cardRect.y + cardRect.h * 0.4;
+  ctx.beginPath();
+  ctx.moveTo(plusX - 0.8 * u, plusY);
+  ctx.lineTo(plusX + 0.8 * u, plusY);
+  ctx.moveTo(plusX, plusY - 0.8 * u);
+  ctx.lineTo(plusX, plusY + 0.8 * u);
+  ctx.stroke();
+
+  // 4. Emoji Sticker at card top-right (popping in with 12 deg rotation)
+  if (S.popStudioConfig?.emoji !== false) {
+    const emojis = ['🔥', '🚀', '⭐', '💰', '👏', '❤️'];
+    const emChar = emojis[beat.index % emojis.length];
+    const emX = cardRect.x + cardRect.w - 1.5 * u;
+    const emY = cardRect.y - 1.0 * u;
+    const emPop = Math.min(1.0, tau / 0.35);
+    const emScale = popEaseOutBack(emPop);
+
+    ctx.save();
+    ctx.translate(emX, emY);
+    ctx.rotate(12 * (Math.PI / 180));
+    ctx.scale(emScale, emScale);
+    ctx.font = `${Math.round(4.0 * u)}px "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emChar, 0, 0);
+    ctx.restore();
+  }
+}
+
+/**
+ * Draw S4 Number Pop Scene (Phase 2)
+ */
+function drawPopSceneS4(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource) {
+  const p = beat.palette;
+  const tau = Math.max(0, t - beat.start);
+
+  // 1. Flat palette background
+  ctx.fillStyle = p.bgA;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. 12 rotating sunburst rays from center
+  const rayAngle = (tau * 8.0) % 360 * (Math.PI / 180);
+  ctx.save();
+  ctx.translate(W / 2, H * 0.42);
+  ctx.rotate(rayAngle);
+  ctx.fillStyle = p.bgB;
+  for (let i = 0; i < 12; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    const a1 = (i * 30 - 7.5) * (Math.PI / 180);
+    const a2 = (i * 30 + 7.5) * (Math.PI / 180);
+    ctx.arc(0, 0, Math.max(W, H) * 1.2, a1, a2);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // 3. Big circular sticker badge in center
+  const badgeX = W / 2;
+  const badgeY = H * 0.40;
+  const badgeRad = 15.0 * u;
+  const shadowOff = 2.0 * u;
+
+  // Hard shadow
+  ctx.fillStyle = p.ink;
+  ctx.beginPath();
+  ctx.arc(badgeX + shadowOff, badgeY + shadowOff, badgeRad, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Badge fill & outline
+  ctx.fillStyle = p.sticker;
+  ctx.beginPath();
+  ctx.arc(badgeX, badgeY, badgeRad, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = p.ink;
+  ctx.lineWidth = 0.9 * u;
+  ctx.stroke();
+
+  // Target number counting up from 0 to target over 0.6s
+  const rawNumStr = beat.targetNumber || '100%';
+  const numOnly = parseFloat(rawNumStr.replace(/[^\d.]/g, '')) || 100;
+  const countProgress = Math.min(1.0, tau / 0.60);
+  const currentVal = Math.round(numOnly * popEaseOutCubic(countProgress));
+  const displayNum = rawNumStr.replace(/\d+(?:\.\d+)?/, currentVal);
+
+  ctx.fillStyle = p.ink;
+  ctx.font = `900 ${Math.min(22 * u, 140)}px "Anton", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(displayNum, badgeX, badgeY - 1.0 * u);
+
+  // Label sticker under badge
+  const labelText = beat.numberLabel || 'Growth';
+  const labelW = Math.max(16 * u, labelText.length * 2.2 * u);
+  const labelH = 4.2 * u;
+  const labelY = badgeY + badgeRad * 0.72;
+
+  ctx.fillStyle = p.ink;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(badgeX - labelW / 2 + 1.2 * u, labelY + 1.2 * u, labelW, labelH, 2 * u) : ctx.rect(badgeX - labelW / 2 + 1.2 * u, labelY + 1.2 * u, labelW, labelH);
+  ctx.fill();
+
+  ctx.fillStyle = p.accent;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(badgeX - labelW / 2, labelY, labelW, labelH, 2 * u) : ctx.rect(badgeX - labelW / 2, labelY, labelW, labelH);
+  ctx.fill();
+  ctx.strokeStyle = p.ink;
+  ctx.lineWidth = 0.6 * u;
+  ctx.stroke();
+
+  ctx.fillStyle = p.light;
+  ctx.font = `800 ${Math.max(12, 2.5 * u)}px "Poppins", sans-serif`;
+  ctx.fillText(labelText.toUpperCase(), badgeX, labelY + labelH / 2);
+
+  // 4. Confetti burst when number lands (tau >= 0.60, cap 24 seeded pieces)
+  if (!isSmooth && tau >= 0.58) {
+    const burstT = Math.min(1.5, tau - 0.58);
+    const colors = [p.accent, p.accent2, p.sticker, p.light];
+    for (let i = 0; i < 24; i++) {
+      const angle = (i / 24) * Math.PI * 2 + seededPopRandom(i + 13);
+      const speed = (18.0 + seededPopRandom(i * 7) * 22.0) * u;
+      const cDist = speed * burstT;
+      const grav = 9.8 * u * burstT * burstT * 0.8;
+      const cx = badgeX + Math.cos(angle) * cDist;
+      const cy = badgeY + Math.sin(angle) * cDist + grav;
+      const cRot = burstT * (i % 2 === 0 ? 5 : -5);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(cRot);
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.fillRect(-0.6 * u, -0.35 * u, 1.2 * u, 0.7 * u);
+      ctx.restore();
+    }
+  }
+
+  // 5. Speaker in circular bubble at bottom-right
+  const bubDiam = W * 0.28;
+  const bubX = W * 0.68;
+  const bubY = H * 0.66;
+  drawSpeakerBubble(ctx, videoSource, bubX, bubY, bubDiam, u, p);
+
+  // 6. Karaoke Subtitle line at 82%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.82, u, W);
+}
+
+/**
+ * Draw S5 B-Roll Cutaway Scene (Phase 2)
+ */
+function drawPopSceneS5(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource) {
+  const p = beat.palette;
+  const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
+
+  // If active B-roll element exists and has frame data:
+  let brollEl = null;
+  if (activeBroll) {
+    brollEl = (typeof brollElements !== 'undefined' && brollElements[activeBroll.id]) ? brollElements[activeBroll.id] : $('brollVid');
+  }
+
+  if (!brollEl || (brollEl.readyState && brollEl.readyState < 2)) {
+    // Fallback to S1 full frame
+    drawPopSceneS1(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource);
+    return;
+  }
+
+  // 1. Diagonal gradient background
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, p.bgA);
+  grad.addColorStop(1, p.bgB);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. B-Roll in center rounded card (84% frame width, 4:5 aspect)
+  const cardW = W * 0.84;
+  const cardH = cardW * 1.25;
+  const cardX = (W - cardW) / 2;
+  const cardY = H * 0.28;
+  const rad = 5.0 * u;
+  const shadowOff = 2.0 * u;
+
+  // Hard shadow
+  ctx.fillStyle = p.ink;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(cardX + shadowOff, cardY + shadowOff, cardW, cardH, rad) : ctx.rect(cardX + shadowOff, cardY + shadowOff, cardW, cardH);
+  ctx.fill();
+
+  // B-roll video inside card with clipping
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(cardX, cardY, cardW, cardH, rad) : ctx.rect(cardX, cardY, cardW, cardH);
+  ctx.clip();
+  drawCoverVideo(ctx, brollEl, cardX, cardY, cardW, cardH);
+  ctx.restore();
+
+  // Card outline
+  ctx.strokeStyle = p.ink;
+  ctx.lineWidth = 0.9 * u;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(cardX, cardY, cardW, cardH, rad) : ctx.rect(cardX, cardY, cardW, cardH);
+  ctx.stroke();
+
+  // 3. Speaker circular bubble overlapping bottom-right corner
+  const bubDiam = W * 0.28;
+  const bubX = cardX + cardW - bubDiam * 0.85;
+  const bubY = cardY + cardH - bubDiam * 0.65;
+  drawSpeakerBubble(ctx, videoSource, bubX, bubY, bubDiam, u, p);
+
+  // 4. Title sticker at top (14%)
+  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.14, u, W);
+
+  // 5. Karaoke at bottom (82%)
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.82, u, W);
+}
+
+/**
+ * Draw Speaker in Circular Bubble
+ */
+function drawSpeakerBubble(ctx, videoSource, x, y, diam, u, p) {
+  const rad = diam / 2;
+  const cx = x + rad;
+  const cy = y + rad;
+  const shadowOff = 1.6 * u;
+
+  // Hard shadow
+  ctx.fillStyle = p.ink;
+  ctx.beginPath();
+  ctx.arc(cx + shadowOff, cy + shadowOff, rad, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Video circle clip
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+  ctx.clip();
+  drawCoverVideo(ctx, videoSource, x, y, diam, diam);
+  ctx.restore();
+
+  // Ink outline
+  ctx.strokeStyle = p.ink;
+  ctx.lineWidth = 0.9 * u;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/**
+ * Draw Cover Video Helper (preserving aspect ratio)
+ */
+function drawCoverVideo(ctx, videoEl, dx, dy, dw, dh) {
+  if (!videoEl) return;
+  const vw = videoEl.videoWidth || videoEl.naturalWidth || videoEl.width || dw;
+  const vh = videoEl.videoHeight || videoEl.naturalHeight || videoEl.height || dh;
+  if (vw <= 0 || vh <= 0) return;
+
+  const targetAspect = dw / dh;
+  const videoAspect = vw / vh;
+  let sx = 0, sy = 0, sw = vw, sh = vh;
+
+  if (videoAspect > targetAspect) {
+    sw = vh * targetAspect;
+    sx = (vw - sw) / 2;
+  } else {
+    sh = vw / targetAspect;
+    sy = (vh - sh) / 2;
+  }
+
+  try {
+    if (typeof videoEl.draw === 'function') {
+      // Mediabunny VideoSample
+      videoEl.draw(ctx, dx, dy, dw, dh);
+    } else {
+      ctx.drawImage(videoEl, sx, sy, sw, sh, dx, dy, dw, dh);
+    }
+  } catch (_) {}
+}
+
+/**
+ * S1 STICKER FULL Scene
+ */
+function drawPopSceneS1(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource) {
+  // 1. Camera punch-in: 1.0 -> 1.05 easeOutCubic over 0.25s at beat start
+  const tau = Math.max(0, t - beat.start);
+  let punch = 1.0;
+  if (S.popStudioConfig?.punch !== false && tau < 0.25) {
+    punch = 1.05 - 0.05 * popEaseOutCubic(tau / 0.25);
+  }
+
+  // Draw full frame video if source provided (in export mode)
+  if (videoSource) {
+    ctx.save();
+    if (punch > 1.001) {
+      const pW = W * punch;
+      const pH = H * punch;
+      ctx.translate((W - pW) / 2, (H - pH) / 2);
+      drawCoverVideo(ctx, videoSource, 0, 0, pW, pH);
+    } else {
+      drawCoverVideo(ctx, videoSource, 0, 0, W, H);
+    }
+    ctx.restore();
+  }
+
+  // 2. Title sticker centered at ~60%
+  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.60, u, W);
+
+  // 3. Karaoke line at ~76%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.76, u, W);
+}
+
+/**
+ * S2 CARD ON COLOR Scene
+ */
+function drawPopSceneS2(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource) {
+  const p = beat.palette;
+  const tau = Math.max(0, t - beat.start);
+
+  // 1. Diagonal gradient background (bgA -> bgB)
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, p.bgA);
+  grad.addColorStop(1, p.bgB);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. Dot grid (dots 0.5u at 12% opacity, spaced 5u, drifting 2u/sec)
+  const dotRad = 0.5 * u;
+  const dotGap = 5.0 * u;
+  const drift = (tau * 2.0 * u) % dotGap;
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+  for (let x = -dotGap + drift; x <= W + dotGap; x += dotGap) {
+    for (let y = 0; y <= H; y += dotGap) {
+      ctx.beginPath();
+      ctx.arc(x, y, dotRad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 3. Rounded card: 84% width, ~4:5 aspect, top at 34%
+  const cardW = W * 0.84;
+  const cardH = cardW * 1.25;
+  const cardX = (W - cardW) / 2;
+  const cardY = H * 0.34;
+  const rad = 5.0 * u;
+  const shadowOff = 2.0 * u;
+
+  // Card tilt: animates from -4 deg to -1.5 deg over 0.4s, then sways +/-0.6 deg
+  let tilt = -1.5 * (Math.PI / 180);
+  if (tau < 0.40) {
+    tilt = (-4.0 + 2.5 * popEaseOutBack(tau / 0.40)) * (Math.PI / 180);
+  } else {
+    tilt += Math.sin((tau - 0.40) * 1.0 * 2 * Math.PI) * 0.6 * (Math.PI / 180);
+  }
+
+  const cardCenterX = cardX + cardW / 2;
+  const cardCenterY = cardY + cardH / 2;
+
+  ctx.save();
+  ctx.translate(cardCenterX, cardCenterY);
+  ctx.rotate(tilt);
+  ctx.translate(-cardCenterX, -cardCenterY);
+
+  // Hard shadow
+  ctx.fillStyle = p.ink;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(cardX + shadowOff, cardY + shadowOff, cardW, cardH, rad) : ctx.rect(cardX + shadowOff, cardY + shadowOff, cardW, cardH);
+  ctx.fill();
+
+  // Video inside card with clipping
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(cardX, cardY, cardW, cardH, rad) : ctx.rect(cardX, cardY, cardW, cardH);
+  ctx.clip();
+
+  if (videoSource) {
+    drawCoverVideo(ctx, videoSource, cardX, cardY, cardW, cardH);
+  } else if (typeof vid !== 'undefined') {
+    drawCoverVideo(ctx, vid, cardX, cardY, cardW, cardH);
+  }
+  ctx.restore();
+
+  // Card outline in ink
+  ctx.strokeStyle = p.ink;
+  ctx.lineWidth = 0.9 * u;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(cardX, cardY, cardW, cardH, rad) : ctx.rect(cardX, cardY, cardW, cardH);
+  ctx.stroke();
+
+  // Doodles
+  if (S.popStudioConfig?.doodles !== false) {
+    drawPopDoodles(ctx, p, beat, t, { x: cardX, y: cardY, w: cardW, h: cardH }, u, isSmooth);
+  }
+
+  ctx.restore();
+
+  // 4. Title sticker at ~14% (tilt +2 deg)
+  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.14, u, W);
+
+  // 5. Karaoke line at ~27%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.27, u, W);
+}
+
+/**
+ * S3 HERO BEHIND Scene
+ */
+function drawPopSceneS3(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource, behindCtx) {
+  // 1. Draw video full frame (if video source given in export)
+  if (videoSource) {
+    drawCoverVideo(ctx, videoSource, 0, 0, W, H);
+  }
+
+  const p = beat.palette;
+  const heroWord = beat.heroWord || (activeCap?.words?.[0]?.t) || 'VIRAL';
+  const displayHero = heroWord.toUpperCase().replace(/[^\w\s]+$/, '');
+
+  // Anton hero font with palette gradient (sticker -> accent)
+  const heroFs = Math.max(24, Math.round(W * 0.16));
+  const heroTargetCtx = (behindCtx && segmenterInstance) ? behindCtx : ctx;
+
+  heroTargetCtx.save();
+  heroTargetCtx.font = `900 ${heroFs}px "Anton", sans-serif`;
+  heroTargetCtx.textAlign = 'center';
+  heroTargetCtx.textBaseline = 'middle';
+
+  const heroY = H * 0.44;
+  const heroGrad = heroTargetCtx.createLinearGradient(0, heroY - heroFs / 2, 0, heroY + heroFs / 2);
+  heroGrad.addColorStop(0, p.sticker);
+  heroGrad.addColorStop(1, p.accent);
+
+  // Outline in ink
+  heroTargetCtx.strokeStyle = p.ink;
+  heroTargetCtx.lineWidth = Math.max(3, heroFs * 0.07);
+  heroTargetCtx.lineJoin = 'round';
+  heroTargetCtx.strokeText(displayHero, W / 2, heroY);
+
+  // Fill in gradient
+  heroTargetCtx.fillStyle = heroGrad;
+  heroTargetCtx.fillText(displayHero, W / 2, heroY);
+  heroTargetCtx.restore();
+
+  // 2. Small sticker chip with supporting words in FRONT near lower third
+  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.65, u, W);
+
+  // 3. Karaoke line at ~80%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.80, u, W);
+}
+
+/**
+ * Scene Transitions (0.28s total centered on boundary)
+ */
+function drawPopTransition(ctx, beat, nextBeat, t, W, H, u) {
+  const transDur = POP_CONSTANTS.transitionDur; // 0.28s
+  const transStart = beat.end - transDur / 2;
+  const transEnd = beat.end + transDur / 2;
+
+  if (t < transStart || t > transEnd) return;
+
+  const progress = (t - transStart) / transDur;
+  const transType = nextBeat ? nextBeat.transitionType : 0;
+  const p = beat.palette;
+
+  ctx.save();
+  ctx.fillStyle = p.accent;
+
+  if (transType === 0) {
+    // (a) Diagonal band wipe in palette.accent
+    const bandW = W * 0.6;
+    const bandX = -bandW + (W + bandW * 2) * progress;
+    ctx.beginPath();
+    ctx.moveTo(bandX, 0);
+    ctx.lineTo(bandX + bandW, 0);
+    ctx.lineTo(bandX + bandW - H * 0.35, H);
+    ctx.lineTo(bandX - H * 0.35, H);
+    ctx.closePath();
+    ctx.fill();
+  } else if (transType === 1) {
+    // (b) Circle iris centered on frame
+    const maxR = Math.hypot(W, H) / 2;
+    const irisR = progress < 0.5 ? (maxR * (progress / 0.5)) : (maxR * (1 - (progress - 0.5) / 0.5));
+    ctx.beginPath();
+    ctx.arc(W / 2, H / 2, irisR, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // (c) Vertical push bar
+    const barH = H * 0.45;
+    const barY = progress < 0.5 ? (H * (1 - progress / 0.5)) : (0);
+    ctx.fillRect(0, barY, W, barH);
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Main Pop Studio Drawing Routine (Used by both Preview and Export)
+ */
+function drawPopStudioFrame(ctx, behindCtx, t, W, H, isPreview, videoSource) {
+  try {
+    const beats = resolvePopBeats(S.captions || []);
+    if (beats.length === 0) return;
+
+    const beat = getPopBeatAtTime(t, S.captions);
+    if (!beat) return;
+
+    const u = W / 100.0;
+    const effQuality = isPreview ? getEffectivePreviewQuality() : 'full';
+    const isSmooth = (effQuality === 'smooth');
+
+    const activeCap = (S.captions || []).find(c => t >= c.start && t <= c.end) || beat.captions[0];
+
+    // Determine if we are near a beat transition
+    const transDur = POP_CONSTANTS.transitionDur;
+    const nextBeat = beats[beat.index + 1] || null;
+
+    // Render active scene
+    if (beat.scene === 'S2') {
+      drawPopSceneS2(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource);
+    } else if (beat.scene === 'S3') {
+      drawPopSceneS3(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource, behindCtx);
+    } else if (beat.scene === 'S4') {
+      drawPopSceneS4(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource);
+    } else if (beat.scene === 'S5') {
+      drawPopSceneS5(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource);
+    } else {
+      drawPopSceneS1(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource);
+    }
+
+    // Render transition if active
+    if (nextBeat) {
+      drawPopTransition(ctx, beat, nextBeat, t, W, H, u);
+    }
+
+    // Subtle bottom progress bar
+    const totalDur = vid.duration || S.probe?.duration || 10;
+    if (totalDur > 0) {
+      const barH = 0.4 * u;
+      const prog = Math.min(1.0, Math.max(0, t / totalDur));
+      ctx.fillStyle = beat.palette.accent;
+      ctx.fillRect(0, H - barH, W * prog, barH);
+    }
+
+  } catch (err) {
+    console.error('[POP STUDIO DRAW ERROR]', err);
+  }
+}
+
+
+
+/**
+ * Initialize Pop Studio UI Controls
+ */
+function initPopStudioUI() {
+  const toggle = $('togglePopStudio');
+  const body = $('vtemplatePopStudioBody');
+  const chkDoodles = $('chkPopDoodles');
+  const chkEmoji = $('chkPopEmoji');
+  const chkPunch = $('chkPopPunch');
+
+  if (toggle) {
+    toggle.addEventListener('change', () => {
+      const enabled = toggle.checked;
+      if (!S.popStudioConfig) S.popStudioConfig = {};
+      S.popStudioConfig.enabled = enabled;
+      if (body) body.classList.toggle('is-disabled', !enabled);
+
+      if (enabled) {
+        if (!S.style) S.style = {};
+        S.style.videoTemplate = 'popStudio';
+        const reToggle = $('toggleSpecialRealEstate');
+        if (reToggle && reToggle.checked) {
+          reToggle.checked = false;
+          if (S.realEstateConfig) S.realEstateConfig.enabled = false;
+          const reBody = $('vtemplateRealEstateBody');
+          if (reBody) reBody.classList.add('is-disabled');
+        }
+        showToast('🎉 Pop Studio Template activated!');
+      } else {
+        if (S.style && S.style.videoTemplate === 'popStudio') {
+          delete S.style.videoTemplate;
+        }
+        if (typeof vid !== 'undefined' && vid) vid.style.opacity = '1';
+      }
+      _popBeatsCacheKey = '';
+      _popStickerSpriteCache = {};
+      renderPopBeatsList();
+      renderCanvas();
+    });
+  }
+
+  // Palette Swatches
+  const swatches = $$('#popStudioPaletteSwatches .swatch-pill');
+  swatches.forEach(btn => {
+    btn.addEventListener('click', () => {
+      swatches.forEach(b => b.classList.toggle('active', b === btn));
+      const pal = btn.getAttribute('data-palette') || 'auto';
+      if (!S.popStudioConfig) S.popStudioConfig = {};
+      S.popStudioConfig.palette = pal;
+      _popBeatsCacheKey = '';
+      _popStickerSpriteCache = {};
+      showToast('🎨 Pop Palette: ' + pal.toUpperCase());
+      renderPopBeatsList();
+      renderCanvas();
+    });
+  });
+
+  // Scene Mix Segments
+  const mixBtns = $$('#popStudioSceneMixGroup .btn-segment');
+  mixBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      mixBtns.forEach(b => b.classList.toggle('active', b === btn));
+      const mix = btn.getAttribute('data-mix') || 'balanced';
+      if (!S.popStudioConfig) S.popStudioConfig = {};
+      S.popStudioConfig.sceneMix = mix;
+      _popBeatsCacheKey = '';
+      renderPopBeatsList();
+      renderCanvas();
+    });
+  });
+
+  if (chkDoodles) {
+    chkDoodles.addEventListener('change', () => {
+      if (!S.popStudioConfig) S.popStudioConfig = {};
+      S.popStudioConfig.doodles = chkDoodles.checked;
+      renderCanvas();
+    });
+  }
+  if (chkEmoji) {
+    chkEmoji.addEventListener('change', () => {
+      if (!S.popStudioConfig) S.popStudioConfig = {};
+      S.popStudioConfig.emoji = chkEmoji.checked;
+      renderCanvas();
+    });
+  }
+  if (chkPunch) {
+    chkPunch.addEventListener('change', () => {
+      if (!S.popStudioConfig) S.popStudioConfig = {};
+      S.popStudioConfig.punch = chkPunch.checked;
+      renderCanvas();
+    });
+  }
+
+  renderPopBeatsList();
+}
+
+function renderPopBeatsList() {
+  const container = $('popBeatsListContainer');
+  const countLabel = $('popBeatsCountLabel');
+  if (!container) return;
+
+  const beats = resolvePopBeats(S.captions || []);
+  if (countLabel) countLabel.textContent = `${beats.length} beats`;
+  container.innerHTML = '';
+
+  const sceneCycle = ['auto', 'S1', 'S2', 'S3', 'S4', 'S5'];
+
+  beats.forEach(beat => {
+    const chip = document.createElement('div');
+    chip.className = 'pop-beat-chip';
+    const override = S.popStudioConfig?.beatOverrides?.[beat.index] || 'auto';
+
+    chip.innerHTML = `
+      <div class="pop-beat-chip-header">
+        <span class="pop-beat-chip-num">#${beat.index + 1} (${beat.start.toFixed(1)}s-${beat.end.toFixed(1)}s)</span>
+        <span class="pop-beat-chip-scene">${override !== 'auto' ? override : beat.scene}</span>
+      </div>
+      <span class="pop-beat-chip-title">${beat.titlePhrase}</span>
+    `;
+
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const curIdx = sceneCycle.indexOf(override);
+      const nextOverride = sceneCycle[(curIdx + 1) % sceneCycle.length];
+      if (!S.popStudioConfig) S.popStudioConfig = {};
+      if (!S.popStudioConfig.beatOverrides) S.popStudioConfig.beatOverrides = {};
+      S.popStudioConfig.beatOverrides[beat.index] = nextOverride;
+
+      _popBeatsCacheKey = '';
+      vid.currentTime = beat.start;
+      renderPopBeatsList();
+      renderCanvas();
+      showToast(`Beat #${beat.index + 1} scene: ${nextOverride.toUpperCase()}`);
+    });
+
+    container.appendChild(chip);
+  });
 }

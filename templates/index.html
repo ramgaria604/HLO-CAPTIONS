@@ -596,6 +596,82 @@
               </div>
             </div>
 
+            <!-- POP STUDIO VIDEO TEMPLATE CARD -->
+            <div class="vtemplate-card" id="cardPopStudio">
+              <div class="vtemplate-header">
+                <div class="vtemplate-title-col">
+                  <div class="vtemplate-badge-row">
+                    <span class="vtemplate-pill-badge">🎉 VIDEO TEMPLATE</span>
+                    <span class="vtemplate-ai-badge" style="background: linear-gradient(135deg, #ec4899, #8b5cf6);">Scenes & Stickers</span>
+                  </div>
+                  <h3 class="vtemplate-name">Pop Studio</h3>
+                  <p class="vtemplate-sub">Dynamic scenes • Sticker title cards • Video in card • Doodles & Karaoke</p>
+                </div>
+                <div class="vtemplate-toggle-col">
+                  <label class="switch-toggle" title="Toggle Pop Studio Template">
+                    <input type="checkbox" id="togglePopStudio">
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="vtemplate-settings-body is-disabled" id="vtemplatePopStudioBody">
+                <!-- Palette Picker (Auto + 5) -->
+                <div class="vtemplate-row">
+                  <span class="vtemplate-row-label">Palette:</span>
+                  <div class="palette-swatch-list" id="popStudioPaletteSwatches">
+                    <button type="button" class="swatch-pill active" data-palette="auto" title="Auto Rotate Palettes">Auto</button>
+                    <button type="button" class="swatch-pill" data-palette="sunset" title="Sunset Pop" style="background: linear-gradient(135deg, #2A1B5E, #5B2EBF, #FFD93D);"></button>
+                    <button type="button" class="swatch-pill" data-palette="mint" title="Mint Fresh" style="background: linear-gradient(135deg, #0F3D3E, #127A6B, #7CFFCB);"></button>
+                    <button type="button" class="swatch-pill" data-palette="cherry" title="Cherry Cream" style="background: linear-gradient(135deg, #FFF3E6, #FFE0D1, #FF4D6D);"></button>
+                    <button type="button" class="swatch-pill" data-palette="neon" title="Midnight Neon" style="background: linear-gradient(135deg, #0B0F1F, #1B1F4B, #00F0FF);"></button>
+                    <button type="button" class="swatch-pill" data-palette="bubblegum" title="Bubblegum" style="background: linear-gradient(135deg, #FFD6E8, #E6C7FF, #7B4DFF);"></button>
+                  </div>
+                </div>
+
+                <!-- Scene Mix (Calm / Balanced / Wild) -->
+                <div class="vtemplate-row">
+                  <span class="vtemplate-row-label">Scene mix:</span>
+                  <div class="segmented-control" id="popStudioSceneMixGroup" style="display:inline-flex; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.12);">
+                    <button type="button" class="btn-segment" data-mix="calm" style="padding:4px 10px; font-size:11px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:none; cursor:pointer;">Calm</button>
+                    <button type="button" class="btn-segment active" data-mix="balanced" style="padding:4px 10px; font-size:11px; background:#8b5cf6; color:#fff; border:none; cursor:pointer;">Balanced</button>
+                    <button type="button" class="btn-segment" data-mix="wild" style="padding:4px 10px; font-size:11px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:none; cursor:pointer;">Wild</button>
+                  </div>
+                </div>
+
+                <!-- Feature Toggles -->
+                <div class="vtemplate-checks-grid">
+                  <label class="vtemplate-check-label">
+                    <input type="checkbox" id="chkPopDoodles" checked>
+                    <span>✨ Doodles & Sparkles</span>
+                  </label>
+                  <label class="vtemplate-check-label">
+                    <input type="checkbox" id="chkPopEmoji" checked>
+                    <span>🎉 Emoji Stickers</span>
+                  </label>
+                  <label class="vtemplate-check-label">
+                    <input type="checkbox" id="chkPopPunch" checked>
+                    <span>⚡ Camera Punch</span>
+                  </label>
+                </div>
+
+                <!-- Beats Breakdown & Scene Overrides -->
+                <div class="vtemplate-row" style="flex-direction: column; align-items: stretch; margin-top: 8px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <span class="vtemplate-row-label">Scene Beats:</span>
+                    <span id="popBeatsCountLabel" style="font-size:11px; color:#94a3b8;">0 beats</span>
+                  </div>
+                  <div id="popBeatsListContainer" class="pop-beats-scroll-list" style="display:flex; gap:6px; overflow-x:auto; padding-bottom:6px;">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+
+                <div class="vtemplate-footer-note">
+                  <span>💡 Automatic director switches scenes every 2.5–4.5s</span>
+                </div>
+              </div>
+            </div>
+
             <!-- Horizontal/Scrollable Presets Cards Grid -->
             <div class="presets-grid" id="presetsGrid">
               <!-- Populated via JavaScript -->
