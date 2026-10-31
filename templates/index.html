@@ -155,12 +155,13 @@
     <!-- Top Header -->
     <header class="editor-header">
       <div class="header-left">
-        <button id="btnNewVideo" class="header-btn" title="Upload another video">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          <span>New</span>
+        <button id="btnNewVideo" class="header-btn" title="Upload another video" aria-label="Upload new video">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span class="btn-label-desktop">New</span>
         </button>
-        <button id="btnEditorProjects" class="header-btn" title="View your saved projects">
-          📁 Projects
+        <button id="btnEditorProjects" class="header-btn" title="View your saved projects" aria-label="Saved projects">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+          <span class="btn-label-desktop">Projects</span>
         </button>
         <span class="video-filename" id="headerFileName">video.mp4</span>
       </div>
@@ -173,25 +174,27 @@
         </div>
         <button type="button" id="btnEditorLogin" class="btn-google-login">
           <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-          <span>Sign In</span>
+          <span class="btn-label-desktop">Sign In</span>
         </button>
-        <div id="creditPill" class="credit-pill" title="1 Credit = 1 Video Export. Click to recharge credits">
+        <div id="creditPill" class="credit-pill compact-credit-chip" title="1 Credit = 1 Video Export. Click to recharge credits" aria-label="1 Credit available">
           <span class="credit-icon">🎟️</span>
-          <span id="creditCount">1 Credit (1 Video Export)</span>
+          <span id="creditCount" class="credit-count-text">1</span>
         </div>
-        <button id="btnSaveProject" class="btn-save-project" title="Save this project to your account">
-          <span>💾 Save</span>
+        <button id="btnSaveProject" class="btn-save-project" title="Save this project to your account" aria-label="Save project">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span class="btn-label-desktop">Save</span>
         </button>
-        <button type="button" id="btnAutoEditHeader" class="btn-auto-edit" title="One-Click Magic Auto Edit: Remove 'um/uh' filler words, auto-add B-rolls (Circle, Above, Below) & transition SFX!">
-          <span class="auto-edit-sparkle">⚡</span>
+        <button type="button" id="btnAutoEditHeader" class="btn-auto-edit hide-on-mobile" title="One-Click Magic Auto Edit">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/></svg>
           <span>Auto Edit</span>
         </button>
-        <button id="btnExport" class="btn-export btn-export-moonshot" title="Export Video">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <button id="btnExport" class="btn-export btn-export-moonshot" title="Export Video" aria-label="Export Video">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
+          <span class="btn-export-label">Download</span>
         </button>
       </div>
     </header>
@@ -218,6 +221,48 @@
         </div>
 
         <div class="stage-wrapper" id="stageWrapper">
+          <div class="preview-corner-badge" id="previewCornerBadge" title="Preview is optimized for performance">
+            <span class="status-dot"></span>
+            <span class="status-text">Low-res preview</span>
+          </div>
+
+          <!-- TAP-TO-EDIT INTERACTIVE VIDEO OVERLAY -->
+          <div id="videoEditOverlayContainer" class="video-edit-overlay-container hidden">
+            <div id="snapGuideV" class="video-snap-guide-v hidden"></div>
+            <div id="snapGuideH" class="video-snap-guide-h hidden"></div>
+
+            <div id="captionBoundingBox" class="caption-bounding-box hidden">
+              <span id="boxLabelMode" class="box-label-mode hidden">word</span>
+              <div class="box-handle box-handle-nw" data-handle="nw"></div>
+              <div class="box-handle box-handle-ne" data-handle="ne"></div>
+              <div class="box-handle box-handle-sw" data-handle="sw"></div>
+              <div class="box-handle box-handle-se" data-handle="se"></div>
+            </div>
+
+            <div id="videoEditMiniToolbar" class="video-edit-mini-toolbar hidden">
+              <div class="edit-mode-pill-group">
+                <button type="button" class="btn-edit-mode active" id="btnEditModeWhole">Whole caption</button>
+                <button type="button" class="btn-edit-mode" id="btnEditModeWord">One word</button>
+              </div>
+              <div class="edit-toolbar-icons">
+                <button type="button" class="btn-mini-tool" id="btnMiniEditText" title="Edit text" aria-label="Edit text">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                </button>
+                <button type="button" class="btn-mini-tool" id="btnMiniResetPos" title="Reset position" aria-label="Reset position">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                </button>
+                <button type="button" class="btn-mini-tool" id="btnMiniApplyAll" title="Apply to all captions" aria-label="Apply to all captions">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <span>All</span>
+                </button>
+                <button type="button" class="btn-mini-tool btn-mini-done" id="btnMiniDone" title="Done" aria-label="Done editing">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Done</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="stage" id="stage">
             <video id="vid" playsinline preload="auto" disablepictureinpicture></video>
             <div id="brollStageLayer" class="broll-stage-layer hidden">
@@ -270,29 +315,30 @@
           </div>
 
           <div class="transport-right-group">
-            <button type="button" id="btnTlZoomOut" class="btn-step-icon" title="Zoom Out Timeline">−</button>
-            <button type="button" id="btnTlZoomIn" class="btn-step-icon" title="Zoom In Timeline">+</button>
+            <div class="zoom-fit-segmented-control">
+              <button type="button" id="btnTlZoomOut" class="btn-segment" title="Zoom Out Timeline" aria-label="Zoom Out">−</button>
+              <button type="button" id="btnTlZoomIn" class="btn-segment" title="Zoom In Timeline" aria-label="Zoom In">+</button>
+              <div class="fit-dropdown-wrap">
+                <button type="button" id="btnFitDropdown" class="btn-segment btn-fit-dropdown" title="Aspect Ratio" aria-label="Aspect Ratio">
+                  <span id="fitLabelText">Fit</span>
+                  <span class="chevron-down">▾</span>
+                </button>
+                <div class="fit-dropdown-menu hidden" id="fitDropdownMenu">
+                  <button type="button" class="fit-option active" data-aspect="9:16">9:16 Reels</button>
+                  <button type="button" class="fit-option" data-aspect="original">Original Fit</button>
+                  <button type="button" class="fit-option" data-aspect="1:1">1:1 Square</button>
+                </div>
+              </div>
+            </div>
 
             <!-- Preview Quality Level Selector -->
             <div class="preview-quality-wrap">
               <select id="selectPreviewQuality" class="preview-quality-select" title="Only affects this preview. Your export uses the quality you choose when exporting.">
-                <option value="auto">Auto Quality</option>
+                <option value="auto">Auto</option>
                 <option value="smooth">Smooth</option>
                 <option value="balanced">Balanced</option>
                 <option value="full">Full</option>
               </select>
-            </div>
-
-            <div class="fit-dropdown-wrap">
-              <button type="button" id="btnFitDropdown" class="btn-fit-dropdown" title="Aspect Ratio">
-                <span id="fitLabelText">Fit</span>
-                <span class="chevron-down">▾</span>
-              </button>
-              <div class="fit-dropdown-menu hidden" id="fitDropdownMenu">
-                <button type="button" class="fit-option active" data-aspect="9:16">📱 9:16 Reels</button>
-                <button type="button" class="fit-option" data-aspect="original">Original Fit</button>
-                <button type="button" class="fit-option" data-aspect="1:1">⏹️ 1:1 Square</button>
-              </div>
             </div>
 
             <!-- Hidden compatible aspect buttons for JS -->
@@ -344,6 +390,48 @@
           </div>
         </div>
         
+        <!-- Timeline Clip Selected Action Bar -->
+        <div id="timelineClipActionBar" class="timeline-clip-action-bar hidden">
+          <div class="clip-actions-scroll">
+            <button type="button" class="btn-clip-action" id="btnClipSplit" title="Split at playhead" aria-label="Split caption">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+              <span>Split</span>
+            </button>
+            <button type="button" class="btn-clip-action" id="btnClipEditText" title="Edit text" aria-label="Edit text">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+              <span>Edit</span>
+            </button>
+            <button type="button" class="btn-clip-action" id="btnClipDuplicate" title="Duplicate caption" aria-label="Duplicate caption">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              <span>Duplicate</span>
+            </button>
+            <button type="button" class="btn-clip-action" id="btnClipMergeNext" title="Merge with next caption" aria-label="Merge with next caption">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>
+              <span>Merge</span>
+            </button>
+            <button type="button" class="btn-clip-action" id="btnClipNudgeLeft" title="Nudge -0.1s" aria-label="Nudge left">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+              <span>-0.1s</span>
+            </button>
+            <button type="button" class="btn-clip-action" id="btnClipNudgeRight" title="Nudge +0.1s" aria-label="Nudge right">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+              <span>+0.1s</span>
+            </button>
+            <button type="button" class="btn-clip-action" id="btnClipDelete" title="Delete caption" aria-label="Delete caption">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Delete</span>
+            </button>
+            <button type="button" class="btn-clip-action btn-undo" title="Undo" aria-label="Undo">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+              <span>Undo</span>
+            </button>
+            <button type="button" class="btn-clip-action btn-redo" title="Redo" aria-label="Redo">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+              <span>Redo</span>
+            </button>
+          </div>
+        </div>
+
         <div class="timeline-track-wrap" id="timelineTrackWrap">
           <!-- FIXED CENTER PLAYHEAD LINE (LOCKED AT 50% MIDDLE) -->
           <div class="timeline-playhead" id="timelinePlayhead">
@@ -391,15 +479,15 @@
         </div>
         <div class="drawer-header">
           <div class="drawer-title-row">
-            <span id="drawerTitle">🎨 Templates</span>
+            <span id="drawerTitle">Templates</span>
           </div>
           <div class="drawer-actions">
-            <button id="btnDrawerExpand" class="btn-drawer-tool btn-drawer-fullscreen-pill" title="Toggle Half / Fullscreen">
-              <span id="drawerModeIcon">⛶</span>
-              <span id="drawerModeText">Fullscreen</span>
+            <button id="btnDrawerExpand" class="btn-drawer-tool" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+              <span id="drawerModeText" style="display:none;">Fullscreen</span>
             </button>
-            <button id="btnDrawerClose" class="btn-drawer-tool" title="Close drawer to see timeline">
-              &times;
+            <button id="btnDrawerClose" class="btn-drawer-tool" title="Close drawer to see timeline" aria-label="Close drawer">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
         </div>
@@ -408,21 +496,24 @@
           <!-- TAB 1: TEMPLATES -->
           <div id="tabTemplates" class="tab-pane active">
             <div class="templates-toolbar">
-              <div class="category-pills" id="categoryPills">
-                <button class="cat-pill active" data-cat="all">All (164)</button>
-                <button class="cat-pill" data-cat="duo">⚡ Duo Presets (31)</button>
-                <button class="cat-pill" data-cat="viral">🔥 Viral Pop</button>
-                <button class="cat-pill" data-cat="neon">✨ Neon & Ice</button>
-                <button class="cat-pill" data-cat="box">📦 Box Pop</button>
-                <button class="cat-pill" data-cat="real-estate">👑 Real Estate</button>
-                <button class="cat-pill" data-cat="colourful">🌈 Colourful</button>
-                <button class="cat-pill" data-cat="minimal">🎬 Minimal</button>
-                <button class="cat-pill" data-cat="special">⭐ Special</button>
+              <div class="template-search-wrap">
+                <button type="button" id="btnTemplateSearchToggle" class="btn-search-toggle" title="Search templates" aria-label="Search templates">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </button>
+                <input type="text" id="templateSearchInput" class="template-search-input hidden" placeholder="Search templates...">
               </div>
-              <button id="btnOpenFullTemplates" class="btn-pill-action" title="View all templates in large grid">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-                <span>View All (164)</span>
-              </button>
+              <div class="category-pills" id="categoryPills">
+                <button class="cat-pill active" data-cat="all">All</button>
+                <button class="cat-pill" data-cat="duo">Duo</button>
+                <button class="cat-pill" data-cat="viral">Viral</button>
+                <button class="cat-pill" data-cat="neon">Neon</button>
+                <button class="cat-pill" data-cat="box">Box</button>
+                <button class="cat-pill" data-cat="real-estate">Real Estate</button>
+                <button class="cat-pill" data-cat="colourful">Color</button>
+                <button class="cat-pill" data-cat="minimal">Minimal</button>
+                <button class="cat-pill" data-cat="special">Special</button>
+              </div>
+              <button id="btnOpenFullTemplates" class="btn-pill-action" style="display:none;"></button>
             </div>
 
             <!-- SPECIAL VIDEO TEMPLATE FEATURED CARD -->
@@ -1165,23 +1256,33 @@
       <!-- MOONSHOT 5 CORE BOTTOM TABS -->
       <nav class="bottom-nav-bar" id="bottomNavBar">
         <button class="bottom-nav-btn" data-tab="tabBroll" id="btnNavAutoEdit">
-          <span class="nav-btn-icon">🪄</span>
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/></svg>
+          </span>
           <span class="nav-btn-label">Auto edit</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabCaptions" id="btnNavTranscript">
-          <span class="nav-btn-icon">💬</span>
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
+          </span>
           <span class="nav-btn-label">Transcript</span>
         </button>
         <button class="bottom-nav-btn active" data-tab="tabTemplates" id="btnNavTemplates">
-          <span class="nav-btn-icon">🪟</span>
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+          </span>
           <span class="nav-btn-label">Templates</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabStyle" id="btnNavCustomize">
-          <span class="nav-btn-icon">🎚️</span>
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg>
+          </span>
           <span class="nav-btn-label">Customize</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabAudio" id="btnNavVoice">
-          <span class="nav-btn-icon">🎙️</span>
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          </span>
           <span class="nav-btn-label">Voice</span>
         </button>
       </nav>
@@ -1485,6 +1586,34 @@
       <div id="exportErrorState" class="export-state hidden">
         <div class="error-msg" id="exportErrorMessage">Export failed.</div>
         <button id="btnRetryExport" class="btn-primary" style="margin-top:12px;">Retry Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Sheet for Caption & Words Editing -->
+  <div id="modalCaptionEditSheet" class="modal-backdrop hidden">
+    <div class="bottom-sheet-card">
+      <div class="bottom-sheet-header">
+        <span class="bottom-sheet-title">Edit Caption & Word Timing</span>
+        <button type="button" class="btn-sheet-close" id="btnCloseEditSheet" aria-label="Close">&times;</button>
+      </div>
+      <div class="bottom-sheet-body">
+        <label class="sheet-label">Caption Text</label>
+        <textarea id="editSheetFullText" class="sheet-textarea" rows="2" placeholder="Caption text..."></textarea>
+
+        <div class="sheet-words-section">
+          <div class="sheet-words-header">
+            <span class="sheet-label">Word Timing Inside Caption</span>
+            <span class="sheet-sub">Drag divider to adjust boundary or tap +/-</span>
+          </div>
+          <div class="sheet-words-scroll" id="sheetWordsScroll">
+            <!-- Word chips & draggable dividers populated dynamically -->
+          </div>
+        </div>
+      </div>
+      <div class="bottom-sheet-footer">
+        <button type="button" class="btn-sheet-cancel" id="btnCancelEditSheet">Cancel</button>
+        <button type="button" class="btn-sheet-save" id="btnSaveEditSheet">Save Changes</button>
       </div>
     </div>
   </div>

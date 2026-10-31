@@ -773,7 +773,9 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
       if (anim.visible && anim.opacity > 0.01) {
         ctx.save();
         const wordCenterX = curX + wo.width / 2;
-        ctx.translate(wordCenterX + (anim.dx || 0), lineY + (anim.dy || 0));
+        const wDx = (Number(wo.w && wo.w.dx) || 0) * W;
+        const wDy = (Number(wo.w && wo.w.dy) || 0) * H;
+        ctx.translate(wordCenterX + (anim.dx || 0) + wDx, lineY + (anim.dy || 0) + wDy);
         ctx.scale(anim.scale || 1, anim.scale || 1);
         ctx.globalAlpha = Math.max(0, Math.min(1, anim.opacity));
         ctx.textAlign = 'center';
@@ -1301,7 +1303,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         targetCtx.save();
         // Slide / enter animation ends at exactly translate(0, 0).
         // Role dx/dy is NOT applied to lines of stack layout.
-        targetCtx.translate(curX + (anim.dx || 0), o.baseline + (anim.dy || 0));
+        const wDx = (Number(wo.w && wo.w.dx) || 0) * W;
+        const wDy = (Number(wo.w && wo.w.dy) || 0) * H;
+        targetCtx.translate(curX + (anim.dx || 0) + wDx, o.baseline + (anim.dy || 0) + wDy);
         targetCtx.scale(anim.scale || 1, anim.scale || 1);
         targetCtx.globalAlpha *= (typeof anim.opacity === 'number' ? anim.opacity : 1.0);
         targetCtx.textBaseline = 'alphabetic';
@@ -2328,36 +2332,72 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   if (!ctxFore) return;
-  if (st && (st.videoTemplate === 'specialRealEstate' || (S.realEstateConfig && S.realEstateConfig.enabled))) {
-    drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
-    return;
+
+  // B3 Export Parity: Caption manual positioning & scale (ratio offsets relative to W, H)
+  const capDx = (Number(cap && cap.dx) || 0) * W;
+  const capDy = (Number(cap && cap.dy) || 0) * H;
+  const capScale = (cap && typeof cap.scale === 'number' && cap.scale > 0) ? cap.scale : 1.0;
+  const hasCapTransform = capDx !== 0 || capDy !== 0 || capScale !== 1.0;
+
+  if (hasCapTransform) {
+    const origCx = W * 0.5;
+    const origCy = H * (Number(st && (st.position || st.posY)) || 0.65);
+    ctxFore.save();
+    ctxFore.translate(origCx + capDx, origCy + capDy);
+    ctxFore.scale(capScale, capScale);
+    ctxFore.translate(-origCx, -origCy);
+    if (ctxBehind && ctxBehind !== ctxFore) {
+      ctxBehind.save();
+      ctxBehind.translate(origCx + capDx, origCy + capDy);
+      ctxBehind.scale(capScale, capScale);
+      ctxBehind.translate(-origCx, -origCy);
+    }
   }
-  const base = Math.max(260, Math.min(W, H)) * Math.max(0.7, Math.min(1.5, Number(st.fontScale) || 1));
-  const presetId = st.id || '';
-  const offsetX = (Number(st.offsetX) || 0) * W;
-  ctxFore.save(); ctxFore.translate(offsetX, 0);
-  if (ctxBehind && ctxBehind !== ctxFore) { ctxBehind.save(); ctxBehind.translate(offsetX, 0); }
-  if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
-    drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll);
-  } else if (st.isSpecial && st.depthAccent) {
-    drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, cap.id);
-  } else if (st.isSpecial) {
-    drawSpecialFrontPass(ctxFore, words, t, st, W, H, base, showAll, cap.id);
-  } else if (st.depthAccent) {
-    drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, cap.id);
-  } else if (presetId === 'ref_dual_neon' || st.refDualNeon) {
-    drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
-  } else if (presetId === 'ref_kinetic_split' || st.chromaticAberration) {
-    drawKineticLensPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
-  } else if (presetId === 'ref_crimson_3d' || st.shadow3D || presetId.includes('crimson')) {
-    drawCrimson3DPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
-  } else if (presetId === 'ref_chrome_studio' || st.chromeSpecular || presetId.includes('chrome')) {
-    drawChromeStudioPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
-  } else {
-    drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
+
+  try {
+    if (st && (st.videoTemplate === 'specialRealEstate' || (S.realEstateConfig && S.realEstateConfig.enabled))) {
+      drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+    } else {
+      const base = Math.max(260, Math.min(W, H)) * Math.max(0.7, Math.min(1.5, Number(st.fontScale) || 1));
+      const presetId = st.id || '';
+      const offsetX = (Number(st.offsetX) || 0) * W;
+      ctxFore.save(); ctxFore.translate(offsetX, 0);
+      if (ctxBehind && ctxBehind !== ctxFore) { ctxBehind.save(); ctxBehind.translate(offsetX, 0); }
+      if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
+        drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll);
+      } else if (st.isSpecial && st.depthAccent) {
+        drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, cap.id);
+      } else if (st.isSpecial) {
+        drawSpecialFrontPass(ctxFore, words, t, st, W, H, base, showAll, cap.id);
+      } else if (st.depthAccent) {
+        drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, cap.id);
+      } else if (presetId === 'ref_dual_neon' || st.refDualNeon) {
+        drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
+      } else if (presetId === 'ref_kinetic_split' || st.chromaticAberration) {
+        drawKineticLensPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
+      } else if (presetId === 'ref_crimson_3d' || st.shadow3D || presetId.includes('crimson')) {
+        drawCrimson3DPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
+      } else if (presetId === 'ref_chrome_studio' || st.chromeSpecular || presetId.includes('chrome')) {
+        drawChromeStudioPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
+      } else {
+        drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
+      }
+      if (ctxBehind && ctxBehind !== ctxFore) ctxBehind.restore();
+      ctxFore.restore();
+    }
+  } finally {
+    if (hasCapTransform) {
+      if (ctxBehind && ctxBehind !== ctxFore) ctxBehind.restore();
+      ctxFore.restore();
+    }
   }
-  if (ctxBehind && ctxBehind !== ctxFore) ctxBehind.restore();
-  ctxFore.restore();
+
+  // Layout boxes recording for tap-to-edit hit-testing
+  try {
+    recordCaptionLayoutBox(cap, words, st, W, H, capDx, capDy, capScale);
+  } catch (err) {
+    // Keep playback and export functioning even if bounding box recorder throws
+  }
 }
 
 // Preview caption controls: drag to position, wheel/trackpad to resize.
@@ -3108,6 +3148,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     setupUploadHandlers();
     setupTransportHandlers();
     setupTimelineHandlers();
+    setupVideoOverlayInteractions();
+    setupTimelineActionBar();
+    setupCaptionEditSheet();
+    setupTemplateSearch();
     setupDrawerAndNavHandlers();
     setupStyleHandlers();
     setupAudioHandlers();
@@ -4233,7 +4277,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const durTag = document.createElement('span');
       durTag.className = 'tl-block-dur';
       durTag.textContent = (cap.end - cap.start).toFixed(1) + 's';
-      block.appendChild(durTag);
+      if (widthPx > 72) {
+        block.appendChild(durTag);
+      }
 
       // Right Trim Handle (Drag left/right to adjust duration)
       const handleR = document.createElement('div');
@@ -4287,22 +4333,36 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const deltaSec = deltaPx / pxPerSec;
 
       if (drag.mode === 'right') {
-        const newEnd = Math.max(drag.origStart + 0.2, Math.min(totalDur, drag.origEnd + deltaSec));
+        const curCapIdx = S.captions.indexOf(cap);
+        const nextCap = (curCapIdx < S.captions.length - 1) ? S.captions[curCapIdx + 1] : null;
+        const maxR = nextCap ? nextCap.start : totalDur;
+        const newEnd = Math.max(drag.origStart + 0.2, Math.min(maxR, drag.origEnd + deltaSec));
         cap.end = Math.round(newEnd * 100) / 100;
         vid.currentTime = cap.end;
       } else if (drag.mode === 'left') {
-        const newStart = Math.max(0, Math.min(drag.origEnd - 0.2, drag.origStart + deltaSec));
+        const curCapIdx = S.captions.indexOf(cap);
+        const prevCap = (curCapIdx > 0) ? S.captions[curCapIdx - 1] : null;
+        const minL = prevCap ? prevCap.end : 0;
+        const newStart = Math.max(minL, Math.min(drag.origEnd - 0.2, drag.origStart + deltaSec));
         cap.start = Math.round(newStart * 100) / 100;
         vid.currentTime = cap.start;
       } else if (drag.mode === 'move') {
+        const curCapIdx = S.captions.indexOf(cap);
+        const prevCap = (curCapIdx > 0) ? S.captions[curCapIdx - 1] : null;
+        const nextCap = (curCapIdx < S.captions.length - 1) ? S.captions[curCapIdx + 1] : null;
+        const minAllowedStart = prevCap ? prevCap.end : 0;
+        const maxAllowedEnd = nextCap ? nextCap.start : totalDur;
+
         let newStart = drag.origStart + deltaSec;
         let newEnd = newStart + drag.origDur;
-        if (newStart < 0) {
-          newStart = 0;
-          newEnd = drag.origDur;
-        } else if (newEnd > totalDur) {
-          newEnd = totalDur;
-          newStart = Math.max(0, totalDur - drag.origDur);
+
+        if (newStart < minAllowedStart) {
+          newStart = minAllowedStart;
+          newEnd = newStart + drag.origDur;
+        }
+        if (newEnd > maxAllowedEnd) {
+          newEnd = maxAllowedEnd;
+          newStart = Math.max(minAllowedStart, newEnd - drag.origDur);
         }
         cap.start = Math.round(newStart * 100) / 100;
         cap.end = Math.round(newEnd * 100) / 100;
@@ -4336,13 +4396,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       handleR.classList.remove('dragging');
 
       if (!wasMoved && mode === 'move') {
-        vid.currentTime = cap.start;
-        if (timelineScrollContainer) {
-          timelineScrollContainer.scrollLeft = cap.start * pxPerSec;
-        }
-        renderCanvas();
-        syncTimelinePlayhead();
-        vid.play().catch(() => {});
+        selectCaption(cap.id);
       } else if (wasMoved) {
         S.captions.sort((a, b) => a.start - b.start);
         pushHistoryState('Adjust timeline: ' + (cap.text || '').slice(0, 16));
@@ -4731,6 +4785,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
     }
     art.appendChild(big);
+
+    // A5: Person silhouette in front of behind cards preview
+    if (isBehind) {
+      const sil = document.createElement('div');
+      sil.className = 'preset-card-silhouette';
+      sil.style.position = 'absolute';
+      sil.style.bottom = '2px';
+      sil.style.pointerEvents = 'none';
+      sil.style.zIndex = '2';
+      sil.innerHTML = '<svg width="42" height="42" viewBox="0 0 24 24" fill="rgba(255,255,255,0.22)" stroke="rgba(255,255,255,0.45)" stroke-width="1.25"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      art.appendChild(sil);
+    }
 
     // Name & Active Check Row
     const nameRow = document.createElement('div');
@@ -9608,3 +9674,918 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   }
 
 })();
+
+
+// ============================================================================
+// PART B: INTERACTIVE CAPTION TIMELINE & VIDEO TAP-TO-EDIT SUITE
+// ============================================================================
+
+window._hasShownTapEditHint = false;
+window._hasScrubbedTimeline = false;
+S.selectedCaptionId = null;
+S.selectedWordIndex = -1;
+S.editMode = 'whole'; // 'whole' | 'word'
+S.cachedLayoutBoxes = [];
+
+/**
+ * B3 & B4: Record bounding boxes during render for tap-to-edit hit-testing
+ */
+function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capScale = 1.0) {
+  if (!cap || !words || words.length === 0 || W <= 0 || H <= 0) return;
+
+  const stPos = Number(st && (st.position || st.posY)) || 0.65;
+  const centerY = H * stPos;
+  const centerX = W * 0.5;
+
+  let totalW = 0;
+  let totalH = 0;
+  const wordBoxes = [];
+
+  const estFs = Math.max(18, Math.round(Math.min(W, H) * (Number(st?.fontSize) || 0.08) * (Number(st?.fontScale) || 1.0)));
+  const lineH = estFs * 1.25;
+
+  // Approximate line distribution
+  const lines = (words.length <= 3) ? [words] : [words.slice(0, Math.ceil(words.length / 2)), words.slice(Math.ceil(words.length / 2))];
+  const numLines = lines.length;
+  totalH = numLines * lineH;
+  const startY = centerY - totalH / 2;
+
+  lines.forEach((lWords, lIdx) => {
+    const lY = startY + lIdx * lineH;
+    let curX = centerX - (lWords.length * estFs * 2.2) / 2;
+    lWords.forEach(w => {
+      const wIdx = words.indexOf(w);
+      const estW = Math.max(estFs * 1.2, (w.t || '').length * estFs * 0.55);
+      const wDx = (Number(w.dx) || 0) * W;
+      const wDy = (Number(w.dy) || 0) * H;
+      const wx = curX + wDx + capDx;
+      const wy = lY + wDy + capDy;
+      wordBoxes.push({
+        wordIndex: wIdx,
+        word: w,
+        box: {
+          x: Math.max(0, Math.min(1, wx / W)),
+          y: Math.max(0, Math.min(1, wy / H)),
+          w: Math.max(0.04, Math.min(1, (estW * capScale) / W)),
+          h: Math.max(0.02, Math.min(1, (estFs * capScale) / H))
+        }
+      });
+      curX += estW + estFs * 0.25;
+      totalW = Math.max(totalW, curX - (centerX - (lWords.length * estFs * 2.2) / 2));
+    });
+  });
+
+  const capBoxX = Math.max(0, Math.min(0.9, (centerX - (totalW / 2) + capDx) / W));
+  const capBoxY = Math.max(0, Math.min(0.9, (startY + capDy) / H));
+  const capBoxW = Math.max(0.12, Math.min(0.96, (totalW * capScale) / W));
+  const capBoxH = Math.max(0.04, Math.min(0.96, (totalH * capScale) / H));
+
+  const entry = {
+    capId: cap.id,
+    box: { x: capBoxX, y: capBoxY, w: capBoxW, h: capBoxH },
+    wordBoxes: wordBoxes,
+    ts: performance.now()
+  };
+
+  const existIdx = S.cachedLayoutBoxes.findIndex(b => b.capId === cap.id);
+  if (existIdx >= 0) {
+    S.cachedLayoutBoxes[existIdx] = entry;
+  } else {
+    S.cachedLayoutBoxes.push(entry);
+  }
+}
+
+/**
+ * Select a caption for editing
+ */
+function selectCaption(capId, wordIndex = -1) {
+  S.selectedCaptionId = capId;
+  const capIdx = S.captions.findIndex(c => c.id === capId);
+  if (capIdx === -1) {
+    deselectCaption();
+    return;
+  }
+  const cap = S.captions[capIdx];
+  if (wordIndex >= 0) {
+    S.selectedWordIndex = wordIndex;
+    S.editMode = 'word';
+  } else {
+    S.selectedWordIndex = -1;
+    S.editMode = 'whole';
+  }
+
+  // Highlight block in timeline
+  $$('.timeline-block').forEach(b => {
+    if (b.getAttribute('data-id') === capId) {
+      b.classList.add('selected');
+    } else {
+      b.classList.remove('selected');
+    }
+  });
+
+  // Show timeline action bar
+  const actionBar = $('timelineClipActionBar');
+  if (actionBar) actionBar.classList.remove('hidden');
+
+  // Sync playhead to start of clip
+  if (Math.abs((vid.currentTime || 0) - cap.start) > 0.05) {
+    vid.currentTime = cap.start;
+    syncTimelinePlayhead();
+  }
+
+  updateVideoEditOverlay();
+
+  // Show first-time hint
+  if (!window._hasShownTapEditHint) {
+    window._hasShownTapEditHint = true;
+    showToast('💡 Tap a caption to move it. Switch to One word to move a single word.');
+  }
+
+  renderCanvas();
+}
+
+/**
+ * Deselect current caption and hide edit overlay
+ */
+function deselectCaption() {
+  S.selectedCaptionId = null;
+  S.selectedWordIndex = -1;
+  S.editMode = 'whole';
+
+  $$('.timeline-block').forEach(b => b.classList.remove('selected'));
+
+  const actionBar = $('timelineClipActionBar');
+  if (actionBar) actionBar.classList.add('hidden');
+
+  const overlay = $('videoEditOverlayContainer');
+  if (overlay) overlay.classList.add('hidden');
+
+  const snapV = $('snapGuideV'); if (snapV) snapV.classList.add('hidden');
+  const snapH = $('snapGuideH'); if (snapH) snapH.classList.add('hidden');
+
+  renderCanvas();
+}
+
+/**
+ * Sync bounding box and floating mini toolbar
+ */
+function updateVideoEditOverlay() {
+  const overlay = $('videoEditOverlayContainer');
+  const bbox = $('captionBoundingBox');
+  const miniToolbar = $('videoEditMiniToolbar');
+  const boxLabel = $('boxLabelMode');
+  const stage = $('stage');
+  const stageWrapper = $('stageWrapper');
+
+  if (!overlay || !bbox || !miniToolbar || !stage || !stageWrapper) return;
+  if (!S.selectedCaptionId) {
+    overlay.classList.add('hidden');
+    return;
+  }
+
+  const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+  if (capIdx === -1) {
+    deselectCaption();
+    return;
+  }
+  const cap = S.captions[capIdx];
+
+  overlay.classList.remove('hidden');
+  bbox.classList.remove('hidden');
+  miniToolbar.classList.remove('hidden');
+
+  // Update mode pills
+  const btnWhole = $('btnEditModeWhole');
+  const btnWord = $('btnEditModeWord');
+  if (btnWhole && btnWord) {
+    if (S.editMode === 'word') {
+      btnWord.classList.add('active');
+      btnWhole.classList.remove('active');
+      if (boxLabel) {
+        boxLabel.classList.remove('hidden');
+        const curWord = (cap.words && S.selectedWordIndex >= 0 && cap.words[S.selectedWordIndex]) ? cap.words[S.selectedWordIndex].t : 'word';
+        boxLabel.textContent = `word: "${curWord}"`;
+      }
+    } else {
+      btnWhole.classList.add('active');
+      btnWord.classList.remove('active');
+      if (boxLabel) boxLabel.classList.add('hidden');
+    }
+  }
+
+  const stageRect = stage.getBoundingClientRect();
+  const wrapperRect = stageWrapper.getBoundingClientRect();
+  const stageLeftInWrapper = stageRect.left - wrapperRect.left;
+  const stageTopInWrapper = stageRect.top - wrapperRect.top;
+
+  const layoutItem = (S.cachedLayoutBoxes || []).find(item => item.capId === cap.id);
+  let targetNormBox = layoutItem ? layoutItem.box : null;
+
+  if (S.editMode === 'word' && S.selectedWordIndex >= 0 && layoutItem && layoutItem.wordBoxes && layoutItem.wordBoxes[S.selectedWordIndex]) {
+    targetNormBox = layoutItem.wordBoxes[S.selectedWordIndex].box;
+  }
+
+  if (!targetNormBox) {
+    targetNormBox = {
+      x: 0.10 + (Number(cap.dx) || 0),
+      y: (Number(S.style?.position) || 0.65) - 0.08 + (Number(cap.dy) || 0),
+      w: 0.80 * (Number(cap.scale) || 1.0),
+      h: 0.16 * (Number(cap.scale) || 1.0)
+    };
+  }
+
+  const boxX = stageLeftInWrapper + targetNormBox.x * stageRect.width;
+  const boxY = stageTopInWrapper + targetNormBox.y * stageRect.height;
+  const boxW = Math.max(48, targetNormBox.w * stageRect.width);
+  const boxH = Math.max(32, targetNormBox.h * stageRect.height);
+
+  bbox.style.left = Math.round(boxX) + 'px';
+  bbox.style.top = Math.round(boxY) + 'px';
+  bbox.style.width = Math.round(boxW) + 'px';
+  bbox.style.height = Math.round(boxH) + 'px';
+
+  // Position mini toolbar near the box
+  let toolbarY = boxY + boxH + 8;
+  if (toolbarY + 44 > wrapperRect.height - 12) {
+    toolbarY = Math.max(12, boxY - 48);
+  }
+  let toolbarX = boxX + (boxW / 2) - 130;
+  toolbarX = Math.max(8, Math.min(wrapperRect.width - 270, toolbarX));
+
+  miniToolbar.style.left = Math.round(toolbarX) + 'px';
+  miniToolbar.style.top = Math.round(toolbarY) + 'px';
+}
+
+/**
+ * Handle tap on video preview to select caption or word
+ */
+function handleStageTapToEdit(e) {
+  if (e.target.closest('#videoEditMiniToolbar') || e.target.closest('.box-handle') || e.target.closest('#timelineClipActionBar')) {
+    return;
+  }
+  const stage = $('stage');
+  const stageWrapper = $('stageWrapper');
+  if (!stage || !stageWrapper) return;
+
+  const rect = stage.getBoundingClientRect();
+  const normX = (e.clientX - rect.left) / rect.width;
+  const normY = (e.clientY - rect.top) / rect.height;
+
+  if (normX < 0 || normX > 1 || normY < 0 || normY > 1) {
+    deselectCaption();
+    return;
+  }
+
+  const t = vid.currentTime || 0;
+  const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+  const matches = (S.cachedLayoutBoxes || []).filter(item => {
+    const b = item.box;
+    return normX >= b.x - 0.05 && normX <= b.x + b.w + 0.05 &&
+           normY >= b.y - 0.05 && normY <= b.y + b.h + 0.05;
+  });
+
+  if (matches.length > 0) {
+    if (!vid.paused) {
+      try { vid.pause(); } catch(_) {}
+    }
+    let targetItem = matches[0];
+    if (matches.length > 1 && S.selectedCaptionId === targetItem.capId) {
+      targetItem = matches[1];
+    }
+    let matchedWordIdx = -1;
+    if (targetItem.wordBoxes && targetItem.wordBoxes.length > 0) {
+      const matchedWord = targetItem.wordBoxes.find(wb => {
+        const wbBox = wb.box;
+        return normX >= wbBox.x - 0.02 && normX <= wbBox.x + wbBox.w + 0.02 &&
+               normY >= wbBox.y - 0.02 && normY <= wbBox.y + wbBox.h + 0.02;
+      });
+      if (matchedWord) matchedWordIdx = matchedWord.wordIndex;
+    }
+    selectCaption(targetItem.capId, matchedWordIdx);
+  } else if (activeCap) {
+    if (!vid.paused) {
+      try { vid.pause(); } catch(_) {}
+    }
+    selectCaption(activeCap.id);
+  } else {
+    deselectCaption();
+  }
+}
+
+/**
+ * Setup interactions for video bounding box dragging, scaling, and mini toolbar
+ */
+function setupVideoOverlayInteractions() {
+  const bbox = $('captionBoundingBox');
+  const overlay = $('videoEditOverlayContainer');
+  const stage = $('stage');
+  const stageWrapper = $('stageWrapper');
+  if (!bbox || !overlay || !stage || !stageWrapper) return;
+
+  stageWrapper.addEventListener('click', handleStageTapToEdit);
+
+  let drag = null;
+
+  const onPointerDown = (e) => {
+    if (e.target.closest('#videoEditMiniToolbar')) return;
+
+    const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+    if (capIdx === -1) return;
+    const cap = S.captions[capIdx];
+
+    e.stopPropagation();
+    try { e.target.setPointerCapture(e.pointerId); } catch(_) {}
+
+    const handleEl = e.target.closest('.box-handle');
+    const stageRect = stage.getBoundingClientRect();
+
+    if (handleEl) {
+      const handleType = handleEl.getAttribute('data-handle') || 'se';
+      const bboxRect = bbox.getBoundingClientRect();
+      const centerX = bboxRect.left + bboxRect.width / 2;
+      const centerY = bboxRect.top + bboxRect.height / 2;
+      const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+      drag = {
+        type: 'scale',
+        pointerId: e.pointerId,
+        handle: handleType,
+        centerX,
+        centerY,
+        startDist: Math.max(10, startDist),
+        origScale: Number(cap.scale) || 1.0,
+        capIdx,
+        cap
+      };
+    } else {
+      const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]);
+      const targetObj = isWordMode ? cap.words[S.selectedWordIndex] : cap;
+      drag = {
+        type: 'move',
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        origDx: Number(targetObj.dx) || 0,
+        origDy: Number(targetObj.dy) || 0,
+        stageW: stageRect.width,
+        stageH: stageRect.height,
+        isWordMode,
+        targetObj,
+        capIdx,
+        wordIdx: isWordMode ? S.selectedWordIndex : -1,
+        moved: false
+      };
+    }
+  };
+
+  const onPointerMove = (e) => {
+    if (!drag || drag.pointerId !== e.pointerId) return;
+
+    if (drag.type === 'scale') {
+      const curDist = Math.hypot(e.clientX - drag.centerX, e.clientY - drag.centerY);
+      const scaleFactor = curDist / drag.startDist;
+      const newScale = Math.max(0.4, Math.min(2.5, drag.origScale * scaleFactor));
+      drag.cap.scale = Math.round(newScale * 100) / 100;
+      requestAnimationFrame(() => {
+        renderCanvas();
+        updateVideoEditOverlay();
+      });
+    } else if (drag.type === 'move') {
+      const deltaX = e.clientX - drag.startX;
+      const deltaY = e.clientY - drag.startY;
+      if (!drag.moved && Math.hypot(deltaX, deltaY) < 3) return;
+      drag.moved = true;
+
+      let newDx = drag.origDx + (deltaX / drag.stageW);
+      let newDy = drag.origDy + (deltaY / drag.stageH);
+
+      // Snap guides (center and 8% safe margins)
+      const snapV = $('snapGuideV');
+      const snapH = $('snapGuideH');
+      let didSnap = false;
+
+      if (Math.abs(newDx) < 0.02) {
+        newDx = 0;
+        if (snapV) snapV.classList.remove('hidden');
+        didSnap = true;
+      } else if (snapV) {
+        snapV.classList.add('hidden');
+      }
+
+      if (Math.abs(newDy) < 0.02) {
+        newDy = 0;
+        if (snapH) snapH.classList.remove('hidden');
+        didSnap = true;
+      } else if (snapH) {
+        snapH.classList.add('hidden');
+      }
+
+      if (didSnap && navigator.vibrate) {
+        try { navigator.vibrate(8); } catch(_) {}
+      }
+
+      // Safe clamp inside 8% frame margins
+      newDx = Math.max(-0.42, Math.min(0.42, newDx));
+      newDy = Math.max(-0.42, Math.min(0.42, newDy));
+
+      drag.targetObj.dx = Math.round(newDx * 1000) / 1000;
+      drag.targetObj.dy = Math.round(newDy * 1000) / 1000;
+
+      requestAnimationFrame(() => {
+        renderCanvas();
+        updateVideoEditOverlay();
+      });
+    }
+  };
+
+  const onPointerUp = (e) => {
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const d = drag;
+    drag = null;
+    try { e.target.releasePointerCapture(e.pointerId); } catch(_) {}
+
+    const snapV = $('snapGuideV'); if (snapV) snapV.classList.add('hidden');
+    const snapH = $('snapGuideH'); if (snapH) snapH.classList.add('hidden');
+
+    if (d.type === 'scale') {
+      pushHistoryState('Scale caption');
+      console.log('[EDIT]', 'scale', d.capIdx, -1, d.cap.scale);
+    } else if (d.type === 'move' && d.moved) {
+      pushHistoryState('Move caption position');
+      console.log('[EDIT]', 'move', d.capIdx, d.wordIdx, { dx: d.targetObj.dx, dy: d.targetObj.dy });
+    }
+    renderCanvas();
+    updateVideoEditOverlay();
+  };
+
+  bbox.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
+
+  // Mini toolbar button handlers
+  const btnWhole = $('btnEditModeWhole');
+  if (btnWhole) {
+    btnWhole.addEventListener('click', (e) => {
+      e.stopPropagation();
+      S.editMode = 'whole';
+      updateVideoEditOverlay();
+      console.log('[EDIT]', 'mode_whole', S.selectedCaptionId, -1, 'whole');
+    });
+  }
+
+  const btnWord = $('btnEditModeWord');
+  if (btnWord) {
+    btnWord.addEventListener('click', (e) => {
+      e.stopPropagation();
+      S.editMode = 'word';
+      if (S.selectedWordIndex < 0) S.selectedWordIndex = 0;
+      updateVideoEditOverlay();
+      console.log('[EDIT]', 'mode_word', S.selectedCaptionId, S.selectedWordIndex, 'word');
+    });
+  }
+
+  const btnMiniEditText = $('btnMiniEditText');
+  if (btnMiniEditText) {
+    btnMiniEditText.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openCaptionEditSheet(S.selectedCaptionId);
+    });
+  }
+
+  const btnMiniResetPos = $('btnMiniResetPos');
+  if (btnMiniResetPos) {
+    btnMiniResetPos.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      if (S.editMode === 'word' && S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]) {
+        cap.words[S.selectedWordIndex].dx = 0;
+        cap.words[S.selectedWordIndex].dy = 0;
+        console.log('[EDIT]', 'reset_word_pos', capIdx, S.selectedWordIndex, 0);
+      } else {
+        cap.dx = 0;
+        cap.dy = 0;
+        cap.scale = 1.0;
+        console.log('[EDIT]', 'reset_caption_pos', capIdx, -1, 0);
+      }
+      pushHistoryState('Reset position');
+      renderCanvas();
+      updateVideoEditOverlay();
+      showToast('Position reset to default');
+    });
+  }
+
+  const btnMiniApplyAll = $('btnMiniApplyAll');
+  if (btnMiniApplyAll) {
+    btnMiniApplyAll.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      if (confirm('Apply this caption position and scale to all captions?')) {
+        S.captions.forEach((c) => {
+          c.dx = cap.dx || 0;
+          c.dy = cap.dy || 0;
+          c.scale = cap.scale || 1.0;
+        });
+        pushHistoryState('Apply position to all captions');
+        console.log('[EDIT]', 'apply_all_pos', capIdx, -1, { dx: cap.dx, dy: cap.dy, scale: cap.scale });
+        renderCanvas();
+        updateVideoEditOverlay();
+        showToast('Applied position to all captions');
+      }
+    });
+  }
+
+  const btnMiniDone = $('btnMiniDone');
+  if (btnMiniDone) {
+    btnMiniDone.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deselectCaption();
+    });
+  }
+}
+
+/**
+ * Setup Timeline Action Bar Handlers (Split, Edit, Duplicate, Merge, Nudge, Delete, Undo, Redo)
+ */
+function setupTimelineActionBar() {
+  const btnClipSplit = $('btnClipSplit');
+  if (btnClipSplit) {
+    btnClipSplit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      const curT = vid.currentTime || 0;
+      if (curT <= cap.start + 0.15 || curT >= cap.end - 0.15) {
+        showToast('⚠️ Move playhead inside caption to split');
+        return;
+      }
+
+      // Split text & words
+      const wordsBefore = (cap.words || []).filter(w => (w.s || cap.start) < curT);
+      const wordsAfter = (cap.words || []).filter(w => (w.s || cap.start) >= curT);
+
+      const oldEnd = cap.end;
+      cap.end = Math.round(curT * 100) / 100;
+      cap.words = wordsBefore;
+      cap.text = wordsBefore.map(w => w.t).join(' ') || cap.text;
+
+      const newCap = {
+        id: 'cap_' + Date.now(),
+        start: Math.round(curT * 100) / 100,
+        end: oldEnd,
+        text: wordsAfter.map(w => w.t).join(' ') || '...',
+        words: wordsAfter,
+        dx: cap.dx || 0,
+        dy: cap.dy || 0,
+        scale: cap.scale || 1.0
+      };
+
+      S.captions.splice(capIdx + 1, 0, newCap);
+      pushHistoryState('Split caption');
+      console.log('[EDIT]', 'split', capIdx, -1, curT);
+      renderTimeline();
+      renderCanvas();
+      selectCaption(newCap.id);
+      showToast('✂️ Caption split');
+    });
+  }
+
+  const btnClipEdit = $('btnClipEdit');
+  if (btnClipEdit) {
+    btnClipEdit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openCaptionEditSheet(S.selectedCaptionId);
+    });
+  }
+
+  const btnClipDup = $('btnClipDup');
+  if (btnClipDup) {
+    btnClipDup.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      const dur = cap.end - cap.start;
+      const nextCap = S.captions[capIdx + 1];
+      const availGap = nextCap ? (nextCap.start - cap.end) : 10;
+      const newDur = Math.max(0.2, Math.min(dur, availGap > 0.2 ? availGap : dur));
+
+      const newCap = JSON.parse(JSON.stringify(cap));
+      newCap.id = 'cap_' + Date.now();
+      newCap.start = Math.round(cap.end * 100) / 100;
+      newCap.end = Math.round((newCap.start + newDur) * 100) / 100;
+
+      S.captions.splice(capIdx + 1, 0, newCap);
+      pushHistoryState('Duplicate caption');
+      console.log('[EDIT]', 'duplicate', capIdx, -1, newCap.start);
+      renderTimeline();
+      renderCanvas();
+      selectCaption(newCap.id);
+      showToast('📑 Caption duplicated');
+    });
+  }
+
+  const btnClipMerge = $('btnClipMerge');
+  if (btnClipMerge) {
+    btnClipMerge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1 || capIdx >= S.captions.length - 1) {
+        showToast('⚠️ No next caption to merge with');
+        return;
+      }
+      const cap = S.captions[capIdx];
+      const nextCap = S.captions[capIdx + 1];
+
+      cap.end = nextCap.end;
+      cap.text = (cap.text + ' ' + nextCap.text).trim();
+      cap.words = (cap.words || []).concat(nextCap.words || []);
+      S.captions.splice(capIdx + 1, 1);
+
+      pushHistoryState('Merge with next caption');
+      console.log('[EDIT]', 'merge', capIdx, -1, cap.end);
+      renderTimeline();
+      renderCanvas();
+      selectCaption(cap.id);
+      showToast('🔗 Captions merged');
+    });
+  }
+
+  const btnClipNudgeMinus = $('btnClipNudgeMinus');
+  if (btnClipNudgeMinus) {
+    btnClipNudgeMinus.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      const prevCap = S.captions[capIdx - 1];
+      const minStart = prevCap ? prevCap.end : 0;
+      const newStart = Math.max(minStart, cap.start - 0.1);
+      const delta = newStart - cap.start;
+      if (Math.abs(delta) < 0.001) return;
+
+      cap.start = Math.round(newStart * 100) / 100;
+      cap.end = Math.round((cap.end + delta) * 100) / 100;
+      updateCaptionWordTimings(cap);
+
+      pushHistoryState('Nudge caption -0.1s');
+      console.log('[EDIT]', 'nudge_minus', capIdx, -1, delta);
+      renderTimeline();
+      renderCanvas();
+    });
+  }
+
+  const btnClipNudgePlus = $('btnClipNudgePlus');
+  if (btnClipNudgePlus) {
+    btnClipNudgePlus.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      const nextCap = S.captions[capIdx + 1];
+      const maxEnd = nextCap ? nextCap.start : (vid.duration || 999);
+      const newEnd = Math.min(maxEnd, cap.end + 0.1);
+      const delta = newEnd - cap.end;
+      if (Math.abs(delta) < 0.001) return;
+
+      cap.start = Math.round((cap.start + delta) * 100) / 100;
+      cap.end = Math.round(newEnd * 100) / 100;
+      updateCaptionWordTimings(cap);
+
+      pushHistoryState('Nudge caption +0.1s');
+      console.log('[EDIT]', 'nudge_plus', capIdx, -1, delta);
+      renderTimeline();
+      renderCanvas();
+    });
+  }
+
+  const btnClipDelete = $('btnClipDelete');
+  if (btnClipDelete) {
+    btnClipDelete.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      S.captions.splice(capIdx, 1);
+      deselectCaption();
+      pushHistoryState('Delete caption');
+      console.log('[EDIT]', 'delete', capIdx, -1, 0);
+      renderTimeline();
+      renderCanvas();
+      showToast('🗑 Caption deleted');
+    });
+  }
+
+  const btnClipUndo = $('btnClipUndo');
+  if (btnClipUndo) {
+    btnClipUndo.addEventListener('click', (e) => {
+      e.stopPropagation();
+      undo();
+    });
+  }
+
+  const btnClipRedo = $('btnClipRedo');
+  if (btnClipRedo) {
+    btnClipRedo.addEventListener('click', (e) => {
+      e.stopPropagation();
+      redo();
+    });
+  }
+}
+
+/**
+ * Bottom Sheet for Caption and Word Timing Editing
+ */
+let editingCapId = null;
+
+function openCaptionEditSheet(capId) {
+  const sheet = $('modalCaptionEditSheet');
+  const textarea = $('editSheetFullText');
+  const wordsScroll = $('sheetWordsScroll');
+  if (!sheet || !textarea || !wordsScroll) return;
+
+  editingCapId = capId || S.selectedCaptionId;
+  const capIdx = S.captions.findIndex(c => c.id === editingCapId);
+  if (capIdx === -1) return;
+  const cap = S.captions[capIdx];
+
+  textarea.value = cap.text || '';
+  renderSheetWordChips(cap);
+
+  sheet.classList.remove('hidden');
+}
+
+function renderSheetWordChips(cap) {
+  const wordsScroll = $('sheetWordsScroll');
+  if (!wordsScroll) return;
+  wordsScroll.innerHTML = '';
+
+  const words = cap.words || [];
+  words.forEach((w, wIdx) => {
+    const chip = document.createElement('div');
+    chip.className = 'sheet-word-chip' + (wIdx === S.selectedWordIndex ? ' active' : '');
+    const wDur = Math.max(0.05, (w.e || cap.end) - (w.s || cap.start)).toFixed(2);
+
+    chip.innerHTML = `
+      <span class="sheet-word-text">${w.t || ''}</span>
+      <span class="sheet-word-time">${wDur}s</span>
+      <div class="sheet-word-btns">
+        <button type="button" class="btn-word-adj btn-word-sub" data-idx="${wIdx}" title="-0.05s">-</button>
+        <button type="button" class="btn-word-adj btn-word-add" data-idx="${wIdx}" title="+0.05s">+</button>
+      </div>
+    `;
+
+    chip.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-word-adj')) return;
+      S.selectedWordIndex = wIdx;
+      $$('.sheet-word-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+
+    wordsScroll.appendChild(chip);
+
+    // Draggable divider between words
+    if (wIdx < words.length - 1) {
+      const divider = document.createElement('div');
+      divider.className = 'sheet-word-divider';
+      divider.title = 'Drag to adjust boundary';
+
+      let divDrag = null;
+      divider.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        try { divider.setPointerCapture(e.pointerId); } catch(_) {}
+        divDrag = {
+          startX: e.clientX,
+          origEnd: w.e || cap.start,
+          nextStart: words[wIdx + 1].s || cap.end,
+          pointerId: e.pointerId
+        };
+        divider.classList.add('dragging');
+      });
+
+      divider.addEventListener('pointermove', (e) => {
+        if (!divDrag || divDrag.pointerId !== e.pointerId) return;
+        const delta = (e.clientX - divDrag.startX) / 80;
+        const newBoundary = Math.max((w.s || cap.start) + 0.05, Math.min((words[wIdx + 1].e || cap.end) - 0.05, divDrag.origEnd + delta));
+        w.e = Math.round(newBoundary * 100) / 100;
+        words[wIdx + 1].s = w.e;
+        const durSpan = chip.querySelector('.sheet-word-time');
+        if (durSpan) durSpan.textContent = Math.max(0.05, w.e - (w.s || cap.start)).toFixed(2) + 's';
+      });
+
+      const onDivUp = (e) => {
+        if (!divDrag || divDrag.pointerId !== e.pointerId) return;
+        divDrag = null;
+        divider.classList.remove('dragging');
+        try { divider.releasePointerCapture(e.pointerId); } catch(_) {}
+        renderSheetWordChips(cap);
+      };
+
+      divider.addEventListener('pointerup', onDivUp);
+      divider.addEventListener('pointercancel', onDivUp);
+
+      wordsScroll.appendChild(divider);
+    }
+  });
+
+  // +/- buttons handlers
+  wordsScroll.querySelectorAll('.btn-word-adj').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.getAttribute('data-idx'), 10);
+      const isAdd = btn.classList.contains('btn-word-add');
+      const w = words[idx];
+      if (!w) return;
+
+      const delta = isAdd ? 0.05 : -0.05;
+      if (idx < words.length - 1) {
+        const nextW = words[idx + 1];
+        const newEnd = Math.max((w.s || cap.start) + 0.05, Math.min((nextW.e || cap.end) - 0.05, (w.e || cap.end) + delta));
+        w.e = Math.round(newEnd * 100) / 100;
+        nextW.s = w.e;
+      } else {
+        w.e = Math.max((w.s || cap.start) + 0.05, Math.min(cap.end, (w.e || cap.end) + delta));
+      }
+      renderSheetWordChips(cap);
+    });
+  });
+}
+
+function setupCaptionEditSheet() {
+  const sheet = $('modalCaptionEditSheet');
+  const btnClose = $('btnCloseEditSheet');
+  const btnCancel = $('btnCancelEditSheet');
+  const btnSave = $('btnSaveEditSheet');
+  const textarea = $('editSheetFullText');
+
+  const closeSheet = () => {
+    if (sheet) sheet.classList.add('hidden');
+    editingCapId = null;
+  };
+
+  if (btnClose) btnClose.addEventListener('click', closeSheet);
+  if (btnCancel) btnCancel.addEventListener('click', closeSheet);
+
+  if (btnSave) {
+    btnSave.addEventListener('click', () => {
+      const capIdx = S.captions.findIndex(c => c.id === editingCapId);
+      if (capIdx === -1) { closeSheet(); return; }
+      const cap = S.captions[capIdx];
+      const newText = textarea ? textarea.value.trim() : cap.text;
+
+      cap.text = newText;
+      const textWords = newText.split(/\s+/).filter(Boolean);
+      if (textWords.length !== (cap.words || []).length) {
+        // Words changed in text input, re-distribute proportionally
+        const dur = Math.max(0.2, cap.end - cap.start);
+        const wDur = dur / Math.max(1, textWords.length);
+        cap.words = textWords.map((t, i) => ({
+          t,
+          s: Math.round((cap.start + i * wDur) * 100) / 100,
+          e: Math.round((cap.start + (i + 1) * wDur) * 100) / 100
+        }));
+      }
+
+      pushHistoryState('Edit caption text & word timings');
+      console.log('[EDIT]', 'save_text_sheet', capIdx, -1, cap.text);
+      closeSheet();
+      renderTimeline();
+      renderCanvas();
+      renderCaptionsList();
+      showToast('Caption updated');
+    });
+  }
+}
+
+/**
+ * A5: Template Search Filter
+ */
+function setupTemplateSearch() {
+  const searchToggle = $('btnTemplateSearchToggle');
+  const searchInput = $('templateSearchInput');
+  if (searchToggle && searchInput) {
+    searchToggle.addEventListener('click', () => {
+      searchInput.classList.toggle('hidden');
+      if (!searchInput.classList.contains('hidden')) {
+        searchInput.focus();
+      }
+    });
+
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      const cards = $$('#presetsGrid .preset-card');
+      cards.forEach(c => {
+        const title = (c.querySelector('.preset-title')?.textContent || '').toLowerCase();
+        const tag = (c.querySelector('.preset-tag')?.textContent || '').toLowerCase();
+        if (!q || title.includes(q) || tag.includes(q)) {
+          c.style.display = 'flex';
+        } else {
+          c.style.display = 'none';
+        }
+      });
+    });
+  }
+}
