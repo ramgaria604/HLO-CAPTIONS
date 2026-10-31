@@ -187,16 +187,21 @@
           <span class="auto-edit-sparkle">⚡</span>
           <span>Auto Edit</span>
         </button>
-        <button id="btnExport" class="btn-export">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <button id="btnExport" class="btn-export btn-export-moonshot" title="Export Video">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          <span>Export Video</span>
         </button>
       </div>
     </header>
+
+    <!-- Moonshot-style Status Line -->
+    <div class="sub-header-status">
+      <span class="status-dot"></span>
+      <span class="status-text">Low-res preview</span>
+    </div>
 
     <!-- Editor Body -->
     <div class="editor-body drawer-open" id="editorBody">
@@ -214,51 +219,84 @@
             </div>
             <canvas id="captionCanvas"></canvas>
             <span id="stagePresetName" style="display:none;"></span>
+            <!-- Moonshot Floating Stage Settings Icon -->
+            <button type="button" id="btnStageSettings" class="btn-stage-settings" title="Stage & Zoom Settings">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
           </div>
         </div>
 
-        <!-- Sleek Transport Controls (directly under video) -->
-        <div class="transport-bar">
-          <button id="btnPlayPause" class="btn-play" title="Play/Pause">
-            <svg id="iconPlay" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-            <svg id="iconPause" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="hidden"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-          </button>
+        <!-- Moonshot Drag Handle Pill -->
+        <div class="moonshot-drag-handle" id="moonshotDragHandle">
+          <div class="moonshot-drag-pill"></div>
+        </div>
 
-          <span id="timeCurrent" class="time-text">0:00</span>
-          
-          <div class="scrub-container">
+        <!-- Moonshot Sleek Transport Controls Strip -->
+        <div class="transport-bar moonshot-transport-bar">
+          <div class="transport-left-group">
+            <button id="btnPlayPause" class="btn-play-circle" title="Play/Pause">
+              <svg id="iconPlay" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              <svg id="iconPause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="hidden"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            </button>
+
+            <button id="btnMute" class="btn-icon-subtle" title="Mute/Unmute">
+              <svg id="iconVolume" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              <svg id="iconMuted" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            </button>
+
+            <button type="button" class="btn-multi-pill" id="btnMultiSelect" title="Multi-Word Select">
+              <span class="multi-dot"></span>
+              <span>Multi</span>
+            </button>
+          </div>
+
+          <div class="scrub-container" style="display:none;">
             <input type="range" id="timeScrub" min="0" max="100" value="0" step="0.01" class="scrub-slider">
           </div>
 
-          <span id="timeDuration" class="time-text">0:00</span>
+          <div class="transport-right-group">
+            <button type="button" id="btnTlZoomOut" class="btn-step-icon" title="Zoom Out Timeline">−</button>
+            <button type="button" id="btnTlZoomIn" class="btn-step-icon" title="Zoom In Timeline">+</button>
 
-          <button id="btnMute" class="btn-icon" title="Mute/Unmute">
-            <svg id="iconVolume" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-            <svg id="iconMuted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-          </button>
+            <div class="fit-dropdown-wrap">
+              <button type="button" id="btnFitDropdown" class="btn-fit-dropdown" title="Aspect Ratio">
+                <span id="fitLabelText">Fit</span>
+                <span class="chevron-down">▾</span>
+              </button>
+              <div class="fit-dropdown-menu hidden" id="fitDropdownMenu">
+                <button type="button" class="fit-option active" data-aspect="9:16">📱 9:16 Reels</button>
+                <button type="button" class="fit-option" data-aspect="original">Original Fit</button>
+                <button type="button" class="fit-option" data-aspect="1:1">⏹️ 1:1 Square</button>
+              </div>
+            </div>
 
-          <!-- Compact Aspect Ratio Selector inside Transport Bar -->
-          <div class="aspect-ratio-bar" id="aspectRatioBar">
-            <button type="button" class="btn-aspect active" data-aspect="9:16" title="9:16 Reels & Shorts">📱 9:16</button>
-            <button type="button" class="btn-aspect" data-aspect="original" title="Original video ratio">Fit</button>
-            <button type="button" class="btn-aspect" data-aspect="1:1" title="1:1 Square Feed">1:1</button>
-            <button type="button" class="btn-aspect active" id="btnQuickAutoZoom" title="Dynamic 1.15x Punch Cut (Hormozi Style)">🎥 Zoom: ON</button>
+            <!-- Hidden compatible aspect buttons for JS -->
+            <div id="aspectRatioBar" style="display:none;">
+              <button type="button" class="btn-aspect active" data-aspect="9:16">9:16</button>
+              <button type="button" class="btn-aspect" data-aspect="original">Fit</button>
+              <button type="button" class="btn-aspect" data-aspect="1:1">1:1</button>
+              <button type="button" class="btn-aspect active" id="btnQuickAutoZoom">Zoom</button>
+            </div>
+
+            <div class="history-controls-group" style="display:none;">
+              <button type="button" id="btnUndo" class="btn-undo"></button>
+              <button type="button" id="btnRedo" class="btn-redo"></button>
+            </div>
+            <button id="btnToggleTimeline" style="display:none;"></button>
           </div>
+        </div>
 
-          <!-- Undo & Redo History Controls -->
-          <div class="history-controls-group">
-            <button type="button" id="btnUndo" class="btn-icon btn-history-icon btn-undo" title="Undo (Ctrl+Z)" disabled>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-            </button>
-            <button type="button" id="btnRedo" class="btn-icon btn-history-icon btn-redo" title="Redo (Ctrl+Y)" disabled>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
-            </button>
-          </div>
-
-          <!-- Moonshot-style Drawer / Timeline Toggle Chevron -->
-          <button id="btnToggleTimeline" class="btn-icon btn-drawer-toggle" title="Toggle tools drawer & timeline">
-            <svg id="iconDrawerChevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <!-- Moonshot Sub-toolbar Row: Section Style & Center Time Pill -->
+        <div class="moonshot-sub-row">
+          <button type="button" class="btn-section-style" id="btnSectionStyle">
+            <span class="section-icon">⊞</span>
+            <span>Section style</span>
           </button>
+          <div class="moonshot-time-pill" id="moonshotTimePill">
+            <span id="timeCurrent">0:00</span> / <span id="timeDuration">0:00</span>
+          </div>
         </div>
       </section>
 
@@ -610,16 +648,55 @@
                 </div>
               </div>
 
-              <!-- 10. Dynamic Auto-Zoom (Hormozi / MrBeast Style) -->
+              <!-- 10. Dynamic Auto-Zoom: Fully User-Adjustable (Speed, Duration, Interval) -->
               <div class="control-card">
                 <div class="control-header">
-                  <label>🎥 Dynamic Auto-Zoom (Retention Punch Cut)</label>
-                  <span id="valAutoZoomBadge" class="val-badge badge-green">Active (1.15x)</span>
+                  <label>🎥 Dynamic Auto-Zoom (Retention Cut)</label>
+                  <span id="valAutoZoomBadge" class="val-badge badge-green">Smooth (Every 10s)</span>
                 </div>
-                <p class="voiceover-help">Subtly punch-zooms (1.15x) on alternating punchlines to reset viewer attention and maximize retention.</p>
-                <div class="btn-group" id="autoZoomToggleGroup">
-                  <button type="button" class="btn-toggle active" data-zoom="on">Auto-Zoom: ON</button>
-                  <button type="button" class="btn-toggle" data-zoom="off">Auto-Zoom: OFF</button>
+                <p class="voiceover-help">Subtle cinematic zoom that resets viewer attention smoothly without jumping too fast.</p>
+                <div class="btn-group" id="autoZoomToggleGroup" style="margin-bottom: 10px;">
+                  <button type="button" class="btn-toggle active" data-zoom="on">Zoom: ON</button>
+                  <button type="button" class="btn-toggle" data-zoom="off">Zoom: OFF</button>
+                </div>
+
+                <div class="zoom-options-block" id="zoomOptionsBlock">
+                  <div class="broll-orient-row">
+                    <span class="broll-orient-label">How Often (Interval):</span>
+                    <div class="btn-group" id="zoomIntervalGroup">
+                      <button type="button" class="btn-toggle active" data-interval="10">Slow (10s)</button>
+                      <button type="button" class="btn-toggle" data-interval="15">Subtle (15s)</button>
+                      <button type="button" class="btn-toggle" data-interval="0">Key Words</button>
+                      <button type="button" class="btn-toggle" data-interval="5">Fast (5s)</button>
+                    </div>
+                  </div>
+
+                  <div class="broll-orient-row" style="margin-top: 8px;">
+                    <span class="broll-orient-label">How Long (Hold Time):</span>
+                    <div class="btn-group" id="zoomDurationGroup">
+                      <button type="button" class="btn-toggle active" data-duration="3.5">3.5 sec</button>
+                      <button type="button" class="btn-toggle" data-duration="5.0">5.0 sec</button>
+                      <button type="button" class="btn-toggle" data-duration="2.0">2.0 sec</button>
+                    </div>
+                  </div>
+
+                  <div class="broll-orient-row" style="margin-top: 8px;">
+                    <span class="broll-orient-label">Zoom Speed (Ease):</span>
+                    <div class="btn-group" id="zoomSpeedGroup">
+                      <button type="button" class="btn-toggle active" data-speed="0.6">Smooth Glide (0.6s)</button>
+                      <button type="button" class="btn-toggle" data-speed="1.2">Slow Cinematic (1.2s)</button>
+                      <button type="button" class="btn-toggle" data-speed="0.2">Punch Cut (0.2s)</button>
+                    </div>
+                  </div>
+
+                  <div class="broll-orient-row" style="margin-top: 8px;">
+                    <span class="broll-orient-label">Zoom Scale:</span>
+                    <div class="btn-group" id="zoomScaleGroup">
+                      <button type="button" class="btn-toggle active" data-scale="1.10">1.10x Natural</button>
+                      <button type="button" class="btn-toggle" data-scale="1.07">1.07x Subtle</button>
+                      <button type="button" class="btn-toggle" data-scale="1.18">1.18x Punchy</button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -949,31 +1026,27 @@
         </div>
       </div>
 
-      <!-- LOWEST PART: 4 CORE BOTTOM TABS (MOONSHOT STYLE) -->
+      <!-- MOONSHOT 5 CORE BOTTOM TABS -->
       <nav class="bottom-nav-bar" id="bottomNavBar">
-        <button class="bottom-nav-btn active" data-tab="tabTemplates">
-          <span class="nav-btn-icon">🎨</span>
-          <span class="nav-btn-label">Templates</span>
+        <button class="bottom-nav-btn" data-tab="tabBroll" id="btnNavAutoEdit">
+          <span class="nav-btn-icon">🪄</span>
+          <span class="nav-btn-label">Auto edit</span>
         </button>
-        <button class="bottom-nav-btn" data-tab="tabTimeline" id="btnNavTimeline">
-          <span class="nav-btn-icon">⏱️</span>
-          <span class="nav-btn-label">Timeline</span>
-        </button>
-        <button class="bottom-nav-btn" data-tab="tabCaptions">
-          <span class="nav-btn-icon">📝</span>
+        <button class="bottom-nav-btn" data-tab="tabCaptions" id="btnNavTranscript">
+          <span class="nav-btn-icon">💬</span>
           <span class="nav-btn-label">Transcript</span>
         </button>
-        <button class="bottom-nav-btn" data-tab="tabBroll" id="btnNavBroll">
-          <span class="nav-btn-icon">🎬</span>
-          <span class="nav-btn-label">B-Roll</span>
+        <button class="bottom-nav-btn active" data-tab="tabTemplates" id="btnNavTemplates">
+          <span class="nav-btn-icon">🪟</span>
+          <span class="nav-btn-label">Templates</span>
         </button>
-        <button class="bottom-nav-btn" data-tab="tabStyle">
-          <span class="nav-btn-icon">⚙️</span>
+        <button class="bottom-nav-btn" data-tab="tabStyle" id="btnNavCustomize">
+          <span class="nav-btn-icon">🎚️</span>
           <span class="nav-btn-label">Customize</span>
         </button>
-        <button class="bottom-nav-btn" data-tab="tabAudio">
-          <span class="nav-btn-icon">🎵</span>
-          <span class="nav-btn-label">Sound & AI</span>
+        <button class="bottom-nav-btn" data-tab="tabAudio" id="btnNavVoice">
+          <span class="nav-btn-icon">🎙️</span>
+          <span class="nav-btn-label">Voice</span>
         </button>
       </nav>
 
@@ -1284,6 +1357,6 @@
     window.Mediabunny = Mediabunny;
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=4.43"></script>
+  <script src="/static/app.js?v=4.45"></script>
 </body>
 </html>

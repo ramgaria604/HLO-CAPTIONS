@@ -43,7 +43,13 @@
   sfxVolume: 0.7,
   watermark: { text: '', platform: 'instagram', position: 'bottom-right', opacity: 0.8 },
   brolls: [],
-  autoZoom: true,
+  autoZoom: {
+    enabled: true,
+    interval: 10,
+    duration: 3.5,
+    speed: 0.6,
+    scale: 1.10
+  },
   progressBar: { enabled: true, position: 'bottom' },
   };
 
@@ -2749,11 +2755,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
   }
 
+  function formatMoonshotTime(sec) {
+    if (isNaN(sec) || sec < 0) sec = 0;
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    const c = Math.floor((sec % 1) * 100);
+    return `${m}:${s < 10 ? '0' : ''}${s}.${c < 10 ? '0' : ''}${c}`;
+  }
+
   function updateTransportUI() {
     const cur = vid.currentTime || 0;
     const dur = vid.duration || 0;
-    timeCurrent.textContent = formatTime(cur);
-    timeDuration.textContent = formatTime(dur);
+    timeCurrent.textContent = formatMoonshotTime(cur);
+    timeDuration.textContent = formatMoonshotTime(dur);
     timeScrub.value = cur;
     tlTimeIndicator.textContent = formatTimeWithTenths(cur);
   }
@@ -4238,40 +4252,159 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
     }
 
+    // Helper to update Zoom Badge & UI
+    function updateAutoZoomBadge() {
+      const badge = $('valAutoZoomBadge');
+      if (badge && S.autoZoom) {
+        if (!S.autoZoom.enabled) {
+          badge.textContent = 'Disabled';
+          badge.className = 'val-badge';
+        } else {
+          const intStr = S.autoZoom.interval > 0 ? `${S.autoZoom.interval}s` : 'Key';
+          badge.textContent = `Smooth (${S.autoZoom.scale || 1.10}x / ${intStr})`;
+          badge.className = 'val-badge badge-green';
+        }
+      }
+    }
+
     // Auto-Zoom Toggle Handlers
     const btnQuickAutoZoom = $('btnQuickAutoZoom');
     if (btnQuickAutoZoom) {
       btnQuickAutoZoom.addEventListener('click', () => {
-        S.autoZoom = !S.autoZoom;
-        btnQuickAutoZoom.classList.toggle('active', S.autoZoom);
-        btnQuickAutoZoom.textContent = S.autoZoom ? '🎥 Zoom: ON' : '🎥 Zoom: OFF';
-        $$('#autoZoomToggleGroup .btn-toggle').forEach(b => b.classList.toggle('active', (b.getAttribute('data-zoom') === 'on') === S.autoZoom));
-        const badge = $('valAutoZoomBadge');
-        if (badge) {
-          badge.textContent = S.autoZoom ? 'Active (1.15x)' : 'Disabled';
-          badge.className = S.autoZoom ? 'val-badge badge-green' : 'val-badge';
-        }
+        if (!S.autoZoom) S.autoZoom = { enabled: true, interval: 10, duration: 3.5, speed: 0.6, scale: 1.10 };
+        S.autoZoom.enabled = !S.autoZoom.enabled;
+        btnQuickAutoZoom.classList.toggle('active', S.autoZoom.enabled);
+        btnQuickAutoZoom.textContent = S.autoZoom.enabled ? '🎥 Zoom: ON' : '🎥 Zoom: OFF';
+        $$('#autoZoomToggleGroup .btn-toggle').forEach(b => b.classList.toggle('active', (b.getAttribute('data-zoom') === 'on') === S.autoZoom.enabled));
+        updateAutoZoomBadge();
         syncAutoZoom();
-        showToast(S.autoZoom ? '🎥 Dynamic Auto-Zoom enabled' : 'Auto-Zoom disabled');
+        showToast(S.autoZoom.enabled ? '🎥 Slow Dynamic Auto-Zoom enabled' : 'Auto-Zoom disabled');
       });
     }
 
     $$('#autoZoomToggleGroup .btn-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         $$('#autoZoomToggleGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
-        S.autoZoom = (btn.getAttribute('data-zoom') === 'on');
+        if (!S.autoZoom) S.autoZoom = { enabled: true, interval: 10, duration: 3.5, speed: 0.6, scale: 1.10 };
+        S.autoZoom.enabled = (btn.getAttribute('data-zoom') === 'on');
         if (btnQuickAutoZoom) {
-          btnQuickAutoZoom.classList.toggle('active', S.autoZoom);
-          btnQuickAutoZoom.textContent = S.autoZoom ? '🎥 Zoom: ON' : '🎥 Zoom: OFF';
+          btnQuickAutoZoom.classList.toggle('active', S.autoZoom.enabled);
+          btnQuickAutoZoom.textContent = S.autoZoom.enabled ? '🎥 Zoom: ON' : '🎥 Zoom: OFF';
         }
-        const badge = $('valAutoZoomBadge');
-        if (badge) {
-          badge.textContent = S.autoZoom ? 'Active (1.15x)' : 'Disabled';
-          badge.className = S.autoZoom ? 'val-badge badge-green' : 'val-badge';
-        }
+        updateAutoZoomBadge();
         syncAutoZoom();
       });
     });
+
+    // Auto-Zoom Detailed Custom Controls (Interval, Duration, Speed, Scale)
+    $$('#zoomIntervalGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#zoomIntervalGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        if (!S.autoZoom) S.autoZoom = { enabled: true, interval: 10, duration: 3.5, speed: 0.6, scale: 1.10 };
+        S.autoZoom.interval = parseFloat(btn.getAttribute('data-interval')) || 0;
+        updateAutoZoomBadge();
+        syncAutoZoom();
+        showToast(`🎥 Zoom Frequency: ${btn.textContent.trim()}`);
+      });
+    });
+
+    $$('#zoomDurationGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#zoomDurationGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        if (!S.autoZoom) S.autoZoom = { enabled: true, interval: 10, duration: 3.5, speed: 0.6, scale: 1.10 };
+        S.autoZoom.duration = parseFloat(btn.getAttribute('data-duration')) || 3.5;
+        syncAutoZoom();
+        showToast(`🎥 Zoom Hold Time: ${btn.textContent.trim()}`);
+      });
+    });
+
+    $$('#zoomSpeedGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#zoomSpeedGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        if (!S.autoZoom) S.autoZoom = { enabled: true, interval: 10, duration: 3.5, speed: 0.6, scale: 1.10 };
+        S.autoZoom.speed = parseFloat(btn.getAttribute('data-speed')) || 0.6;
+        syncAutoZoom();
+        showToast(`🎥 Zoom Speed: ${btn.textContent.trim()}`);
+      });
+    });
+
+    $$('#zoomScaleGroup .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#zoomScaleGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        if (!S.autoZoom) S.autoZoom = { enabled: true, interval: 10, duration: 3.5, speed: 0.6, scale: 1.10 };
+        S.autoZoom.scale = parseFloat(btn.getAttribute('data-scale')) || 1.10;
+        updateAutoZoomBadge();
+        syncAutoZoom();
+        showToast(`🎥 Zoom Scale: ${btn.textContent.trim()}`);
+      });
+    });
+
+    // Moonshot UI Extra Controls: Fit Dropdown, Stage Settings, Section Style, Multi-select
+    const btnFitDropdown = $('btnFitDropdown');
+    const fitDropdownMenu = $('fitDropdownMenu');
+    const fitLabelText = $('fitLabelText');
+
+    if (btnFitDropdown && fitDropdownMenu) {
+      btnFitDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fitDropdownMenu.classList.toggle('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!btnFitDropdown.contains(e.target)) {
+          fitDropdownMenu.classList.add('hidden');
+        }
+      });
+      $$('.fit-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          $$('.fit-option').forEach(o => o.classList.toggle('active', o === opt));
+          const aspect = opt.getAttribute('data-aspect') || 'original';
+          if (fitLabelText) {
+            fitLabelText.textContent = aspect === '9:16' ? '9:16' : (aspect === '1:1' ? '1:1' : 'Fit');
+          }
+          fitDropdownMenu.classList.add('hidden');
+          const stage = $('stage');
+          if (stage) {
+            stage.classList.remove('aspect-9-16', 'aspect-1-1', 'aspect-16-9');
+            if (aspect === '9:16') stage.classList.add('aspect-9-16');
+            else if (aspect === '1:1') stage.classList.add('aspect-1-1');
+            else if (aspect === '16:9') stage.classList.add('aspect-16-9');
+          }
+          S.aspect = aspect;
+          setupCanvasSizing();
+          renderCanvas();
+          showToast(`📐 Ratio: ${fitLabelText ? fitLabelText.textContent : aspect}`);
+        });
+      });
+    }
+
+    const btnStageSettings = $('btnStageSettings');
+    if (btnStageSettings) {
+      btnStageSettings.addEventListener('click', () => {
+        openDrawerTab('tabStyle');
+        const zoomBlock = $('zoomOptionsBlock');
+        if (zoomBlock) {
+          zoomBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        showToast('⚙️ Adjust Auto-Zoom & Stage settings');
+      });
+    }
+
+    const btnSectionStyle = $('btnSectionStyle');
+    if (btnSectionStyle) {
+      btnSectionStyle.addEventListener('click', () => {
+        openDrawerTab('tabTemplates');
+        showToast('🪟 Choose caption template style');
+      });
+    }
+
+    const btnMultiSelect = $('btnMultiSelect');
+    if (btnMultiSelect) {
+      btnMultiSelect.addEventListener('click', () => {
+        btnMultiSelect.classList.toggle('active');
+        const isMulti = btnMultiSelect.classList.contains('active');
+        showToast(isMulti ? '✨ Multi-select mode ON' : 'Multi-select mode OFF');
+      });
+    }
 
     // Reel Progress Bar Handlers
     $$('#progressBarToggleGroup .btn-toggle').forEach(btn => {
@@ -5804,21 +5937,26 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
 
-  // Dynamic Auto-Zoom (1.15x punch cut on alternating sentences - Hormozi style)
+  // Dynamic Auto-Zoom (Slow, calm, user-configurable retention zoom)
   function syncAutoZoom() {
-    if (!S.autoZoom) {
+    if (!S.autoZoom || !S.autoZoom.enabled) {
       vid.style.transform = 'scale(1.0)';
       return;
     }
+    const az = S.autoZoom;
     const t = vid.currentTime || 0;
-    const activeCapIdx = S.captions.findIndex(c => t >= c.start && t <= c.end);
-    if (activeCapIdx !== -1 && activeCapIdx % 2 === 1) {
-      vid.style.transform = 'scale(1.15)';
-      vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
+    let isZoomed = false;
+    if (az.interval > 0) {
+      isZoomed = (t % az.interval) < (az.duration || 3.5);
     } else {
-      vid.style.transform = 'scale(1.0)';
-      vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
+      // Key emphasis moments (alternating every 4th line for subtle punch)
+      const activeCapIdx = S.captions.findIndex(c => t >= c.start && t <= c.end);
+      isZoomed = activeCapIdx !== -1 && activeCapIdx % 4 === 1;
     }
+    const scaleVal = isZoomed ? (az.scale || 1.10) : 1.0;
+    const speedVal = az.speed || 0.6;
+    vid.style.transform = `scale(${scaleVal})`;
+    vid.style.transition = `transform ${speedVal}s cubic-bezier(0.25, 1, 0.5, 1)`;
   }
 
   // Animated Reel Progress Bar
@@ -6219,15 +6357,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
           const t = sample.timestamp || 0;
 
-          // 1. Dynamic Auto-Zoom (1.15x cut zoom on odd alternating sentences)
-          const isZoomed = S.autoZoom && (() => {
+          // 1. Dynamic Auto-Zoom (Smooth, slow, user-configurable retention zoom)
+          const az = S.autoZoom;
+          const isZoomed = az && az.enabled && (() => {
+            if (az.interval > 0) {
+              return (t % az.interval) < (az.duration || 3.5);
+            }
             const idx = S.captions.findIndex(c => t >= c.start && t <= c.end);
-            return idx !== -1 && idx % 2 === 1;
+            return idx !== -1 && idx % 4 === 1;
           })();
 
           ctx.clearRect(0, 0, W, H);
           if (isZoomed) {
-            const zoom = 1.15;
+            const zoom = (az && az.scale) || 1.10;
             const zW = W * zoom;
             const zH = H * zoom;
             const zX = (W - zW) / 2;
@@ -6665,7 +6807,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         quality: 'balanced',
         aspect: S.aspect || 'original',
         speed: 1.0,
-        zoom: Boolean(S.autoZoom),
+        zoom: Boolean(S.autoZoom && S.autoZoom.enabled),
         progressBar: S.progressBar,
         watermark: S.watermark,
         auto_sfx: Boolean(S.autoSfx !== false)

@@ -7308,3 +7308,296 @@ button {
   filter: brightness(1.1);
   transform: translateY(-1px);
 }
+
+
+/* ==========================================================================
+   MOONSHOT UI & DYNAMIC SLOW AUTO-ZOOM CONTROLS
+   ========================================================================== */
+
+/* Sub-header status under top bar */
+.sub-header-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 6px 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #8b949e;
+  background: transparent;
+  user-select: none;
+}
+.sub-header-status .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.6);
+}
+
+/* Floating Stage Settings Icon (top-right of stage) */
+.btn-stage-settings {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 25;
+  transition: all 0.2s ease;
+}
+.btn-stage-settings:hover {
+  background: rgba(30, 41, 59, 0.85);
+  transform: scale(1.05);
+}
+
+/* Moonshot Drag Handle */
+.moonshot-drag-handle {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 2px 0;
+}
+.moonshot-drag-pill {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Moonshot Transport Bar */
+.moonshot-transport-bar {
+  max-width: 520px;
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  gap: 10px;
+  margin: 0 auto;
+}
+.transport-left-group, .transport-right-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-play-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #000000;
+  color: #ffffff;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, background-color 0.2s ease;
+}
+.btn-play-circle:hover {
+  transform: scale(1.05);
+  background: #111116;
+}
+.btn-play-circle:active {
+  transform: scale(0.96);
+}
+
+.btn-icon-subtle {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.btn-icon-subtle:hover {
+  color: #ffffff;
+}
+
+.btn-multi-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-multi-pill .multi-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid #94a3b8;
+}
+.btn-multi-pill.active {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: #6366f1;
+  color: #818cf8;
+}
+.btn-multi-pill.active .multi-dot {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+
+.btn-step-icon {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+.btn-step-icon:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+/* Fit Dropdown Menu */
+.fit-dropdown-wrap {
+  position: relative;
+}
+.btn-fit-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.btn-fit-dropdown:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+.fit-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  background: #181926;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 4px;
+  min-width: 130px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fit-dropdown-menu.hidden {
+  display: none;
+}
+.fit-option {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.fit-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+.fit-option.active {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  font-weight: 700;
+}
+
+/* Moonshot Sub-Row (Section Style & Time Pill) */
+.moonshot-sub-row {
+  max-width: 520px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 8px 10px;
+  margin: 0 auto;
+}
+.btn-section-style {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: #818cf8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: opacity 0.2s ease;
+}
+.btn-section-style:hover {
+  opacity: 0.85;
+}
+.btn-section-style .section-icon {
+  font-size: 14px;
+}
+.moonshot-time-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.3px;
+}
+
+/* Auto-Zoom Customizable Block */
+.zoom-options-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 6px;
+}
+
+/* Perfectly adjusted Stage border radius */
+.stage {
+  border-radius: 18px !important;
+}
