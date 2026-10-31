@@ -226,6 +226,19 @@ function getWordPop(w, t, showAll, anim) {
   return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
 }
 
+// Configurable threshold: lines whose vertical center is <= this ratio are 'behind', lines below are 'front'
+const BEHIND_LINE_MAX_Y_RATIO = 0.45;
+
+function getLineLayer(lineObj, st, frameH) {
+  if (lineObj && lineObj.role && lineObj.role.layer === 'behind') return 'behind';
+  if (lineObj && lineObj.role && lineObj.role.layer === 'front') return 'front';
+  if (st && st.roles && st.roles.accent && st.roles.accent.layer === 'behind') {
+    if (lineObj && lineObj.isHero) return 'behind';
+  }
+  const y = typeof lineObj.y === 'number' ? lineObj.y : ((st.depthAccentY || st.posY || st.position || 0.5) * frameH);
+  return (y / (frameH || 1)) <= BEHIND_LINE_MAX_Y_RATIO ? 'behind' : 'front';
+}
+
 function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll) {
   const kRole = st.key || {}, fRole = st.filler || {};
   const kSize = Math.max(24, Math.round(base * (kRole.size || 0.165)));
@@ -1204,7 +1217,20 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   }
 
   lay.forEach((o) => {
-    const isBehindPerson = o.isHero && (o.role.layer === 'behind' || st.behindPerson || st.depthAccent || isBehindPreset);
+    let lineLayer = 'front';
+    if (o.role && o.role.layer === 'behind') {
+      lineLayer = 'behind';
+    } else if (o.role && o.role.layer === 'front') {
+      lineLayer = 'front';
+    } else if (o.isHero && (o.role?.layer === 'behind' || st.roles?.accent?.layer === 'behind')) {
+      lineLayer = 'behind';
+    } else if (st.behindPerson || st.depthAccent || isBehindPreset || isBehind) {
+      // Automatic rule: upper part of frame (<= 45%) is 'behind', lower part is 'front'
+      const lineCenterY = (typeof o.y === 'number' ? o.y : (posY * H)) / H;
+      lineLayer = (lineCenterY <= BEHIND_LINE_MAX_Y_RATIO) ? 'behind' : 'front';
+    }
+
+    const isBehindPerson = (lineLayer === 'behind');
     const targetCtx = (isBehindPerson && ctxBehind) ? ctxBehind : ctxFore;
     if (!targetCtx) return;
 
@@ -5373,6 +5399,15 @@ let segExportCleanCanvas = null;
 let segExportCleanCtx = null;
 let segExportCutoutCanvas = null;
 let segExportCutoutCtx = null;
+let segExportBehindCanvas = null;
+let segExportBehindCtx = null;
+let segExportForeCanvas = null;
+let segExportForeCtx = null;
+
+let liveBehindCanvas = null;
+let liveBehindCtx = null;
+let liveForeCanvas = null;
+let liveForeCtx = null;
 
 async function ensureSegmenterLoaded() {
   if (segmenterInstance) return segmenterInstance;
@@ -5623,14 +5658,74 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
         (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
       )
     );
-    drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false);
-    drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
 
-    // Live Preview Behind-Person Layering (throttled ~15 fps, paused stops)
-    if (isBehind && activeCap && !vid.paused && vid.readyState >= 2 && segmenterInstance) {
-      applyLiveBehindPersonCutout(ctx, w, h, t);
-    } else if (isBehind && activeCap && !segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
-      ensureSegmenterLoaded().catch(() => {});
+    if (isBehind && activeCap && segmenterInstance && vid.readyState >= 2) {
+      if (!liveBehindCanvas) {
+        liveBehindCanvas = document.createElement('canvas');
+        liveBehindCtx = liveBehindCanvas.getContext('2d');
+      }
+      if (liveBehindCanvas.width !== w || liveBehindCanvas.height !== h) {
+        liveBehindCanvas.width = w; liveBehindCanvas.height = h;
+      }
+      liveBehindCtx.clearRect(0, 0, w, h);
+
+      if (!liveForeCanvas) {
+        liveForeCanvas = document.createElement('canvas');
+        liveForeCtx = liveForeCanvas.getContext('2d');
+      }
+      if (liveForeCanvas.width !== w || liveForeCanvas.height !== h) {
+        liveForeCanvas.width = w; liveForeCanvas.height = h;
+      }
+      liveForeCtx.clearRect(0, 0, w, h);
+
+      // Separate lines into behind and front contexts
+      drawCanvasTypography(liveForeCtx, liveBehindCtx, activeCap, words, t, S.style || {}, w, h, true, false);
+
+      // Segment at most ~15 times per second, stop when paused
+      if (!vid.paused) {
+        const now = performance.now();
+        if (now - lastLiveSegTime >= 66) {
+          lastLiveSegTime = now;
+          const tMs = Math.round(t * 1000);
+          const mask = getPersonMask(vid, tMs, w, h);
+          if (mask) lastLiveMaskCanvas = mask;
+        }
+      }
+
+      if (lastLiveMaskCanvas) {
+        // b) Draw only the lines whose layer is 'behind'
+        ctx.drawImage(liveBehindCanvas, 0, 0, w, h);
+
+        // c) Draw the person cutout (existing mask code)
+        if (!livePersonCanvas) {
+          livePersonCanvas = document.createElement('canvas');
+          livePersonCtx = livePersonCanvas.getContext('2d');
+        }
+        if (livePersonCanvas.width !== w || livePersonCanvas.height !== h) {
+          livePersonCanvas.width = w; livePersonCanvas.height = h;
+        }
+        livePersonCtx.clearRect(0, 0, w, h);
+        livePersonCtx.drawImage(vid, 0, 0, w, h);
+        livePersonCtx.globalCompositeOperation = 'destination-in';
+        livePersonCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
+        livePersonCtx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(livePersonCanvas, 0, 0, w, h);
+
+        // d) Draw only the lines whose layer is 'front' on top
+        ctx.drawImage(liveForeCanvas, 0, 0, w, h);
+        drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+      } else {
+        // Fallback: draw all lines normally in front
+        ctx.drawImage(liveBehindCanvas, 0, 0, w, h);
+        ctx.drawImage(liveForeCanvas, 0, 0, w, h);
+        drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+      }
+    } else {
+      if (isBehind && activeCap && !segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
+        ensureSegmenterLoaded().catch(() => {});
+      }
+      drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false);
+      drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
     }
 
     drawWatermark(ctx, w, h);
@@ -6787,33 +6882,64 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
               key: Boolean(w.key),
               color: w.color || undefined
             }));
-            drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
-            drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
 
-            // STEP 3: Behind-person cutout on second offscreen canvas
             if (isBehind && exportCleanFrameCanvas && segmenterInstance) {
-              try {
-                const frameMs = Math.round(t * 1000);
-                const maskCanvas = getPersonMask(exportCleanFrameCanvas, frameMs, W, H);
-                if (maskCanvas) {
-                  if (!segExportCutoutCanvas) {
-                    segExportCutoutCanvas = document.createElement('canvas');
-                    segExportCutoutCtx = segExportCutoutCanvas.getContext('2d');
-                  }
-                  if (segExportCutoutCanvas.width !== W || segExportCutoutCanvas.height !== H) {
-                    segExportCutoutCanvas.width = W;
-                    segExportCutoutCanvas.height = H;
-                  }
-                  segExportCutoutCtx.clearRect(0, 0, W, H);
-                  segExportCutoutCtx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
-                  segExportCutoutCtx.globalCompositeOperation = 'destination-in';
-                  segExportCutoutCtx.drawImage(maskCanvas, 0, 0, W, H);
-                  segExportCutoutCtx.globalCompositeOperation = 'source-over';
-                  ctx.drawImage(segExportCutoutCanvas, 0, 0, W, H);
-                }
-              } catch (cutoutErr) {
-                console.warn('Frame export person cutout error:', cutoutErr);
+              if (!segExportBehindCanvas) {
+                segExportBehindCanvas = document.createElement('canvas');
+                segExportBehindCtx = segExportBehindCanvas.getContext('2d');
               }
+              if (segExportBehindCanvas.width !== W || segExportBehindCanvas.height !== H) {
+                segExportBehindCanvas.width = W; segExportBehindCanvas.height = H;
+              }
+              segExportBehindCtx.clearRect(0, 0, W, H);
+
+              if (!segExportForeCanvas) {
+                segExportForeCanvas = document.createElement('canvas');
+                segExportForeCtx = segExportForeCanvas.getContext('2d');
+              }
+              if (segExportForeCanvas.width !== W || segExportForeCanvas.height !== H) {
+                segExportForeCanvas.width = W; segExportForeCanvas.height = H;
+              }
+              segExportForeCtx.clearRect(0, 0, W, H);
+
+              // Separate lines into behind and front contexts
+              drawCanvasTypography(segExportForeCtx, segExportBehindCtx, activeCap, words, t, S.style || {}, W, H, true, false);
+
+              const frameMs = Math.round(t * 1000);
+              const maskCanvas = getPersonMask(exportCleanFrameCanvas, frameMs, W, H);
+
+              if (maskCanvas) {
+                // b) Draw only the lines whose layer is 'behind'
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+
+                // c) Draw person cutout on top
+                if (!segExportCutoutCanvas) {
+                  segExportCutoutCanvas = document.createElement('canvas');
+                  segExportCutoutCtx = segExportCutoutCanvas.getContext('2d');
+                }
+                if (segExportCutoutCanvas.width !== W || segExportCutoutCanvas.height !== H) {
+                  segExportCutoutCanvas.width = W; segExportCutoutCanvas.height = H;
+                }
+                segExportCutoutCtx.clearRect(0, 0, W, H);
+                segExportCutoutCtx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
+                segExportCutoutCtx.globalCompositeOperation = 'destination-in';
+                segExportCutoutCtx.drawImage(maskCanvas, 0, 0, W, H);
+                segExportCutoutCtx.globalCompositeOperation = 'source-over';
+                ctx.drawImage(segExportCutoutCanvas, 0, 0, W, H);
+
+                // d) Draw only the lines whose layer is 'front' on top
+                ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
+                drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
+              } else {
+                // Fallback: if segmentation is unavailable, draw all lines normally in front
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+                ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
+                drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
+              }
+            } else {
+              // Standard non-behind preset path
+              drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
+              drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
             }
           }
 
