@@ -7378,6 +7378,35 @@ button {
   box-shadow: 0 0 6px rgba(99, 102, 241, 0.6);
 }
 
+.btn-preview-perf-mode {
+  margin-left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #94a3b8;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.btn-preview-perf-mode:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.btn-preview-perf-mode.active {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.6);
+  color: #a5b4fc;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.25);
+}
+.btn-preview-perf-mode .perf-icon {
+  font-size: 11px;
+}
+
 /* Floating Stage Settings Icon (top-right of stage) */
 .btn-stage-settings {
   position: absolute;

@@ -55,6 +55,11 @@
   aspect: 'original',
   chunkMode: '3',
   autoEmojis: 'above',
+    previewPerfMode: (() => {
+      const isPhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent));
+      const saved = localStorage.getItem('cs_preview_perf_mode');
+      return saved !== null ? (saved === 'true') : isPhone;
+    })(),
     exportQuality: (() => {
       const isPhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent));
       return localStorage.getItem('captionstudio_export_quality') || (isPhone ? 'balanced' : 'high');
@@ -2735,7 +2740,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     vid.addEventListener('play', () => {
       iconPlay.classList.add('hidden');
       iconPause.classList.remove('hidden');
-      requestAnimationFrame(renderLoop);
+      schedulePreviewFrame();
     });
 
     vid.addEventListener('pause', () => {
@@ -4871,20 +4876,40 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   function fitCanvas() {
     const rect = stage.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const isPhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                    (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent));
+    // PROBLEM B Point 4: On phones, draw preview canvas at half resolution (CSS scales it up)
+    const dpr = isPhone ? 0.5 : (window.devicePixelRatio || 1);
     if (rect.width > 0 && rect.height > 0) {
-      captionCanvas.width = Math.round(rect.width * dpr);
-      captionCanvas.height = Math.round(rect.height * dpr);
+      captionCanvas.width = Math.max(2, Math.round(rect.width * dpr));
+      captionCanvas.height = Math.max(2, Math.round(rect.height * dpr));
+      captionCanvas.style.width = '100%';
+      captionCanvas.style.height = '100%';
       renderCanvas();
     }
   }
 
-  function renderLoop() {
-    if (!vid.paused && !vid.ended) {
-      renderCanvas();
-      syncTimelinePlayhead();
-      requestAnimationFrame(renderLoop);
+  // PROBLEM B Point 2: Use requestVideoFrameCallback (fallback to requestAnimationFrame)
+  let activePreviewFrameHandle = null;
+  function schedulePreviewFrame() {
+    if (vid.paused || vid.ended) return;
+    if ('requestVideoFrameCallback' in vid && typeof vid.requestVideoFrameCallback === 'function') {
+      activePreviewFrameHandle = vid.requestVideoFrameCallback(() => {
+        renderCanvas();
+        syncTimelinePlayhead();
+        schedulePreviewFrame();
+      });
+    } else {
+      activePreviewFrameHandle = requestAnimationFrame(() => {
+        renderCanvas();
+        syncTimelinePlayhead();
+        schedulePreviewFrame();
+      });
     }
+  }
+
+  function renderLoop() {
+    schedulePreviewFrame();
   }
 
 
@@ -5425,19 +5450,36 @@ let segmenterInstance = null;
 let segmenterLoadingPromise = null;
 let segmenterLoadFailed = false;
 
-let segDownscaleCanvas = null;
-let segDownscaleCtx = null;
-let segMaskRawCanvas = null;
-let segMaskRawCtx = null;
-let segImageData = null;
-let segFinalCanvas = null;
-let segFinalCtx = null;
-let prevMaskFloats = null;
-
+// Preview Segmentation Cache & Canvases (Singletons, reused every frame)
+let liveDownscaleCanvas = null;
+let liveDownscaleCtx = null;
+let liveMaskRawCanvas = null;
+let liveMaskRawCtx = null;
+let liveImageData = null;
+let liveFinalCanvas = null;
+let liveFinalCtx = null;
+let prevLiveMaskFloats = null;
 let lastLiveSegTime = 0;
+let lastLiveSegTimestampMs = -1;
+let lastPausedSegTime = -1;
 let lastLiveMaskCanvas = null;
+
 let livePersonCanvas = null;
 let livePersonCtx = null;
+let liveBehindCanvas = null;
+let liveBehindCtx = null;
+let liveForeCanvas = null;
+let liveForeCtx = null;
+
+// Export Segmentation Canvases & Cache (Separate from preview, reused every frame)
+let exportSegDownscaleCanvas = null;
+let exportSegDownscaleCtx = null;
+let exportSegMaskRawCanvas = null;
+let exportSegMaskRawCtx = null;
+let exportSegImageData = null;
+let exportPrevMaskFloats = null;
+let exportSegFinalCanvas = null;
+let exportSegFinalCtx = null;
 
 let segExportCleanCanvas = null;
 let segExportCleanCtx = null;
@@ -5447,11 +5489,6 @@ let segExportBehindCanvas = null;
 let segExportBehindCtx = null;
 let segExportForeCanvas = null;
 let segExportForeCtx = null;
-
-let liveBehindCanvas = null;
-let liveBehindCtx = null;
-let liveForeCanvas = null;
-let liveForeCtx = null;
 
 async function ensureSegmenterLoaded() {
   if (segmenterInstance) return segmenterInstance;
@@ -5523,8 +5560,176 @@ async function ensureSegmenterLoaded() {
   return segmenterLoadingPromise;
 }
 
-function getPersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH) {
+// PROBLEM A Point 2: Separate ImageSegmenter instance specifically for export
+async function createExportSegmenter() {
+  if (!window.MediaPipeVision) {
+    try {
+      const mod = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
+      window.MediaPipeVision = mod;
+    } catch (importErr) {
+      console.warn('MediaPipe Vision import error for export segmenter:', importErr);
+    }
+  }
+
+  if (!window.MediaPipeVision || !window.MediaPipeVision.FilesetResolver) {
+    throw new Error('MediaPipe Vision library not available');
+  }
+
+  const { FilesetResolver, ImageSegmenter } = window.MediaPipeVision;
+  let vision = null;
+  try {
+    vision = await FilesetResolver.forVisionTasks('/static/mediapipe/wasm');
+  } catch (_) {
+    vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+  }
+
+  const modelPath = '/static/mediapipe/selfie_segmenter.tflite';
+
+  try {
+    return await ImageSegmenter.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: modelPath,
+        delegate: 'GPU'
+      },
+      runningMode: 'VIDEO',
+      outputConfidenceMasks: true,
+      outputCategoryMask: false
+    });
+  } catch (gpuErr) {
+    console.warn('[BEHIND] Export segmenter GPU failed, falling back to CPU:', gpuErr);
+    return await ImageSegmenter.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: modelPath,
+        delegate: 'CPU'
+      },
+      runningMode: 'VIDEO',
+      outputConfidenceMasks: true,
+      outputCategoryMask: false
+    });
+  }
+}
+
+// PROBLEM B: Preview mask helper with ~160px downscale when playing, 256px on pause/scrub
+function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, isHighQuality) {
   if (!segmenterInstance) return null;
+
+  const srcW = sourceCanvasOrFrame.videoWidth || sourceCanvasOrFrame.width || 256;
+  const srcH = sourceCanvasOrFrame.videoHeight || sourceCanvasOrFrame.height || 256;
+  const outW = targetW || srcW;
+  const outH = targetH || srcH;
+
+  // PROBLEM B Point 1: About 160 px on downscaled copy when playing
+  const targetLong = isHighQuality ? 256 : 160;
+  const downScale = Math.min(1, targetLong / Math.max(srcW, srcH));
+  const downW = Math.max(64, Math.round(srcW * downScale));
+  const downH = Math.max(64, Math.round(srcH * downScale));
+
+  if (!liveDownscaleCanvas) {
+    liveDownscaleCanvas = document.createElement('canvas');
+    liveDownscaleCtx = liveDownscaleCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  if (liveDownscaleCanvas.width !== downW || liveDownscaleCanvas.height !== downH) {
+    liveDownscaleCanvas.width = downW;
+    liveDownscaleCanvas.height = downH;
+  }
+
+  liveDownscaleCtx.drawImage(sourceCanvasOrFrame, 0, 0, downW, downH);
+
+  let resultMaskCanvas = null;
+
+  try {
+    let validTime = Math.max(0, Number(timestampMs) || 0);
+    if (validTime <= lastLiveSegTimestampMs) {
+      validTime = lastLiveSegTimestampMs + 1;
+    }
+    lastLiveSegTimestampMs = validTime;
+
+    segmenterInstance.segmentForVideo(liveDownscaleCanvas, validTime, (result) => {
+      try {
+        if (!result || !result.confidenceMasks || result.confidenceMasks.length === 0) return;
+        const confidenceMask = result.confidenceMasks[0];
+        const mW = confidenceMask.width;
+        const mH = confidenceMask.height;
+        const floatVals = confidenceMask.getAsFloat32Array();
+
+        if (!liveMaskRawCanvas) {
+          liveMaskRawCanvas = document.createElement('canvas');
+          liveMaskRawCtx = liveMaskRawCanvas.getContext('2d');
+        }
+        if (liveMaskRawCanvas.width !== mW || liveMaskRawCanvas.height !== mH) {
+          liveMaskRawCanvas.width = mW;
+          liveMaskRawCanvas.height = mH;
+        }
+
+        if (!liveImageData || liveImageData.width !== mW || liveImageData.height !== mH) {
+          liveImageData = liveMaskRawCtx.createImageData(mW, mH);
+        }
+        const data = liveImageData.data;
+        const totalPx = floatVals.length;
+
+        if (!prevLiveMaskFloats || prevLiveMaskFloats.length !== totalPx) {
+          prevLiveMaskFloats = new Float32Array(totalPx);
+          for (let i = 0; i < totalPx; i++) {
+            prevLiveMaskFloats[i] = floatVals[i];
+          }
+        } else {
+          for (let i = 0; i < totalPx; i++) {
+            prevLiveMaskFloats[i] = floatVals[i] * 0.7 + prevLiveMaskFloats[i] * 0.3;
+          }
+        }
+
+        let nonZero = 0;
+        for (let i = 0; i < totalPx; i++) {
+          const conf = prevLiveMaskFloats[i];
+          const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : Math.round(((conf - 0.25) / 0.5) * 255));
+          if (alpha > 0) nonZero++;
+          const idx = i * 4;
+          data[idx] = 255;
+          data[idx + 1] = 255;
+          data[idx + 2] = 255;
+          data[idx + 3] = alpha;
+        }
+
+        if (nonZero === 0) return;
+
+        liveMaskRawCtx.putImageData(liveImageData, 0, 0);
+
+        if (!liveFinalCanvas) {
+          liveFinalCanvas = document.createElement('canvas');
+          liveFinalCtx = liveFinalCanvas.getContext('2d');
+        }
+        if (liveFinalCanvas.width !== outW || liveFinalCanvas.height !== outH) {
+          liveFinalCanvas.width = outW;
+          liveFinalCanvas.height = outH;
+        }
+
+        liveFinalCtx.clearRect(0, 0, outW, outH);
+        liveFinalCtx.filter = 'blur(1.5px)';
+        liveFinalCtx.drawImage(liveMaskRawCanvas, 0, 0, outW, outH);
+        liveFinalCtx.filter = 'none';
+
+        resultMaskCanvas = liveFinalCanvas;
+      } finally {
+        // PROBLEM B Point 7: Free masks every time
+        if (result.confidenceMasks) {
+          result.confidenceMasks.forEach(m => {
+            try { m.close(); } catch (_) {}
+          });
+        }
+        try { result.close(); } catch (_) {}
+      }
+    });
+  } catch (segErr) {
+    console.warn('[BEHIND] Live preview segmentation error:', segErr);
+    return null;
+  }
+
+  return resultMaskCanvas;
+}
+
+// PROBLEM A Point 2 & 3: Export person mask helper with strictly increasing timestamps
+function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, targetW, targetH) {
+  if (!segmenter) return null;
 
   const srcW = sourceCanvasOrFrame.videoWidth || sourceCanvasOrFrame.width || 256;
   const srcH = sourceCanvasOrFrame.videoHeight || sourceCanvasOrFrame.height || 256;
@@ -5535,22 +5740,21 @@ function getPersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH) {
   const downW = Math.max(64, Math.round(srcW * downScale));
   const downH = Math.max(64, Math.round(srcH * downScale));
 
-  if (!segDownscaleCanvas) {
-    segDownscaleCanvas = document.createElement('canvas');
-    segDownscaleCtx = segDownscaleCanvas.getContext('2d', { willReadFrequently: true });
+  if (!exportSegDownscaleCanvas) {
+    exportSegDownscaleCanvas = document.createElement('canvas');
+    exportSegDownscaleCtx = exportSegDownscaleCanvas.getContext('2d', { willReadFrequently: true });
   }
-  if (segDownscaleCanvas.width !== downW || segDownscaleCanvas.height !== downH) {
-    segDownscaleCanvas.width = downW;
-    segDownscaleCanvas.height = downH;
+  if (exportSegDownscaleCanvas.width !== downW || exportSegDownscaleCanvas.height !== downH) {
+    exportSegDownscaleCanvas.width = downW;
+    exportSegDownscaleCanvas.height = downH;
   }
 
-  segDownscaleCtx.drawImage(sourceCanvasOrFrame, 0, 0, downW, downH);
+  exportSegDownscaleCtx.drawImage(sourceCanvasOrFrame, 0, 0, downW, downH);
 
   let resultMaskCanvas = null;
 
   try {
-    const validTime = Math.max(0, Number(timestampMs) || performance.now());
-    segmenterInstance.segmentForVideo(segDownscaleCanvas, validTime, (result) => {
+    segmenter.segmentForVideo(exportSegDownscaleCanvas, timestampMs, (result) => {
       try {
         if (!result || !result.confidenceMasks || result.confidenceMasks.length === 0) return;
         const confidenceMask = result.confidenceMasks[0];
@@ -5558,36 +5762,37 @@ function getPersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH) {
         const mH = confidenceMask.height;
         const floatVals = confidenceMask.getAsFloat32Array();
 
-        if (!segMaskRawCanvas) {
-          segMaskRawCanvas = document.createElement('canvas');
-          segMaskRawCtx = segMaskRawCanvas.getContext('2d');
+        if (!exportSegMaskRawCanvas) {
+          exportSegMaskRawCanvas = document.createElement('canvas');
+          exportSegMaskRawCtx = exportSegMaskRawCanvas.getContext('2d');
         }
-        if (segMaskRawCanvas.width !== mW || segMaskRawCanvas.height !== mH) {
-          segMaskRawCanvas.width = mW;
-          segMaskRawCanvas.height = mH;
+        if (exportSegMaskRawCanvas.width !== mW || exportSegMaskRawCanvas.height !== mH) {
+          exportSegMaskRawCanvas.width = mW;
+          exportSegMaskRawCanvas.height = mH;
         }
 
-        if (!segImageData || segImageData.width !== mW || segImageData.height !== mH) {
-          segImageData = segMaskRawCtx.createImageData(mW, mH);
+        if (!exportSegImageData || exportSegImageData.width !== mW || exportSegImageData.height !== mH) {
+          exportSegImageData = exportSegMaskRawCtx.createImageData(mW, mH);
         }
-        const imgData = segImageData;
-        const data = imgData.data;
+        const data = exportSegImageData.data;
         const totalPx = floatVals.length;
 
-        if (!prevMaskFloats || prevMaskFloats.length !== totalPx) {
-          prevMaskFloats = new Float32Array(totalPx);
+        if (!exportPrevMaskFloats || exportPrevMaskFloats.length !== totalPx) {
+          exportPrevMaskFloats = new Float32Array(totalPx);
           for (let i = 0; i < totalPx; i++) {
-            prevMaskFloats[i] = floatVals[i];
+            exportPrevMaskFloats[i] = floatVals[i];
           }
         } else {
           for (let i = 0; i < totalPx; i++) {
-            prevMaskFloats[i] = floatVals[i] * 0.7 + prevMaskFloats[i] * 0.3;
+            exportPrevMaskFloats[i] = floatVals[i] * 0.7 + exportPrevMaskFloats[i] * 0.3;
           }
         }
 
+        let nonZeroCount = 0;
         for (let i = 0; i < totalPx; i++) {
-          const conf = prevMaskFloats[i];
+          const conf = exportPrevMaskFloats[i];
           const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : Math.round(((conf - 0.25) / 0.5) * 255));
+          if (alpha > 0) nonZeroCount++;
           const idx = i * 4;
           data[idx] = 255;
           data[idx + 1] = 255;
@@ -5595,23 +5800,26 @@ function getPersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH) {
           data[idx + 3] = alpha;
         }
 
-        segMaskRawCtx.putImageData(imgData, 0, 0);
+        // PROBLEM A Point 3: Verify mask is actually populated
+        if (nonZeroCount === 0) return;
 
-        if (!segFinalCanvas) {
-          segFinalCanvas = document.createElement('canvas');
-          segFinalCtx = segFinalCanvas.getContext('2d');
+        exportSegMaskRawCtx.putImageData(exportSegImageData, 0, 0);
+
+        if (!exportSegFinalCanvas) {
+          exportSegFinalCanvas = document.createElement('canvas');
+          exportSegFinalCtx = exportSegFinalCanvas.getContext('2d');
         }
-        if (segFinalCanvas.width !== outW || segFinalCanvas.height !== outH) {
-          segFinalCanvas.width = outW;
-          segFinalCanvas.height = outH;
+        if (exportSegFinalCanvas.width !== outW || exportSegFinalCanvas.height !== outH) {
+          exportSegFinalCanvas.width = outW;
+          exportSegFinalCanvas.height = outH;
         }
 
-        segFinalCtx.clearRect(0, 0, outW, outH);
-        segFinalCtx.filter = 'blur(1.5px)';
-        segFinalCtx.drawImage(segMaskRawCanvas, 0, 0, outW, outH);
-        segFinalCtx.filter = 'none';
+        exportSegFinalCtx.clearRect(0, 0, outW, outH);
+        exportSegFinalCtx.filter = 'blur(1.5px)';
+        exportSegFinalCtx.drawImage(exportSegMaskRawCanvas, 0, 0, outW, outH);
+        exportSegFinalCtx.filter = 'none';
 
-        resultMaskCanvas = segFinalCanvas;
+        resultMaskCanvas = exportSegFinalCanvas;
       } finally {
         if (result.confidenceMasks) {
           result.confidenceMasks.forEach(m => {
@@ -5622,45 +5830,18 @@ function getPersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH) {
       }
     });
   } catch (segErr) {
-    console.warn('Segmentation frame failed, skipping:', segErr);
+    console.warn('[BEHIND] Export segmentForVideo exception:', segErr);
     return null;
   }
 
   return resultMaskCanvas;
 }
 
-function applyLiveBehindPersonCutout(ctx, w, h, t) {
-  try {
-    const now = performance.now();
-    if (now - lastLiveSegTime >= 66) { // ~15 times per second
-      lastLiveSegTime = now;
-      const tMs = Math.round((vid.currentTime || t || 0) * 1000);
-      const mask = getPersonMask(vid, tMs, w, h);
-      if (mask) lastLiveMaskCanvas = mask;
-    }
-    if (lastLiveMaskCanvas) {
-      if (!livePersonCanvas) {
-        livePersonCanvas = document.createElement('canvas');
-        livePersonCtx = livePersonCanvas.getContext('2d');
-      }
-      if (livePersonCanvas.width !== w || livePersonCanvas.height !== h) {
-        livePersonCanvas.width = w;
-        livePersonCanvas.height = h;
-      }
-      livePersonCtx.clearRect(0, 0, w, h);
-      livePersonCtx.drawImage(vid, 0, 0, w, h);
-      livePersonCtx.globalCompositeOperation = 'destination-in';
-      livePersonCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
-      livePersonCtx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(livePersonCanvas, 0, 0, w, h);
-    }
-  } catch (err) {
-    console.warn('Live behind person preview cutout error:', err);
-  }
-}
-
   function renderCanvas() {
-    const dpr = window.devicePixelRatio || 1;
+    const isPhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                    (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent));
+    // PROBLEM B Point 4: Preview canvas at half resolution on phones
+    const dpr = isPhone ? 0.5 : (window.devicePixelRatio || 1);
     const w = captionCanvas.width / dpr;
     const h = captionCanvas.height / dpr;
 
@@ -5674,8 +5855,6 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
     // If no active caption at the exact currentTime:
     if (!activeCap) {
       if (S.captions.length > 0) {
-        // While paused, scrubbing, or before speech starts:
-        // Always preview the closest or first caption so the template style is 100% visible on the video!
         if (vid.paused) {
           activeCap = S.captions.find(c => t <= c.end) || S.captions[0];
         } else {
@@ -5683,7 +5862,6 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
           return;
         }
       } else {
-        // If no captions exist yet, draw sample text using selected template
         drawSampleCaptionPreview(ctx, w, h, S.style || {});
         drawWatermark(ctx, w, h);
         return;
@@ -5706,6 +5884,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       )
     );
 
+    // PROBLEM B Point 6: Skip segmentation completely on frames where no behind-person caption is visible
     if (isBehind && activeCap && segmenterInstance && vid.readyState >= 2) {
       if (!liveBehindCanvas) {
         liveBehindCanvas = document.createElement('canvas');
@@ -5728,22 +5907,32 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       // Separate lines into behind and front contexts
       drawCanvasTypography(liveForeCtx, liveBehindCtx, activeCap, words, t, S.style || {}, w, h, true, false);
 
-      // Segment at most ~15 times per second, stop when paused
+      // PROBLEM B Point 1 & 5: When playing, throttled rate (8 fps in Perf Mode, 15 fps otherwise)
       if (!vid.paused) {
+        const minInterval = S.previewPerfMode !== false ? 125 : 66;
         const now = performance.now();
-        if (now - lastLiveSegTime >= 66) {
+        if (now - lastLiveSegTime >= minInterval) {
           lastLiveSegTime = now;
           const tMs = Math.round(t * 1000);
-          const mask = getPersonMask(vid, tMs, w, h);
+          const mask = getLivePersonMask(vid, tMs, w, h, false);
+          if (mask) lastLiveMaskCanvas = mask;
+        }
+      } else {
+        // PROBLEM B Point 3: When paused or scrubbed, compute one high-quality mask
+        if (Math.abs(t - lastPausedSegTime) > 0.02 || !lastLiveMaskCanvas) {
+          lastPausedSegTime = t;
+          const tMs = Math.round(t * 1000);
+          const mask = getLivePersonMask(vid, tMs, w, h, true);
           if (mask) lastLiveMaskCanvas = mask;
         }
       }
 
       if (lastLiveMaskCanvas) {
-        // b) Draw only the lines whose layer is 'behind'
+        // Draw order:
+        // 1. behind captions
         ctx.drawImage(liveBehindCanvas, 0, 0, w, h);
 
-        // c) Draw the person cutout (existing mask code)
+        // 2. person cutout
         if (!livePersonCanvas) {
           livePersonCanvas = document.createElement('canvas');
           livePersonCtx = livePersonCanvas.getContext('2d');
@@ -5758,11 +5947,10 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
         livePersonCtx.globalCompositeOperation = 'source-over';
         ctx.drawImage(livePersonCanvas, 0, 0, w, h);
 
-        // d) Draw only the lines whose layer is 'front' on top
+        // 3. front captions
         ctx.drawImage(liveForeCanvas, 0, 0, w, h);
         drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
       } else {
-        // Fallback: draw all lines normally in front
         ctx.drawImage(liveBehindCanvas, 0, 0, w, h);
         ctx.drawImage(liveForeCanvas, 0, 0, w, h);
         drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
@@ -6552,6 +6740,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
 
     btnRetryExport.addEventListener('click', startExport);
     setupQualityPills();
+    setupPreviewPerfModeToggle();
   }
 
   
@@ -6566,6 +6755,27 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       else if (curQ === 'high') stepFinalizeTitle.textContent = '1080p MP4';
       else stepFinalizeTitle.textContent = '720p MP4';
     }
+  }
+
+  
+  function setupPreviewPerfModeToggle() {
+    const btn = $('btnPreviewPerfMode');
+    const label = $('previewPerfModeLabel');
+    function updateUI() {
+      const isOn = Boolean(S.previewPerfMode);
+      if (btn) btn.classList.toggle('active', isOn);
+      if (label) label.textContent = isOn ? 'Perf Mode: ON' : 'Perf Mode: OFF';
+    }
+    if (btn) {
+      btn.addEventListener('click', () => {
+        S.previewPerfMode = !S.previewPerfMode;
+        try { localStorage.setItem('cs_preview_perf_mode', String(S.previewPerfMode)); } catch (_) {}
+        updateUI();
+        showToast(S.previewPerfMode ? '⚡ Performance mode ON (~8fps masks, ~160px)' : '💎 High rate mode ON (~15fps masks)', 2000);
+        renderCanvas();
+      });
+    }
+    updateUI();
   }
 
   function setupQualityPills() {
@@ -6796,11 +7006,14 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
         (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
       )
     );
+
+    // PROBLEM A Point 2: Create a SEPARATE ImageSegmenter instance just for export
+    let exportSegmenter = null;
     if (isBehindExport && S.captions && S.captions.length > 0) {
       try {
-        await ensureSegmenterLoaded();
+        exportSegmenter = await createExportSegmenter();
       } catch (segLoadErr) {
-        console.warn('Behind segmenter preload note:', segLoadErr);
+        throw new Error('Behind-person export segmenter initialization failed: ' + (segLoadErr.message || segLoadErr));
       }
     }
 
@@ -6812,7 +7025,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       source = new BlobSource(S.file);
       try { videoBlobUrl = URL.createObjectURL(S.file); } catch (_) {}
     } else {
-      // (b) If S.file is missing, fetch the video URL ONCE, convert response to a Blob, use BlobSource
+      // (b) If S.file is missing, fetch video URL ONCE, convert response to Blob, use BlobSource
       let videoUrl = '';
       if (vid.src && vid.src.startsWith('blob:')) {
         videoUrl = vid.src;
@@ -6845,7 +7058,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       throw new Error('No video source available for frame export');
     }
 
-    // Request Screen Wake Lock during export to keep phone awake (Requirement 5)
+    // Request Screen Wake Lock during export
     let wakeLock = null;
     try {
       if ('wakeLock' in navigator && navigator.wakeLock && typeof navigator.wakeLock.request === 'function') {
@@ -6866,7 +7079,6 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       let targetW = rawW;
       let targetH = rawH;
 
-      // Quality settings: Fast (960), Balanced (1280, default on phones), High (1920, default on desktop)
       let maxLongSide = 1280;
       const curQ = S.exportQuality || 'balanced';
       if (curQ === 'fast') {
@@ -6888,7 +7100,6 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       targetW = Math.max(2, targetW);
       targetH = Math.max(2, targetH);
 
-      // Bitrate: ~2.5 Mbps at 960, ~4 Mbps at 720p/1280, ~6 Mbps at 1080p/1920
       let targetBitrate = 4000000;
       const chosenLong = Math.max(targetW, targetH);
       if (chosenLong <= 960) {
@@ -6917,6 +7128,11 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       let cachedProgressGrad = null;
       let cachedProgressGradW = 0;
       let cachedProgressGradY = 0;
+
+      // PROBLEM A Point 2 & 4: Track strictly increasing timestamps & consecutive failures
+      let lastExportTimestampMs = -1;
+      let exportFrameIndex = 0;
+      let consecutiveMaskFailures = 0;
 
       if (document.fonts && document.fonts.ready) {
         try { await document.fonts.ready; } catch (_) {}
@@ -6968,6 +7184,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       }
 
       const processFrame = (sample) => {
+        exportFrameIndex++;
         const W = targetW;
         const H = targetH;
 
@@ -6980,7 +7197,14 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
 
         const t = sample.timestamp || 0;
 
-        // 1. Dynamic Auto-Zoom (Smooth, slow, user-configurable retention zoom)
+        // PROBLEM A Point 2: Strictly increasing timestamps (start at 0, in ms, never repeat or go backwards)
+        let frameMs = Math.round(t * 1000);
+        if (frameMs <= lastExportTimestampMs) {
+          frameMs = lastExportTimestampMs + 1;
+        }
+        lastExportTimestampMs = frameMs;
+
+        // 1. Dynamic Auto-Zoom
         const az = S.autoZoom;
         const isZoomed = az && az.enabled && (() => {
           if (az.interval > 0) {
@@ -6995,7 +7219,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
         const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
         const hasWatermark = Boolean(S.watermark && S.watermark.text && S.watermark.text.trim());
 
-        // Skip all drawing work on frames with no active caption or graphic (Requirement 3: pass video frame straight through)
+        // Skip all drawing work on frames with no active caption or graphic
         if (!isZoomed && !activeBroll && !hasProgressBar && !activeCap && !hasWatermark) {
           ctx.clearRect(0, 0, W, H);
           sample.draw(ctx, 0, 0, W, H);
@@ -7005,7 +7229,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
         }
 
         let exportCleanFrameCanvas = null;
-        if (isBehind && segmenterInstance && activeCap) {
+        if (isBehind && exportSegmenter && activeCap) {
           if (!segExportCleanCanvas) {
             segExportCleanCanvas = document.createElement('canvas');
             segExportCleanCtx = segExportCleanCanvas.getContext('2d');
@@ -7028,6 +7252,8 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
           exportCleanFrameCanvas = segExportCleanCanvas;
         }
 
+        // PROBLEM A Point 3: Per frame, order must be:
+        // a) video frame
         ctx.clearRect(0, 0, W, H);
         if (isZoomed) {
           const zoom = (az && az.scale) || 1.10;
@@ -7040,7 +7266,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
           sample.draw(ctx, 0, 0, W, H);
         }
 
-        // Draw active B-Roll frame (if any) before drawing captions
+        // Active B-Roll
         if (activeBroll && brollElements[activeBroll.id]) {
           const bv = brollElements[activeBroll.id];
           const brollT = Math.max(0, t - activeBroll.start);
@@ -7074,7 +7300,6 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
             ctx.clip();
             ctx.drawImage(bv, winX, winY, diam, diam);
             ctx.restore();
-            // Circular border
             ctx.save();
             ctx.strokeStyle = 'rgba(255,255,255,0.85)';
             ctx.lineWidth = 4;
@@ -7102,7 +7327,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
           }
         }
 
-        // 2. Reel Progress Bar (with cached gradient)
+        // Reel Progress Bar
         if (hasProgressBar) {
           const dur = S.probe?.duration || vid.duration || 1;
           const progress = Math.min(1, Math.max(0, t / dur));
@@ -7135,7 +7360,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
             color: w.color || undefined
           }));
 
-          if (isBehind && exportCleanFrameCanvas && segmenterInstance) {
+          if (isBehind && exportCleanFrameCanvas && exportSegmenter) {
             if (!segExportBehindCanvas) {
               segExportBehindCanvas = document.createElement('canvas');
               segExportBehindCtx = segExportBehindCanvas.getContext('2d');
@@ -7160,11 +7385,10 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
             exportMaskFrameIdx++;
             let maskCanvas = null;
 
-            // Run person mask only on every 2nd frame, and reuse previous mask in between (Requirement 2)
+            // Run person mask only on every 2nd frame, and reuse previous mask in between
             if (exportMaskFrameIdx % 2 === 1 || !lastExportMaskCanvas) {
-              const frameMs = Math.round(t * 1000);
-              const newMask = getPersonMask(exportCleanFrameCanvas, frameMs, W, H);
-              if (newMask) {
+              const newMask = getExportPersonMask(exportSegmenter, exportCleanFrameCanvas, frameMs, W, H);
+              if (newMask && newMask.width === W && newMask.height === H) {
                 if (!segExportCachedMaskCanvas) {
                   segExportCachedMaskCanvas = document.createElement('canvas');
                   segExportCachedMaskCtx = segExportCachedMaskCanvas.getContext('2d');
@@ -7180,11 +7404,31 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
             }
             maskCanvas = lastExportMaskCanvas;
 
-            if (maskCanvas) {
-              // b) Draw only lines whose layer is 'behind'
+            // PROBLEM A Point 3 & 4: Check mask validity and log
+            const maskOk = Boolean(maskCanvas && maskCanvas.width === W && maskCanvas.height === H);
+            if (exportFrameIndex % 30 === 0) {
+              console.log('[BEHIND]', exportFrameIndex, maskOk ? 'mask ok' : 'mask missing');
+            }
+
+            if (!maskOk) {
+              consecutiveMaskFailures++;
+              // If mask fails 5 frames in a row, stop and throw error
+              if (consecutiveMaskFailures >= 5) {
+                throw new Error('Behind-person person mask failed for 5 consecutive frames. Model could not detect person in frame.');
+              }
+              // Isolated glitch frame: draw all lines in front
+              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
+              drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
+            } else {
+              consecutiveMaskFailures = 0;
+
+              // PROBLEM A Point 3: Per-frame order:
+              // a) video frame (already drawn to ctx)
+              // b) behind captions/graphics
               ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
 
-              // c) Draw person cutout on top
+              // c) person cutout (mask applied with destination-in on a separate canvas)
               if (!segExportCutoutCanvas) {
                 segExportCutoutCanvas = document.createElement('canvas');
                 segExportCutoutCtx = segExportCutoutCanvas.getContext('2d');
@@ -7199,12 +7443,7 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
               segExportCutoutCtx.globalCompositeOperation = 'source-over';
               ctx.drawImage(segExportCutoutCanvas, 0, 0, W, H);
 
-              // d) Draw only lines whose layer is 'front' on top
-              ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
-              drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
-            } else {
-              // Fallback: if segmentation is unavailable, draw all lines normally in front
-              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              // d) front captions/graphics
               ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
               drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
             }
@@ -7225,7 +7464,6 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
         return canvas;
       };
 
-      // Encoder configuration with prefer-hardware and automatic fallback to no-preference (Requirement 4)
       let conversion = null;
       const baseVideoConfig = {
         codec: 'avc',
@@ -7273,7 +7511,6 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
         }
       };
 
-      // Progress UI throttling (max ~4 times/sec) & ETA estimation (every second) (Requirement 5 & 6)
       let lastUiUpdate = 0;
       let lastEtaUpdateTime = 0;
       let lastEtaText = 'calculating...';
@@ -7340,6 +7577,13 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       updateExportPipeline(3);
       showExportComplete(url);
     } finally {
+      // PROBLEM A Point 2: Close export segmenter when export ends
+      if (exportSegmenter) {
+        try {
+          exportSegmenter.close();
+        } catch (_) {}
+        exportSegmenter = null;
+      }
       if (wakeLock) {
         try {
           await wakeLock.release();
@@ -7578,10 +7822,17 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
     updateExportPipeline(1, 'Recording Canvas...', 'Queued');
 
     // Dual-engine export selector:
-    // Primary: WebCodecs hardware-accelerated client frame export with exact timestamp sync
-    // Fallback: direct canvas export pipeline (never silent)
     const hasWebCodecs = typeof VideoEncoder !== 'undefined' && typeof VideoDecoder !== 'undefined';
     let frameExportFailure = null;
+
+    const isBehindStyle = Boolean(
+      S.style && (
+        S.style.behindPerson ||
+        S.style.depthAccent ||
+        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
+        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
+      )
+    );
 
     if (hasWebCodecs) {
       if (!window.Mediabunny) {
@@ -7598,6 +7849,20 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
         } catch (frameErr) {
           frameExportFailure = frameErr;
           console.error('startFrameExport failed with full stack trace:', frameErr.stack || frameErr);
+          
+          // PROBLEM A Point 1: For any style that uses behind-person layering, ALWAYS use startFrameExport.
+          // Never silently use the hybrid path. Show clear error for at least 8 seconds!
+          if (isBehindStyle) {
+            const failMsg = 'Behind-person export failed: ' + (frameErr.message || String(frameErr));
+            showToast(failMsg, 8000);
+            exportWorkingState.classList.add('hidden');
+            exportErrorState.classList.remove('hidden');
+            const exportErrorMessage = $('exportErrorMessage');
+            if (exportErrorMessage) exportErrorMessage.textContent = failMsg;
+            if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+            return;
+          }
+
           const failMsg = 'Frame export failed: ' + (frameErr.message || String(frameErr));
           showToast(failMsg, 8000);
           if (exportProgressDetail) {
@@ -7607,14 +7872,35 @@ function applyLiveBehindPersonCutout(ctx, w, h, t) {
       } else {
         frameExportFailure = new Error('Mediabunny library failed to load');
         console.error('Mediabunny missing:', frameExportFailure.stack || frameExportFailure);
+        if (isBehindStyle) {
+          const failMsg = 'Behind-person export failed: Mediabunny library failed to load';
+          showToast(failMsg, 8000);
+          exportWorkingState.classList.add('hidden');
+          exportErrorState.classList.remove('hidden');
+          const exportErrorMessage = $('exportErrorMessage');
+          if (exportErrorMessage) exportErrorMessage.textContent = failMsg;
+          if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+          return;
+        }
         showToast('Frame export unavailable: Mediabunny not loaded', 8000);
       }
     } else {
       frameExportFailure = new Error('Browser WebCodecs (VideoEncoder/Decoder) not supported on this device');
       console.error('WebCodecs missing:', frameExportFailure.stack || frameExportFailure);
+      if (isBehindStyle) {
+        const failMsg = 'Behind-person export failed: Browser WebCodecs is not supported on this device';
+        showToast(failMsg, 8000);
+        exportWorkingState.classList.add('hidden');
+        exportErrorState.classList.remove('hidden');
+        const exportErrorMessage = $('exportErrorMessage');
+        if (exportErrorMessage) exportErrorMessage.textContent = failMsg;
+        if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+        return;
+      }
       showToast('WebCodecs unsupported on this device. Using compatibility mode.', 8000);
     }
 
+    // Hybrid fallback is strictly for non-behind presets
     await startDirectCanvasExport();
   }
 
