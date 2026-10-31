@@ -202,6 +202,9 @@
         <div class="stage-wrapper" id="stageWrapper">
           <div class="stage" id="stage">
             <video id="vid" playsinline preload="auto"></video>
+            <div id="brollStageLayer" class="broll-stage-layer hidden">
+              <video id="brollVid" playsinline muted preload="auto" crossorigin="anonymous"></video>
+            </div>
             <canvas id="captionCanvas"></canvas>
             <span id="stagePresetName" style="display:none;"></span>
           </div>
@@ -774,6 +777,91 @@
               </div>
             </div>
           </div>
+
+          <!-- TAB: B-ROLL & STOCK VISUALS -->
+          <div class="tab-pane hidden" id="tabBroll">
+            <div class="drawer-scrollable">
+              
+              <!-- Quick Auto-Broll Card -->
+              <div class="control-card broll-hero-card">
+                <div class="broll-hero-content">
+                  <div class="broll-hero-icon">✨</div>
+                  <div class="broll-hero-text">
+                    <strong>Auto B-Roll with Pexels</strong>
+                    <span>Automatically detects key moments in captions & inserts relevant stock video clips</span>
+                  </div>
+                </div>
+                <div class="broll-actions-row">
+                  <button type="button" id="btnAutoBroll" class="btn-subaction btn-primary-gradient">
+                    <span>⚡ Auto Add B-Rolls</span>
+                  </button>
+                  <button type="button" id="btnTogglePexelsSearch" class="btn-subaction">
+                    <span>🔍 Search Pexels</span>
+                  </button>
+                </div>
+                <div id="brollStatusMsg" class="broll-status-msg hidden"></div>
+              </div>
+
+              <!-- Pexels Search Box -->
+              <div class="control-card" id="brollSearchCard">
+                <div class="control-header">
+                  <label>🔍 Search Pexels Stock Videos</label>
+                  <span id="brollKeyBadge" class="val-badge badge-green">Pexels Free</span>
+                </div>
+                <div class="broll-search-row">
+                  <input type="text" id="brollSearchInput" class="styled-text-input" placeholder="Search clips (e.g. money, nature, city, business)...">
+                  <button type="button" id="btnSearchPexels" class="btn-subaction btn-search-broll">Search</button>
+                </div>
+                <div class="broll-orient-row">
+                  <span class="broll-orient-label">Orientation:</span>
+                  <div class="btn-group" id="brollOrientGroup">
+                    <button type="button" class="btn-toggle active" data-orient="portrait">📱 Vertical (9:16)</button>
+                    <button type="button" class="btn-toggle" data-orient="landscape">🖥️ Horizontal (16:9)</button>
+                    <button type="button" class="btn-toggle" data-orient="square">⏹️ Square (1:1)</button>
+                  </div>
+                </div>
+
+                <!-- Pexels Results Grid -->
+                <div id="pexelsResultsGrid" class="pexels-results-grid hidden">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+              <!-- Active B-Roll Timeline Clips -->
+              <div class="control-card">
+                <div class="control-header">
+                  <label>🎬 Active B-Rolls on Video (<span id="brollCountBadge">0</span>)</label>
+                  <button type="button" id="btnClearAllBrolls" class="btn-text-danger" style="display:none;">Clear All</button>
+                </div>
+                <div id="brollList" class="broll-items-list">
+                  <div class="broll-empty-state" id="brollEmptyState">
+                    <div class="empty-icon">🎬</div>
+                    <p>No B-Rolls added yet.</p>
+                    <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search Pexels above.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pexels API Key Settings (Collapsible) -->
+              <div class="control-card broll-config-card">
+                <details class="broll-key-details" id="brollKeyDetails">
+                  <summary class="broll-key-summary">🔑 Pexels API Key Settings</summary>
+                  <div class="broll-key-body">
+                    <p class="broll-help-text">
+                      Pexels provides 100% free stock videos for your reels. Add your free Pexels API key below or use the built-in library.
+                      <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">Get free API key ↗</a>
+                    </p>
+                    <div class="broll-search-row">
+                      <input type="password" id="inputPexelsKey" class="styled-text-input" placeholder="Paste Pexels API key here...">
+                      <button type="button" id="btnSavePexelsKey" class="btn-subaction">Save Key</button>
+                    </div>
+                    <span id="pexelsKeyStatus" class="broll-key-status"></span>
+                  </div>
+                </details>
+              </div>
+
+            </div>
+          </div>
         </div>
       </div>
 
@@ -790,6 +878,10 @@
         <button class="bottom-nav-btn" data-tab="tabCaptions">
           <span class="nav-btn-icon">📝</span>
           <span class="nav-btn-label">Transcript</span>
+        </button>
+        <button class="bottom-nav-btn" data-tab="tabBroll" id="btnNavBroll">
+          <span class="nav-btn-icon">🎬</span>
+          <span class="nav-btn-label">B-Roll</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabStyle">
           <span class="nav-btn-icon">⚙️</span>
@@ -1108,6 +1200,6 @@
     window.Mediabunny = Mediabunny;
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=4.40"></script>
+  <script src="/static/app.js?v=4.41"></script>
 </body>
 </html>

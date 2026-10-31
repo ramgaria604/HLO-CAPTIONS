@@ -42,6 +42,7 @@
   autoSfx: true,
   sfxVolume: 0.7,
   watermark: { text: '', platform: 'instagram', position: 'bottom-right', opacity: 0.8 },
+  brolls: [],
   };
 
   // --- DOM Elements ---
@@ -2046,6 +2047,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     setupDrawerAndNavHandlers();
     setupStyleHandlers();
     setupAudioHandlers();
+    setupBrollHandlers();
     setupModalHandlers();
     setupCanvasSizing();
     setupCaptionDragging();
@@ -2677,6 +2679,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       updateTransportUI();
       renderCanvas();
       syncTimelinePlayhead();
+      syncBrollPlayback();
 
       if (S.autoSfx !== false && !vid.paused) {
         const curT = vid.currentTime || 0;
@@ -2716,7 +2719,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       vid.currentTime = parseFloat(e.target.value);
       renderCanvas();
       syncTimelinePlayhead();
+      syncBrollPlayback();
     });
+
+    vid.addEventListener('play', () => syncBrollPlayback());
+    vid.addEventListener('pause', () => syncBrollPlayback());
+    vid.addEventListener('seeked', () => syncBrollPlayback());
 
     btnMute.addEventListener('click', () => {
       vid.muted = !vid.muted;
@@ -3356,6 +3364,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const titles = {
       tabTemplates: '🎨 Choose Template (164 Available)',
       tabCaptions: '📝 Edit Captions',
+      tabBroll: '🎬 B-Roll & Visuals',
       tabStyle: '🎚️ Style Options',
       tabAudio: '🎵 Audio & Music'
     };
@@ -3363,6 +3372,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     if (targetId === 'tabCaptions') {
       renderCaptionsList();
+    } else if (targetId === 'tabBroll') {
+      renderBrollTab();
     }
     requestAnimationFrame(fitCanvas);
   }
@@ -5106,6 +5117,445 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   // MODALS HANDLERS (FULL TEMPLATES, SCRIPT SYNC, EXPORT)
   // ==========================================================================
+
+  // ==========================================================================
+  // B-ROLL SYSTEM & PEXELS INTEGRATION (FULL, ABOVE, BELOW, WINDOW / PIP)
+  // ==========================================================================
+  let pexelsOrientation = 'portrait';
+  let isAutoBrolling = false;
+
+  function setupBrollHandlers() {
+    const btnAutoBroll = $('btnAutoBroll');
+    const btnTogglePexelsSearch = $('btnTogglePexelsSearch');
+    const btnSearchPexels = $('btnSearchPexels');
+    const brollSearchInput = $('brollSearchInput');
+    const brollOrientGroup = $('brollOrientGroup');
+    const btnClearAllBrolls = $('btnClearAllBrolls');
+    const btnSavePexelsKey = $('btnSavePexelsKey');
+    const inputPexelsKey = $('inputPexelsKey');
+
+    if (btnAutoBroll) {
+      btnAutoBroll.addEventListener('click', autoAddBrolls);
+    }
+
+    if (btnTogglePexelsSearch) {
+      btnTogglePexelsSearch.addEventListener('click', () => {
+        const card = $('brollSearchCard');
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth' });
+          if (brollSearchInput) brollSearchInput.focus();
+        }
+      });
+    }
+
+    if (btnSearchPexels && brollSearchInput) {
+      btnSearchPexels.addEventListener('click', () => {
+        const q = brollSearchInput.value.trim();
+        if (q) searchPexels(q);
+      });
+      brollSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const q = brollSearchInput.value.trim();
+          if (q) searchPexels(q);
+        }
+      });
+    }
+
+    if (brollOrientGroup) {
+      $$('#brollOrientGroup .btn-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          $$('#brollOrientGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+          pexelsOrientation = btn.getAttribute('data-orient') || 'portrait';
+          const q = (brollSearchInput ? brollSearchInput.value.trim() : '') || 'business';
+          searchPexels(q);
+        });
+      });
+    }
+
+    if (btnClearAllBrolls) {
+      btnClearAllBrolls.addEventListener('click', () => {
+        if (!confirm('Remove all B-rolls from this video?')) return;
+        S.brolls = [];
+        renderBrollTab();
+        syncBrollPlayback();
+        showToast('All B-rolls removed');
+      });
+    }
+
+    if (btnSavePexelsKey && inputPexelsKey) {
+      btnSavePexelsKey.addEventListener('click', async () => {
+        const key = inputPexelsKey.value.trim();
+        if (!key) return;
+        try {
+          const res = await fetch('/api/broll/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to save key');
+          const status = $('pexelsKeyStatus');
+          if (status) status.textContent = '✓ Pexels API key saved successfully!';
+          showToast('Pexels API key saved!');
+        } catch (err) {
+          showToast(err.message);
+        }
+      });
+    }
+
+    // Check if server already has Pexels key
+    fetch('/api/broll/config')
+      .then(r => r.json())
+      .then(d => {
+        const badge = $('brollKeyBadge');
+        if (badge) {
+          badge.textContent = d.has_key ? '✓ Pexels Connected' : 'Pexels Free Library';
+        }
+      })
+      .catch(() => {});
+  }
+
+  // Auto-detect caption moments & fetch B-roll clips from Pexels
+  async function autoAddBrolls() {
+    if (isAutoBrolling) return;
+    if (!S.captions || S.captions.length === 0) {
+      showToast('Please add or transcribe captions first!');
+      return;
+    }
+
+    const duration = vid.duration || S.probe?.duration || 0;
+    if (duration <= 2) {
+      showToast('Video duration is too short for B-Roll');
+      return;
+    }
+
+    const msgEl = $('brollStatusMsg');
+    const setMsg = (text) => {
+      if (!msgEl) return;
+      msgEl.classList.remove('hidden');
+      msgEl.textContent = text;
+    };
+
+    isAutoBrolling = true;
+    const btn = $('btnAutoBroll');
+    if (btn) btn.disabled = true;
+
+    try {
+      setMsg('🔍 Analyzing captions to detect key viral moments...');
+
+      const suggestRes = await fetch('/api/broll/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ captions: S.captions, duration })
+      });
+      const suggestData = await suggestRes.json();
+      const slots = suggestData.slots || [];
+
+      if (slots.length === 0) {
+        setMsg('No suitable B-Roll keywords found in captions. Try searching manually below!');
+        showToast('No B-Roll slots found');
+        return;
+      }
+
+      setMsg(`✨ Found ${slots.length} moments! Fetching stock videos from Pexels...`);
+
+      // Intelligent layout rotation: Full, Above, Window, Below
+      const layoutPattern = ['full', 'above', 'window', 'below'];
+      const newBrolls = [];
+
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        setMsg(`🎬 Fetching clip ${i + 1}/${slots.length} for "${slot.query}"...`);
+
+        try {
+          const searchRes = await fetch('/api/broll/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: slot.query, orientation: pexelsOrientation })
+          });
+          const searchData = await searchRes.json();
+          const results = searchData.results || [];
+          if (results.length > 0) {
+            const pick = results[0];
+            const layout = layoutPattern[i % layoutPattern.length];
+            newBrolls.push({
+              id: 'broll_' + Date.now() + '_' + i,
+              query: slot.query,
+              text: slot.text || slot.query,
+              start: Number(slot.start),
+              end: Number(slot.end),
+              url: pick.url,
+              thumb: pick.thumb,
+              duration: pick.duration || (slot.end - slot.start),
+              credit: pick.credit || '',
+              layout: layout
+            });
+          }
+        } catch (clipErr) {
+          console.warn('Failed to fetch clip for slot:', slot, clipErr);
+        }
+      }
+
+      if (newBrolls.length > 0) {
+        S.brolls = newBrolls;
+        renderBrollTab();
+        syncBrollPlayback();
+        setMsg(`✓ Successfully added ${newBrolls.length} B-Rolls with smart layouts!`);
+        showToast(`✨ Added ${newBrolls.length} B-Rolls!`);
+      } else {
+        setMsg('Could not find videos on Pexels for those keywords. Search manually below.');
+      }
+    } catch (err) {
+      setMsg('Error adding B-roll: ' + err.message);
+      showToast(err.message);
+    } finally {
+      isAutoBrolling = false;
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // Search Pexels with query
+  async function searchPexels(query) {
+    const grid = $('pexelsResultsGrid');
+    if (!grid) return;
+    grid.classList.remove('hidden');
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#a1a1aa;">Searching Pexels for "' + escapeHtml(query) + '"...</div>';
+
+    try {
+      const res = await fetch('/api/broll/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, orientation: pexelsOrientation })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to search Pexels');
+      const results = data.results || [];
+
+      if (results.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#71717a;">No clips found for "' + escapeHtml(query) + '". Try another keyword.</div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      results.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'pexels-card';
+        card.innerHTML = `
+          <div class="pexels-thumb-wrap">
+            <img src="${escapeHtml(item.thumb)}" class="pexels-thumb-img" alt="Pexels Video" loading="lazy">
+            <span class="pexels-dur-badge">${Math.round(item.duration || 0)}s</span>
+          </div>
+          <div class="pexels-card-info">
+            <span class="pexels-credit">By ${escapeHtml(item.credit || 'Pexels')}</span>
+            <button type="button" class="btn-add-broll" data-idx="${idx}">+ Add to Video</button>
+          </div>
+        `;
+        const btnAdd = card.querySelector('.btn-add-broll');
+        btnAdd.addEventListener('click', () => {
+          addBrollFromSearch(item, query);
+        });
+        grid.appendChild(card);
+      });
+    } catch (err) {
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#ef4444;">' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  function addBrollFromSearch(item, query) {
+    const curT = vid.currentTime || 0;
+    const dur = Math.min(vid.duration || 30, curT + 3.0);
+    const startT = Math.round(curT * 10) / 10;
+    const endT = Math.round(dur * 10) / 10;
+
+    const newBroll = {
+      id: 'broll_' + Date.now(),
+      query: query || 'Stock Video',
+      start: startT,
+      end: endT > startT ? endT : startT + 2.5,
+      url: item.url,
+      thumb: item.thumb,
+      duration: item.duration || 3.0,
+      credit: item.credit || '',
+      layout: 'full'
+    };
+
+    if (!S.brolls) S.brolls = [];
+    S.brolls.push(newBroll);
+    S.brolls.sort((a, b) => a.start - b.start);
+    renderBrollTab();
+    syncBrollPlayback();
+    showToast(`Added B-Roll clip at ${startT}s!`);
+  }
+
+  // Render the B-Roll tab list
+  function renderBrollTab() {
+    const list = $('brollList');
+    const badge = $('brollCountBadge');
+    const btnClear = $('btnClearAllBrolls');
+    if (!list) return;
+
+    const brolls = S.brolls || [];
+    if (badge) badge.textContent = brolls.length;
+    if (btnClear) btnClear.style.display = brolls.length > 0 ? 'inline-block' : 'none';
+
+    if (brolls.length === 0) {
+      list.innerHTML = `
+        <div class="broll-empty-state" id="brollEmptyState">
+          <div class="empty-icon">🎬</div>
+          <p>No B-Rolls added yet.</p>
+          <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search Pexels above.</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = '';
+    brolls.forEach((b, idx) => {
+      const card = document.createElement('div');
+      card.className = 'broll-card';
+      const layout = b.layout || 'full';
+
+      card.innerHTML = `
+        <div class="broll-card-top">
+          <img src="${escapeHtml(b.thumb || '')}" class="broll-card-thumb" alt="B-Roll" onerror="this.style.display='none'">
+          <div class="broll-card-meta">
+            <span class="broll-card-title">🎬 #${idx + 1}: ${escapeHtml(b.query || 'Stock Clip')}</span>
+            <span class="broll-card-timing">${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)</span>
+          </div>
+          <button type="button" class="btn-del-broll" title="Delete B-roll">🗑️</button>
+        </div>
+
+        <div class="broll-layout-selector-wrap">
+          <span class="broll-layout-label">Display Layout</span>
+          <div class="broll-layout-selector">
+            <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
+              <span class="layout-btn-icon">🖥️</span>
+              <span>Full</span>
+            </button>
+            <button type="button" class="broll-layout-btn ${layout === 'above' ? 'active' : ''}" data-layout="above" title="Top 50% Split (Speaker Below)">
+              <span class="layout-btn-icon">⬆️</span>
+              <span>Above</span>
+            </button>
+            <button type="button" class="broll-layout-btn ${layout === 'below' ? 'active' : ''}" data-layout="below" title="Bottom 50% Split (Speaker Above)">
+              <span class="layout-btn-icon">⬇️</span>
+              <span>Below</span>
+            </button>
+            <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Small Picture-in-Picture Floating Window">
+              <span class="layout-btn-icon">🪟</span>
+              <span>Window</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="broll-time-row">
+          <div class="broll-time-group">
+            <span>In:</span>
+            <input type="number" step="0.1" min="0" class="broll-time-input input-broll-start" value="${b.start}">
+            <span>s</span>
+          </div>
+          <div class="broll-time-group">
+            <span>Out:</span>
+            <input type="number" step="0.1" min="0" class="broll-time-input input-broll-end" value="${b.end}">
+            <span>s</span>
+          </div>
+          <button type="button" class="btn-preview-broll">
+            <span>▶</span> Preview
+          </button>
+        </div>
+      `;
+
+      // Layout selector buttons
+      card.querySelectorAll('.broll-layout-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const newLayout = btn.getAttribute('data-layout');
+          b.layout = newLayout;
+          card.querySelectorAll('.broll-layout-btn').forEach(b2 => b2.classList.toggle('active', b2 === btn));
+          syncBrollPlayback();
+        });
+      });
+
+      // Time inputs
+      const inStart = card.querySelector('.input-broll-start');
+      const inEnd = card.querySelector('.input-broll-end');
+      inStart.addEventListener('change', () => {
+        const val = parseFloat(inStart.value) || 0;
+        b.start = Math.max(0, val);
+        card.querySelector('.broll-card-timing').textContent = `${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)`;
+        syncBrollPlayback();
+      });
+      inEnd.addEventListener('change', () => {
+        const val = parseFloat(inEnd.value) || b.start + 1;
+        b.end = Math.max(b.start + 0.5, val);
+        card.querySelector('.broll-card-timing').textContent = `${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)`;
+        syncBrollPlayback();
+      });
+
+      // Preview button
+      const btnPrev = card.querySelector('.btn-preview-broll');
+      btnPrev.addEventListener('click', () => {
+        vid.currentTime = Math.max(0, b.start);
+        syncBrollPlayback();
+        vid.play().catch(() => {});
+      });
+
+      // Delete button
+      const btnDel = card.querySelector('.btn-del-broll');
+      btnDel.addEventListener('click', () => {
+        S.brolls.splice(idx, 1);
+        renderBrollTab();
+        syncBrollPlayback();
+        showToast('B-roll removed');
+      });
+
+      list.appendChild(card);
+    });
+  }
+
+  // Live real-time B-Roll playback sync with main video
+  function syncBrollPlayback() {
+    const brollLayer = $('brollStageLayer');
+    const brollVid = $('brollVid');
+    if (!brollLayer || !brollVid) return;
+
+    const t = vid.currentTime || 0;
+    const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
+
+    if (!activeBroll) {
+      brollLayer.classList.add('hidden');
+      if (!brollVid.paused) {
+        brollVid.pause();
+      }
+      return;
+    }
+
+    // Active B-Roll found
+    brollLayer.classList.remove('hidden');
+
+    // Update layout classes
+    brollLayer.classList.remove('broll-layout-full', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window');
+    const layout = activeBroll.layout || 'full';
+    brollLayer.classList.add('broll-layout-' + layout);
+
+    // Sync video source
+    if (brollVid.src !== activeBroll.url && brollVid.currentSrc !== activeBroll.url) {
+      brollVid.src = activeBroll.url;
+      brollVid.load();
+    }
+
+    // Sync playback offset
+    const offset = Math.max(0, t - activeBroll.start);
+    if (Math.abs(brollVid.currentTime - offset) > 0.3) {
+      brollVid.currentTime = offset;
+    }
+
+    // Match play/pause state
+    if (!vid.paused && brollVid.paused) {
+      brollVid.play().catch(() => {});
+    } else if (vid.paused && !brollVid.paused) {
+      brollVid.pause();
+    }
+  }
+
   function setupModalHandlers() {
     const btnViralHooks = $('btnViralHooks');
     const modalHooks = $('modalHooks');
@@ -5377,6 +5827,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       try { await document.fonts.ready; } catch (_) {}
     }
 
+    const brollElements = {};
+    if (S.brolls && S.brolls.length > 0) {
+      for (const b of S.brolls) {
+        if (b.url) {
+          try {
+            const bv = document.createElement('video');
+            bv.crossOrigin = 'anonymous';
+            bv.muted = true;
+            bv.playsInline = true;
+            bv.src = b.url;
+            await new Promise((resolve) => {
+              bv.onloadeddata = resolve;
+              bv.onerror = resolve;
+              setTimeout(resolve, 2500);
+            });
+            brollElements[b.id] = bv;
+          } catch (_) {}
+        }
+      }
+    }
+
     const conversion = await window.Mediabunny.Conversion.init({
       input,
       output,
@@ -5401,6 +5872,49 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           sample.draw(ctx, 0, 0, W, H);
 
           const t = sample.timestamp || 0;
+
+          // Draw active B-Roll frame (if any) before drawing captions
+          const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
+          if (activeBroll && brollElements[activeBroll.id]) {
+            const bv = brollElements[activeBroll.id];
+            const brollT = Math.max(0, t - activeBroll.start);
+            if (Math.abs(bv.currentTime - brollT) > 0.15) {
+              try { bv.currentTime = brollT; } catch (_) {}
+            }
+            const layout = activeBroll.layout || 'full';
+            if (layout === 'above') {
+              ctx.drawImage(bv, 0, 0, W, H / 2);
+              ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(0, H / 2);
+              ctx.lineTo(W, H / 2);
+              ctx.stroke();
+            } else if (layout === 'below') {
+              ctx.drawImage(bv, 0, H / 2, W, H / 2);
+              ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(0, H / 2);
+              ctx.lineTo(W, H / 2);
+              ctx.stroke();
+            } else if (layout === 'window' || layout === 'pip') {
+              const winW = W * 0.44;
+              const winH = H * 0.28;
+              const winX = W - winW - (W * 0.04);
+              const winY = H * 0.04;
+              ctx.save();
+              ctx.shadowColor = 'rgba(0,0,0,0.7)';
+              ctx.shadowBlur = 16;
+              ctx.drawImage(bv, winX, winY, winW, winH);
+              ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(winX, winY, winW, winH);
+              ctx.restore();
+            } else {
+              ctx.drawImage(bv, 0, 0, W, H);
+            }
+          }
           const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
           if (activeCap) {
             const words = (activeCap.words || []).map(w => ({
@@ -5749,6 +6263,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         watermark: S.watermark,
         auto_sfx: Boolean(S.autoSfx !== false)
       };
+      if (S.brolls && S.brolls.length > 0) {
+        payload.broll = S.brolls.filter(b => b.url && b.end > b.start).map((b, idx) => ({
+          id: b.id || (idx + 1),
+          start: Number(b.start),
+          end: Number(b.end),
+          url: b.url,
+          layout: b.layout || 'full'
+        }));
+      }
       if (S.voiceoverFilename && btnReplaceVoiceover.classList.contains('active')) {
         payload.voiceover = S.voiceoverFilename;
         payload.replaceOriginalAudio = true;

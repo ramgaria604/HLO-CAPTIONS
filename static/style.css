@@ -6642,3 +6642,475 @@ button {
   box-shadow: 0 6px 20px rgba(236, 72, 153, 0.55);
   transform: translateY(-1px);
 }
+
+
+/* ==========================================================================
+   B-ROLL SYSTEM & PEXELS INTEGRATION (FULL, ABOVE, BELOW, WINDOW / PIP)
+   ========================================================================== */
+.broll-stage-layer {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+  overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: #000;
+}
+.broll-stage-layer.hidden {
+  display: none !important;
+}
+
+.broll-stage-layer video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 1. Fullscreen B-Roll (100% video cover) */
+.broll-stage-layer.broll-layout-full {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* 2. Above B-Roll (Top 50% split screen, speaker on bottom) */
+.broll-stage-layer.broll-layout-above {
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 50%;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7);
+}
+
+/* 3. Below B-Roll (Bottom 50% split screen, speaker on top) */
+.broll-stage-layer.broll-layout-below {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  top: 50%;
+  width: 100%;
+  height: 50%;
+  border-top: 2px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.7);
+}
+
+/* 4. Small Window / PiP (Picture-in-Picture floating corner window) */
+.broll-stage-layer.broll-layout-window {
+  top: 14px;
+  right: 14px;
+  width: 44%;
+  height: 28%;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 12px rgba(255, 255, 255, 0.2);
+}
+
+/* B-Roll Tab UI */
+.broll-hero-card {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.2));
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.broll-hero-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.broll-hero-icon {
+  font-size: 26px;
+  width: 42px;
+  height: 42px;
+  background: rgba(168, 85, 247, 0.25);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.broll-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.broll-hero-text strong {
+  font-size: 14px;
+  color: #fff;
+  font-weight: 700;
+}
+.broll-hero-text span {
+  font-size: 11.5px;
+  color: #a1a1aa;
+  line-height: 1.35;
+}
+.broll-actions-row {
+  display: flex;
+  gap: 10px;
+}
+.btn-primary-gradient {
+  background: linear-gradient(135deg, #6366f1, #a855f7) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.35);
+  flex: 1;
+}
+.btn-primary-gradient:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.broll-status-msg {
+  margin-top: 10px;
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #e4e4e7;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.broll-search-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.styled-text-input {
+  flex: 1;
+  background: #12131e;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.styled-text-input:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.25);
+}
+.btn-search-broll {
+  background: #27273a;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 0 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-search-broll:hover {
+  background: #363650;
+}
+.broll-orient-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.broll-orient-label {
+  font-size: 12px;
+  color: #a1a1aa;
+}
+
+/* Pexels Results Grid */
+.pexels-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.pexels-card {
+  position: relative;
+  background: #141522;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.pexels-card:hover {
+  transform: translateY(-2px);
+  border-color: #a855f7;
+}
+.pexels-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9/16;
+  background: #000;
+  overflow: hidden;
+}
+.pexels-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.pexels-dur-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  color: #fff;
+  font-weight: 600;
+}
+.pexels-card-info {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pexels-credit {
+  font-size: 10.5px;
+  color: #71717a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn-add-broll {
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.15s ease;
+}
+.btn-add-broll:hover {
+  background: #4f46e5;
+}
+
+/* Active B-Roll Cards */
+.broll-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.broll-empty-state {
+  text-align: center;
+  padding: 24px 16px;
+  background: #11121d;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  color: #71717a;
+}
+.broll-empty-state .empty-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+.broll-empty-state p {
+  font-size: 13px;
+  color: #e4e4e7;
+  margin-bottom: 4px;
+}
+.broll-empty-state .empty-sub {
+  font-size: 11.5px;
+  color: #a1a1aa;
+}
+
+.broll-card {
+  background: #131422;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s ease;
+}
+.broll-card:hover {
+  border-color: rgba(168, 85, 247, 0.4);
+}
+.broll-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.broll-card-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #000;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.broll-card-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.broll-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.broll-card-timing {
+  font-size: 11.5px;
+  color: #a1a1aa;
+}
+.btn-del-broll {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 15px;
+}
+.btn-del-broll:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Layout Selector - THE 4 LAYOUT MODES */
+.broll-layout-selector-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.broll-layout-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+}
+.broll-layout-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background: #090a12;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.broll-layout-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 2px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #a1a1aa;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+.broll-layout-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+.broll-layout-btn.active {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.layout-btn-icon {
+  font-size: 14px;
+}
+
+/* Timing & Quick Preview */
+.broll-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.broll-time-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: #a1a1aa;
+}
+.broll-time-input {
+  width: 58px;
+  background: #090a12;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  color: #fff;
+  text-align: center;
+}
+.broll-time-input:focus {
+  border-color: #a855f7;
+  outline: none;
+}
+.btn-preview-broll {
+  margin-left: auto;
+  background: #1e1f32;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  color: #e4e4e7;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-preview-broll:hover {
+  background: #2b2c45;
+  color: #fff;
+}
+
+/* Pexels Key Details */
+.broll-key-details summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #a1a1aa;
+  user-select: none;
+}
+.broll-key-details summary:hover {
+  color: #fff;
+}
+.broll-key-body {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.broll-help-text {
+  font-size: 11.5px;
+  color: #71717a;
+  line-height: 1.4;
+}
+.broll-help-text a {
+  color: #a855f7;
+  text-decoration: underline;
+}
+.broll-key-status {
+  font-size: 11.5px;
+  color: #22c55e;
+}

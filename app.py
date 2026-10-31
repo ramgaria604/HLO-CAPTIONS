@@ -1904,6 +1904,11 @@ def silence():
 
 
 # ------------------------------------------------------------------ b-roll
+@app.get("/api/broll/config")
+def broll_get_config():
+    return jsonify(has_key=bool(pexels_key()))
+
+
 @app.post("/api/broll/config")
 def broll_config():
     key = str((request.get_json(force=True) or {}).get("key", "")).strip()
@@ -2169,12 +2174,13 @@ def broll_search():
     if not q:
         return err("Type what you want to search for.")
     orient = d.get("orientation") if d.get("orientation") in ("portrait", "landscape", "square") else "portrait"
+    key = str(d.get("key", "")).strip() or pexels_key()
     try:
-        return jsonify(results=broll.search(q, pexels_key(), orient))
+        return jsonify(results=broll.search(q, key, orient))
     except RuntimeError as e:
         return err(str(e), 502)
-    except Exception:
-        return err("Could not reach Pexels. Check your internet connection.", 502)
+    except Exception as e:
+        return err(f"Could not reach Pexels: {str(e)}", 502)
 
 
 # ------------------------------------------------------------------ studio voice enhancer
@@ -2255,13 +2261,35 @@ def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None,
     parts = [f"[0:v]scale={W}:{H},setsar=1,format=yuv420p[base0]"]
     for i, b in enumerate(brolls):
         s, e = b["start"], b["end"]
+        layout = b.get("layout", "full")
         fade = min(0.2, (e - s) / 3)
+        if layout == "above":
+            h_half = (H // 2) - ((H // 2) % 2)
+            scale_filter = f"scale={W}:{h_half}:force_original_aspect_ratio=increase,crop={W}:{h_half}"
+            x_pos, y_pos = "0", "0"
+        elif layout == "below":
+            h_half = (H // 2) - ((H // 2) % 2)
+            y_offset = H - h_half
+            scale_filter = f"scale={W}:{h_half}:force_original_aspect_ratio=increase,crop={W}:{h_half}"
+            x_pos, y_pos = "0", f"{y_offset}"
+        elif layout in ("window", "pip"):
+            w_win = int(W * 0.44) - (int(W * 0.44) % 2)
+            h_win = int(H * 0.28) - (int(H * 0.28) % 2)
+            margin_x = int(W * 0.04)
+            margin_y = int(H * 0.05)
+            x_pos = f"{W - w_win - margin_x}"
+            y_pos = f"{margin_y}"
+            scale_filter = f"scale={w_win}:{h_win}:force_original_aspect_ratio=increase,crop={w_win}:{h_win}"
+        else:
+            x_pos, y_pos = "0", "0"
+            scale_filter = f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H}"
+
         parts.append(
             f"[{i + 1}:v]trim=duration={e - s:.3f},setpts=PTS-STARTPTS+{s:.3f}/TB,"
-            f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1,fps={fps},"
+            f"{scale_filter},setsar=1,fps={fps},"
             f"format=yuva420p,fade=t=in:st={s:.3f}:d={fade:.3f}:alpha=1,"
             f"fade=t=out:st={e - fade:.3f}:d={fade:.3f}:alpha=1[b{i}]")
-        parts.append(f"[base{i}][b{i}]overlay=enable='between(t,{s:.3f},{e:.3f})':eof_action=pass[base{i + 1}]")
+        parts.append(f"[base{i}][b{i}]overlay=x={x_pos}:y={y_pos}:enable='between(t,{s:.3f},{e:.3f})':eof_action=pass[base{i + 1}]")
     last = f"base{len(brolls)}"
     if ass_name and person_name:
         # Behind person mode: hero keyword on background, person cutout on top, front subtitles on top of person
@@ -2340,7 +2368,7 @@ def export_worker(job_id, d):
             for b in d.get("broll", []):
                 s, e = remap(float(b["start"])), remap(float(b["end"]))
                 if e - s >= 0.5:
-                    brolls.append({"start": s, "end": e, "url": b["url"], "id": re.sub(r"\W", "", str(b["id"]))})
+                    brolls.append({"start": s, "end": e, "url": b["url"], "id": re.sub(r"\W", "", str(b["id"])), "layout": b.get("layout", "full")})
 
             graphics = d.get("graphics", [])
             if not (keep or caps or brolls or graphics or speed != 1.0 or any(effects.values()) or aspect != "original"):
@@ -2435,7 +2463,8 @@ def export_worker(job_id, d):
                         "start": round(float(b["start"]), 3),
                         "end": round(float(b["end"]), 3),
                         "type": "broll",
-                        "src": b["file"]
+                        "src": b["file"],
+                        "layout": b.get("layout", "full")
                     })
 
                 person_name = None
