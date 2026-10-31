@@ -5429,16 +5429,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             console.warn('Canvas export server packaging error, serving client blob:', netErr);
           }
 
-          const finalUrl = serverDownloadUrl || URL.createObjectURL(recordedBlob);
+          if (!serverDownloadUrl) throw new Error('Server export failed');
+          const finalUrl = serverDownloadUrl;
           updateExportPipeline(3);
           showExportComplete(finalUrl);
           resolve();
         } catch (postErr) {
-          console.warn('save_canvas_export error, using local blob:', postErr);
-          const recordedBlob = new Blob(chunks, { type: chosenMime || 'video/webm' });
-          const directBlobUrl = URL.createObjectURL(recordedBlob);
-          updateExportPipeline(3);
-          showExportComplete(directBlobUrl);
+          console.warn('save_canvas_export error:', postErr);
+          showExportError('Export failed, please try again');
           resolve();
         }
       };

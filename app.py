@@ -2615,8 +2615,9 @@ def save_canvas_export():
             idx += 1
             cmd += ["-stream_loop", "-1", "-i", str(bgm_file)]
 
-        fc = ["[1:v]format=yuva420p[ov];"
-              "[0:v][ov]overlay=0:0:eof_action=pass,"
+        fc = ["[1:v][0:v]scale2ref=flags=bicubic[ovs][bg];"
+              "[ovs]chromakey=0x00FF00:0.18:0.08,format=yuva420p[ov];"
+              "[bg][ov]overlay=0:0:eof_action=pass,"
               "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[vout]"]
 
         if vo_idx is not None:
