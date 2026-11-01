@@ -283,7 +283,7 @@
     if (S.style.roles?.accent) S.style.roles.accent.enter = a;
     if (S.style.roles.base) S.style.roles.base.enter = a;
     syncCaptionAnimationUI(a);
-    const labels = { pop: '💥 Pop & Bounce', slide: '🚀 Slide Up', fade: '✨ Soft Fade', karaoke: '🎤 Karaoke' };
+    const labels = { pop: '💥 Pop & Bounce', 'slide-right': '➡️ Slide Left to Right', slide: '⬆️ Slide Up', fade: '✨ Soft Fade', karaoke: '🎤 Karaoke' };
     if (typeof showToast === 'function') {
       showToast(labels[a] || ('Animation: ' + a));
     }
@@ -300,7 +300,7 @@
     });
     const badge = $('valCaptionAnimBadge');
     if (badge) {
-      const badgeLabels = { pop: 'POP', slide: 'SLIDE UP', fade: 'FADE', karaoke: 'KARAOKE' };
+      const badgeLabels = { pop: 'POP', 'slide-right': 'SLIDE L→R', slide: 'SLIDE UP', fade: 'FADE', karaoke: 'KARAOKE' };
       badge.textContent = badgeLabels[norm] || norm.toUpperCase();
     }
     $('#animGrid .btn-anim-choice').forEach(b => {
@@ -2922,7 +2922,7 @@ function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, 
   return sprite;
 }
 
-function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W, animDy = 0) {
+function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W, animDy = 0, animDx = 0) {
   if (!drawCtx || !cleanWord) return;
   drawCtx.save();
   drawCtx.globalAlpha = (exitAlpha || 1.0);
@@ -2934,9 +2934,9 @@ function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, co
   drawCtx.textBaseline = 'alphabetic';
 
   const cy = drawY + fontSize * 0.45 + animDy;
-  drawCtx.translate(cx, cy);
+  drawCtx.translate(cx + animDx, cy);
   drawCtx.scale(animScale, animScale);
-  drawCtx.translate(-cx, -cy);
+  drawCtx.translate(-(cx + animDx), -cy);
 
   const baseLine = drawY + fontSize * 0.88 + animDy;
 
@@ -3098,7 +3098,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
 
   // Default / Solid look path (SAFETY NET: immediately draws crisp visible text)
   if (heroLook === 'solid') {
-    drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W, animDy);
+    drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W, animDy, animDx);
     drawCtx.globalAlpha = 1.0;
     drawCtx.globalCompositeOperation = 'source-over';
     return;
@@ -3141,13 +3141,13 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   }
 
   const cy = drawY + sprite.textH / 2 + animDy;
-  drawCtx.translate(cx, cy);
+  drawCtx.translate(cx + animDx, cy);
   drawCtx.scale(animScale, animScale);
-  drawCtx.translate(-cx, -cy);
+  drawCtx.translate(-(cx + animDx), -cy);
 
   if (heroLook === 'seeThrough') {
     // Directly draw the translucent see-through glass sprite
-    drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad + animDy);
+    drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad + animDx, drawY - sprite.pad + animDy);
   } else if (isPreviewSmooth) {
     drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
   } else {
@@ -3191,6 +3191,7 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
 
   let alpha = (exitAlpha || 1.0);
   let dy = 0;
+  let dx = 0;
 
   const useLineByLine = S.lineByLine !== false;
   const animMode = S.animation || S.style?.animation || 'pop';
@@ -3226,6 +3227,7 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
   ctxFore.globalAlpha = alpha;
 
   const curY = baselineY + dy;
+  const curX = centerX + dx;
 
   ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
   ctxFore.shadowBlur = 6;
@@ -3235,10 +3237,10 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
   // Strong dark stroke for crystal clear front-line readability on all backgrounds
   ctxFore.lineWidth = 3;
   ctxFore.strokeStyle = 'rgba(0, 0, 0, 0.75)';
-  ctxFore.strokeText(cleanLine, centerX, curY);
+  ctxFore.strokeText(cleanLine, curX, curY);
 
   ctxFore.fillStyle = '#FFFFFF';
-  ctxFore.fillText(cleanLine, centerX, curY);
+  ctxFore.fillText(cleanLine, curX, curY);
 
   ctxFore.restore();
 }
@@ -11283,7 +11285,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     }, 800);
   }
 
-  function showExportComplete(filename) {
+  function showExportComplete(filename, blobData) {
     if (exportElapsedInterval) clearInterval(exportElapsedInterval);
     exportWorkingState.classList.add('hidden');
     exportDoneState.classList.remove('hidden');
@@ -11314,65 +11316,71 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       targetFileName = 'captioned_' + file;
       exportPreviewVideo.src = '/video/' + encodeURIComponent(file);
     }
+
     btnDownloadExport.href = targetDownloadUrl;
     btnDownloadExport.download = targetFileName;
-    btnDownloadExport.target = '_blank';
+    btnDownloadExport.removeAttribute('target'); // NO _blank so browser downloads file instead of opening viewer
 
-    // Robust multi-path download & native file sharing (crucial for Instagram in-app browser)
-    const triggerFileDownload = async (e) => {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      if (!targetDownloadUrl && !window._lastExportedBlob) return;
-
-      // 1. Try Native Web Share API if on mobile device (best for Instagram WebView & Android)
-      const currentBlob = (filename instanceof Blob) ? filename : (window._lastExportedBlob || null);
-      if (currentBlob && navigator.share && navigator.canShare) {
-        try {
-          const shareFile = new File([currentBlob], targetFileName || 'captioned_video.mp4', { type: 'video/mp4' });
-          if (navigator.canShare({ files: [shareFile] })) {
-            await navigator.share({
-              files: [shareFile],
-              title: 'Captioned Video',
-              text: 'Your captioned video is ready!'
-            });
-            return;
-          }
-        } catch (shareErr) {
-          if (shareErr.name === 'AbortError') return; // User simply closed share dialog
-          console.warn('[DOWNLOAD] Web Share failed, trying direct link:', shareErr);
-        }
-      }
-
-      // 2. Standard <a> click download
+    // Helper to force instant direct file download without opening video in black player
+    function forceDirectDownload() {
+      if (!targetDownloadUrl) return;
       try {
         const a = document.createElement('a');
+        a.style.display = 'none';
         a.href = targetDownloadUrl;
         a.download = targetFileName || 'captioned_video.mp4';
-        a.target = '_blank';
-        a.rel = 'noopener';
         document.body.appendChild(a);
         a.click();
         setTimeout(() => {
           try { document.body.removeChild(a); } catch (_) {}
-        }, 500);
-      } catch (aErr) {
-        console.warn('[DOWNLOAD] Direct <a> trigger error:', aErr);
+        }, 800);
+      } catch (err) {
+        console.warn('[DOWNLOAD] Direct file download trigger:', err);
       }
+    }
 
-      // 3. Fallback window.open for in-app browsers
-      try {
-        window.open(targetDownloadUrl, '_blank');
-      } catch (_) {}
+    // Explicit click handler: directly triggers file download
+    btnDownloadExport.onclick = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      forceDirectDownload();
     };
-
-    btnDownloadExport.onclick = triggerFileDownload;
 
     const btnShareExport = $('btnShareExport');
     if (btnShareExport) {
-      btnShareExport.onclick = triggerFileDownload;
+      btnShareExport.onclick = async (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        const currentBlob = blobData || (filename instanceof Blob ? filename : window._lastExportedBlob);
+        if (currentBlob && navigator.share && navigator.canShare) {
+          try {
+            const shareFile = new File([currentBlob], targetFileName || 'captioned_video.mp4', { type: 'video/mp4' });
+            if (navigator.canShare({ files: [shareFile] })) {
+              await navigator.share({
+                files: [shareFile],
+                title: 'Captioned Video',
+                text: 'Your captioned video is ready!'
+              });
+              return;
+            }
+          } catch (shareErr) {
+            if (shareErr.name === 'AbortError') return;
+          }
+        }
+        forceDirectDownload();
+      };
     }
+
+    // AUTOMATIC FAST DOWNLOAD: Trigger file download right after export finishes
+    setTimeout(() => {
+      try {
+        forceDirectDownload();
+      } catch (_) {}
+    }, 300);
 
     exportPreviewVideo.load();
 
