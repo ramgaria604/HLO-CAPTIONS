@@ -305,16 +305,21 @@ html, body {
 }
 
 /* Overlays inside stage: pointer-events none by default, buttons auto (STEP 2 & 6) */
+/* Clean Preview Stage (Hide messy overlays: quality banner, low-res badge, hint, floating gear) */
 .preview-corner-badge,
-.preview-debug-badge,
-.preview-quality-banner {
-  pointer-events: none !important;
-  z-index: var(--z-stage-overlay) !important;
+#previewCornerBadge,
+.preview-quality-banner,
+#previewQualityBanner,
+.preview-permanent-hint,
+#previewPermanentHint,
+.btn-stage-settings,
+#btnStageSettings {
+  display: none !important;
 }
 
-.btn-stage-settings,
-.preview-quality-banner button {
-  pointer-events: auto !important;
+.preview-debug-badge {
+  pointer-events: none !important;
+  z-index: var(--z-stage-overlay) !important;
 }
 
 /* Edit overlay canvas & container (STEP 6) */
@@ -559,83 +564,21 @@ html, body {
 }
 
 /* Compact video templates row (STEP 4) */
-.compact-vtemplate-row {
-  flex-shrink: 0 !important;
-  min-height: 68px !important;
-  height: auto !important;
-  max-height: none !important;
-  flex-wrap: wrap !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 8px 12px !important;
-  margin: 6px 10px 8px 10px !important;
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 10px !important;
-  box-sizing: border-box !important;
-  gap: 8px !important;
+/* Clean Normal Templates Panel (Hide unneeded compact banner, featured carousel, generate button) */
+.compact-vtemplate-row,
+#videoTemplatesCompactRow,
+.featured-templates-section,
+#featuredTemplatesSection,
+.generate-bar {
+  display: none !important;
 }
 
-.compact-vtemplate-info {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 2px !important;
-  min-width: 0 !important;
-  flex: 1 !important;
-}
-
-.compact-vtemplate-badge-row {
-  display: flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-}
-
-.compact-vtemplate-title {
-  font-size: 13.5px !important;
-  font-weight: 700 !important;
-  color: #fff !important;
-  line-height: 1.25 !important;
-}
-
-.compact-vtemplate-sub {
-  font-size: 11px !important;
-  color: #94a3b8 !important;
-  line-height: 1.2 !important;
-}
-
-/* Featured templates row (STEP 4) */
-.featured-templates-section {
-  flex-shrink: 0 !important;
-  padding: 6px 12px 10px 12px !important;
-  box-sizing: border-box !important;
-}
-.featured-templates-scroll {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  gap: 8px !important;
-  padding-bottom: 4px !important;
-}
-.featured-card {
-  flex: 0 0 125px !important;
-  width: 125px !important;
-  min-height: 104px !important;
-  height: auto !important;
-  border-radius: 10px !important;
-  overflow: hidden !important;
-  box-sizing: border-box !important;
-  cursor: pointer !important;
-  touch-action: manipulation !important;
-}
-
-/* All templates grid (STEP 4) */
+/* All templates grid (clean normal layout) */
 .presets-grid {
   display: grid !important;
   grid-template-columns: repeat(2, 1fr) !important;
   gap: 8px !important;
-  padding: 8px 12px calc(96px + env(safe-area-inset-bottom, 16px)) 12px !important;
+  padding: 10px 12px calc(24px + env(safe-area-inset-bottom, 16px)) 12px !important;
   box-sizing: border-box !important;
   flex: 1 1 auto !important;
   width: 100% !important;
