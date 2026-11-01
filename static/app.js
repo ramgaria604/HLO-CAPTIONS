@@ -75,7 +75,7 @@
     speed: 0.6,
     scale: 1.10
   },
-  progressBar: { enabled: true, position: 'bottom' },
+  progressBar: { enabled: false, position: 'bottom' },
   bigType: true,
   heroLook: 'solid',
   lineByLine: true,
@@ -2581,12 +2581,55 @@ function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, 
     fillCtx.drawImage(videoEl, sx, sy, sw, sh, pad - textW * 0.075, pad - textH * 0.075, textW * 1.15, textH * 1.15);
 
     fillCtx.globalCompositeOperation = 'source-atop';
-    fillCtx.globalAlpha = 0.55;
+    fillCtx.globalAlpha = 0.50;
     const tintGrad = fillCtx.createLinearGradient(pad, pad, pad, pad + textH);
     tintGrad.addColorStop(0, hexToRgba(topColor, 1.0));
     tintGrad.addColorStop(1, hexToRgba(bottomColor, 1.0));
     fillCtx.fillStyle = tintGrad;
     fillCtx.fillRect(0, 0, canvasW, canvasH);
+    fillCtx.restore();
+
+    fillCtx.save();
+    fillCtx.lineWidth = Math.max(2, Math.round(fontSize * 0.035));
+    fillCtx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    fillCtx.strokeText(text, pad, baseLine);
+    fillCtx.restore();
+  } else if (heroLook === 'seeThrough') {
+    // GENUINE SEE-THROUGH GLASS LOOK:
+    // Translucent interior so the person/video shows through, with a glowing colored outline!
+    const seeThroughGrad = fillCtx.createLinearGradient(pad, pad, pad, pad + textH);
+    seeThroughGrad.addColorStop(0, hexToRgba(topColor, 0.18));
+    seeThroughGrad.addColorStop(1, hexToRgba(bottomColor, 0.32));
+
+    // 1. Semi-transparent glass fill
+    fillCtx.save();
+    fillCtx.fillStyle = seeThroughGrad;
+    fillCtx.fillText(text, pad, baseLine);
+    fillCtx.restore();
+
+    // 2. High-contrast dark shadow on outline so it pops cleanly on light/dark backgrounds
+    fillCtx.save();
+    fillCtx.shadowColor = 'rgba(0, 0, 0, 0.90)';
+    fillCtx.shadowBlur = Math.round(fontSize * 0.08);
+    fillCtx.shadowOffsetX = 0;
+    fillCtx.shadowOffsetY = Math.round(fontSize * 0.03);
+    fillCtx.lineWidth = Math.max(3, Math.round(fontSize * 0.045));
+    fillCtx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+    fillCtx.strokeText(text, pad, baseLine);
+    fillCtx.restore();
+
+    // 3. Vibrant luminous outline in accent color
+    fillCtx.save();
+    fillCtx.lineWidth = Math.max(2, Math.round(fontSize * 0.035));
+    fillCtx.strokeStyle = topColor;
+    fillCtx.strokeText(text, pad, baseLine);
+    fillCtx.restore();
+
+    // 4. Subtle inner glass sheen
+    fillCtx.save();
+    fillCtx.lineWidth = Math.max(1, Math.round(fontSize * 0.015));
+    fillCtx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+    fillCtx.strokeText(text, pad, baseLine);
     fillCtx.restore();
   } else {
     if (heroLook === 'solid') {
@@ -2858,7 +2901,10 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   drawCtx.scale(animScale, animScale);
   drawCtx.translate(-cx, -cy);
 
-  if (isPreviewSmooth) {
+  if (heroLook === 'seeThrough') {
+    // Directly draw the translucent see-through glass sprite
+    drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
+  } else if (isPreviewSmooth) {
     drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
   } else {
     if (sprite.glowCanvas) {
@@ -5393,6 +5439,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       renderCaptionsList();
     } else if (targetId === 'tabBroll') {
       renderBrollTab();
+    } else if (targetId === 'tabStyle') {
+      if (typeof syncHeroLookUI === 'function') syncHeroLookUI();
+      const chkProgressLine = $('chkBottomProgressLine');
+      if (chkProgressLine) {
+        chkProgressLine.checked = Boolean(S.progressBar && S.progressBar.enabled === true);
+      }
     }
     requestAnimationFrame(() => {
       fitCanvas();
@@ -6704,11 +6756,33 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     $$('#progressBarPosGroup .btn-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         $$('#progressBarPosGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
-        if (!S.progressBar) S.progressBar = { enabled: true, position: 'bottom' };
+        if (!S.progressBar) S.progressBar = { enabled: false, position: 'bottom' };
         S.progressBar.position = btn.getAttribute('data-pos') || 'bottom';
         syncReelProgressBar();
       });
     });
+
+    // Quick Bottom Progress Line switch
+    const chkProgressLine = $('chkBottomProgressLine');
+    if (chkProgressLine) {
+      chkProgressLine.checked = Boolean(S.progressBar && S.progressBar.enabled === true);
+      chkProgressLine.addEventListener('change', () => {
+        if (!S.progressBar) S.progressBar = { enabled: false, position: 'bottom' };
+        S.progressBar.enabled = chkProgressLine.checked;
+        syncReelProgressBar();
+        const badge = $('valProgressBarBadge');
+        if (badge) {
+          badge.textContent = S.progressBar.enabled ? 'Active' : 'Hidden';
+          badge.className = S.progressBar.enabled ? 'val-badge badge-green' : 'val-badge';
+        }
+        $$('#progressBarToggleGroup .btn-toggle').forEach(b => {
+          b.classList.toggle('active', (b.getAttribute('data-progress') === 'on') === S.progressBar.enabled);
+        });
+        showToast('Bottom Progress Line: ' + (S.progressBar.enabled ? 'ON' : 'OFF'));
+      });
+    }
+
+    try { initHeroLookUI(); } catch (_) {}
   }
 
   // ==========================================================================
@@ -9089,7 +9163,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     const bar = $('reelProgressBar');
     const fill = $('reelProgressFill');
     if (!bar || !fill) return;
-    if (!S.progressBar || S.progressBar.enabled === false) {
+    if (!S.progressBar || S.progressBar.enabled !== true) {
       bar.style.display = 'none';
       return;
     }
@@ -9919,7 +9993,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         })();
 
         const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
-        const hasProgressBar = Boolean(S.progressBar && S.progressBar.enabled !== false);
+        const hasProgressBar = Boolean(S.progressBar && S.progressBar.enabled === true);
         const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
         const hasWatermark = Boolean(S.watermark && S.watermark.text && S.watermark.text.trim());
 
@@ -12880,9 +12954,9 @@ function drawPopStudioFrame(ctx, behindCtx, t, W, H, isPreview, videoSource) {
       drawPopTransition(ctx, beat, nextBeat, t, W, H, u);
     }
 
-    // Subtle bottom progress bar
+    // Subtle bottom progress bar (optional, only if enabled)
     const totalDur = vid.duration || S.probe?.duration || 10;
-    if (totalDur > 0) {
+    if (totalDur > 0 && S.progressBar && S.progressBar.enabled === true) {
       const barH = 0.4 * u;
       const prog = Math.min(1.0, Math.max(0, t / totalDur));
       ctx.fillStyle = beat.palette.accent;
@@ -13198,25 +13272,58 @@ function initHeroLookUI() {
   const btnTexture = $('btnHeroLookTexture');
   const btnSolid = $('btnHeroLookSolid');
   const badgeLook = $('valHeroLookBadge');
+  const toggleGroup = $('heroLookToggleGroup');
+
+  function syncHeroLookUI(look) {
+    const cur = look || S.heroLook || (S.style && S.style.heroLook) || 'solid';
+    if (btnSeeThrough) btnSeeThrough.classList.toggle('active', cur === 'seeThrough');
+    if (btnTexture) btnTexture.classList.toggle('active', cur === 'texture');
+    if (btnSolid) btnSolid.classList.toggle('active', cur === 'solid');
+    if (badgeLook) {
+      badgeLook.textContent = cur.toUpperCase();
+      badgeLook.className = 'val-badge ' + (cur === 'solid' ? 'badge-gray' : 'badge-green');
+    }
+  }
 
   function setHeroLook(look) {
+    if (!look) return;
     S.heroLook = look;
     if (S.style) S.style.heroLook = look;
-    if (btnSeeThrough) btnSeeThrough.classList.toggle('active', look === 'seeThrough');
-    if (btnTexture) btnTexture.classList.toggle('active', look === 'texture');
-    if (btnSolid) btnSolid.classList.toggle('active', look === 'solid');
-    if (badgeLook) {
-      badgeLook.textContent = look.toUpperCase();
-      badgeLook.className = 'val-badge ' + (look === 'solid' ? 'badge-gray' : 'badge-green');
+    syncHeroLookUI(look);
+    if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache.clear) {
+      _heroSpriteCache.clear();
     }
-    _heroSpriteCache.clear();
-    showToast('Hero look: ' + look);
+    showToast('✨ Hero look: ' + (look === 'seeThrough' ? 'See-Through' : (look === 'texture' ? 'Texture' : 'Solid')));
     renderCanvas(true);
   }
 
-  if (btnSeeThrough) btnSeeThrough.addEventListener('click', () => setHeroLook('seeThrough'));
-  if (btnTexture) btnTexture.addEventListener('click', () => setHeroLook('texture'));
-  if (btnSolid) btnSolid.addEventListener('click', () => setHeroLook('solid'));
+  window.syncHeroLookUI = syncHeroLookUI;
+  window.setHeroLook = setHeroLook;
+
+  if (toggleGroup) {
+    const onSelect = (e) => {
+      const btn = e.target.closest('.btn-toggle[data-look]');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const look = btn.getAttribute('data-look');
+      if (look) setHeroLook(look);
+    };
+    toggleGroup.addEventListener('click', onSelect);
+    toggleGroup.addEventListener('pointerup', onSelect);
+  }
+
+  [btnSeeThrough, btnTexture, btnSolid].forEach(btn => {
+    if (!btn) return;
+    const onBtn = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const look = btn.getAttribute('data-look');
+      if (look) setHeroLook(look);
+    };
+    btn.addEventListener('click', onBtn);
+    btn.addEventListener('pointerup', onBtn);
+  });
 
   const chkLineByLine = $('chkLineByLine');
   if (chkLineByLine) {
@@ -13239,11 +13346,15 @@ function initHeroLookUI() {
       if (badge) {
         badge.textContent = color === 'auto' ? 'AUTO ROTATION' : color.toUpperCase();
       }
-      _heroSpriteCache.clear();
+      if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache.clear) {
+        _heroSpriteCache.clear();
+      }
       showToast('Real Estate Color: ' + (color === 'auto' ? 'Auto Rotation' : color.toUpperCase()));
       renderCanvas(true);
     });
   });
+
+  syncHeroLookUI();
 }
 
   // ==========================================================================

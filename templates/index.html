@@ -13,8 +13,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bangers&family=Bebas+Neue&family=Bowlby+One&family=Bungee&family=Cinzel:wght@700;900&family=Cormorant+Garamond:wght@700&family=DM+Serif+Display&family=Fredoka:wght@600;700&family=Great+Vibes&family=Inter:wght@400;500;600;700;800;900&family=Lobster&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Outfit:wght@700;800&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:wght@700;900&family=Poppins:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Raleway:wght@700;800&family=Righteous&family=Rubik:wght@700;800;900&family=Shrikhand&family=Space+Mono:wght@700&family=Syne:wght@700;800&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=5.3.0">
-  <link rel="stylesheet" href="/static/layout.css?v=5.3.0">
+  <link rel="stylesheet" href="/static/style.css?v=5.4.0">
+  <link rel="stylesheet" href="/static/layout.css?v=5.4.0">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -270,7 +270,7 @@
             <div id="brollStageLayer" class="broll-stage-layer hidden">
               <video id="brollVid" playsinline muted preload="auto" crossorigin="anonymous" disablepictureinpicture></video>
             </div>
-            <div id="reelProgressBar" class="reel-progress-bar">
+            <div id="reelProgressBar" class="reel-progress-bar" style="display: none;">
               <div id="reelProgressFill" class="reel-progress-fill"></div>
             </div>
             <!-- STACKED COMPOSITING CANVASES: Behind (2) -> Cutout (3) -> Fore (4) -->
@@ -776,6 +776,18 @@
                 <p class="voiceover-help">Animate top line, hero word, and bottom line sequentially as spoken words arrive.</p>
               </div>
 
+              <!-- Bottom Progress Line Toggle (Optional) -->
+              <div class="control-card" id="cardProgressLine">
+                <div class="control-header">
+                  <label>📊 Bottom Progress Line</label>
+                  <label class="switch-toggle">
+                    <input type="checkbox" id="chkBottomProgressLine">
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <p class="voiceover-help">Optional animated progress line running across the bottom of the video.</p>
+              </div>
+
               <!-- Real Estate Clr Palette Dots -->
               <div class="control-card" id="cardRealEstateColors">
                 <div class="control-header">
@@ -1073,12 +1085,12 @@
               <div class="control-card">
                 <div class="control-header">
                   <label>📊 Reel Progress Bar</label>
-                  <span id="valProgressBarBadge" class="val-badge badge-green">Active</span>
+                  <span id="valProgressBarBadge" class="val-badge badge-gray">Hidden</span>
                 </div>
                 <p class="voiceover-help">Animated neon progress line running across the bottom or top of the video.</p>
                 <div class="btn-group" id="progressBarToggleGroup" style="margin-bottom: 8px;">
-                  <button type="button" class="btn-toggle active" data-progress="on">Progress Bar: ON</button>
-                  <button type="button" class="btn-toggle" data-progress="off">Progress Bar: OFF</button>
+                  <button type="button" class="btn-toggle" data-progress="on">Progress Bar: ON</button>
+                  <button type="button" class="btn-toggle active" data-progress="off">Progress Bar: OFF</button>
                 </div>
                 <div class="broll-orient-row">
                   <span class="broll-orient-label">Position:</span>
@@ -1782,6 +1794,6 @@
     window.MediaPipeVision = { FilesetResolver, ImageSegmenter };
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=5.3.0"></script>
+  <script src="/static/app.js?v=5.4.0"></script>
 </body>
 </html>

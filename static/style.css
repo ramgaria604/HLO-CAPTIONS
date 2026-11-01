@@ -3572,33 +3572,22 @@ button {
 /* Toast */
 
 .toast-notification {
-
   position: fixed;
-
-  top: 60px;
-
+  top: auto;
+  bottom: 80px;
   left: 50%;
-
   transform: translateX(-50%);
-
   background: rgba(16, 185, 129, 0.9);
-
   color: #ffffff;
-
   font-size: 13px;
-
   font-weight: 700;
-
   padding: 8px 18px;
-
   border-radius: var(--radius-full);
-
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-
   z-index: 200;
-
+  max-width: min(90vw, 420px);
+  height: auto;
   animation: fadeInDown 0.25s ease-out;
-
 }
 
 

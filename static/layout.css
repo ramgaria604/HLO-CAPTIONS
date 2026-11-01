@@ -799,9 +799,15 @@ html, body {
 
 .toast-notification {
   position: fixed !important;
+  top: auto !important;
   bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
+  width: auto !important;
+  max-width: min(90vw, 420px) !important;
+  height: auto !important;
+  padding: 10px 20px !important;
+  border-radius: 9999px !important;
   z-index: var(--z-toast) !important;
   pointer-events: none !important;
 }
