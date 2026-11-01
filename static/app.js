@@ -5019,9 +5019,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
 
     $$('.bottom-nav-btn[data-tab]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const targetId = btn.getAttribute('data-tab');
-        openDrawerTab(targetId);
+        if (S.drawerOpen && S.activeTab === targetId) {
+          closeDrawer();
+        } else {
+          openDrawerTab(targetId);
+        }
       });
     });
 
@@ -5132,7 +5137,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.drawerOpen = true;
     drawerPanel.classList.remove('collapsed');
     drawerPanel.removeAttribute('hidden');
-    drawerPanel.style.display = 'flex';
+    drawerPanel.style.setProperty('display', 'flex', 'important');
     const eb = $('editorBody') || $('.editor-body');
     if (eb) eb.classList.add('drawer-open');
 
@@ -5147,10 +5152,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       p.classList.toggle('hidden', !isActive);
       if (!isActive) {
         p.setAttribute('hidden', '');
-        p.style.display = 'none';
+        p.style.setProperty('display', 'none', 'important');
       } else {
         p.removeAttribute('hidden');
-        p.style.display = 'flex';
+        p.style.setProperty('display', 'flex', 'important');
       }
     });
 
@@ -5181,7 +5186,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     drawerPanel.classList.add('collapsed');
     drawerPanel.classList.remove('fullscreen');
     drawerPanel.setAttribute('hidden', '');
-    drawerPanel.style.display = 'none';
+    drawerPanel.style.setProperty('display', 'none', 'important');
     const eb = $('editorBody') || $('.editor-body');
     if (eb) eb.classList.remove('drawer-open');
     $$('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
