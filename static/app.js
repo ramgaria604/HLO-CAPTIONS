@@ -3836,7 +3836,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function renderFrontShowcasePresets(filterCat = 'all') {
     const grid = $('frontPresetGrid') || $('duoPresetGrid');
     if (!grid) return;
-    grid.replaceChildren();
+    grid.innerHTML = '';
 
     const filtered = filterCat === 'all'
       ? S.presets
@@ -3859,8 +3859,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (countPill) countPill.textContent = `${filtered.length} STYLES`;
 
     const selectedName = $('frontSelectedName') || $('duoSelectedName');
-    if (selectedName && S.style) {
-      selectedName.textContent = S.style.name.replace(/^Duo\s*[·-]\s*/i, '');
+    if (selectedName) {
+      const activeName = (S.style && S.style.name) || (filtered[0] && filtered[0].name) || 'Yellow Box Pop';
+      selectedName.textContent = activeName.replace(/^Duo\s*[·-]\s*/i, '');
     }
 
     if (!filtered.length) {
@@ -3890,12 +3891,31 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   async function loadPresets() {
+    // 1. Instant cache load: render immediately so screen is never blank
+    try {
+      const cached = JSON.parse(localStorage.getItem('cs_presets_cache') || 'null');
+      if (Array.isArray(cached) && cached.length > 0) {
+        S.presets = cached;
+        renderFrontShowcasePresets('all');
+        setupFrontCategoryPills();
+        const initial = S.presets.find(p => p.isDuo) || S.presets[0];
+        if (initial && !S.style) applyPreset(initial, false);
+        renderPresetsTab('all');
+      }
+    } catch (_) {}
+
+    // 2. Fetch authoritative presets from server
     try {
       const res = await fetch('/api/presets');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
-      S.presets = data.presets || [];
+      const serverPresets = data.presets || [];
+      if (serverPresets.length > 0) {
+        S.presets = serverPresets;
+        try { localStorage.setItem('cs_presets_cache', JSON.stringify(serverPresets)); } catch (_) {}
+      }
 
-      // Merge locally saved custom presets. Server supplied Duo presets are authoritative.
+      // Merge locally saved custom presets
       try {
         const stored = JSON.parse(localStorage.getItem('cs_presets') || '[]');
         if (Array.isArray(stored) && stored.length > 0) {
@@ -3933,17 +3953,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
       renderPresetsTab('all');
     } catch (e) {
-      console.warn('Failed to load presets, using default:', e);
-      applyPreset({
-        id: 'box_pop',
-        name: 'Box Pop Classic',
-        highlightColor: '#FFE600',
-        key: { font: 'Poppins', color: '#FFE600', bold: true },
-        filler: { font: 'Poppins', color: '#FFFFFF' },
-        position: 0.75,
-        fontScale: 1.0,
-      }, false);
-      renderDuoFrontPresets();
+      console.warn('Failed to load server presets, using fallback:', e);
+      if (!S.presets || S.presets.length === 0) {
+        // Fallback core presets if network failed on first load
+        S.presets = [
+          { id: 'yellow_box', name: 'Yellow Box Pop', category: 'box', highlightColor: '#FFE600', key: { font: 'Poppins', color: '#FFE600', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0, pill: '#FFE600' },
+          { id: 'box_pop', name: 'Box Pop Classic', category: 'box', highlightColor: '#FFE600', key: { font: 'Poppins', color: '#FFE600', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 },
+          { id: 'duo_sunset', name: 'Duo Sunset Pop', isDuo: true, category: 'duo', highlightColor: '#FF6B00', key: { font: 'Poppins', color: '#FF6B00', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 },
+          { id: 'neon_cyan', name: 'Electric Cyan Glow', category: 'neon', highlightColor: '#00F0FF', key: { font: 'Poppins', color: '#00F0FF', bold: true, glow: '#00F0FF' }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 },
+          { id: 'special_03', name: 'Real Estate Clr', category: 'real-estate', highlightColor: '#2EE6A6', key: { font: 'Poppins', color: '#2EE6A6', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 }
+        ];
+      }
+      const initial = S.presets[0];
+      applyPreset(initial, false);
+      renderFrontShowcasePresets('all');
+      setupFrontCategoryPills();
+      renderPresetsTab('all');
     }
   }
 
@@ -5004,9 +5029,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       toggleTimelineView();
     });
 
-    btnDrawerClose.addEventListener('click', () => {
-      closeDrawer();
-    });
+    if (btnDrawerClose) {
+      const handleClose = (e) => {
+        if (e) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+        closeDrawer();
+      };
+      btnDrawerClose.addEventListener('click', handleClose);
+      btnDrawerClose.addEventListener('touchend', handleClose);
+    }
 
     btnDrawerExpand.addEventListener('click', () => {
       toggleDrawerFullscreen();
@@ -5098,6 +5131,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.activeTab = targetId;
     S.drawerOpen = true;
     drawerPanel.classList.remove('collapsed');
+    drawerPanel.removeAttribute('hidden');
+    drawerPanel.style.display = 'flex';
     const eb = $('editorBody') || $('.editor-body');
     if (eb) eb.classList.add('drawer-open');
 
@@ -5144,10 +5179,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (iconChevron) iconChevron.style.transform = 'rotate(180deg)';
     S.drawerOpen = false;
     drawerPanel.classList.add('collapsed');
+    drawerPanel.classList.remove('fullscreen');
+    drawerPanel.setAttribute('hidden', '');
+    drawerPanel.style.display = 'none';
     const eb = $('editorBody') || $('.editor-body');
     if (eb) eb.classList.remove('drawer-open');
     $$('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
-    btnToggleTimeline.classList.add('active');
+    if (btnToggleTimeline) btnToggleTimeline.classList.add('active');
     requestAnimationFrame(() => {
       fitCanvas();
       try { renderCanvas(true); } catch (_) {}
