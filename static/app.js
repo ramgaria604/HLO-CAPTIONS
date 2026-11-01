@@ -4016,14 +4016,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function showView(viewId) {
     if (viewId === 'viewEditor') {
       viewUpload.classList.add('hidden');
+      viewUpload.classList.remove('active');
       viewEditor.classList.remove('hidden');
+      viewEditor.classList.add('active');
       document.body.classList.add('editor-active');
       document.body.classList.remove('view-upload-active');
       const eb = $('editorBody') || $('.editor-body');
       if (eb && S.drawerOpen) eb.classList.add('drawer-open');
-      fitCanvas();
-      renderTimeline();
-      renderCaptionsList();
+      try { fitCanvas(); } catch (_) {}
+      try { renderTimeline(); } catch (_) {}
+      try { renderCaptionsList(); } catch (_) {}
       const dragHint = $('captionDragHint');
       if (dragHint) dragHint.classList.toggle('hidden', !S.captions.length);
 
@@ -4033,7 +4035,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
     } else {
       viewEditor.classList.add('hidden');
+      viewEditor.classList.remove('active');
       viewUpload.classList.remove('hidden');
+      viewUpload.classList.add('active');
       document.body.classList.remove('editor-active');
       document.body.classList.add('view-upload-active');
       vid.pause();
@@ -4224,6 +4228,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   async function startTranscription() {
+    if (S.isTranscribing) return;
+    S.isTranscribing = true;
     const lang = langSelect.value;
     const pastedScript = scriptInput.value.trim();
 
@@ -4317,6 +4323,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     } catch (err) {
       clearInterval(progressInterval);
       showUploadError(err.message);
+    } finally {
+      S.isTranscribing = false;
     }
   }
 
