@@ -341,6 +341,15 @@ def fonts_css():
             names = {f"{family} {style}"}
         for n in names:
             css.append(f"@font-face{{font-family:'{n}';src:url('/fonts/{p.name}');font-display:swap}}")
+        # Direct family alias for Poppins weights and styles
+        low = p.name.lower()
+        if "poppins" in low:
+            if "extrabolditalic" in low:
+                css.append(f"@font-face{{font-family:'Poppins';font-weight:800;font-style:italic;src:url('/fonts/{p.name}');font-display:swap}}")
+            elif "extrabold" in low:
+                css.append(f"@font-face{{font-family:'Poppins';font-weight:800;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+            elif "semibold" in low:
+                css.append(f"@font-face{{font-family:'Poppins';font-weight:600;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
     _FONTS_CSS_CACHE = "\n".join(css)
     return _FONTS_CSS_CACHE, 200, {"Content-Type": "text/css"}
 

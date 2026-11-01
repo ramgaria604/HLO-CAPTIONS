@@ -1777,9 +1777,20 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
     // Only accept words scoring >= 400 that are strictly not in the stopword list
     const validCandidates = ranked.filter(c => c.score >= 400 && !REAL_ESTATE_STOPWORDS.has(c.clean));
-    const hasValidHeroWord = validCandidates.length > 0;
+    
+    // Fallback: ALWAYS ensure every caption has a hero candidate so big words are NEVER missing!
+    let heroCandidate = validCandidates[0];
+    if (!heroCandidate && candidates.length > 0) {
+      const nonStop = candidates.filter(c => !REAL_ESTATE_STOPWORDS.has(c.clean)).sort((a, b) => b.score - a.score);
+      if (nonStop.length > 0) {
+        heroCandidate = nonStop[0];
+      } else {
+        const byLength = candidates.slice().sort((a, b) => b.clean.length - a.clean.length);
+        heroCandidate = byLength[0];
+      }
+    }
+    const hasValidHeroWord = Boolean(heroCandidate);
 
-    const heroCandidate = hasValidHeroWord ? validCandidates[0] : null;
     const heroIdx = heroCandidate ? heroCandidate.idx : -1;
     const heroWord = heroCandidate ? heroCandidate.word : null;
     const rawHeroText = heroWord ? (heroWord.t || heroWord.word || '') : '';
@@ -1795,16 +1806,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       console.log('[HERO PICK]', capIdx, chosenWord, candidateSummary);
     }
 
-    // ALL words before heroIdx
+    // ALL words before heroIdx stay in chronological order in topWords
     let topWords = heroIdx > 0 ? words.slice(0, heroIdx) : [];
-    // ALL words after heroIdx
+    // ALL words after heroIdx stay in chronological order in bottomWords
     let bottomWords = heroIdx >= 0 && heroIdx < words.length - 1 ? words.slice(heroIdx + 1) : [];
-
-    // Requirement 7: If the bottom line is only one word, merge it into the top line
-    if (bottomWords.length === 1) {
-      topWords = topWords.concat(bottomWords);
-      bottomWords = [];
-    }
 
     const topLines = [];
     if (topWords.length >= 3) {
@@ -2051,7 +2056,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           const curY = startTopY + lineIdx * topLineSpacing;
           const lineStart = (lineChunk[0] && typeof lineChunk[0].s === 'number') ? lineChunk[0].s : cap.start;
           if (S.heroLook !== 'solid' || S.lineByLine !== false) {
-            renderUnifiedSmallLine(ctxFore, lineText, W / 2, curY, smallFontSize, exitAlpha, t, lineStart, true);
+            renderUnifiedSmallLine(ctxFore, lineText, W / 2, curY + smallFontSize * 0.75, smallFontSize, exitAlpha, t, lineStart, true, showAll);
           } else {
             const topAlpha = (showAll ? 1.0 : Math.min(1.0, stTime / 0.12)) * exitAlpha;
             drawBigTypeSmallLine(ctxFore, lineText.toUpperCase(), W / 2, curY, smallFontSize, W, H, topAlpha);
@@ -2236,7 +2241,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           const curLineY = startBottomY + lineIdx * bottomLineSpacing;
           const lineStart = (lineChunk[0] && typeof lineChunk[0].s === 'number') ? lineChunk[0].s : cap.start;
           if (S.heroLook !== 'solid' || S.lineByLine !== false) {
-            renderUnifiedSmallLine(ctxFore, lineText, W / 2, curLineY, smallFontSize, exitAlpha, t, lineStart, false);
+            renderUnifiedSmallLine(ctxFore, lineText, W / 2, curLineY + smallFontSize * 0.75, smallFontSize, exitAlpha, t, lineStart, false, showAll);
           } else {
             const lineAlpha = (showAll ? 1.0 : Math.min(1.0, stTime / 0.12)) * exitAlpha;
             drawBigTypeSmallLine(ctxFore, lineText.toUpperCase(), W / 2, curLineY, smallFontSize, W, H, lineAlpha);
@@ -2529,15 +2534,12 @@ function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, 
 
   const baseLine = pad + fontSize * 0.88;
 
-  let topAlpha = 0.95;
-  let bottomAlpha = 0.45;
+  let topAlpha = 1.0;
+  let bottomAlpha = (lum > 0.6) ? 0.85 : 0.65;
   let topColor = colors.top;
   const bottomColor = colors.bottom;
 
-  if (lum > 0.6) {
-    topAlpha = 1.0;
-    bottomAlpha = 0.75;
-  } else if (lum < 0.30) {
+  if (lum < 0.30) {
     topColor = brightenHex(colors.top, 15);
   }
 
@@ -2574,12 +2576,17 @@ function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, 
     grad.addColorStop(0, hexToRgba(topColor, topAlpha));
     grad.addColorStop(1, hexToRgba(bottomColor, bottomAlpha));
 
+    fillCtx.save();
+    fillCtx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+    fillCtx.shadowBlur = Math.round(fontSize * 0.08);
+    fillCtx.shadowOffsetY = Math.round(fontSize * 0.03);
     fillCtx.fillStyle = grad;
     fillCtx.fillText(text, pad, baseLine);
+    fillCtx.restore();
 
-    // Faint 1 px DARKER edge at 25% alpha (NO white or light outline anywhere on hero)
-    fillCtx.lineWidth = 1;
-    fillCtx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+    // Dark edge definition for high contrast readability
+    fillCtx.lineWidth = Math.max(1, Math.round(fontSize * 0.02));
+    fillCtx.strokeStyle = 'rgba(0, 0, 0, 0.40)';
     fillCtx.strokeText(text, pad, baseLine);
   }
 
@@ -2799,14 +2806,14 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
 
   const curY = baselineY + dy;
 
-  ctxFore.shadowColor = 'rgba(0, 0, 0, 0.45)';
-  ctxFore.shadowBlur = 4;
+  ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
+  ctxFore.shadowBlur = 6;
   ctxFore.shadowOffsetX = 0;
   ctxFore.shadowOffsetY = 2;
 
-  // Thin dark stroke (2px at 35% alpha) for readability on bright backgrounds, NO pill
-  ctxFore.lineWidth = 2;
-  ctxFore.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+  // Strong dark stroke for crystal clear front-line readability on all backgrounds
+  ctxFore.lineWidth = 3;
+  ctxFore.strokeStyle = 'rgba(0, 0, 0, 0.75)';
   ctxFore.strokeText(cleanLine, centerX, curY);
 
   ctxFore.fillStyle = '#FFFFFF';
@@ -8150,10 +8157,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         )
       );
 
+      const isShowAll = Boolean(vid.paused || !vid.duration || showAll);
       // Requirement 8: Stacked canvases - hero text (behindCanvas) -> personCutout (personCanvas) -> front text (captionCanvas)
       if (isBehind && activeCap && segmenterInstance && vid.readyState >= 2) {
         // Draw typography: front lines to ctx, behind words to behindCtx
-        drawCanvasTypography(ctx, behindCtx || ctx, activeCap, words, t, S.style || {}, w, h, true, false, isPreview);
+        drawCanvasTypography(ctx, behindCtx || ctx, activeCap, words, t, S.style || {}, w, h, true, isShowAll, isPreview);
 
         // Throttled segmentation
         if (!vid.paused) {
@@ -8204,7 +8212,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         if (isBehind && activeCap && !segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
           ensureSegmenterLoaded().catch(() => {});
         }
-        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false, isPreview);
+        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, isShowAll, isPreview);
         drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
       }
 
