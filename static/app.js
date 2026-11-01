@@ -4977,19 +4977,33 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (dur <= 0) return;
 
     // Dynamically pad ribbon so 0.0s and dur align exactly with the center red playhead (50%)
-    const containerW = timelineScrollContainer ? timelineScrollContainer.clientWidth : 360;
-    const halfW = containerW / 2;
+    const containerW = (timelineScrollContainer && timelineScrollContainer.clientWidth > 0)
+      ? timelineScrollContainer.clientWidth
+      : ((timelineTrackWrap && timelineTrackWrap.clientWidth > 0)
+          ? timelineTrackWrap.clientWidth
+          : (window.innerWidth || 360));
+    const halfW = Math.round(containerW / 2);
+    const trackWidth = Math.ceil(dur * pxPerSec);
+
     if (timelineRibbon) {
       timelineRibbon.style.paddingLeft = halfW + 'px';
       timelineRibbon.style.paddingRight = halfW + 'px';
+      timelineRibbon.style.boxSizing = 'content-box';
+      timelineRibbon.style.width = trackWidth + 'px';
+      timelineRibbon.style.minWidth = trackWidth + 'px';
     }
 
-    // Ribbon track width expands sideways based on video duration
-    const trackWidth = Math.ceil(dur * pxPerSec);
-    timelineLane.style.width = trackWidth + 'px';
-    timelineRuler.style.width = trackWidth + 'px';
-    if (timelineRibbon) {
-      timelineRibbon.style.width = trackWidth + 'px';
+    // Explicit end spacer guaranteed to extend scrollWidth so the last frame reaches center needle
+    let endSpacer = $('timelineEndSpacer');
+    if (!endSpacer && timelineRibbon) {
+      endSpacer = document.createElement('div');
+      endSpacer.id = 'timelineEndSpacer';
+      endSpacer.style.cssText = 'position:absolute;top:0;height:1px;pointer-events:none;opacity:0;';
+      timelineRibbon.appendChild(endSpacer);
+    }
+    if (endSpacer) {
+      endSpacer.style.left = (trackWidth + halfW - 2) + 'px';
+      endSpacer.style.width = '2px';
     }
 
     // Main Video Track (A-Roll) below captions
@@ -5404,8 +5418,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     $$('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
     if (btnToggleTimeline) btnToggleTimeline.classList.add('active');
     requestAnimationFrame(() => {
-      fitCanvas();
-      try { renderCanvas(true); } catch (_) {}
+      requestAnimationFrame(() => {
+        fitCanvas();
+        renderTimeline();
+        syncTimelinePlayhead();
+        try { renderCanvas(true); } catch (_) {}
+      });
     });
   }
 
@@ -8326,15 +8344,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       );
 
       if (isPopStudio) {
-        const popBeat = getPopBeatAtTime(t, S.captions);
-        const isCardScene = Boolean(popBeat && (popBeat.scene === 'S2' || popBeat.scene === 'S4' || popBeat.scene === 'S5'));
-        if (isCardScene) {
-          if (vid.style.opacity !== '0') vid.style.opacity = '0';
-        } else {
-          if (vid.style.opacity !== '1') vid.style.opacity = '1';
-        }
-
-        drawPopStudioFrame(ctx, behindCtx || ctx, t, w, h, isPreview, isCardScene ? vid : null);
+        if (vid && vid.style.opacity !== '1') vid.style.opacity = '1';
+        drawPopStudioFrame(ctx, behindCtx || ctx, t, w, h, isPreview, null);
         drawWatermark(ctx, w, h);
 
         if (isPreview) {
@@ -9238,6 +9249,28 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
     btnExport.addEventListener('click', () => { updateQualityPillsUI(); startExport(); });
 
+  function restoreEditorAfterExport() {
+    try {
+      if (typeof vid !== 'undefined' && vid) {
+        vid.style.opacity = '1';
+      }
+      if (captionCanvas) {
+        const cCtx = captionCanvas.getContext('2d');
+        if (cCtx) cCtx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
+      }
+      if (behindCanvas) {
+        const bCtx = behindCanvas.getContext('2d');
+        if (bCtx) bCtx.clearRect(0, 0, behindCanvas.width, behindCanvas.height);
+      }
+      if (personCanvas) {
+        const pCtx = personCanvas.getContext('2d');
+        if (pCtx) pCtx.clearRect(0, 0, personCanvas.width, personCanvas.height);
+      }
+      renderCanvas(true);
+      syncTimelinePlayhead();
+    } catch (_) {}
+  }
+
     btnCloseExportModal.addEventListener('click', () => {
       modalExport.classList.add('hidden');
       if (activeDirectExport) {
@@ -9247,6 +9280,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       if (S.exportTimer) clearInterval(S.exportTimer);
       if (exportElapsedInterval) clearInterval(exportElapsedInterval);
       stopTitleFlash();
+      restoreEditorAfterExport();
     });
 
     btnRetryExport.addEventListener('click', startExport);
@@ -10286,6 +10320,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         } catch (_) {}
         wakeLock = null;
       }
+      restoreEditorAfterExport();
     }
   }
 
@@ -12612,68 +12647,24 @@ function drawPopSceneS4(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource)
  * Draw S5 B-Roll Cutaway Scene (Phase 2)
  */
 function drawPopSceneS5(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource) {
-  const p = beat.palette;
   const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
-
-  // If active B-roll element exists and has frame data:
   let brollEl = null;
   if (activeBroll) {
     brollEl = (typeof brollElements !== 'undefined' && brollElements[activeBroll.id]) ? brollElements[activeBroll.id] : $('brollVid');
   }
 
-  if (!brollEl || (brollEl.readyState && brollEl.readyState < 2)) {
-    // Fallback to S1 full frame
-    drawPopSceneS1(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource);
-    return;
+  // Draw full frame B-roll or original video (never crop into an occluding card/capsule)
+  if (brollEl && brollEl.readyState && brollEl.readyState >= 2) {
+    drawCoverVideo(ctx, brollEl, 0, 0, W, H);
+  } else if (videoSource) {
+    drawCoverVideo(ctx, videoSource, 0, 0, W, H);
   }
 
-  // 1. Diagonal gradient background
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, p.bgA);
-  grad.addColorStop(1, p.bgB);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
+  // Title sticker centered at ~60%
+  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.60, u, W);
 
-  // 2. B-Roll in center rounded card (84% frame width, 4:5 aspect)
-  const cardW = W * 0.84;
-  const cardH = cardW * 1.25;
-  const cardX = (W - cardW) / 2;
-  const cardY = H * 0.28;
-  const rad = 5.0 * u;
-  const shadowOff = 2.0 * u;
-
-  // Hard shadow
-  ctx.fillStyle = p.ink;
-  ctx.beginPath();
-  ctx.roundRect ? ctx.roundRect(cardX + shadowOff, cardY + shadowOff, cardW, cardH, rad) : ctx.rect(cardX + shadowOff, cardY + shadowOff, cardW, cardH);
-  ctx.fill();
-
-  // B-roll video inside card with clipping
-  ctx.save();
-  ctx.beginPath();
-  ctx.roundRect ? ctx.roundRect(cardX, cardY, cardW, cardH, rad) : ctx.rect(cardX, cardY, cardW, cardH);
-  ctx.clip();
-  drawCoverVideo(ctx, brollEl, cardX, cardY, cardW, cardH);
-  ctx.restore();
-
-  // Card outline
-  ctx.strokeStyle = p.ink;
-  ctx.lineWidth = 0.9 * u;
-  ctx.beginPath();
-  ctx.roundRect ? ctx.roundRect(cardX, cardY, cardW, cardH, rad) : ctx.rect(cardX, cardY, cardW, cardH);
-  ctx.stroke();
-
-  // 3. Speaker circular bubble overlapping bottom-right corner
-  const bubDiam = W * 0.28;
-  const bubX = cardX + cardW - bubDiam * 0.85;
-  const bubY = cardY + cardH - bubDiam * 0.65;
-  drawSpeakerBubble(ctx, videoSource, bubX, bubY, bubDiam, u, p);
-
-  // 4. Title sticker at top (14%)
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.14, u, W);
-
-  // 5. Karaoke at bottom (82%)
-  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.82, u, W);
+  // Subtitles / karaoke line at ~76%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.76, u, W);
 }
 
 /**
@@ -12774,92 +12765,16 @@ function drawPopSceneS1(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource)
  * S2 CARD ON COLOR Scene
  */
 function drawPopSceneS2(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource) {
-  const p = beat.palette;
-  const tau = Math.max(0, t - beat.start);
-
-  // 1. Diagonal gradient background (bgA -> bgB)
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, p.bgA);
-  grad.addColorStop(1, p.bgB);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  // 2. Dot grid (dots 0.5u at 12% opacity, spaced 5u, drifting 2u/sec)
-  const dotRad = 0.5 * u;
-  const dotGap = 5.0 * u;
-  const drift = (tau * 2.0 * u) % dotGap;
-
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-  for (let x = -dotGap + drift; x <= W + dotGap; x += dotGap) {
-    for (let y = 0; y <= H; y += dotGap) {
-      ctx.beginPath();
-      ctx.arc(x, y, dotRad, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  // 3. Rounded card: 84% width, ~4:5 aspect, top at 34%
-  const cardW = W * 0.84;
-  const cardH = cardW * 1.25;
-  const cardX = (W - cardW) / 2;
-  const cardY = H * 0.34;
-  const rad = 5.0 * u;
-  const shadowOff = 2.0 * u;
-
-  // Card tilt: animates from -4 deg to -1.5 deg over 0.4s, then sways +/-0.6 deg
-  let tilt = -1.5 * (Math.PI / 180);
-  if (tau < 0.40) {
-    tilt = (-4.0 + 2.5 * popEaseOutBack(tau / 0.40)) * (Math.PI / 180);
-  } else {
-    tilt += Math.sin((tau - 0.40) * 1.0 * 2 * Math.PI) * 0.6 * (Math.PI / 180);
-  }
-
-  const cardCenterX = cardX + cardW / 2;
-  const cardCenterY = cardY + cardH / 2;
-
-  ctx.save();
-  ctx.translate(cardCenterX, cardCenterY);
-  ctx.rotate(tilt);
-  ctx.translate(-cardCenterX, -cardCenterY);
-
-  // Hard shadow
-  ctx.fillStyle = p.ink;
-  ctx.beginPath();
-  ctx.roundRect ? ctx.roundRect(cardX + shadowOff, cardY + shadowOff, cardW, cardH, rad) : ctx.rect(cardX + shadowOff, cardY + shadowOff, cardW, cardH);
-  ctx.fill();
-
-  // Video inside card with clipping
-  ctx.save();
-  ctx.beginPath();
-  ctx.roundRect ? ctx.roundRect(cardX, cardY, cardW, cardH, rad) : ctx.rect(cardX, cardY, cardW, cardH);
-  ctx.clip();
-
+  // Always draw video full-frame (no occluding background gradient or cropped card)
   if (videoSource) {
-    drawCoverVideo(ctx, videoSource, cardX, cardY, cardW, cardH);
-  } else if (typeof vid !== 'undefined') {
-    drawCoverVideo(ctx, vid, cardX, cardY, cardW, cardH);
-  }
-  ctx.restore();
-
-  // Card outline in ink
-  ctx.strokeStyle = p.ink;
-  ctx.lineWidth = 0.9 * u;
-  ctx.beginPath();
-  ctx.roundRect ? ctx.roundRect(cardX, cardY, cardW, cardH, rad) : ctx.rect(cardX, cardY, cardW, cardH);
-  ctx.stroke();
-
-  // Doodles
-  if (S.popStudioConfig?.doodles !== false) {
-    drawPopDoodles(ctx, p, beat, t, { x: cardX, y: cardY, w: cardW, h: cardH }, u, isSmooth);
+    drawCoverVideo(ctx, videoSource, 0, 0, W, H);
   }
 
-  ctx.restore();
+  // Title sticker centered at ~60%
+  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.60, u, W);
 
-  // 4. Title sticker at ~14% (tilt +2 deg)
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.14, u, W);
-
-  // 5. Karaoke line at ~27%
-  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.27, u, W);
+  // Karaoke line at ~76%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.76, u, W);
 }
 
 /**
@@ -12918,37 +12833,11 @@ function drawPopTransition(ctx, beat, nextBeat, t, W, H, u) {
   if (t < transStart || t > transEnd) return;
 
   const progress = (t - transStart) / transDur;
-  const transType = nextBeat ? nextBeat.transitionType : 0;
-  const p = beat.palette;
+  const alpha = 0.20 * (1 - Math.abs(progress - 0.5) * 2);
 
   ctx.save();
-  ctx.fillStyle = p.accent;
-
-  if (transType === 0) {
-    // (a) Diagonal band wipe in palette.accent
-    const bandW = W * 0.6;
-    const bandX = -bandW + (W + bandW * 2) * progress;
-    ctx.beginPath();
-    ctx.moveTo(bandX, 0);
-    ctx.lineTo(bandX + bandW, 0);
-    ctx.lineTo(bandX + bandW - H * 0.35, H);
-    ctx.lineTo(bandX - H * 0.35, H);
-    ctx.closePath();
-    ctx.fill();
-  } else if (transType === 1) {
-    // (b) Circle iris centered on frame
-    const maxR = Math.hypot(W, H) / 2;
-    const irisR = progress < 0.5 ? (maxR * (progress / 0.5)) : (maxR * (1 - (progress - 0.5) / 0.5));
-    ctx.beginPath();
-    ctx.arc(W / 2, H / 2, irisR, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    // (c) Vertical push bar
-    const barH = H * 0.45;
-    const barY = progress < 0.5 ? (H * (1 - progress / 0.5)) : (0);
-    ctx.fillRect(0, barY, W, barH);
-  }
-
+  ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`;
+  ctx.fillRect(0, 0, W, H);
   ctx.restore();
 }
 

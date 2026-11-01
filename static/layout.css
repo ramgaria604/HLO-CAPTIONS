@@ -407,30 +407,64 @@ html, body {
 /* ==========================================================================
    2) CONTROLS ROW INSIDE WORKSPACE
    ========================================================================== */
-.transport-bar {
+.transport-bar,
+.moonshot-transport-bar {
   flex: 0 0 auto !important;
   width: 100% !important;
+  max-width: 540px !important;
+  height: auto !important;
+  min-height: 44px !important;
   display: flex !important;
-  flex-wrap: wrap !important;
+  flex-wrap: nowrap !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 6px !important;
-  padding: 4px 6px !important;
+  padding: 4px 8px !important;
+  margin: 0 auto !important;
   box-sizing: border-box !important;
-  background: rgba(18, 20, 32, 0.6) !important;
+  background: rgba(18, 20, 32, 0.65) !important;
   border-radius: 10px !important;
 }
 
+.transport-left-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+}
+
+.transport-right-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+}
+
 .transport-bar button,
-.transport-bar .btn-segment,
 .transport-bar select {
-  min-width: 40px !important;
-  min-height: 40px !important;
+  min-height: 36px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   box-sizing: border-box !important;
   touch-action: manipulation !important;
+}
+
+.transport-bar .btn-segment {
+  min-width: 32px !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  box-sizing: border-box !important;
+}
+
+/* Hide duplicate timeline zoom inside transport bar on mobile (< 768px) to eliminate overcrowding */
+@media (max-width: 768px) {
+  .zoom-fit-segmented-control #btnTlZoomOut,
+  .zoom-fit-segmented-control #btnTlZoomIn {
+    display: none !important;
+  }
 }
 
 .preview-permanent-hint {
@@ -449,15 +483,20 @@ html, body {
 .moonshot-sub-row {
   flex: 0 0 auto !important;
   width: 100% !important;
+  max-width: 540px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  padding: 2px 6px !important;
+  padding: 3px 8px !important;
+  margin: 2px auto 0 auto !important;
   box-sizing: border-box !important;
+  position: relative !important;
+  z-index: 2 !important;
+  clear: both !important;
 }
 
 .moonshot-sub-row button {
-  min-height: 38px !important;
+  min-height: 34px !important;
   touch-action: manipulation !important;
 }
 

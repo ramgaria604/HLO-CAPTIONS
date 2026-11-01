@@ -7449,14 +7449,15 @@ button {
 
 /* Moonshot Transport Bar */
 .moonshot-transport-bar {
-  max-width: 520px;
+  max-width: 540px;
   width: 100%;
-  height: 48px;
+  height: auto;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 10px;
-  gap: 10px;
+  gap: 8px;
   margin: 0 auto;
 }
 .transport-left-group, .transport-right-group {
