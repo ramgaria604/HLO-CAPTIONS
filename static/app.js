@@ -7,13 +7,7 @@
   'use strict';
 
   // --- Helpers ---
-  const $ = (id) => {
-    if (!id || typeof id !== 'string') return null;
-    if (id.startsWith('#') || id.startsWith('.') || id.includes(' ') || id.includes('[')) {
-      return document.querySelector(id);
-    }
-    return document.getElementById(id) || document.querySelector(id);
-  };
+  const $ = (id) => document.getElementById(id);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const round = (n, d = 2) => Number(Number(n).toFixed(d));
   const cleanCaptionText = (value) => String(value ?? '').replace(/\*/g, '');
@@ -276,50 +270,6 @@
     renderCanvas(true);
   }
   window.setCaptionCase = setCaptionCase;
-  /**
-   * Top-Level Caption Animation Controller
-   */
-  function setCaptionAnimation(anim) {
-    if (!anim) return;
-    const a = (anim === 'slide-up') ? 'slide' : anim;
-    S.animation = a;
-    if (!S.style) S.style = {};
-    S.style.animation = a;
-    S.style.anim = a;
-    if (S.style.roles?.accent) S.style.roles.accent.enter = a;
-    if (S.style.roles.base) S.style.roles.base.enter = a;
-    syncCaptionAnimationUI(a);
-    const labels = { pop: '💥 Pop & Bounce', 'slide-right': '➡️ Slide Left to Right', slide: '⬆️ Slide Up', fade: '✨ Soft Fade', karaoke: '🎤 Karaoke' };
-    if (typeof showToast === 'function') {
-      showToast(labels[a] || ('Animation: ' + a));
-    }
-    renderCanvas(true);
-  }
-  window.setCaptionAnimation = setCaptionAnimation;
-
-  function syncCaptionAnimationUI(anim) {
-    const cur = anim || S.animation || S.style?.animation || 'pop';
-    const norm = (cur === 'slide-up') ? 'slide' : cur;
-    $$('#captionAnimToggleGroup .btn-toggle').forEach(b => {
-      const bAnim = b.getAttribute('data-anim');
-      b.classList.toggle('active', bAnim === norm || (norm === 'slide' && bAnim === 'slide-up'));
-    });
-    const badge = $('valCaptionAnimBadge');
-    if (badge) {
-      const badgeLabels = { pop: 'POP', 'slide-right': 'SLIDE L→R', slide: 'SLIDE UP', fade: 'FADE', karaoke: 'KARAOKE' };
-      badge.textContent = badgeLabels[norm] || norm.toUpperCase();
-    }
-    $$('#animGrid .btn-anim-choice').forEach(b => {
-      const bAnim = b.getAttribute('data-anim');
-      b.classList.toggle('active', bAnim === norm || (norm === 'slide' && bAnim === 'slide-up'));
-    });
-    const valAnimName = $('valAnimName');
-    if (valAnimName) {
-      const nameLabels = { pop: 'Pop & Bounce', slide: 'Slide Up', fade: 'Soft Fade', karaoke: 'Karaoke', zoom: 'Zoom In', none: 'Static' };
-      valAnimName.textContent = nameLabels[norm] || norm;
-    }
-  }
-  window.syncCaptionAnimationUI = syncCaptionAnimationUI;
 
   // --- DOM Elements ---
   const viewUpload = $('viewUpload');
@@ -2928,7 +2878,7 @@ function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, 
   return sprite;
 }
 
-function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W, animDy = 0, animDx = 0) {
+function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W) {
   if (!drawCtx || !cleanWord) return;
   drawCtx.save();
   drawCtx.globalAlpha = (exitAlpha || 1.0);
@@ -2939,12 +2889,12 @@ function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, co
   drawCtx.textAlign = 'center';
   drawCtx.textBaseline = 'alphabetic';
 
-  const cy = drawY + fontSize * 0.45 + animDy;
-  drawCtx.translate(cx + animDx, cy);
+  const cy = drawY + fontSize * 0.45;
+  drawCtx.translate(cx, cy);
   drawCtx.scale(animScale, animScale);
-  drawCtx.translate(-(cx + animDx), -cy);
+  drawCtx.translate(-cx, -cy);
 
-  const baseLine = drawY + fontSize * 0.88 + animDy;
+  const baseLine = drawY + fontSize * 0.88;
 
   // Strong dark shadow for 100% visibility on any background
   drawCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
@@ -3050,38 +3000,23 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
     console.log('[HERO]', capIndex, cleanWord, heroLook, colorIndex);
   }
 
-  const animMode = S.animation || S.style?.animation || 'pop';
   let animScale = 1.0;
-  let animDy = 0;
   let clipReveal = 1.0;
   const useLineByLine = S.lineByLine !== false;
   const isPaused = (videoEl && videoEl.paused) || vid.paused;
   if (useLineByLine && !showAll && !isPaused && (capDur == null || capDur < 100)) {
     const elapsed = Math.max(0, t - heroStart);
-    if (animMode === 'slide' || animMode === 'slide-up') {
-      const slideDur = 0.24;
-      const p = Math.min(1.0, elapsed / slideDur);
-      const ease = 1 - Math.pow(1 - p, 3);
-      animScale = 0.96 + 0.04 * ease;
-      animDy = (1.0 - ease) * (fontSize * 0.45);
-      clipReveal = Math.min(1.0, p * 1.5);
-    } else if (animMode === 'fade') {
-      const p = Math.min(1.0, elapsed / 0.18);
-      animScale = 1.0;
-      clipReveal = p;
-    } else {
-      const scaleP = Math.min(1.0, elapsed / 0.28);
-      const c1 = 1.70158;
-      const c3 = c1 + 1;
-      const eased = 1 + c3 * Math.pow(scaleP - 1, 3) + c1 * Math.pow(scaleP - 1, 2);
-      animScale = 0.92 + 0.08 * Math.max(0, Math.min(1.15, eased));
-      clipReveal = Math.max(0.15, Math.min(1.0, elapsed / 0.22));
-    }
+    const scaleP = Math.min(1.0, elapsed / 0.28);
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    const eased = 1 + c3 * Math.pow(scaleP - 1, 3) + c1 * Math.pow(scaleP - 1, 2);
+    animScale = 0.92 + 0.08 * Math.max(0, Math.min(1.15, eased));
+    clipReveal = Math.max(0.15, Math.min(1.0, elapsed / 0.22));
   } else {
     animScale = 1.0;
-    animDy = 0;
     clipReveal = 1.0;
   }
+
   const lum = getSampledLuminanceBehindHero(videoEl, heroBox, capIndex, W, H);
   const effQuality = isPreview ? getEffectivePreviewQuality() : 'full';
   const isPreviewSmooth = (effQuality === 'smooth');
@@ -3104,7 +3039,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
 
   // Default / Solid look path (SAFETY NET: immediately draws crisp visible text)
   if (heroLook === 'solid') {
-    drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W, animDy, animDx);
+    drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W);
     drawCtx.globalAlpha = 1.0;
     drawCtx.globalCompositeOperation = 'source-over';
     return;
@@ -3146,14 +3081,14 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
     drawCtx.clip();
   }
 
-  const cy = drawY + sprite.textH / 2 + animDy;
-  drawCtx.translate(cx + animDx, cy);
+  const cy = drawY + sprite.textH / 2;
+  drawCtx.translate(cx, cy);
   drawCtx.scale(animScale, animScale);
-  drawCtx.translate(-(cx + animDx), -cy);
+  drawCtx.translate(-cx, -cy);
 
   if (heroLook === 'seeThrough') {
     // Directly draw the translucent see-through glass sprite
-    drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad + animDx, drawY - sprite.pad + animDy);
+    drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
   } else if (isPreviewSmooth) {
     drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
   } else {
@@ -3197,33 +3132,20 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
 
   let alpha = (exitAlpha || 1.0);
   let dy = 0;
-  let dx = 0;
 
   const useLineByLine = S.lineByLine !== false;
-  const animMode = S.animation || S.style?.animation || 'pop';
   if (useLineByLine && !showAll) {
     const elapsed = Math.max(0, t - lineStart);
-    if (animMode === 'slide' || animMode === 'slide-up') {
-      const dur = 0.22;
-      const p = Math.min(1.0, elapsed / dur);
-      const ease = 1 - Math.pow(1 - p, 3);
-      alpha *= Math.min(1.0, p * 1.6);
-      dy = (1.0 - ease) * (fontSize * 0.75);
-    } else if (animMode === 'fade') {
-      const p = Math.min(1.0, elapsed / 0.18);
-      alpha *= p;
-      dy = 0;
+    const dur = 0.18;
+    const p = Math.min(1.0, elapsed / dur);
+    alpha *= p;
+    if (isTopLine) {
+      dy = (1.0 - p) * -10;
     } else {
-      const dur = 0.18;
-      const p = Math.min(1.0, elapsed / dur);
-      alpha *= p;
-      if (isTopLine) {
-        dy = (1.0 - p) * -10;
-      } else {
-        dy = (1.0 - p) * 10;
-      }
+      dy = (1.0 - p) * 10;
     }
   }
+
   if (alpha <= 0.001) return;
 
   ctxFore.save();
@@ -3233,7 +3155,6 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
   ctxFore.globalAlpha = alpha;
 
   const curY = baselineY + dy;
-  const curX = centerX + dx;
 
   ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
   ctxFore.shadowBlur = 6;
@@ -3243,10 +3164,10 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
   // Strong dark stroke for crystal clear front-line readability on all backgrounds
   ctxFore.lineWidth = 3;
   ctxFore.strokeStyle = 'rgba(0, 0, 0, 0.75)';
-  ctxFore.strokeText(cleanLine, curX, curY);
+  ctxFore.strokeText(cleanLine, centerX, curY);
 
   ctxFore.fillStyle = '#FFFFFF';
-  ctxFore.fillText(cleanLine, curX, curY);
+  ctxFore.fillText(cleanLine, centerX, curY);
 
   ctxFore.restore();
 }
@@ -5706,7 +5627,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     } else if (targetId === 'tabStyle') {
       if (typeof syncHeroLookUI === 'function') syncHeroLookUI();
       if (typeof syncTypographyUI === 'function') syncTypographyUI();
-      if (typeof syncCaptionAnimationUI === 'function') syncCaptionAnimationUI();
       const chkProgressLine = $('chkBottomProgressLine');
       if (chkProgressLine) {
         chkProgressLine.checked = Boolean(S.progressBar && S.progressBar.enabled === true);
@@ -6231,8 +6151,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       highlightColor: preset.highlightColor || preset.roles?.accent?.color || preset.key?.color || '#FFE600',
       fontFamily: S.style?.fontFamily || S.font || preset.roles?.accent?.font || preset.key?.font || 'Poppins',
       textCase: S.style?.textCase || S.textCase || 'upper',
-      heroLook: S.heroLook || S.style?.heroLook || 'solid',
-      animation: S.animation || S.style?.animation || preset.animation || 'pop'
+      heroLook: S.heroLook || S.style?.heroLook || 'solid'
     });
 
     if (isBehind) {
@@ -11291,7 +11210,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     }, 800);
   }
 
-  function showExportComplete(filename, blobData) {
+  function showExportComplete(filename) {
     if (exportElapsedInterval) clearInterval(exportElapsedInterval);
     exportWorkingState.classList.add('hidden');
     exportDoneState.classList.remove('hidden');
@@ -11322,14 +11241,67 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       targetFileName = 'captioned_' + file;
       exportPreviewVideo.src = '/video/' + encodeURIComponent(file);
     }
-
     btnDownloadExport.href = targetDownloadUrl;
     btnDownloadExport.download = targetFileName;
-    btnDownloadExport.removeAttribute('target'); // NO _blank so browser downloads file instead of opening viewer
+    btnDownloadExport.removeAttribute('target');
 
-    // Helper to force instant direct file download without opening video in black player
-    function forceDirectDownload() {
-      if (!targetDownloadUrl) return;
+    // Robust multi-path download & native file sharing (crucial for Instagram in-app browser)
+    const triggerFileDownload = async (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (!targetDownloadUrl && !window._lastExportedBlob) return;
+
+      // 1. Try Native Web Share API if on mobile device (best for Instagram WebView & Android)
+      const currentBlob = (filename instanceof Blob) ? filename : (window._lastExportedBlob || null);
+      if (currentBlob && navigator.share && navigator.canShare) {
+        try {
+          const shareFile = new File([currentBlob], targetFileName || 'captioned_video.mp4', { type: 'video/mp4' });
+          if (navigator.canShare({ files: [shareFile] })) {
+            await navigator.share({
+              files: [shareFile],
+              title: 'Captioned Video',
+              text: 'Your captioned video is ready!'
+            });
+            return;
+          }
+        } catch (shareErr) {
+          if (shareErr.name === 'AbortError') return; // User simply closed share dialog
+          console.warn('[DOWNLOAD] Web Share failed, trying direct link:', shareErr);
+        }
+      }
+
+      // 2. Standard <a> click download
+      try {
+        const a = document.createElement('a');
+        a.href = targetDownloadUrl;
+        a.download = targetFileName || 'captioned_video.mp4';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          try { document.body.removeChild(a); } catch (_) {}
+        }, 500);
+      } catch (aErr) {
+        console.warn('[DOWNLOAD] Direct <a> trigger error:', aErr);
+      }
+
+      // 3. Fallback window.open for in-app browsers
+      try {
+        window.open(targetDownloadUrl, '_blank');
+      } catch (_) {}
+    };
+
+    btnDownloadExport.onclick = triggerFileDownload;
+
+    const btnShareExport = $('btnShareExport');
+    if (btnShareExport) {
+      btnShareExport.onclick = triggerFileDownload;
+    }
+
+    // AUTOMATIC FAST DOWNLOAD: Trigger file download right after export finishes
+    setTimeout(() => {
       try {
         const a = document.createElement('a');
         a.style.display = 'none';
@@ -11340,53 +11312,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         setTimeout(() => {
           try { document.body.removeChild(a); } catch (_) {}
         }, 800);
-      } catch (err) {
-        console.warn('[DOWNLOAD] Direct file download trigger:', err);
-      }
-    }
-
-    // Explicit click handler: directly triggers file download
-    btnDownloadExport.onclick = (e) => {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      forceDirectDownload();
-    };
-
-    const btnShareExport = $('btnShareExport');
-    if (btnShareExport) {
-      btnShareExport.onclick = async (e) => {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        const currentBlob = blobData || (filename instanceof Blob ? filename : window._lastExportedBlob);
-        if (currentBlob && navigator.share && navigator.canShare) {
-          try {
-            const shareFile = new File([currentBlob], targetFileName || 'captioned_video.mp4', { type: 'video/mp4' });
-            if (navigator.canShare({ files: [shareFile] })) {
-              await navigator.share({
-                files: [shareFile],
-                title: 'Captioned Video',
-                text: 'Your captioned video is ready!'
-              });
-              return;
-            }
-          } catch (shareErr) {
-            if (shareErr.name === 'AbortError') return;
-          }
-        }
-        forceDirectDownload();
-      };
-    }
-
-    // AUTOMATIC FAST DOWNLOAD: Trigger file download right after export finishes
-    setTimeout(() => {
-      try {
-        forceDirectDownload();
       } catch (_) {}
-    }, 300);
+    }, 250);
 
     exportPreviewVideo.load();
 
