@@ -7,7 +7,13 @@
   'use strict';
 
   // --- Helpers ---
-  const $ = (id) => document.getElementById(id);
+  const $ = (id) => {
+    if (!id || typeof id !== 'string') return null;
+    if (id.startsWith('#') || id.startsWith('.') || id.includes(' ') || id.includes('[')) {
+      return document.querySelector(id);
+    }
+    return document.getElementById(id) || document.querySelector(id);
+  };
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const round = (n, d = 2) => Number(Number(n).toFixed(d));
   const cleanCaptionText = (value) => String(value ?? '').replace(/\*/g, '');
@@ -294,7 +300,7 @@
   function syncCaptionAnimationUI(anim) {
     const cur = anim || S.animation || S.style?.animation || 'pop';
     const norm = (cur === 'slide-up') ? 'slide' : cur;
-    $('#captionAnimToggleGroup .btn-toggle').forEach(b => {
+    $$('#captionAnimToggleGroup .btn-toggle').forEach(b => {
       const bAnim = b.getAttribute('data-anim');
       b.classList.toggle('active', bAnim === norm || (norm === 'slide' && bAnim === 'slide-up'));
     });
@@ -303,7 +309,7 @@
       const badgeLabels = { pop: 'POP', 'slide-right': 'SLIDE L→R', slide: 'SLIDE UP', fade: 'FADE', karaoke: 'KARAOKE' };
       badge.textContent = badgeLabels[norm] || norm.toUpperCase();
     }
-    $('#animGrid .btn-anim-choice').forEach(b => {
+    $$('#animGrid .btn-anim-choice').forEach(b => {
       const bAnim = b.getAttribute('data-anim');
       b.classList.toggle('active', bAnim === norm || (norm === 'slide' && bAnim === 'slide-up'));
     });
