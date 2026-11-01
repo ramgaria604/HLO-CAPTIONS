@@ -117,6 +117,160 @@
   }
   window.applyTextCase = applyTextCase;
 
+  /**
+   * Top-Level Editor Restoration after Export
+   */
+  function restoreEditorAfterExport() {
+    try {
+      if (typeof vid !== 'undefined' && vid) {
+        vid.style.opacity = '1';
+      }
+      if (captionCanvas) {
+        const cCtx = captionCanvas.getContext('2d');
+        if (cCtx) cCtx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
+      }
+      if (behindCanvas) {
+        const bCtx = behindCanvas.getContext('2d');
+        if (bCtx) bCtx.clearRect(0, 0, behindCanvas.width, behindCanvas.height);
+      }
+      if (personCanvas) {
+        const pCtx = personCanvas.getContext('2d');
+        if (pCtx) pCtx.clearRect(0, 0, personCanvas.width, personCanvas.height);
+      }
+      renderCanvas(true);
+    } catch (_) {}
+  }
+  window.restoreEditorAfterExport = restoreEditorAfterExport;
+
+  /**
+   * Top-Level Hero Look Controller & State Synchronizer
+   */
+  function setHeroLook(look) {
+    if (!look) return;
+    S.heroLook = look;
+    if (!S.style) S.style = {};
+    S.style.heroLook = look;
+
+    const btnSeeThrough = $('btnHeroLookSeeThrough');
+    const btnTexture = $('btnHeroLookTexture');
+    const btnSolid = $('btnHeroLookSolid');
+    const badgeLook = $('valHeroLookBadge');
+
+    if (btnSeeThrough) btnSeeThrough.classList.toggle('active', look === 'seeThrough');
+    if (btnTexture) btnTexture.classList.toggle('active', look === 'texture');
+    if (btnSolid) btnSolid.classList.toggle('active', look === 'solid');
+
+    if (badgeLook) {
+      badgeLook.textContent = look.toUpperCase();
+      badgeLook.className = 'val-badge ' + (look === 'solid' ? 'badge-gray' : 'badge-green');
+    }
+
+    if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache.clear) {
+      _heroSpriteCache.clear();
+    }
+
+    const labels = {
+      seeThrough: 'See-Through Glass',
+      texture: 'Video Texture',
+      solid: 'Solid'
+    };
+    showToast('✨ Hero look: ' + (labels[look] || look));
+    renderCanvas(true);
+  }
+  window.setHeroLook = setHeroLook;
+
+  function syncHeroLookUI(look) {
+    const cur = look || S.heroLook || (S.style && S.style.heroLook) || 'solid';
+    const btnSeeThrough = $('btnHeroLookSeeThrough');
+    const btnTexture = $('btnHeroLookTexture');
+    const btnSolid = $('btnHeroLookSolid');
+    const badgeLook = $('valHeroLookBadge');
+
+    if (btnSeeThrough) btnSeeThrough.classList.toggle('active', cur === 'seeThrough');
+    if (btnTexture) btnTexture.classList.toggle('active', cur === 'texture');
+    if (btnSolid) btnSolid.classList.toggle('active', cur === 'solid');
+
+    if (badgeLook) {
+      badgeLook.textContent = cur.toUpperCase();
+      badgeLook.className = 'val-badge ' + (cur === 'solid' ? 'badge-gray' : 'badge-green');
+    }
+  }
+  window.syncHeroLookUI = syncHeroLookUI;
+
+  /**
+   * Top-Level Bottom Progress Line Controller
+   */
+  function toggleBottomProgressLine(enabled) {
+    if (!S.progressBar) S.progressBar = { enabled: false, position: 'bottom' };
+    S.progressBar.enabled = Boolean(enabled);
+    const chk = $('chkBottomProgressLine');
+    if (chk) chk.checked = S.progressBar.enabled;
+    const badge = $('valProgressBarBadge');
+    if (badge) {
+      badge.textContent = S.progressBar.enabled ? 'Active' : 'Hidden';
+      badge.className = S.progressBar.enabled ? 'val-badge badge-green' : 'val-badge';
+    }
+    $$('#progressBarToggleGroup .btn-toggle').forEach(b => {
+      b.classList.toggle('active', (b.getAttribute('data-progress') === 'on') === S.progressBar.enabled);
+    });
+    if (typeof syncReelProgressBar === 'function') {
+      syncReelProgressBar();
+    }
+    if (typeof showToast === 'function') {
+      showToast('📊 Bottom Progress Line: ' + (S.progressBar.enabled ? 'ON' : 'OFF'));
+    }
+    renderCanvas(true);
+  }
+  window.toggleBottomProgressLine = toggleBottomProgressLine;
+
+  /**
+   * Top-Level Caption Font Setter
+   */
+  function setCaptionFont(font) {
+    if (!font) return;
+    if (!S.style) S.style = {};
+    S.style.fontFamily = font;
+    S.font = font;
+    if (!S.style.key) S.style.key = {};
+    S.style.key.font = font;
+    if (!S.style.roles) S.style.roles = {};
+    if (S.style.roles.accent) S.style.roles.accent.font = font;
+    if (S.style.roles.base) S.style.roles.base.font = font;
+    if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache.clear) {
+      _heroSpriteCache.clear();
+    }
+    if (typeof syncTypographyUI === 'function') {
+      syncTypographyUI();
+    }
+    if (typeof showToast === 'function') {
+      showToast('🔤 Font: ' + font);
+    }
+    renderCanvas(true);
+  }
+  window.setCaptionFont = setCaptionFont;
+
+  /**
+   * Top-Level Caption Text Casing Setter
+   */
+  function setCaptionCase(casing) {
+    if (!casing) return;
+    if (!S.style) S.style = {};
+    S.style.textCase = casing;
+    S.textCase = casing;
+    if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache.clear) {
+      _heroSpriteCache.clear();
+    }
+    if (typeof syncTypographyUI === 'function') {
+      syncTypographyUI();
+    }
+    const caseLabels = { upper: 'ALL CAPS', title: 'Title Case', lower: 'lowercase', asIs: 'Original' };
+    if (typeof showToast === 'function') {
+      showToast('Aa Casing: ' + (caseLabels[casing] || casing));
+    }
+    renderCanvas(true);
+  }
+  window.setCaptionCase = setCaptionCase;
+
   // --- DOM Elements ---
   const viewUpload = $('viewUpload');
   const viewEditor = $('viewEditor');
@@ -5996,7 +6150,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       depthAccent: Boolean(preset.depthAccent || isBehind),
       highlightColor: preset.highlightColor || preset.roles?.accent?.color || preset.key?.color || '#FFE600',
       fontFamily: S.style?.fontFamily || S.font || preset.roles?.accent?.font || preset.key?.font || 'Poppins',
-      textCase: S.style?.textCase || S.textCase || 'upper'
+      textCase: S.style?.textCase || S.textCase || 'upper',
+      heroLook: S.heroLook || S.style?.heroLook || 'solid'
     });
 
     if (isBehind) {
@@ -10559,10 +10714,12 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
       const blob = new Blob([buffer], { type: 'video/mp4' });
       const url = URL.createObjectURL(blob);
+      window._lastExportedBlob = blob;
+      window._lastExportedUrl = url;
 
       deductCreditAfterExport();
       updateExportPipeline(3);
-      showExportComplete(url);
+      showExportComplete(url, blob);
     } finally {
       // PROBLEM A Point 2: Close export segmenter when export ends
       if (exportSegmenter) {
@@ -10577,7 +10734,13 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         } catch (_) {}
         wakeLock = null;
       }
-      restoreEditorAfterExport();
+      try {
+        if (typeof restoreEditorAfterExport === 'function') {
+          restoreEditorAfterExport();
+        }
+      } catch (restErr) {
+        console.warn('[EXPORT] restoreEditorAfterExport warning:', restErr);
+      }
     }
   }
 
@@ -11082,19 +11245,61 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     btnDownloadExport.download = targetFileName;
     btnDownloadExport.target = '_blank';
 
-    // Explicit click handler to trigger direct download across all browsers
-    btnDownloadExport.onclick = (e) => {
-      if (!targetDownloadUrl) return;
-      const a = document.createElement('a');
-      a.href = targetDownloadUrl;
-      a.download = targetFileName || 'captioned_video.mp4';
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        try { document.body.removeChild(a); } catch (_) {}
-      }, 300);
+    // Robust multi-path download & native file sharing (crucial for Instagram in-app browser)
+    const triggerFileDownload = async (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (!targetDownloadUrl && !window._lastExportedBlob) return;
+
+      // 1. Try Native Web Share API if on mobile device (best for Instagram WebView & Android)
+      const currentBlob = (filename instanceof Blob) ? filename : (window._lastExportedBlob || null);
+      if (currentBlob && navigator.share && navigator.canShare) {
+        try {
+          const shareFile = new File([currentBlob], targetFileName || 'captioned_video.mp4', { type: 'video/mp4' });
+          if (navigator.canShare({ files: [shareFile] })) {
+            await navigator.share({
+              files: [shareFile],
+              title: 'Captioned Video',
+              text: 'Your captioned video is ready!'
+            });
+            return;
+          }
+        } catch (shareErr) {
+          if (shareErr.name === 'AbortError') return; // User simply closed share dialog
+          console.warn('[DOWNLOAD] Web Share failed, trying direct link:', shareErr);
+        }
+      }
+
+      // 2. Standard <a> click download
+      try {
+        const a = document.createElement('a');
+        a.href = targetDownloadUrl;
+        a.download = targetFileName || 'captioned_video.mp4';
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          try { document.body.removeChild(a); } catch (_) {}
+        }, 500);
+      } catch (aErr) {
+        console.warn('[DOWNLOAD] Direct <a> trigger error:', aErr);
+      }
+
+      // 3. Fallback window.open for in-app browsers
+      try {
+        window.open(targetDownloadUrl, '_blank');
+      } catch (_) {}
     };
+
+    btnDownloadExport.onclick = triggerFileDownload;
+
+    const btnShareExport = $('btnShareExport');
+    if (btnShareExport) {
+      btnShareExport.onclick = triggerFileDownload;
+    }
 
     exportPreviewVideo.load();
 
@@ -13453,62 +13658,15 @@ if (typeof window !== 'undefined' && window.location && window.location.search &
 
 
 function initHeroLookUI() {
-  const btnSeeThrough = $('btnHeroLookSeeThrough');
-  const btnTexture = $('btnHeroLookTexture');
-  const btnSolid = $('btnHeroLookSolid');
-  const badgeLook = $('valHeroLookBadge');
   const toggleGroup = $('heroLookToggleGroup');
-
-  function syncHeroLookUI(look) {
-    const cur = look || S.heroLook || (S.style && S.style.heroLook) || 'solid';
-    if (btnSeeThrough) btnSeeThrough.classList.toggle('active', cur === 'seeThrough');
-    if (btnTexture) btnTexture.classList.toggle('active', cur === 'texture');
-    if (btnSolid) btnSolid.classList.toggle('active', cur === 'solid');
-    if (badgeLook) {
-      badgeLook.textContent = cur.toUpperCase();
-      badgeLook.className = 'val-badge ' + (cur === 'solid' ? 'badge-gray' : 'badge-green');
-    }
-  }
-
-  function setHeroLook(look) {
-    if (!look) return;
-    S.heroLook = look;
-    if (S.style) S.style.heroLook = look;
-    syncHeroLookUI(look);
-    if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache.clear) {
-      _heroSpriteCache.clear();
-    }
-    showToast('✨ Hero look: ' + (look === 'seeThrough' ? 'See-Through' : (look === 'texture' ? 'Texture' : 'Solid')));
-    renderCanvas(true);
-  }
-
-  window.syncHeroLookUI = syncHeroLookUI;
-  window.setHeroLook = setHeroLook;
-
   if (toggleGroup) {
-    const onSelect = (e) => {
+    toggleGroup.addEventListener('click', (e) => {
       const btn = e.target.closest('.btn-toggle[data-look]');
       if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
       const look = btn.getAttribute('data-look');
-      if (look) setHeroLook(look);
-    };
-    toggleGroup.addEventListener('click', onSelect);
-    toggleGroup.addEventListener('pointerup', onSelect);
+      if (look && typeof setHeroLook === 'function') setHeroLook(look);
+    });
   }
-
-  [btnSeeThrough, btnTexture, btnSolid].forEach(btn => {
-    if (!btn) return;
-    const onBtn = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const look = btn.getAttribute('data-look');
-      if (look) setHeroLook(look);
-    };
-    btn.addEventListener('click', onBtn);
-    btn.addEventListener('pointerup', onBtn);
-  });
 
   const chkLineByLine = $('chkLineByLine');
   if (chkLineByLine) {
@@ -13529,20 +13687,17 @@ function initHeroLookUI() {
       if (S.style) S.style.lockedColor = color;
       const badge = $('valRealEstateColorBadge');
       if (badge) {
-        badge.textContent = color === 'auto' ? 'AUTO ROTATION' : color.toUpperCase();
+        const labels = { auto: 'AUTO ROTATION', teal: 'TEAL CYAN', purple: 'PURPLE VIOLET', pink: 'PINK MAGENTA', lime: 'LIME GREEN', sky: 'SKY BLUE', gold: 'GOLD AMBER' };
+        badge.textContent = labels[color] || color.toUpperCase();
       }
-      if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache.clear) {
-        _heroSpriteCache.clear();
-      }
-      showToast('Real Estate Color: ' + (color === 'auto' ? 'Auto Rotation' : color.toUpperCase()));
+      showToast('Real estate color: ' + color.toUpperCase());
       renderCanvas(true);
     });
   });
 
-  syncHeroLookUI();
+  if (typeof syncHeroLookUI === 'function') syncHeroLookUI();
 }
-
-  // ==========================================================================
+// ==========================================================================
   // STEP 9: ?layout=1 DEBUG HELPER
   // ==========================================================================
   function setupLayoutDebugHelper() {
