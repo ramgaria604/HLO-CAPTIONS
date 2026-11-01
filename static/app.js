@@ -844,7 +844,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, capId) {
   if (!words || !words.length) return;
 
-  const heroLook = S.heroLook || st.heroLook || 'seeThrough';
+  const heroLook = S.heroLook || st.heroLook || 'solid';
   const useUnified = (heroLook !== 'solid' || S.lineByLine !== false);
 
   if (useUnified && words.length > 0) {
@@ -1128,7 +1128,7 @@ function getLayoutStackFn() {
   };
 }
 
-function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll) {
+function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   if (!words || !words.length) return;
   const roles = st.roles || {};
   const baseRole = roles.base || st.filler || {};
@@ -1292,7 +1292,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.90 });
   }
 
-  const heroLookStack = S.heroLook || st.heroLook || 'seeThrough';
+  const heroLookStack = S.heroLook || st.heroLook || 'solid';
   const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false);
 
   lay.forEach((o) => {
@@ -1930,6 +1930,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   function drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
     if (!ctxFore || !cap || !words || words.length === 0) return;
 
+    const cfg = S.realEstateConfig || {};
+    const useBigType = Boolean(S.bigType !== false && cfg.bigType !== false);
+    const heroTargetCtx = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
+
     const capIdx = S.captions.indexOf(cap) !== -1 ? S.captions.indexOf(cap) : 0;
     const data = analyzeRealEstateCaption(cap, words, capIdx, showAll);
 
@@ -1998,6 +2002,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     ctxFore.font = heroFont;
     const heroMetrics = ctxFore.measureText(displayHeroText);
     const heroW = heroMetrics.width + Math.max(0, displayHeroText.length - 1) * letterSpacing;
+    const heroMetricsObj = (typeof measureBigTypeHeroWord === 'function' && useBigType)
+      ? measureBigTypeHeroWord(heroTargetCtx, displayHeroText, heroFontSize, W)
+      : null;
     const heroH = heroFontSize * 0.82;
     ctxFore.restore();
 
@@ -2118,7 +2125,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     heroGrad.addColorStop(0, data.palette.gradient[0]);
     heroGrad.addColorStop(1, data.palette.gradient[1]);
 
-    const heroLookVal = S.heroLook || st.heroLook || 'seeThrough';
+    const heroLookVal = S.heroLook || st.heroLook || 'solid';
     if (heroLookVal !== 'solid' || S.lineByLine !== false) {
       const heroWordObj = (data.heroWord) || { s: cap.start };
       const heroStart = (heroWordObj && typeof heroWordObj.s === 'number') ? heroWordObj.s : cap.start;
@@ -2304,6 +2311,13 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       }
     }
 
+  }
+
+  function drawRealEstateOverlays(ctx, W, H, t) {
+    if (!ctx) return;
+    const cfg = S.realEstateConfig || {};
+    if (!cfg.enabled && (!S.style || S.style.videoTemplate !== 'specialRealEstate')) return;
+
     // 1. Lower Third (First 3.0 seconds) - Only drawn if presenter name is typed
     const presName = (cfg.presenterName || '').trim();
     if (cfg.lowerThird !== false && presName.length > 0 && t >= 0.25 && t <= 2.90) {
@@ -2341,8 +2355,6 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       ctx.roundRect(ltX + 3, ltY + 8, 4, ltH - 16, 2);
       ctx.fill();
 
-      // Presenter Name
-      const presName = (cfg.presenterName || 'Alex Rivera').trim();
       const presRole = (cfg.presenterRole || 'Luxury Real Estate Specialist').trim();
 
       ctx.shadowColor = 'transparent';
@@ -2350,9 +2362,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       ctx.font = `800 ${Math.round(ltH * 0.38)}px 'Montserrat', sans-serif`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(presName, ltX + 18, ltY + Math.round(ltH * 0.16));
+      ctx.fillText(presName || 'Alex Rivera', ltX + 18, ltY + Math.round(ltH * 0.16));
 
-      // Presenter Role
       ctx.fillStyle = '#fde047';
       ctx.font = `600 ${Math.round(ltH * 0.26)}px 'Montserrat', sans-serif`;
       ctx.fillText(presRole, ltX + 18, ltY + Math.round(ltH * 0.58));
@@ -2362,7 +2373,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
     // 2. Location Tag (Top Left)
     if (cfg.locationTag) {
-      const cityText = getDetectedCityLocation();
+      const cityText = typeof getDetectedCityLocation === 'function' ? getDetectedCityLocation() : 'Beverly Hills, CA';
       const pulse = 1.0 + 0.035 * Math.sin(t * (2 * Math.PI / 3.0));
 
       ctx.save();
@@ -2743,7 +2754,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
     colorIndex = Math.max(0, Number(capIndex) || 0) % 7;
   }
 
-  const heroLook = S.heroLook || st.heroLook || 'seeThrough';
+  const heroLook = S.heroLook || st.heroLook || 'solid';
 
   if (_lastLoggedUnifiedHeroCapIdx !== capIndex) {
     _lastLoggedUnifiedHeroCapIdx = capIndex;
@@ -2753,14 +2764,18 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   let animScale = 1.0;
   let clipReveal = 1.0;
   const useLineByLine = S.lineByLine !== false;
-  if (useLineByLine && !showAll && (capDur == null || capDur < 100)) {
+  const isPaused = (videoEl && videoEl.paused) || vid.paused;
+  if (useLineByLine && !showAll && !isPaused && (capDur == null || capDur < 100)) {
     const elapsed = Math.max(0, t - heroStart);
     const scaleP = Math.min(1.0, elapsed / 0.28);
     const c1 = 1.70158;
     const c3 = c1 + 1;
     const eased = 1 + c3 * Math.pow(scaleP - 1, 3) + c1 * Math.pow(scaleP - 1, 2);
     animScale = 0.92 + 0.08 * Math.max(0, Math.min(1.15, eased));
-    clipReveal = Math.min(1.0, elapsed / 0.22);
+    clipReveal = Math.max(0.15, Math.min(1.0, elapsed / 0.22));
+  } else {
+    animScale = 1.0;
+    clipReveal = 1.0;
   }
 
   const lum = getSampledLuminanceBehindHero(videoEl, heroBox, capIndex, W, H);
@@ -2990,7 +3005,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       ctxFore.save(); ctxFore.translate(offsetX, 0);
       if (ctxBehind && ctxBehind !== ctxFore) { ctxBehind.save(); ctxBehind.translate(offsetX, 0); }
       if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
-        drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll);
+        drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.isSpecial && st.depthAccent) {
         drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, cap.id);
       } else if (st.isSpecial) {
@@ -4149,9 +4164,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       document.body.classList.remove('view-upload-active');
       const eb = $('editorBody') || $('.editor-body');
       if (eb && S.drawerOpen) eb.classList.add('drawer-open');
-      try { fitCanvas(); } catch (_) {}
-      try { renderTimeline(); } catch (_) {}
-      try { renderCaptionsList(); } catch (_) {}
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try { fitCanvas(); } catch (_) {}
+          try { renderTimeline(); } catch (_) {}
+          try { renderCaptionsList(); } catch (_) {}
+          try { renderCanvas(true); } catch (_) {}
+        });
+      });
       const dragHint = $('captionDragHint');
       if (dragHint) dragHint.classList.toggle('hidden', !S.captions.length);
 
@@ -4869,27 +4889,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }, { passive: false });
     }
 
-    // Timeline Zoom controls (+ and -)
-    const btnTlZoomIn = $('btnTlZoomIn');
-    const btnTlZoomOut = $('btnTlZoomOut');
-    if (btnTlZoomIn) {
-      btnTlZoomIn.addEventListener('click', (e) => {
+    // Timeline Zoom controls (+ and -) - Bind both transport bar and header buttons
+    const zoomInBtns = [$('btnTlZoomIn'), $('btnTlHeaderZoomIn')].filter(Boolean);
+    const zoomOutBtns = [$('btnTlZoomOut'), $('btnTlHeaderZoomOut')].filter(Boolean);
+
+    zoomInBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
         e.stopPropagation();
         pxPerSec = Math.min(160, pxPerSec + 25);
         renderTimeline();
         syncTimelinePlayhead();
         showToast(`🔍 Timeline Zoom: ${pxPerSec}px/s`);
       });
-    }
-    if (btnTlZoomOut) {
-      btnTlZoomOut.addEventListener('click', (e) => {
+    });
+
+    zoomOutBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
         e.stopPropagation();
         pxPerSec = Math.max(45, pxPerSec - 25);
         renderTimeline();
         syncTimelinePlayhead();
         showToast(`🔍 Timeline Zoom: ${pxPerSec}px/s`);
       });
-    }
+    });
 
     // Undo / Redo Click Handlers
     $$('.btn-undo').forEach(btn => {
@@ -5825,18 +5847,39 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       (preset.roles && preset.roles.accent && preset.roles.accent.layer === 'behind') ||
       (preset.name && preset.name.toLowerCase().includes('(behind)'))
     );
+    // State cleanup: turn off video template modes if selecting a standard preset
+    if (preset.videoTemplate !== 'popStudio' && S.popStudioConfig) {
+      S.popStudioConfig.enabled = false;
+      const togglePop = $('togglePopStudio');
+      if (togglePop) togglePop.checked = false;
+    }
+    if (preset.videoTemplate !== 'specialRealEstate' && S.realEstateConfig) {
+      S.realEstateConfig.enabled = false;
+      const toggleRe = $('toggleSpecialRealEstate');
+      if (toggleRe) toggleRe.checked = false;
+    }
+
+    const selVTemplate = $('selectVideoTemplate');
+    if (selVTemplate) {
+      selVTemplate.value = preset.videoTemplate || 'none';
+    }
+
     const clonedRoles = preset.roles ? JSON.parse(JSON.stringify(preset.roles)) : undefined;
     S.style = Object.assign({}, preset, {
       roles: clonedRoles || preset.roles,
       fontScale: 1.0,
       position: Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75,
       posY: Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75,
-      behindPerson: false,
-      depthAccent: false,
+      behindPerson: isBehind,
+      depthAccent: Boolean(preset.depthAccent || isBehind),
       highlightColor: preset.highlightColor || preset.roles?.accent?.color || preset.key?.color || '#FFE600',
       fontFamily: preset.roles?.accent?.font || preset.key?.font || 'Poppins',
       textCase: S.style?.textCase || 'upper'
     });
+
+    if (isBehind) {
+      ensureSegmenterLoaded().catch(() => {});
+    }
     if (isBehind && Array.isArray(S.style.posCycle)) {
       delete S.style.posCycle;
     }
@@ -7157,6 +7200,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const cfg = PREVIEW_QUALITY_CONFIG[effQuality] || PREVIEW_QUALITY_CONFIG.balanced;
     const dpr = Math.min(cfg.maxDpr, window.devicePixelRatio || 1);
 
+    if (rect.width <= 0 || rect.height <= 0) {
+      requestAnimationFrame(fitCanvas);
+    }
     const w = rect.width > 0 ? rect.width : (stage.clientWidth || 360);
     const h = rect.height > 0 ? rect.height : (stage.clientHeight || 640);
 
@@ -8288,7 +8334,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         )
       );
 
-      const isShowAll = Boolean(vid.paused || !vid.duration || showAll);
+      const isShowAll = Boolean(vid.paused || !vid.duration);
       // Requirement 8: Stacked canvases - hero text (behindCanvas) -> personCutout (personCanvas) -> front text (captionCanvas)
       if (isBehind && activeCap && segmenterInstance && vid.readyState >= 2) {
         // Draw typography: front lines to ctx, behind words to behindCtx
@@ -9097,9 +9143,12 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       }
     });
 
-    templateSearchInput.addEventListener('input', (e) => {
-      renderFullTemplatesGrid(e.target.value.toLowerCase().trim());
-    });
+    const modalSearch = $('modalTemplateSearchInput') || $('templateSearchInput');
+    if (modalSearch) {
+      modalSearch.addEventListener('input', (e) => {
+        renderFullTemplatesGrid(e.target.value.toLowerCase().trim());
+      });
+    }
 
     btnSyncScriptModal.addEventListener('click', () => {
       modalScript.classList.remove('hidden');

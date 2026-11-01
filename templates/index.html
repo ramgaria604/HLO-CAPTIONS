@@ -380,8 +380,8 @@
           <div class="timeline-header-left">
             <span class="timeline-label">💬 Timeline</span>
             <div class="timeline-zoom-group">
-              <button type="button" id="btnTlZoomOut" class="btn-tl-zoom" title="Zoom Out Timeline">−</button>
-              <button type="button" id="btnTlZoomIn" class="btn-tl-zoom" title="Zoom In Timeline">+</button>
+              <button type="button" id="btnTlHeaderZoomOut" class="btn-tl-zoom" title="Zoom Out Timeline">−</button>
+              <button type="button" id="btnTlHeaderZoomIn" class="btn-tl-zoom" title="Zoom In Timeline">+</button>
             </div>
             <span class="timeline-hint">⇄ Drag to scrub</span>
           </div>
@@ -754,13 +754,13 @@
               <div class="control-card" id="cardHeroLook">
                 <div class="control-header">
                   <label>Hero Look</label>
-                  <span id="valHeroLookBadge" class="val-badge badge-green">SEE-THROUGH</span>
+                  <span id="valHeroLookBadge" class="val-badge badge-green">SOLID</span>
                 </div>
                 <p class="voiceover-help">Choose styling for the big hero word: see-through blend, video texture, or legacy solid.</p>
                 <div class="btn-group segmented-3" id="heroLookToggleGroup">
-                  <button type="button" class="btn-toggle active" id="btnHeroLookSeeThrough" data-look="seeThrough">See-Through</button>
+                  <button type="button" class="btn-toggle" id="btnHeroLookSeeThrough" data-look="seeThrough">See-Through</button>
                   <button type="button" class="btn-toggle" id="btnHeroLookTexture" data-look="texture">Texture</button>
-                  <button type="button" class="btn-toggle" id="btnHeroLookSolid" data-look="solid">Solid</button>
+                  <button type="button" class="btn-toggle active" id="btnHeroLookSolid" data-look="solid">Solid</button>
                 </div>
               </div>
 
@@ -1448,7 +1448,7 @@
       </div>
 
       <div class="modal-filter-bar">
-        <input type="text" id="templateSearchInput" class="search-input" placeholder="🔍 Search templates (e.g. yellow, pop, minimal, neon)...">
+        <input type="text" id="modalTemplateSearchInput" class="search-input" placeholder="🔍 Search templates (e.g. yellow, pop, minimal, neon)...">
       </div>
 
       <div class="modal-body-scroll">
