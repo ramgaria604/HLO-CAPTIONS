@@ -11210,7 +11210,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     }, 800);
   }
 
-  function showExportComplete(filename) {
+  function showExportComplete(filename, blobData) {
     if (exportElapsedInterval) clearInterval(exportElapsedInterval);
     exportWorkingState.classList.add('hidden');
     exportDoneState.classList.remove('hidden');
@@ -11241,81 +11241,102 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       targetFileName = 'captioned_' + file;
       exportPreviewVideo.src = '/video/' + encodeURIComponent(file);
     }
+
     btnDownloadExport.href = targetDownloadUrl;
     btnDownloadExport.download = targetFileName;
-    btnDownloadExport.removeAttribute('target');
+    btnDownloadExport.removeAttribute('target'); // NEVER use _blank so browser downloads file instead of opening player
 
-    // Robust multi-path download & native file sharing (crucial for Instagram in-app browser)
-    const triggerFileDownload = async (e) => {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      if (!targetDownloadUrl && !window._lastExportedBlob) return;
-
-      // 1. Try Native Web Share API if on mobile device (best for Instagram WebView & Android)
-      const currentBlob = (filename instanceof Blob) ? filename : (window._lastExportedBlob || null);
-      if (currentBlob && navigator.share && navigator.canShare) {
-        try {
-          const shareFile = new File([currentBlob], targetFileName || 'captioned_video.mp4', { type: 'video/mp4' });
-          if (navigator.canShare({ files: [shareFile] })) {
-            await navigator.share({
-              files: [shareFile],
-              title: 'Captioned Video',
-              text: 'Your captioned video is ready!'
-            });
-            return;
+    // Background upload to server: generates a real HTTP attachment URL for Android DownloadManager
+    const currentBlob = blobData || window._lastExportedBlob;
+    if (currentBlob) {
+      const fd = new FormData();
+      fd.append('video', currentBlob, 'captioned_video.mp4');
+      fetch('/api/direct_download', { method: 'POST', body: fd })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.ok && data.download) {
+            targetDownloadUrl = data.download;
+            btnDownloadExport.href = data.download;
+            btnDownloadExport.download = 'captioned_video.mp4';
+            console.log('[DOWNLOAD] Real HTTP attachment download URL ready:', data.download);
+            // Automatically trigger download via server attachment
+            forceDirectDownload(data.download, 'captioned_video.mp4');
           }
-        } catch (shareErr) {
-          if (shareErr.name === 'AbortError') return; // User simply closed share dialog
-          console.warn('[DOWNLOAD] Web Share failed, trying direct link:', shareErr);
-        }
-      }
-
-      // 2. Standard <a> click download
-      try {
-        const a = document.createElement('a');
-        a.href = targetDownloadUrl;
-        a.download = targetFileName || 'captioned_video.mp4';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          try { document.body.removeChild(a); } catch (_) {}
-        }, 500);
-      } catch (aErr) {
-        console.warn('[DOWNLOAD] Direct <a> trigger error:', aErr);
-      }
-
-      // 3. Fallback window.open for in-app browsers
-      try {
-        window.open(targetDownloadUrl, '_blank');
-      } catch (_) {}
-    };
-
-    btnDownloadExport.onclick = triggerFileDownload;
-
-    const btnShareExport = $('btnShareExport');
-    if (btnShareExport) {
-      btnShareExport.onclick = triggerFileDownload;
+        })
+        .catch(err => console.warn('[DOWNLOAD] Server upload fallback error:', err));
     }
 
-    // AUTOMATIC FAST DOWNLOAD: Trigger file download right after export finishes
-    setTimeout(() => {
+    // Direct file download helper without opening video player
+    function forceDirectDownload(urlOverride, nameOverride) {
+      const dlUrl = urlOverride || targetDownloadUrl;
+      const dlName = nameOverride || targetFileName || 'captioned_video.mp4';
+      if (!dlUrl) return;
+
+      // If server attachment URL, window.location forces Android Download Manager directly:
+      if (dlUrl.startsWith('/download/')) {
+        window.location.href = dlUrl;
+        return;
+      }
+
       try {
         const a = document.createElement('a');
         a.style.display = 'none';
-        a.href = targetDownloadUrl;
-        a.download = targetFileName || 'captioned_video.mp4';
+        a.href = dlUrl;
+        a.download = dlName;
         document.body.appendChild(a);
         a.click();
         setTimeout(() => {
           try { document.body.removeChild(a); } catch (_) {}
         }, 800);
-      } catch (_) {}
-    }, 250);
+      } catch (err) {
+        console.warn('[DOWNLOAD] Direct <a> error:', err);
+      }
+    }
 
-    exportPreviewVideo.load();
+    // Explicit click handler for Download Video button
+    btnDownloadExport.onclick = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      forceDirectDownload();
+    };
+
+    const btnShareExport = $('btnShareExport');
+    if (btnShareExport) {
+      btnShareExport.onclick = async (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        const blobForShare = currentBlob || (filename instanceof Blob ? filename : null);
+        if (blobForShare && navigator.share && navigator.canShare) {
+          try {
+            const shareFile = new File([blobForShare], targetFileName || 'captioned_video.mp4', { type: 'video/mp4' });
+            if (navigator.canShare({ files: [shareFile] })) {
+              await navigator.share({
+                files: [shareFile],
+                title: 'Captioned Video',
+                text: 'Your captioned video is ready!'
+              });
+              return;
+            }
+          } catch (shareErr) {
+            if (shareErr.name === 'AbortError') return;
+          }
+        }
+        forceDirectDownload();
+      };
+    }
+
+    // AUTOMATIC FAST DOWNLOAD: Trigger immediate file download as soon as export finishes
+    setTimeout(() => {
+      try {
+        forceDirectDownload();
+      } catch (_) {}
+    }, 300);
+
+        exportPreviewVideo.load();
 
     playSuccessChime();
     startTitleFlash();

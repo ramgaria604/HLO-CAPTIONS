@@ -2892,6 +2892,25 @@ def save_canvas_export():
         "video_url": cloud_url or f"/video/{out_name}"
     })
 
+@app.post("/api/direct_download")
+def api_direct_download():
+    file = request.files.get("video")
+    if not file:
+        return jsonify({"ok": False, "error": "No file"}), 400
+    out_id = uuid.uuid4().hex[:10]
+    out_name = f"export_{out_id}_final.mp4"
+    dest = WORK / out_name
+    file.save(dest)
+    cloud_url = None
+    if cloud_storage.storage.is_enabled():
+        cloud_url = cloud_storage.storage.upload_file(dest)
+    return jsonify({
+        "ok": True,
+        "download": cloud_url or f"/download/{out_name}",
+        "filename": out_name
+    })
+
+
 @app.get("/download/<path:filename>")
 def download(filename):
     safe = Path(filename).name
