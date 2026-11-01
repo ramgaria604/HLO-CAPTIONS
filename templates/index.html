@@ -13,8 +13,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bangers&family=Bebas+Neue&family=Bowlby+One&family=Bungee&family=Cinzel:wght@700;900&family=Cormorant+Garamond:wght@700&family=DM+Serif+Display&family=Fredoka:wght@600;700&family=Great+Vibes&family=Inter:wght@400;500;600;700;800;900&family=Lobster&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Outfit:wght@700;800&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:wght@700;900&family=Poppins:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Raleway:wght@700;800&family=Righteous&family=Rubik:wght@700;800;900&family=Shrikhand&family=Space+Mono:wght@700&family=Syne:wght@700;800&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=5.4.0">
-  <link rel="stylesheet" href="/static/layout.css?v=5.4.0">
+  <link rel="stylesheet" href="/static/style.css?v=5.5.0">
+  <link rel="stylesheet" href="/static/layout.css?v=5.5.0">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -709,6 +709,38 @@
 
           <!-- TAB 2: EDIT CAPTIONS -->
           <div id="tabCaptions" class="tab-pane hidden">
+            <!-- QUICK CAPTION TYPOGRAPHY TOOLBAR -->
+            <div class="captions-quick-typography-bar">
+              <div class="quick-typo-item">
+                <span class="quick-typo-label">🔤 Font:</span>
+                <select id="quickSelectFont" class="quick-typo-select">
+                  <option value="Poppins" selected>Poppins (Bold Sans)</option>
+                  <option value="Montserrat">Montserrat (Viral Modern)</option>
+                  <option value="Anton">Anton (Heavy Punch)</option>
+                  <option value="Bebas Neue">Bebas Neue (Tall Reel)</option>
+                  <option value="Outfit">Outfit (Geometric)</option>
+                  <option value="Archivo Black">Archivo Black (Solid Block)</option>
+                  <option value="Bangers">Bangers (Comic Pop)</option>
+                  <option value="Bungee">Bungee (Blocky 3D)</option>
+                  <option value="Inter">Inter (Clean Clean)</option>
+                  <option value="Rubik">Rubik (Rounded Punch)</option>
+                  <option value="Space Mono">Space Mono (Tech)</option>
+                  <option value="Permanent Marker">Permanent Marker</option>
+                </select>
+              </div>
+              <div class="quick-typo-item">
+                <span class="quick-typo-label">🔠 Casing:</span>
+                <div class="btn-group-mini" id="quickCaseGroup">
+                  <button type="button" class="btn-mini active" data-case="upper" title="ALL CAPITAL LETTERS">ABC</button>
+                  <button type="button" class="btn-mini" data-case="title" title="Title Capitalization">Abc</button>
+                  <button type="button" class="btn-mini" data-case="lower" title="all small letters">abc</button>
+                  <button type="button" class="btn-mini" data-case="asIs" title="Original spoken words">Original</button>
+                </div>
+              </div>
+              <button type="button" id="btnQuickOpenCustomize" class="btn-quick-customize" title="Open full style options">
+                🎨 Full Style
+              </button>
+            </div>
             <div class="captions-toolbar">
               <div class="captions-info">
                 <span id="captionCountBadge">0 lines</span>
@@ -788,6 +820,118 @@
                 <p class="voiceover-help">Optional animated progress line running across the bottom of the video.</p>
               </div>
 
+              <!-- 🔤 CAPTION FONT FAMILY & VISUAL FONT PICKER -->
+              <div class="control-card" id="cardFontFamily">
+                <div class="control-header">
+                  <label>🔤 Caption Font Family</label>
+                  <span id="valFontBadge" class="val-badge badge-green">POPPINS</span>
+                </div>
+                <p class="voiceover-help">Tap any font chip below to instantly change all captions.</p>
+
+                <!-- Visual Font Preview Chips Carousel / Grid -->
+                <div class="font-chips-grid" id="fontChipsGrid">
+                  <button type="button" class="font-chip active" data-font="Poppins" style="font-family: 'Poppins', sans-serif;">
+                    <span class="font-chip-name">Poppins</span>
+                    <span class="font-chip-preview">Clean Bold</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Montserrat" style="font-family: 'Montserrat', sans-serif;">
+                    <span class="font-chip-name">Montserrat</span>
+                    <span class="font-chip-preview">Viral Modern</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Anton" style="font-family: 'Anton', sans-serif;">
+                    <span class="font-chip-name">Anton</span>
+                    <span class="font-chip-preview">Heavy Punch</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Bebas Neue" style="font-family: 'Bebas Neue', sans-serif;">
+                    <span class="font-chip-name">Bebas Neue</span>
+                    <span class="font-chip-preview">Tall Reel</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Outfit" style="font-family: 'Outfit', sans-serif;">
+                    <span class="font-chip-name">Outfit</span>
+                    <span class="font-chip-preview">Geometric</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Archivo Black" style="font-family: 'Archivo Black', sans-serif;">
+                    <span class="font-chip-name">Archivo Black</span>
+                    <span class="font-chip-preview">Solid Block</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Bangers" style="font-family: 'Bangers', cursive;">
+                    <span class="font-chip-name">Bangers</span>
+                    <span class="font-chip-preview">Comic Pop</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Bungee" style="font-family: 'Bungee', cursive;">
+                    <span class="font-chip-name">Bungee</span>
+                    <span class="font-chip-preview">Blocky 3D</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Inter" style="font-family: 'Inter', sans-serif;">
+                    <span class="font-chip-name">Inter</span>
+                    <span class="font-chip-preview">Minimalist</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Rubik" style="font-family: 'Rubik', sans-serif;">
+                    <span class="font-chip-name">Rubik</span>
+                    <span class="font-chip-preview">Rounded Punch</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Space Mono" style="font-family: 'Space Mono', monospace;">
+                    <span class="font-chip-name">Space Mono</span>
+                    <span class="font-chip-preview">Retro Tech</span>
+                  </button>
+                  <button type="button" class="font-chip" data-font="Permanent Marker" style="font-family: 'Permanent Marker', cursive;">
+                    <span class="font-chip-name">Permanent Marker</span>
+                    <span class="font-chip-preview">Handwritten</span>
+                  </button>
+                </div>
+
+                <!-- Font dropdown for all Google fonts -->
+                <div style="margin-top: 6px;">
+                  <select id="selectFont" class="styled-select">
+                    <option value="Poppins" selected>Poppins (Bold Sans)</option>
+                    <option value="Montserrat">Montserrat (Viral Modern)</option>
+                    <option value="Anton">Anton (Heavy Punch)</option>
+                    <option value="Bebas Neue">Bebas Neue (Tall Reel)</option>
+                    <option value="Outfit">Outfit (Geometric)</option>
+                    <option value="Archivo Black">Archivo Black (Solid Block)</option>
+                    <option value="Bangers">Bangers (Comic Pop)</option>
+                    <option value="Bungee">Bungee (Blocky 3D)</option>
+                    <option value="Inter">Inter (Clean Clean)</option>
+                    <option value="Rubik">Rubik (Rounded Punch)</option>
+                    <option value="Space Mono">Space Mono (Tech)</option>
+                    <option value="Permanent Marker">Permanent Marker</option>
+                    <option value="Cinzel">Cinzel (Cinematic Elegance)</option>
+                    <option value="Playfair Display">Playfair Display (Luxury Editorial)</option>
+                    <option value="Syne">Syne (Avant-Garde)</option>
+                  </select>
+                </div>
+
+                <div class="font-upload-row">
+                  <button type="button" id="btnUploadFont" class="btn-subaction">
+                    📁 Upload Custom Font (.ttf/.otf)
+                  </button>
+                  <input type="file" id="inputCustomFont" accept=".ttf,.otf,.woff,.woff2" class="file-input-hidden">
+                </div>
+              </div>
+
+              <!-- 🔠 TEXT CASING (CAPITAL / LOWERCASE / TITLE) -->
+              <div class="control-card" id="cardTextCasing">
+                <div class="control-header">
+                  <label>🔠 Text Casing</label>
+                  <span id="valCasingBadge" class="val-badge badge-green">ALL CAPS</span>
+                </div>
+                <p class="voiceover-help">Switch captions to all capital letters, title case, lowercase, or original.</p>
+                <div class="btn-group segmented-4" id="caseButtonGroup">
+                  <button type="button" class="btn-toggle active" data-case="upper" title="ALL CAPITAL LETTERS">
+                    <strong>ABC</strong><span class="case-label">ALL CAPS</span>
+                  </button>
+                  <button type="button" class="btn-toggle" data-case="title" title="Capitalize First Letter of Words">
+                    <strong>Abc</strong><span class="case-label">Title</span>
+                  </button>
+                  <button type="button" class="btn-toggle" data-case="lower" title="all small lowercase letters">
+                    <strong>abc</strong><span class="case-label">lower</span>
+                  </button>
+                  <button type="button" class="btn-toggle" data-case="asIs" title="Original spoken transcript casing">
+                    <strong>As-Is</strong><span class="case-label">Original</span>
+                  </button>
+                </div>
+              </div>
+
               <!-- Real Estate Clr Palette Dots -->
               <div class="control-card" id="cardRealEstateColors">
                 <div class="control-header">
@@ -850,6 +994,12 @@
                   <button type="button" class="btn-step" id="btnStepSizeDown" title="Smaller">−</button>
                   <span class="stepper-value" id="valFontSize">100% (48px)</span>
                   <button type="button" class="btn-step" id="btnStepSizeUp" title="Larger">+</button>
+                </div>
+                <div class="size-presets-row" id="sizePresetsRow">
+                  <button type="button" class="btn-size-preset" data-scale="0.8">80% S</button>
+                  <button type="button" class="btn-size-preset active" data-scale="1.0">100% M</button>
+                  <button type="button" class="btn-size-preset" data-scale="1.2">120% L</button>
+                  <button type="button" class="btn-size-preset" data-scale="1.4">140% XL</button>
                 </div>
                 <input type="range" id="inputFontSize" min="60" max="180" value="100" class="styled-slider" style="display:none;">
               </div>
@@ -993,39 +1143,6 @@
                     <input type="color" id="inputCustomHighlight" class="custom-color-input" value="#FFE600">
                     <span class="custom-color-label">Custom</span>
                   </label>
-                </div>
-              </div>
-
-              <!-- 8. Font Family & Custom Upload -->
-              <div class="control-card">
-                <div class="control-header">
-                  <label>🔤 Font Family</label>
-                </div>
-                <select id="selectFont" class="styled-select">
-                  <option value="Poppins" selected>Poppins (Bold Sans)</option>
-                  <option value="Montserrat">Montserrat (Modern)</option>
-                  <option value="Anton">Anton (Heavy Punch)</option>
-                  <option value="Bangers">Bangers (Comic Pop)</option>
-                  <option value="Bungee">Bungee (Blocky 3D)</option>
-                  <option value="Inter">Inter (Clean Clean)</option>
-                  <option value="Space Mono">Space Mono (Tech)</option>
-                </select>
-                <div class="font-upload-row">
-                  <button type="button" id="btnUploadFont" class="btn-subaction">
-                    📁 Upload Custom Font (.ttf/.otf)
-                  </button>
-                  <input type="file" id="inputCustomFont" accept=".ttf,.otf,.woff,.woff2" class="file-input-hidden">
-                </div>
-              </div>
-
-              <!-- 9. Text Casing -->
-              <div class="control-card">
-                <div class="control-header">
-                  <label>Text Casing</label>
-                </div>
-                <div class="btn-group" id="caseButtonGroup">
-                  <button type="button" class="btn-toggle active" data-case="upper">ALL CAPS</button>
-                  <button type="button" class="btn-toggle" data-case="normal">Normal</button>
                 </div>
               </div>
 
@@ -1794,6 +1911,6 @@
     window.MediaPipeVision = { FilesetResolver, ImageSegmenter };
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=5.4.0"></script>
+  <script src="/static/app.js?v=5.5.0"></script>
 </body>
 </html>

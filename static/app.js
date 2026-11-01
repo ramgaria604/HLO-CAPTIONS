@@ -79,6 +79,8 @@
   bigType: true,
   heroLook: 'solid',
   lineByLine: true,
+  font: 'Poppins',
+  textCase: 'upper',
   realEstateColorLock: 'auto',
   realEstateConfig: {
     enabled: false,
@@ -93,6 +95,27 @@
     presenterRole: ''
   },
   };
+
+  /**
+   * Universal Caption Text Casing Helper
+   * Supports 'upper' (ALL CAPS), 'title' (Title Case), 'lower' (lowercase), and 'asIs' (Original)
+   */
+  function applyTextCase(text, mode) {
+    if (text == null) return '';
+    const str = String(text);
+    const m = mode || S.style?.textCase || S.textCase || 'upper';
+    if (m === 'upper') {
+      return str.toUpperCase();
+    } else if (m === 'lower') {
+      return str.toLowerCase();
+    } else if (m === 'title') {
+      return str.replace(/\b([a-zA-Z])/g, c => c.toUpperCase());
+    } else if (m === 'asIs' || m === 'normal' || m === 'none') {
+      return str;
+    }
+    return str.toUpperCase();
+  }
+  window.applyTextCase = applyTextCase;
 
   // --- DOM Elements ---
   const viewUpload = $('viewUpload');
@@ -694,8 +717,9 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
   }
 
   // 2. Preserve each preset's authentic designer font and typography
-  const presetFont = st.fontFamily || st.font || (kRole && kRole.font) || (fRole && fRole.font) || 'Montserrat';
-  const fontFam = `"${presetFont}", "Poppins", sans-serif`;
+  const currentCase = S.style?.textCase || S.textCase || 'upper';
+  const chosenFont = S.style?.fontFamily || S.font || st.fontFamily || st.font || (kRole && kRole.font) || (fRole && fRole.font) || 'Montserrat';
+  const fontFam = `"${chosenFont}", "Poppins", sans-serif`;
   let fs = Math.max(18, Math.round(base * (st.fontSize || fRole.size || kRole.size || 0.082)));
   const leading = 1.18;
 
@@ -712,8 +736,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     let lineWidth = 0;
     const wordObjs = lineWords.map((w, idx) => {
       const isKey = Boolean(w.key);
-      const isUpper = isKey ? (kRole.upper !== false) : (fRole.upper !== false);
-      const txt = isUpper ? w.t.toUpperCase() : w.t;
+      const txt = applyTextCase(w.t, currentCase);
       ctx.font = `${isKey ? 900 : 800} ${fs}px ${fontFam}`;
       const width = ctx.measureText(txt).width;
       const spaceWidth = (idx < lineWords.length - 1) ? ctx.measureText(' ').width : 0;
@@ -1005,10 +1028,12 @@ function drawSpecialFrontPass(ctx, words, t, st, W, H, base, showAll, capId) {
       const role = item.role || fallbackRole;
       const size = Math.max(14, Math.round(base * (role.size || 0.07)));
       const weight = role.bold ? 800 : 500;
-      const font = (role.italic ? 'italic ' : '') + `${weight} ${size}px "${role.font || 'Montserrat'}",sans-serif`;
+      const chosenFont = S.style?.fontFamily || S.font || role.font || 'Montserrat';
+      const font = (role.italic ? 'italic ' : '') + `${weight} ${size}px "${chosenFont}",sans-serif`;
       ctx.font = font;
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${(role.track || 0) * size}px`;
-      const label = role.upper ? item.word.t.toUpperCase() : item.word.t;
+      const caseMode = S.style?.textCase || S.textCase || (role.upper ? 'upper' : 'upper');
+      const label = applyTextCase(item.word.t, caseMode);
       const width = ctx.measureText(label).width;
       measured.push({ ...item, role, size, font, label, width });
     }
@@ -1148,7 +1173,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
   const alt = (st.accent2 || roles.accent2) && (capIdx % 2 === 1);
   const accentRole = (alt && (roles.accent2 || st.accent2)) || roles.accent || st.key || {};
-  const uppercase = Boolean(st.uppercase != null ? st.uppercase : accentRole.upper);
+  const caseMode = S.style?.textCase || S.textCase || (st.uppercase ? 'upper' : (accentRole.upper ? 'upper' : 'upper'));
   const inkGap = typeof st.inkGap === 'number' ? st.inkGap : 0.03;
   const posX = typeof st.posX === 'number' ? st.posX : 0.5;
   let posY = typeof st.posY === 'number' ? st.posY : 0.5;
@@ -1165,7 +1190,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     (st.name && st.name.toLowerCase().includes('(behind)'))
   );
 
-  const up = (txt) => uppercase ? txt.toUpperCase() : txt;
+  const up = (txt) => applyTextCase(txt, caseMode);
+  const chosenFont = S.style?.fontFamily || S.font || st.fontFamily || st.font;
   const scale = Math.max(0.24, Math.min(W / 1080, H / 1920)) * (Number(st.fontScale) || 1);
   const getRolePx = (r, defaultPx) => {
     const s = Number(r.size) || defaultPx;
@@ -1216,7 +1242,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (topWords.length > 0) {
       const topDesc = {
         text: topWords.map(w => up(w.t)).join(' '),
-        font: baseRole.font || 'Poppins',
+        font: chosenFont || baseRole.font || 'Poppins',
         size: Math.max(14, getRolePx(baseRole, 56)),
         weight: baseRole.weight || (baseRole.bold ? 700 : 500),
         italic: Boolean(baseRole.italic),
@@ -1232,7 +1258,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (heroWords.length > 0) {
       const heroDesc = {
         text: heroWords.map(w => up(w.t)).join(' '),
-        font: accentRole.font || 'Montserrat',
+        font: chosenFont || accentRole.font || 'Montserrat',
         size: Math.max(22, getRolePx(accentRole, 230)),
         weight: accentRole.weight || (accentRole.bold ? 900 : 800),
         italic: Boolean(accentRole.italic),
@@ -1248,7 +1274,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (bottomWords.length > 0) {
       const bottomDesc = {
         text: bottomWords.map(w => up(w.t)).join(' '),
-        font: baseRole.font || 'Poppins',
+        font: chosenFont || baseRole.font || 'Poppins',
         size: Math.max(14, getRolePx(baseRole, 58)),
         weight: baseRole.weight || (baseRole.bold ? 700 : 500),
         italic: Boolean(baseRole.italic),
@@ -1980,12 +2006,13 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       }
     }
 
+    const currentCase = S.style?.textCase || S.textCase || 'upper';
     let displayHeroText = data.heroText;
     if (data.heroIsNum && !showAll) {
       const numProgress = Math.min(1, Math.max(0, stTime / 0.50));
       displayHeroText = formatNumberCounter(data.heroText, numProgress);
     }
-    displayHeroText = getCleanDisplayHeroText(displayHeroText);
+    displayHeroText = applyTextCase(getCleanDisplayHeroText(displayHeroText), currentCase);
 
     // FIT CALCULATION: Reduce font size until measured width at PEAK scale <= 0.84 * W
     const maxAllowedHeroWidth = HERO_MAX_WIDTH_RATIO * W;
@@ -2006,7 +2033,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       }
       heroFontSize = Math.max(14, Math.floor(heroFontSize * (maxAllowedHeroWidth / peakW)));
     }
-    const heroFont = `900 ${heroFontSize}px 'Montserrat', 'Impact', 'Anton', sans-serif`;
+    const chosenReFont = S.style?.fontFamily || S.font || 'Montserrat';
+    const heroFont = `900 ${heroFontSize}px '${chosenReFont}', 'Montserrat', 'Anton', sans-serif`;
     if (typeof document !== 'undefined' && document.fonts && document.fonts.load) {
       try { document.fonts.load(heroFont); } catch (_) {}
     }
@@ -2521,7 +2549,8 @@ function getSampledLuminanceBehindHero(videoEl, heroBox, capIndex, W, H) {
 }
 
 function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, isPreviewSmooth, videoEl, heroBox, W, H) {
-  const cacheKey = `${text}_${fontSize}_${isItalic}_${colors.top}_${colors.bottom}_${heroLook}_${lum > 0.6 ? 'bright' : (lum < 0.3 ? 'dark' : 'norm')}`;
+  const chosenFont = S.style?.fontFamily || S.font || 'Poppins';
+  const cacheKey = `${text}_${chosenFont}_${fontSize}_${isItalic}_${colors.top}_${colors.bottom}_${heroLook}_${lum > 0.6 ? 'bright' : (lum < 0.3 ? 'dark' : 'norm')}`;
   if (_heroSpriteCache.has(cacheKey)) {
     return _heroSpriteCache.get(cacheKey);
   }
@@ -2532,7 +2561,7 @@ function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, 
   tempCanvas.height = 10;
   const tempCtx = tempCanvas.getContext('2d');
   const fontStyle = isItalic ? 'italic' : 'normal';
-  const fontStr = `${fontStyle} 800 ${fontSize}px "Poppins", sans-serif`;
+  const fontStr = `${fontStyle} 800 ${fontSize}px "${chosenFont}", "Poppins", sans-serif`;
   tempCtx.font = fontStr;
   if ('letterSpacing' in tempCtx) tempCtx.letterSpacing = '-0.02em';
 
@@ -2766,8 +2795,10 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   const validCapIdx = typeof capIndex === 'number' && !isNaN(capIndex) ? Math.max(0, capIndex) : 0;
   const isItalic = (validCapIdx % 2 === 1);
   const fontStyle = isItalic ? 'italic ' : '';
-  const cleanWord = heroWord.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim().toLowerCase();
-  if (!cleanWord) return;
+  const rawClean = heroWord.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim();
+  if (!rawClean) return;
+  const currentCase = S.style?.textCase || S.textCase || 'upper';
+  const cleanWord = applyTextCase(rawClean, currentCase);
 
   const isReClr = Boolean(
     st.id === 'special_03' ||
@@ -5441,10 +5472,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       renderBrollTab();
     } else if (targetId === 'tabStyle') {
       if (typeof syncHeroLookUI === 'function') syncHeroLookUI();
+      if (typeof syncTypographyUI === 'function') syncTypographyUI();
       const chkProgressLine = $('chkBottomProgressLine');
       if (chkProgressLine) {
         chkProgressLine.checked = Boolean(S.progressBar && S.progressBar.enabled === true);
       }
+    } else if (targetId === 'tabCaptions') {
+      if (typeof syncTypographyUI === 'function') syncTypographyUI();
     }
     requestAnimationFrame(() => {
       fitCanvas();
@@ -5961,8 +5995,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       behindPerson: isBehind,
       depthAccent: Boolean(preset.depthAccent || isBehind),
       highlightColor: preset.highlightColor || preset.roles?.accent?.color || preset.key?.color || '#FFE600',
-      fontFamily: preset.roles?.accent?.font || preset.key?.font || 'Poppins',
-      textCase: S.style?.textCase || 'upper'
+      fontFamily: S.style?.fontFamily || S.font || preset.roles?.accent?.font || preset.key?.font || 'Poppins',
+      textCase: S.style?.textCase || S.textCase || 'upper'
     });
 
     if (isBehind) {
@@ -6445,21 +6479,167 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
     });
 
-    selectFont.addEventListener('change', (e) => {
+    // -------------------------------------------------------------------------
+    // CAPTION TYPOGRAPHY & CASING SUITE
+    // -------------------------------------------------------------------------
+    function syncTypographyUI() {
+      const curFont = S.style?.fontFamily || S.font || 'Poppins';
+      const curCase = S.style?.textCase || S.textCase || 'upper';
+
+      // 1. Sync Font Chips
+      $$('.font-chip[data-font]').forEach(chip => {
+        const f = chip.getAttribute('data-font') || '';
+        chip.classList.toggle('active', f.toLowerCase() === curFont.toLowerCase());
+      });
+
+      // 2. Sync Font Dropdowns
+      const selFont = $('selectFont');
+      if (selFont) selFont.value = curFont;
+      const quickSelFont = $('quickSelectFont');
+      if (quickSelFont) quickSelFont.value = curFont;
+
+      // 3. Sync Font Badge
+      const valFontBadge = $('valFontBadge');
+      if (valFontBadge) valFontBadge.textContent = curFont.toUpperCase();
+
+      // 4. Sync Casing Button Groups
+      $$('#caseButtonGroup .btn-toggle').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-case') === curCase);
+      });
+      $$('#quickCaseGroup .btn-mini').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-case') === curCase);
+      });
+
+      // 5. Sync Casing Badge
+      const valCasingBadge = $('valCasingBadge');
+      if (valCasingBadge) {
+        const caseLabels = {
+          'upper': 'ALL CAPS',
+          'title': 'TITLE CASE',
+          'lower': 'LOWERCASE',
+          'asIs': 'ORIGINAL'
+        };
+        valCasingBadge.textContent = caseLabels[curCase] || curCase.toUpperCase();
+      }
+
+      // 6. Sync Caption Size Presets
+      const curScale = S.style?.fontScale || 1.0;
+      $$('.btn-size-preset').forEach(b => {
+        const s = parseFloat(b.getAttribute('data-scale')) || 1.0;
+        b.classList.toggle('active', Math.abs(s - curScale) < 0.05);
+      });
+    }
+    window.syncTypographyUI = syncTypographyUI;
+
+    function setCaptionFont(font) {
+      if (!font) return;
       if (!S.style) S.style = {};
-      S.style.fontFamily = e.target.value;
+      S.style.fontFamily = font;
+      S.font = font;
       if (!S.style.key) S.style.key = {};
-      S.style.key.font = e.target.value;
-      renderCanvas();
+      S.style.key.font = font;
+      if (!S.style.roles) S.style.roles = {};
+      if (S.style.roles.accent) S.style.roles.accent.font = font;
+      if (S.style.roles.base) S.style.roles.base.font = font;
+      if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache.clear) {
+        _heroSpriteCache.clear();
+      }
+      syncTypographyUI();
+      showToast(`🔤 Font: ${font}`);
+      renderCanvas(true);
+    }
+    window.setCaptionFont = setCaptionFont;
+
+    function setCaptionCase(casing) {
+      if (!casing) return;
+      if (!S.style) S.style = {};
+      S.style.textCase = casing;
+      S.textCase = casing;
+      if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache.clear) {
+        _heroSpriteCache.clear();
+      }
+      syncTypographyUI();
+      const caseLabels = { upper: 'ALL CAPS', title: 'Title Case', lower: 'lowercase', asIs: 'Original' };
+      showToast(`🔠 Casing: ${caseLabels[casing] || casing}`);
+      renderCanvas(true);
+    }
+    window.setCaptionCase = setCaptionCase;
+
+    // Visual Font Chips (click & touch)
+    $$('.font-chip[data-font]').forEach(chip => {
+      const handler = (e) => {
+        e.preventDefault();
+        const f = chip.getAttribute('data-font');
+        setCaptionFont(f);
+      };
+      chip.addEventListener('click', handler);
+      chip.addEventListener('pointerup', handler);
     });
 
-    $$('#caseButtonGroup .btn-toggle').forEach(btn => {
-      btn.addEventListener('click', () => {
-        $$('#caseButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
-        if (!S.style) S.style = {};
-        S.style.textCase = btn.getAttribute('data-case');
-        renderCanvas();
+    // Font Dropdown in Customize
+    const selectFontEl = $('selectFont');
+    if (selectFontEl) {
+      selectFontEl.addEventListener('change', (e) => {
+        setCaptionFont(e.target.value);
       });
+    }
+
+    // Quick Font Dropdown in Transcript tab
+    const quickSelectFontEl = $('quickSelectFont');
+    if (quickSelectFontEl) {
+      quickSelectFontEl.addEventListener('change', (e) => {
+        setCaptionFont(e.target.value);
+      });
+    }
+
+    // Casing buttons in Customize tab
+    $$('#caseButtonGroup .btn-toggle').forEach(btn => {
+      const handler = (e) => {
+        e.preventDefault();
+        const c = btn.getAttribute('data-case');
+        setCaptionCase(c);
+      };
+      btn.addEventListener('click', handler);
+      btn.addEventListener('pointerup', handler);
+    });
+
+    // Quick Casing buttons in Transcript tab
+    $$('#quickCaseGroup .btn-mini').forEach(btn => {
+      const handler = (e) => {
+        e.preventDefault();
+        const c = btn.getAttribute('data-case');
+        setCaptionCase(c);
+      };
+      btn.addEventListener('click', handler);
+      btn.addEventListener('pointerup', handler);
+    });
+
+    // Button to jump from Transcript quick bar to full Customize typography
+    const btnQuickOpenCust = $('btnQuickOpenCustomize');
+    if (btnQuickOpenCust) {
+      btnQuickOpenCust.addEventListener('click', () => {
+        openDrawerTab('tabStyle');
+        const cardFont = $('cardFontFamily');
+        if (cardFont) {
+          setTimeout(() => cardFont.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+        }
+      });
+    }
+
+    // Caption Size Quick Presets (80% S, 100% M, 120% L, 140% XL)
+    $$('.btn-size-preset').forEach(btn => {
+      const handler = (e) => {
+        e.preventDefault();
+        const scale = parseFloat(btn.getAttribute('data-scale')) || 1.0;
+        if (!S.style) S.style = {};
+        S.style.fontScale = scale;
+        updateFontScaleUI();
+        syncTypographyUI();
+        showToast(`📏 Caption Size: ${Math.round(scale * 100)}%`);
+        renderCanvas(true);
+      };
+      btn.addEventListener('click', handler);
+      btn.addEventListener('pointerup', handler);
     });
 
     // Text Glow-Up & Neon Bloom Controls
@@ -9905,7 +10085,10 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
       if (document.fonts && document.fonts.load) {
         try {
+          const exportChosenFont = S.style?.fontFamily || S.font || 'Poppins';
           await Promise.all([
+            document.fonts.load(`800 100px "${exportChosenFont}"`),
+            document.fonts.load(`italic 800 100px "${exportChosenFont}"`),
             document.fonts.load('800 100px "Poppins"'),
             document.fonts.load('italic 800 100px "Poppins"'),
             document.fonts.load('600 48px "Poppins"'),
@@ -12413,14 +12596,16 @@ function drawPopKaraokeSubtitles(ctx, beat, activeCap, t, cX, cY, u, W) {
   const strokeW = Math.max(1.5, 0.6 * u);
 
   ctx.save();
-  ctx.font = `800 ${fs}px "Poppins", sans-serif`;
+  const chosenPopFont = S.style?.fontFamily || S.font || 'Poppins';
+  ctx.font = `800 ${fs}px "${chosenPopFont}", "Poppins", sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 
   // Strip trailing punctuation from rendered words
   const cleanWords = words.map(w => {
     const raw = (w.t || w.word || '').trim();
-    const clean = raw.replace(/[.,/#!$%^&*;:{}=\-_`~()]+$/g, '');
+    const caseMode = S.style?.textCase || S.textCase || 'upper';
+    const clean = applyTextCase(raw.replace(/[.,/#!$%^&*;:{}=\-_`~()]+$/g, ''), caseMode);
     const wWidth = ctx.measureText(clean).width;
     return { w, clean, width: wWidth };
   });
