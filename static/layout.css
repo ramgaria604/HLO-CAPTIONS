@@ -265,19 +265,36 @@ html, body {
   background: #000 !important;
 }
 
-.stage video,
-.stage canvas {
+.stage video {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
   width: 100% !important;
   height: 100% !important;
   object-fit: contain !important;
+  z-index: 0 !important;
 }
 
 .stage canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
   pointer-events: none !important;
-  z-index: var(--z-stage-canvas) !important;
+}
+
+.stage canvas.stage-layer-behind {
+  z-index: 2 !important;
+}
+
+.stage canvas.stage-layer-person {
+  z-index: 3 !important;
+}
+
+.stage canvas.stage-layer-fore,
+.stage #captionCanvas {
+  z-index: 4 !important;
 }
 
 /* Overlays inside stage: pointer-events none by default, buttons auto (STEP 2 & 6) */
@@ -536,23 +553,51 @@ html, body {
 /* Compact video templates row (STEP 4) */
 .compact-vtemplate-row {
   flex-shrink: 0 !important;
-  min-height: 48px !important;
-  max-height: 56px !important;
+  min-height: 64px !important;
+  height: auto !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  padding: 6px 12px !important;
-  margin: 4px 10px 8px 10px !important;
+  padding: 8px 12px !important;
+  margin: 6px 10px 8px 10px !important;
   background: rgba(255, 255, 255, 0.04) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 10px !important;
   box-sizing: border-box !important;
+  gap: 8px !important;
+}
+
+.compact-vtemplate-info {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+}
+
+.compact-vtemplate-badge-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.compact-vtemplate-title {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #fff !important;
+  line-height: 1.25 !important;
+}
+
+.compact-vtemplate-sub {
+  font-size: 11px !important;
+  color: #94a3b8 !important;
+  line-height: 1.2 !important;
 }
 
 /* Featured templates row (STEP 4) */
 .featured-templates-section {
   flex-shrink: 0 !important;
-  padding: 4px 12px 8px 12px !important;
+  padding: 6px 12px 10px 12px !important;
   box-sizing: border-box !important;
 }
 .featured-templates-scroll {
@@ -561,11 +606,13 @@ html, body {
   overflow-x: auto !important;
   -webkit-overflow-scrolling: touch !important;
   gap: 8px !important;
+  padding-bottom: 4px !important;
 }
 .featured-card {
-  flex: 0 0 120px !important;
-  width: 120px !important;
-  min-height: 80px !important;
+  flex: 0 0 125px !important;
+  width: 125px !important;
+  min-height: 100px !important;
+  height: auto !important;
   border-radius: 10px !important;
   overflow: hidden !important;
   box-sizing: border-box !important;
@@ -578,9 +625,10 @@ html, body {
   display: grid !important;
   grid-template-columns: repeat(2, 1fr) !important;
   gap: 8px !important;
-  padding: 8px 12px 16px 12px !important;
+  padding: 8px 12px 84px 12px !important;
   box-sizing: border-box !important;
   flex: 1 1 auto !important;
+  width: 100% !important;
 }
 .presets-grid .preset-card {
   aspect-ratio: 4 / 5 !important;

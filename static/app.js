@@ -77,7 +77,7 @@
   },
   progressBar: { enabled: true, position: 'bottom' },
   bigType: true,
-  heroLook: 'seeThrough',
+  heroLook: 'solid',
   lineByLine: true,
   realEstateColorLock: 'auto',
   realEstateConfig: {
@@ -2630,6 +2630,71 @@ function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, 
   return sprite;
 }
 
+function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W) {
+  if (!drawCtx || !cleanWord) return;
+  drawCtx.save();
+  drawCtx.globalAlpha = (exitAlpha || 1.0);
+
+  const fontStyle = isItalic ? 'italic ' : '';
+  drawCtx.font = `${fontStyle}800 ${fontSize}px "Poppins", "Arial Black", Impact, sans-serif`;
+  if ('letterSpacing' in drawCtx) drawCtx.letterSpacing = '-0.02em';
+  drawCtx.textAlign = 'center';
+  drawCtx.textBaseline = 'alphabetic';
+
+  const cy = drawY + fontSize * 0.45;
+  drawCtx.translate(cx, cy);
+  drawCtx.scale(animScale, animScale);
+  drawCtx.translate(-cx, -cy);
+
+  const baseLine = drawY + fontSize * 0.88;
+
+  // Strong dark shadow for 100% visibility on any background
+  drawCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+  drawCtx.shadowBlur = Math.round(fontSize * 0.08);
+  drawCtx.shadowOffsetX = 0;
+  drawCtx.shadowOffsetY = Math.round(fontSize * 0.03);
+
+  // Dark outline stroke
+  drawCtx.lineWidth = Math.max(2, Math.round(fontSize * 0.035));
+  drawCtx.strokeStyle = 'rgba(0, 0, 0, 0.90)';
+  drawCtx.strokeText(cleanWord, cx, baseLine);
+
+  // Solid color / gradient fill
+  const topCol = colors?.top || '#FFE600';
+  const botCol = colors?.bottom || topCol;
+  if (topCol !== botCol) {
+    const grad = drawCtx.createLinearGradient(cx, drawY, cx, drawY + fontSize);
+    grad.addColorStop(0, topCol);
+    grad.addColorStop(1, botCol);
+    drawCtx.fillStyle = grad;
+  } else {
+    drawCtx.fillStyle = topCol;
+  }
+  drawCtx.fillText(cleanWord, cx, baseLine);
+
+  drawCtx.restore();
+}
+
+function drawSafePlainCaptions(ctx, cap, words, W, H) {
+  if (!ctx || !words || !words.length) return;
+  ctx.save();
+  const text = words.map(w => w.t || w.word || '').join(' ');
+  const fs = Math.max(16, Math.round(W * 0.055));
+  ctx.font = `800 ${fs}px "Poppins", "Arial Black", Impact, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const cx = W / 2;
+  const cy = H * 0.75;
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur = 6;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#000000';
+  ctx.strokeText(text, cx, cy);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(text, cx, cy);
+  ctx.restore();
+}
+
 function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t, heroStart, capDur, exitAlpha, isPreview, videoEl, showAll = false) {
   if (!drawCtx || !heroWord) return;
 
@@ -2713,13 +2778,39 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   }
   drawCtx.restore();
 
-  const sprite = getOrCreateHeroSprite(cleanWord, fontSize, isItalic, colors, heroLook, lum, isPreviewSmooth, videoEl, heroBox, W, H);
-
   const cx = (heroBox && heroBox.centerX != null)
     ? heroBox.centerX
     : ((heroBox && heroBox.w && heroBox.w > 0) ? (heroBox.x + heroBox.w / 2) : (heroBox ? heroBox.x : W / 2));
-  const drawX = Math.round(cx - sprite.textW / 2);
   const drawY = Math.round(heroBox ? heroBox.y : H * 0.4);
+
+  // Default / Solid look path (SAFETY NET: immediately draws crisp visible text)
+  if (heroLook === 'solid') {
+    drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W);
+    drawCtx.globalAlpha = 1.0;
+    drawCtx.globalCompositeOperation = 'source-over';
+    return;
+  }
+
+  // Safety net: try creating sprite, fallback to solid if empty, 0-size, or throws
+  let sprite = null;
+  try {
+    sprite = getOrCreateHeroSprite(cleanWord, fontSize, isItalic, colors, heroLook, lum, isPreviewSmooth, videoEl, heroBox, W, H);
+    if (!sprite || !sprite.fillCanvas || sprite.fillCanvas.width === 0 || sprite.fillCanvas.height === 0) {
+      sprite = null;
+    }
+  } catch (err) {
+    console.warn('[HERO SPRITE FALLBACK]', err);
+    sprite = null;
+  }
+
+  if (!sprite) {
+    drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W);
+    drawCtx.globalAlpha = 1.0;
+    drawCtx.globalCompositeOperation = 'source-over';
+    return;
+  }
+
+  const drawX = Math.round(cx - sprite.textW / 2);
 
   drawCtx.save();
   drawCtx.globalAlpha = (exitAlpha || 1.0);
@@ -2741,7 +2832,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   drawCtx.scale(animScale, animScale);
   drawCtx.translate(-cx, -cy);
 
-  if (isPreviewSmooth || heroLook === 'solid') {
+  if (isPreviewSmooth) {
     drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
   } else {
     if (sprite.glowCanvas) {
@@ -2774,6 +2865,8 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   }
 
   drawCtx.restore();
+  drawCtx.globalAlpha = 1.0;
+  drawCtx.globalCompositeOperation = 'source-over';
 }
 
 function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize, exitAlpha, t, lineStart, isTopLine, showAll = false) {
@@ -2822,21 +2915,47 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
   ctxFore.restore();
 }
 
+let _fontsLoadStatus = { poppins: 'loading', poppinsItalic: 'loading', poppinsSemi: 'loading', anton: 'loading' };
+
 async function ensureHeroFontsLoaded() {
   if (typeof document !== 'undefined' && document.fonts && document.fonts.load) {
     try {
-      await Promise.all([
-        document.fonts.load('800 100px "Poppins"'),
-        document.fonts.load('italic 800 100px "Poppins"'),
-        document.fonts.load('600 48px "Poppins"')
-      ]);
-    } catch (_) {}
+      await document.fonts.load('800 100px "Poppins"');
+      _fontsLoadStatus.poppins = 'ready';
+    } catch (e) {
+      console.warn('[FONT] Poppins 800 failed to load, falling back to system sans-serif', e);
+      _fontsLoadStatus.poppins = 'fallback';
+    }
+    try {
+      await document.fonts.load('italic 800 100px "Poppins"');
+      _fontsLoadStatus.poppinsItalic = 'ready';
+    } catch (e) {
+      console.warn('[FONT] Poppins italic 800 failed to load, falling back to system sans-serif', e);
+      _fontsLoadStatus.poppinsItalic = 'fallback';
+    }
+    try {
+      await document.fonts.load('600 48px "Poppins"');
+      _fontsLoadStatus.poppinsSemi = 'ready';
+    } catch (e) {
+      console.warn('[FONT] Poppins 600 failed to load, falling back to system sans-serif', e);
+      _fontsLoadStatus.poppinsSemi = 'fallback';
+    }
+    try {
+      await document.fonts.load('48px "Anton"');
+      _fontsLoadStatus.anton = 'ready';
+    } catch (e) {
+      console.warn('[FONT] Anton failed to load, falling back to system sans-serif', e);
+      _fontsLoadStatus.anton = 'fallback';
+    }
+    if (typeof _heroSpriteCache !== 'undefined' && _heroSpriteCache) _heroSpriteCache.clear();
+    try { renderCanvas(true); } catch (_) {}
   }
 }
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   if (!ctxFore) return;
-  if (st && (st.videoTemplate === 'popStudio' || (S.popStudioConfig && S.popStudioConfig.enabled))) {
+  _captionsDrawnCount++;
+  if (st && st.videoTemplate === 'popStudio') {
     return;
   }
 
@@ -6802,6 +6921,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
     });
     document.addEventListener('fullscreenchange', fitCanvas);
+    window.addEventListener('orientationchange', () => setTimeout(fitCanvas, 150));
+    if (drawerPanel) drawerPanel.addEventListener('transitionend', fitCanvas);
     if (window.ResizeObserver && stage) {
       const ro = new ResizeObserver(() => {
         fitCanvas();
@@ -6979,6 +7100,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
   }
 
+  let _captionsDrawnCount = 0;
+  let _captionsDrawnInLastSec = 0;
+
   function updateDebugBadge(drawDurationMs, effQuality) {
     const badge = $('previewDebugBadge');
     if (!badge) return;
@@ -6996,13 +7120,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       _lastDebugFpsTime = now;
       _maskRateDisplay = _maskRunsInLastSec;
       _maskRunsInLastSec = 0;
+      _captionsDrawnInLastSec = _captionsDrawnCount;
+      _captionsDrawnCount = 0;
     }
 
-    const avgDraw = _previewDrawTimes.length > 0 
-      ? (_previewDrawTimes.reduce((a, b) => a + b, 0) / _previewDrawTimes.length).toFixed(1) 
-      : drawDurationMs.toFixed(1);
+    const cw = captionCanvas ? captionCanvas.width : 0;
+    const ch = captionCanvas ? captionCanvas.height : 0;
+    const curLook = S.heroLook || 'solid';
+    const fontStr = `P800:${_fontsLoadStatus.poppins} | Ital:${_fontsLoadStatus.poppinsItalic} | Semi:${_fontsLoadStatus.poppinsSemi} | Ant:${_fontsLoadStatus.anton}`;
 
-    badge.textContent = `FPS: ${_currentFps} | Draw: ${avgDraw}ms | Quality: ${effQuality} (${S.previewQuality}) | Mask: ${_maskRateDisplay}/s`;
+    badge.innerHTML = `<div style="font-weight:bold;margin-bottom:2px;">Debug: ${cw}x${ch} (${effQuality}) | Hero: ${curLook}</div>` +
+                      `<div style="font-size:10px;color:#93c5fd;">Fonts: ${fontStr}</div>` +
+                      `<div style="font-size:10px;color:#86efac;">Captions: ${_captionsDrawnInLastSec}/s | Draw: ${drawDurationMs.toFixed(1)}ms</div>`;
   }
 
   function updatePreviewQualityUI() {
@@ -7022,28 +7151,30 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function fitCanvas() {
+    if (!stage) return;
     const rect = stage.getBoundingClientRect();
     const effQuality = getEffectivePreviewQuality();
     const cfg = PREVIEW_QUALITY_CONFIG[effQuality] || PREVIEW_QUALITY_CONFIG.balanced;
     const dpr = Math.min(cfg.maxDpr, window.devicePixelRatio || 1);
 
-    if (rect.width > 0 && rect.height > 0) {
-      const cw = Math.max(2, Math.round(rect.width * dpr));
-      const ch = Math.max(2, Math.round(rect.height * dpr));
+    const w = rect.width > 0 ? rect.width : (stage.clientWidth || 360);
+    const h = rect.height > 0 ? rect.height : (stage.clientHeight || 640);
 
-      [captionCanvas, behindCanvas, personCanvas].forEach(cnv => {
-        if (cnv) {
-          if (cnv.width !== cw || cnv.height !== ch) {
-            cnv.width = cw;
-            cnv.height = ch;
-          }
-          cnv.style.width = '100%';
-          cnv.style.height = '100%';
+    const cw = Math.max(2, Math.round(w * dpr));
+    const ch = Math.max(2, Math.round(h * dpr));
+
+    [captionCanvas, behindCanvas, personCanvas].forEach(cnv => {
+      if (cnv) {
+        if (cnv.width !== cw || cnv.height !== ch) {
+          cnv.width = cw;
+          cnv.height = ch;
         }
-      });
+        cnv.style.width = '100%';
+        cnv.style.height = '100%';
+      }
+    });
 
-      renderCanvas(true);
-    }
+    renderCanvas(true);
   }
 
   // Adaptive scheduling with requestVideoFrameCallback (fallback to requestAnimationFrame)
@@ -8229,7 +8360,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       console.warn('[PREVIEW RENDER FALLBACK]', renderErr);
       try {
         drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false, false);
-      } catch (_) {}
+      } catch (_) {
+        try {
+          drawSafePlainCaptions(ctx, activeCap, words, captionCanvas.width, captionCanvas.height);
+        } catch (e2) {}
+      }
     }
   }
 
