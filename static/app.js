@@ -270,6 +270,50 @@
     renderCanvas(true);
   }
   window.setCaptionCase = setCaptionCase;
+  /**
+   * Top-Level Caption Animation Controller
+   */
+  function setCaptionAnimation(anim) {
+    if (!anim) return;
+    const a = (anim === 'slide-up') ? 'slide' : anim;
+    S.animation = a;
+    if (!S.style) S.style = {};
+    S.style.animation = a;
+    S.style.anim = a;
+    if (S.style.roles?.accent) S.style.roles.accent.enter = a;
+    if (S.style.roles.base) S.style.roles.base.enter = a;
+    syncCaptionAnimationUI(a);
+    const labels = { pop: '💥 Pop & Bounce', slide: '🚀 Slide Up', fade: '✨ Soft Fade', karaoke: '🎤 Karaoke' };
+    if (typeof showToast === 'function') {
+      showToast(labels[a] || ('Animation: ' + a));
+    }
+    renderCanvas(true);
+  }
+  window.setCaptionAnimation = setCaptionAnimation;
+
+  function syncCaptionAnimationUI(anim) {
+    const cur = anim || S.animation || S.style?.animation || 'pop';
+    const norm = (cur === 'slide-up') ? 'slide' : cur;
+    $('#captionAnimToggleGroup .btn-toggle').forEach(b => {
+      const bAnim = b.getAttribute('data-anim');
+      b.classList.toggle('active', bAnim === norm || (norm === 'slide' && bAnim === 'slide-up'));
+    });
+    const badge = $('valCaptionAnimBadge');
+    if (badge) {
+      const badgeLabels = { pop: 'POP', slide: 'SLIDE UP', fade: 'FADE', karaoke: 'KARAOKE' };
+      badge.textContent = badgeLabels[norm] || norm.toUpperCase();
+    }
+    $('#animGrid .btn-anim-choice').forEach(b => {
+      const bAnim = b.getAttribute('data-anim');
+      b.classList.toggle('active', bAnim === norm || (norm === 'slide' && bAnim === 'slide-up'));
+    });
+    const valAnimName = $('valAnimName');
+    if (valAnimName) {
+      const nameLabels = { pop: 'Pop & Bounce', slide: 'Slide Up', fade: 'Soft Fade', karaoke: 'Karaoke', zoom: 'Zoom In', none: 'Static' };
+      valAnimName.textContent = nameLabels[norm] || norm;
+    }
+  }
+  window.syncCaptionAnimationUI = syncCaptionAnimationUI;
 
   // --- DOM Elements ---
   const viewUpload = $('viewUpload');
@@ -2878,7 +2922,7 @@ function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, 
   return sprite;
 }
 
-function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W) {
+function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W, animDy = 0) {
   if (!drawCtx || !cleanWord) return;
   drawCtx.save();
   drawCtx.globalAlpha = (exitAlpha || 1.0);
@@ -2889,12 +2933,12 @@ function drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, co
   drawCtx.textAlign = 'center';
   drawCtx.textBaseline = 'alphabetic';
 
-  const cy = drawY + fontSize * 0.45;
+  const cy = drawY + fontSize * 0.45 + animDy;
   drawCtx.translate(cx, cy);
   drawCtx.scale(animScale, animScale);
   drawCtx.translate(-cx, -cy);
 
-  const baseLine = drawY + fontSize * 0.88;
+  const baseLine = drawY + fontSize * 0.88 + animDy;
 
   // Strong dark shadow for 100% visibility on any background
   drawCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
@@ -3000,23 +3044,38 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
     console.log('[HERO]', capIndex, cleanWord, heroLook, colorIndex);
   }
 
+  const animMode = S.animation || S.style?.animation || 'pop';
   let animScale = 1.0;
+  let animDy = 0;
   let clipReveal = 1.0;
   const useLineByLine = S.lineByLine !== false;
   const isPaused = (videoEl && videoEl.paused) || vid.paused;
   if (useLineByLine && !showAll && !isPaused && (capDur == null || capDur < 100)) {
     const elapsed = Math.max(0, t - heroStart);
-    const scaleP = Math.min(1.0, elapsed / 0.28);
-    const c1 = 1.70158;
-    const c3 = c1 + 1;
-    const eased = 1 + c3 * Math.pow(scaleP - 1, 3) + c1 * Math.pow(scaleP - 1, 2);
-    animScale = 0.92 + 0.08 * Math.max(0, Math.min(1.15, eased));
-    clipReveal = Math.max(0.15, Math.min(1.0, elapsed / 0.22));
+    if (animMode === 'slide' || animMode === 'slide-up') {
+      const slideDur = 0.24;
+      const p = Math.min(1.0, elapsed / slideDur);
+      const ease = 1 - Math.pow(1 - p, 3);
+      animScale = 0.96 + 0.04 * ease;
+      animDy = (1.0 - ease) * (fontSize * 0.45);
+      clipReveal = Math.min(1.0, p * 1.5);
+    } else if (animMode === 'fade') {
+      const p = Math.min(1.0, elapsed / 0.18);
+      animScale = 1.0;
+      clipReveal = p;
+    } else {
+      const scaleP = Math.min(1.0, elapsed / 0.28);
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      const eased = 1 + c3 * Math.pow(scaleP - 1, 3) + c1 * Math.pow(scaleP - 1, 2);
+      animScale = 0.92 + 0.08 * Math.max(0, Math.min(1.15, eased));
+      clipReveal = Math.max(0.15, Math.min(1.0, elapsed / 0.22));
+    }
   } else {
     animScale = 1.0;
+    animDy = 0;
     clipReveal = 1.0;
   }
-
   const lum = getSampledLuminanceBehindHero(videoEl, heroBox, capIndex, W, H);
   const effQuality = isPreview ? getEffectivePreviewQuality() : 'full';
   const isPreviewSmooth = (effQuality === 'smooth');
@@ -3039,7 +3098,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
 
   // Default / Solid look path (SAFETY NET: immediately draws crisp visible text)
   if (heroLook === 'solid') {
-    drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W);
+    drawSolidHeroWord(drawCtx, cleanWord, cx, drawY, fontSize, isItalic, colors, animScale, exitAlpha, W, animDy);
     drawCtx.globalAlpha = 1.0;
     drawCtx.globalCompositeOperation = 'source-over';
     return;
@@ -3081,14 +3140,14 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
     drawCtx.clip();
   }
 
-  const cy = drawY + sprite.textH / 2;
+  const cy = drawY + sprite.textH / 2 + animDy;
   drawCtx.translate(cx, cy);
   drawCtx.scale(animScale, animScale);
   drawCtx.translate(-cx, -cy);
 
   if (heroLook === 'seeThrough') {
     // Directly draw the translucent see-through glass sprite
-    drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
+    drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad + animDy);
   } else if (isPreviewSmooth) {
     drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
   } else {
@@ -3134,18 +3193,30 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
   let dy = 0;
 
   const useLineByLine = S.lineByLine !== false;
+  const animMode = S.animation || S.style?.animation || 'pop';
   if (useLineByLine && !showAll) {
     const elapsed = Math.max(0, t - lineStart);
-    const dur = 0.18;
-    const p = Math.min(1.0, elapsed / dur);
-    alpha *= p;
-    if (isTopLine) {
-      dy = (1.0 - p) * -10;
+    if (animMode === 'slide' || animMode === 'slide-up') {
+      const dur = 0.22;
+      const p = Math.min(1.0, elapsed / dur);
+      const ease = 1 - Math.pow(1 - p, 3);
+      alpha *= Math.min(1.0, p * 1.6);
+      dy = (1.0 - ease) * (fontSize * 0.75);
+    } else if (animMode === 'fade') {
+      const p = Math.min(1.0, elapsed / 0.18);
+      alpha *= p;
+      dy = 0;
     } else {
-      dy = (1.0 - p) * 10;
+      const dur = 0.18;
+      const p = Math.min(1.0, elapsed / dur);
+      alpha *= p;
+      if (isTopLine) {
+        dy = (1.0 - p) * -10;
+      } else {
+        dy = (1.0 - p) * 10;
+      }
     }
   }
-
   if (alpha <= 0.001) return;
 
   ctxFore.save();
@@ -5627,6 +5698,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     } else if (targetId === 'tabStyle') {
       if (typeof syncHeroLookUI === 'function') syncHeroLookUI();
       if (typeof syncTypographyUI === 'function') syncTypographyUI();
+      if (typeof syncCaptionAnimationUI === 'function') syncCaptionAnimationUI();
       const chkProgressLine = $('chkBottomProgressLine');
       if (chkProgressLine) {
         chkProgressLine.checked = Boolean(S.progressBar && S.progressBar.enabled === true);
@@ -6151,7 +6223,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       highlightColor: preset.highlightColor || preset.roles?.accent?.color || preset.key?.color || '#FFE600',
       fontFamily: S.style?.fontFamily || S.font || preset.roles?.accent?.font || preset.key?.font || 'Poppins',
       textCase: S.style?.textCase || S.textCase || 'upper',
-      heroLook: S.heroLook || S.style?.heroLook || 'solid'
+      heroLook: S.heroLook || S.style?.heroLook || 'solid',
+      animation: S.animation || S.style?.animation || preset.animation || 'pop'
     });
 
     if (isBehind) {
