@@ -77,6 +77,9 @@
   },
   progressBar: { enabled: true, position: 'bottom' },
   bigType: true,
+  heroLook: 'seeThrough',
+  lineByLine: true,
+  realEstateColorLock: 'auto',
   realEstateConfig: {
     enabled: false,
     bigType: true,
@@ -840,6 +843,33 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 
 function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, capId) {
   if (!words || !words.length) return;
+
+  const heroLook = S.heroLook || st.heroLook || 'seeThrough';
+  const useUnified = (heroLook !== 'solid' || S.lineByLine !== false);
+
+  if (useUnified && words.length > 0) {
+    const capIdx = Math.max(0, Number(capId || 1) - 1);
+    const hero = words[words.length - 1];
+    const subtitle = words.length > 1 ? words.slice(0, -1) : [];
+
+    const fs = Math.round(base * (st.depthAccentSize || 0.22));
+    const heroY = H * (st.depthAccentY || 0.38);
+    const heroBox = { x: W / 2, y: heroY, w: W * 0.70, h: fs, fontSize: fs };
+    const heroStart = (hero && typeof hero.s === 'number') ? hero.s : 0;
+    const capDur = Math.max(0.2, (hero.e || 1) - heroStart);
+
+    const targetCtx = ctxBehind || ctxFore;
+    renderUnifiedHeroWord(targetCtx, hero.t, capIdx, heroBox, st, W, H, t, heroStart, capDur, 1.0, false, typeof vid !== 'undefined' ? vid : null);
+
+    if (subtitle.length > 0 && ctxFore) {
+      const subText = subtitle.map(w => w.t).join(' ');
+      const subFs = Math.max(16, Math.round(base * (st.subtitleSize || 0.058)));
+      const subY = Math.max(subFs + 8, Math.min(H - subFs - 8, H * (st.subtitlePosition || 0.74)));
+      const subStart = (subtitle[0] && typeof subtitle[0].s === 'number') ? subtitle[0].s : 0;
+      renderUnifiedSmallLine(ctxFore, subText, W / 2, subY, subFs, 1.0, t, subStart, false);
+    }
+    return;
+  }
   if (st.estateVariant) {
     const subtitleRole = st.filler || {};
     const heroRole = st.key || {};
@@ -1260,6 +1290,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.90 });
   }
 
+  const heroLookStack = S.heroLook || st.heroLook || 'seeThrough';
+  const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false);
+
   lay.forEach((o) => {
     let lineLayer = 'front';
     if (o.role && o.role.layer === 'behind') {
@@ -1277,6 +1310,29 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const isBehindPerson = (lineLayer === 'behind');
     const targetCtx = (isBehindPerson && ctxBehind) ? ctxBehind : ctxFore;
     if (!targetCtx) return;
+
+    if (useUnifiedStack) {
+      if (o.isHero) {
+        const heroText = o.words.map(w => w.t || w.word || '').join(' ');
+        const heroWordObj = o.words[0] || { s: cap.start };
+        const heroStart = (heroWordObj && typeof heroWordObj.s === 'number') ? heroWordObj.s : cap.start;
+        const heroBox = {
+          x: Math.round(o.x - o.size * (heroText.length * 0.28)),
+          y: Math.round(o.baseline - o.size * 0.86),
+          w: Math.round(o.size * (heroText.length * 0.56)),
+          h: Math.round(o.size * 0.90),
+          fontSize: Math.round(o.size)
+        };
+        renderUnifiedHeroWord(targetCtx, heroText, Number(capId || 1) - 1, heroBox, st, W, H, t, heroStart, cap.end - cap.start, 1.0, isPreview, vid);
+        return;
+      } else {
+        const lineText = o.words.map(w => w.t || w.word || '').join(' ');
+        const lineStart = (o.words[0] && typeof o.words[0].s === 'number') ? o.words[0].s : cap.start;
+        const isTop = (o.lineType === 'top');
+        renderUnifiedSmallLine(ctxFore, lineText, o.x, o.baseline, Math.round(o.size), 1.0, t, lineStart, isTop);
+        return;
+      }
+    }
 
     targetCtx.save();
     const fontStr = `${o.italic ? 'italic ' : ''}${o.weight} ${o.size}px "${o.font}", sans-serif`;
@@ -1988,10 +2044,15 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         const smallFontSize = Math.max(16, Math.round(heroFontSize * 0.32));
         const topLineSpacing = smallFontSize + 14;
         data.topLines.forEach((lineChunk, lineIdx) => {
-          const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
+          const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toLowerCase();
           const curY = startTopY + lineIdx * topLineSpacing;
-          const topAlpha = (showAll ? 1.0 : Math.min(1.0, stTime / 0.12)) * exitAlpha;
-          drawBigTypeSmallLine(ctxFore, lineText, W / 2, curY, smallFontSize, W, H, topAlpha);
+          const lineStart = (lineChunk[0] && typeof lineChunk[0].s === 'number') ? lineChunk[0].s : cap.start;
+          if (S.heroLook !== 'solid' || S.lineByLine !== false) {
+            renderUnifiedSmallLine(ctxFore, lineText, W / 2, curY, smallFontSize, exitAlpha, t, lineStart, true);
+          } else {
+            const topAlpha = (showAll ? 1.0 : Math.min(1.0, stTime / 0.12)) * exitAlpha;
+            drawBigTypeSmallLine(ctxFore, lineText.toUpperCase(), W / 2, curY, smallFontSize, W, H, topAlpha);
+          }
         });
       } else {
         const topFont = `700 ${topFontSize}px 'Montserrat', 'Poppins', sans-serif`;
@@ -2049,7 +2110,13 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     heroGrad.addColorStop(0, data.palette.gradient[0]);
     heroGrad.addColorStop(1, data.palette.gradient[1]);
 
-    if (useBigType && heroMetricsObj) {
+    const heroLookVal = S.heroLook || st.heroLook || 'seeThrough';
+    if (heroLookVal !== 'solid' || S.lineByLine !== false) {
+      const heroWordObj = (data.heroWord) || { s: cap.start };
+      const heroStart = (heroWordObj && typeof heroWordObj.s === 'number') ? heroWordObj.s : cap.start;
+      const heroBox = { x: heroX, y: heroY, w: heroW, h: heroH, fontSize: heroFontSize };
+      renderUnifiedHeroWord(drawCtx, displayHeroText, capIdx, heroBox, st, W, H, t, heroStart, capDur, exitAlpha, isPreview, vid);
+    } else if (useBigType && heroMetricsObj) {
       drawBigTypeHeroWord(drawCtx, heroMetricsObj, heroX, heroY, heroGrad, '#111111', exitAlpha, {
         stTime,
         charStagger: Math.min(0.04, 0.25 / Math.max(1, displayHeroText.length)),
@@ -2162,10 +2229,15 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         const smallFontSize = Math.max(16, Math.round(heroFontSize * 0.32));
         const bottomLineSpacing = smallFontSize + 14;
         data.bottomLines.forEach((lineChunk, lineIdx) => {
-          const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toUpperCase();
+          const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toLowerCase();
           const curLineY = startBottomY + lineIdx * bottomLineSpacing;
-          const lineAlpha = (showAll ? 1.0 : Math.min(1.0, stTime / 0.12)) * exitAlpha;
-          drawBigTypeSmallLine(ctxFore, lineText, W / 2, curLineY, smallFontSize, W, H, lineAlpha);
+          const lineStart = (lineChunk[0] && typeof lineChunk[0].s === 'number') ? lineChunk[0].s : cap.start;
+          if (S.heroLook !== 'solid' || S.lineByLine !== false) {
+            renderUnifiedSmallLine(ctxFore, lineText, W / 2, curLineY, smallFontSize, exitAlpha, t, lineStart, false);
+          } else {
+            const lineAlpha = (showAll ? 1.0 : Math.min(1.0, stTime / 0.12)) * exitAlpha;
+            drawBigTypeSmallLine(ctxFore, lineText.toUpperCase(), W / 2, curLineY, smallFontSize, W, H, lineAlpha);
+          }
         });
       } else {
         const bottomFont = `800 ${bottomFontSize}px 'Montserrat', 'Poppins', sans-serif`;
@@ -2329,6 +2401,425 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
   }
 
+
+
+// ============================================================================
+// POPPINS EXTRABOLD SEE-THROUGH HERO LOOK & REAL ESTATE CLR SUITE
+// ============================================================================
+
+const REAL_ESTATE_CLR_PALETTE = [
+  { id: 'emerald', name: 'Emerald', top: '#2EE6A6', bottom: '#0F7A5A' },
+  { id: 'magenta', name: 'Magenta', top: '#FF3DA5', bottom: '#8A1B5E' },
+  { id: 'gold',    name: 'Gold',    top: '#FFD23F', bottom: '#D18A00' },
+  { id: 'sky',     name: 'Sky',     top: '#4CB8FF', bottom: '#1D63B8' },
+  { id: 'navy',    name: 'Navy',    top: '#3550B8', bottom: '#121F5C' },
+  { id: 'orange',  name: 'Orange',  top: '#FF8A3D', bottom: '#D1470F' },
+  { id: 'violet',  name: 'Violet',  top: '#A66BFF', bottom: '#5B2BC2' }
+];
+
+function getRealEstateClrGradient(captionIndex, lockedColor = 'auto') {
+  if (lockedColor && lockedColor !== 'auto') {
+    const found = REAL_ESTATE_CLR_PALETTE.find(c => c.id === lockedColor);
+    if (found) return { palette: found, colorIndex: REAL_ESTATE_CLR_PALETTE.indexOf(found) };
+  }
+  const colorIndex = Math.max(0, Number(captionIndex) || 0) % REAL_ESTATE_CLR_PALETTE.length;
+  return { palette: REAL_ESTATE_CLR_PALETTE[colorIndex], colorIndex };
+}
+
+let _lastLoggedUnifiedHeroCapIdx = -1;
+const _heroLuminanceCache = new Map();
+const _heroSpriteCache = new Map();
+let _luminanceCanvas = null;
+let _luminanceCtx = null;
+
+function brightenHex(hex, percent) {
+  let c = String(hex || '').replace('#', '');
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16) || 0;
+  let r = (num >> 16) & 255;
+  let g = (num >> 8) & 255;
+  let b = num & 255;
+  r = Math.min(255, Math.round(r + (255 - r) * (percent / 100)));
+  g = Math.min(255, Math.round(g + (255 - g) * (percent / 100)));
+  b = Math.min(255, Math.round(b + (255 - b) * (percent / 100)));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function hexToRgba(hex, alpha) {
+  let c = String(hex || '').replace('#', '');
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16) || 0;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getSampledLuminanceBehindHero(videoEl, heroBox, capIndex, W, H) {
+  if (_heroLuminanceCache.has(capIndex)) {
+    return _heroLuminanceCache.get(capIndex);
+  }
+  if (!videoEl || (typeof HTMLVideoElement !== 'undefined' && !(videoEl instanceof HTMLVideoElement)) || videoEl.readyState < 2) {
+    return 0.45;
+  }
+  try {
+    if (!_luminanceCanvas) {
+      _luminanceCanvas = document.createElement('canvas');
+      _luminanceCanvas.width = 32;
+      _luminanceCanvas.height = 32;
+      _luminanceCtx = _luminanceCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    const vw = videoEl.videoWidth || W || 1080;
+    const vh = videoEl.videoHeight || H || 1920;
+    const sx = Math.max(0, Math.min(vw - 1, ((heroBox.x || 0) / (W || 1080)) * vw));
+    const sy = Math.max(0, Math.min(vh - 1, ((heroBox.y || 0) / (H || 1920)) * vh));
+    const sw = Math.max(1, Math.min(vw - sx, ((heroBox.w || 200) / (W || 1080)) * vw));
+    const sh = Math.max(1, Math.min(vh - sy, ((heroBox.h || 100) / (H || 1920)) * vh));
+
+    _luminanceCtx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, 32, 32);
+    const imgData = _luminanceCtx.getImageData(0, 0, 32, 32).data;
+    let totalLum = 0;
+    for (let i = 0; i < imgData.length; i += 4) {
+      totalLum += (0.2126 * imgData[i] + 0.7152 * imgData[i + 1] + 0.0722 * imgData[i + 2]) / 255.0;
+    }
+    const avgLum = totalLum / 1024.0;
+    _heroLuminanceCache.set(capIndex, avgLum);
+    return avgLum;
+  } catch (_) {
+    return 0.45;
+  }
+}
+
+function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, isPreviewSmooth, videoEl, heroBox, W, H) {
+  const cacheKey = `${text}_${fontSize}_${isItalic}_${colors.top}_${colors.bottom}_${heroLook}_${lum > 0.6 ? 'bright' : (lum < 0.3 ? 'dark' : 'norm')}`;
+  if (_heroSpriteCache.has(cacheKey)) {
+    return _heroSpriteCache.get(cacheKey);
+  }
+
+  const pad = Math.ceil(fontSize * 0.22);
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = 10;
+  tempCanvas.height = 10;
+  const tempCtx = tempCanvas.getContext('2d');
+  const fontStyle = isItalic ? 'italic' : 'normal';
+  const fontStr = `${fontStyle} 800 ${fontSize}px "Poppins", sans-serif`;
+  tempCtx.font = fontStr;
+  if ('letterSpacing' in tempCtx) tempCtx.letterSpacing = '-0.02em';
+
+  const m = tempCtx.measureText(text);
+  const textW = Math.ceil(m.width + fontSize * 0.06);
+  const textH = Math.ceil(fontSize * 1.15);
+
+  const canvasW = textW + pad * 2;
+  const canvasH = textH + pad * 2;
+
+  // 1. FILL CANVAS
+  const fillCanvas = document.createElement('canvas');
+  fillCanvas.width = canvasW;
+  fillCanvas.height = canvasH;
+  const fillCtx = fillCanvas.getContext('2d');
+
+  fillCtx.font = fontStr;
+  if ('letterSpacing' in fillCtx) fillCtx.letterSpacing = '-0.02em';
+  fillCtx.textAlign = 'left';
+  fillCtx.textBaseline = 'alphabetic';
+
+  const baseLine = pad + fontSize * 0.88;
+
+  let topAlpha = 0.95;
+  let bottomAlpha = 0.45;
+  let topColor = colors.top;
+  const bottomColor = colors.bottom;
+
+  if (lum > 0.6) {
+    topAlpha = 1.0;
+    bottomAlpha = 0.75;
+  } else if (lum < 0.30) {
+    topColor = brightenHex(colors.top, 15);
+  }
+
+  if (heroLook === 'texture' && videoEl && videoEl.readyState >= 2) {
+    fillCtx.save();
+    fillCtx.fillStyle = '#FFFFFF';
+    fillCtx.fillText(text, pad, baseLine);
+    fillCtx.globalCompositeOperation = 'source-in';
+
+    const vw = videoEl.videoWidth || W || 1080;
+    const vh = videoEl.videoHeight || H || 1920;
+    const sx = Math.max(0, Math.min(vw - 1, ((heroBox.x || 0) / (W || 1080)) * vw));
+    const sy = Math.max(0, Math.min(vh - 1, ((heroBox.y || 0) / (H || 1920)) * vh));
+    const sw = Math.max(1, Math.min(vw - sx, ((heroBox.w || 200) / (W || 1080)) * vw));
+    const sh = Math.max(1, Math.min(vh - sy, ((heroBox.h || 100) / (H || 1920)) * vh));
+
+    fillCtx.drawImage(videoEl, sx, sy, sw, sh, pad - textW * 0.075, pad - textH * 0.075, textW * 1.15, textH * 1.15);
+
+    fillCtx.globalCompositeOperation = 'source-atop';
+    fillCtx.globalAlpha = 0.55;
+    const tintGrad = fillCtx.createLinearGradient(pad, pad, pad, pad + textH);
+    tintGrad.addColorStop(0, hexToRgba(topColor, 1.0));
+    tintGrad.addColorStop(1, hexToRgba(bottomColor, 1.0));
+    fillCtx.fillStyle = tintGrad;
+    fillCtx.fillRect(0, 0, canvasW, canvasH);
+    fillCtx.restore();
+  } else {
+    if (heroLook === 'solid') {
+      topAlpha = 1.0;
+      bottomAlpha = 1.0;
+    }
+
+    const grad = fillCtx.createLinearGradient(pad, pad, pad, pad + textH);
+    grad.addColorStop(0, hexToRgba(topColor, topAlpha));
+    grad.addColorStop(1, hexToRgba(bottomColor, bottomAlpha));
+
+    fillCtx.fillStyle = grad;
+    fillCtx.fillText(text, pad, baseLine);
+
+    // Faint 1 px DARKER edge at 25% alpha (NO white or light outline anywhere on hero)
+    fillCtx.lineWidth = 1;
+    fillCtx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+    fillCtx.strokeText(text, pad, baseLine);
+  }
+
+  // 2. GLOW CANVAS (pre-blurred sprite, no per-frame ctx.filter)
+  let glowCanvas = null;
+  if (!isPreviewSmooth && heroLook !== 'solid') {
+    glowCanvas = document.createElement('canvas');
+    glowCanvas.width = canvasW;
+    glowCanvas.height = canvasH;
+    const glowCtx = glowCanvas.getContext('2d');
+    glowCtx.font = fontStr;
+    if ('letterSpacing' in glowCtx) glowCtx.letterSpacing = '-0.02em';
+    glowCtx.textAlign = 'left';
+    glowCtx.textBaseline = 'alphabetic';
+
+    let glowAlpha = 0.25;
+    let glowBlur = fontSize * 0.03;
+    if (lum < 0.30) {
+      glowAlpha = 0.40;
+      glowBlur = fontSize * 0.045;
+    }
+
+    glowCtx.shadowColor = hexToRgba(colors.top, glowAlpha);
+    glowCtx.shadowBlur = Math.max(3, Math.round(glowBlur));
+    glowCtx.fillStyle = hexToRgba(colors.top, glowAlpha);
+    glowCtx.fillText(text, pad, baseLine);
+  }
+
+  const sprite = {
+    fillCanvas,
+    glowCanvas,
+    canvasW,
+    canvasH,
+    textW,
+    textH,
+    pad,
+    baseLine
+  };
+
+  _heroSpriteCache.set(cacheKey, sprite);
+  return sprite;
+}
+
+function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t, heroStart, capDur, exitAlpha, isPreview, videoEl) {
+  if (!drawCtx || !heroWord) return;
+
+  const isItalic = (Math.max(0, Number(capIndex) || 0) % 2 === 1);
+  const fontStyle = isItalic ? 'italic ' : '';
+  const cleanWord = heroWord.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim().toLowerCase();
+  if (!cleanWord) return;
+
+  const isReClr = Boolean(
+    st.id === 'special_03' ||
+    st.id === 'duo_03' ||
+    (st.name && st.name.toLowerCase().includes('real estate clr')) ||
+    st.heroPalette
+  );
+
+  let colors;
+  let colorIndex = 0;
+  if (isReClr) {
+    const lock = S.realEstateColorLock || (S.style && S.style.lockedColor) || 'auto';
+    const clrData = getRealEstateClrGradient(capIndex, lock);
+    colors = clrData.palette;
+    colorIndex = clrData.colorIndex;
+  } else {
+    const kRole = st.roles?.accent || st.key || {};
+    let gradA = '#FFE600';
+    let gradB = '#FF8A00';
+    if (kRole.fill && kRole.fill.colors && kRole.fill.colors.length >= 2) {
+      gradA = kRole.fill.colors[0];
+      gradB = kRole.fill.colors[1];
+    } else if (kRole.keyGradient && kRole.keyGradient.includes('linear-gradient')) {
+      const match = kRole.keyGradient.match(/#[0-9a-fA-F]{3,6}|rgb\([^)]+\)/g);
+      if (match && match.length >= 2) {
+        gradA = match[0];
+        gradB = match[1];
+      } else if (match && match.length === 1) {
+        gradA = match[0];
+        gradB = match[0];
+      }
+    } else {
+      const baseCol = st.highlightColor || kRole.color || '#FFE600';
+      gradA = baseCol;
+      gradB = baseCol;
+    }
+    colors = { id: 'custom', top: gradA, bottom: gradB };
+    colorIndex = Math.max(0, Number(capIndex) || 0) % 7;
+  }
+
+  const heroLook = S.heroLook || st.heroLook || 'seeThrough';
+
+  if (_lastLoggedUnifiedHeroCapIdx !== capIndex) {
+    _lastLoggedUnifiedHeroCapIdx = capIndex;
+    console.log('[HERO]', capIndex, cleanWord, heroLook, colorIndex);
+  }
+
+  let animScale = 1.0;
+  let clipReveal = 1.0;
+  const useLineByLine = S.lineByLine !== false;
+  if (useLineByLine) {
+    const elapsed = Math.max(0, t - heroStart);
+    const scaleP = Math.min(1.0, elapsed / 0.28);
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    const eased = 1 + c3 * Math.pow(scaleP - 1, 3) + c1 * Math.pow(scaleP - 1, 2);
+    animScale = 0.92 + 0.08 * Math.max(0, Math.min(1.15, eased));
+    clipReveal = Math.min(1.0, elapsed / 0.22);
+  }
+
+  const lum = getSampledLuminanceBehindHero(videoEl, heroBox, capIndex, W, H);
+  const effQuality = isPreview ? getEffectivePreviewQuality() : 'full';
+  const isPreviewSmooth = (effQuality === 'smooth');
+
+  const maxAllowedW = 0.84 * W;
+  let fontSize = heroBox.fontSize || Math.round(W * 0.17);
+  drawCtx.save();
+  drawCtx.font = `${fontStyle}800 ${fontSize}px "Poppins", sans-serif`;
+  if ('letterSpacing' in drawCtx) drawCtx.letterSpacing = '-0.02em';
+  let m = drawCtx.measureText(cleanWord);
+  if (m.width > maxAllowedW) {
+    fontSize = Math.max(16, Math.floor(fontSize * (maxAllowedW / m.width)));
+  }
+  drawCtx.restore();
+
+  const sprite = getOrCreateHeroSprite(cleanWord, fontSize, isItalic, colors, heroLook, lum, isPreviewSmooth, videoEl, heroBox, W, H);
+
+  const drawX = heroBox.x;
+  const drawY = heroBox.y;
+
+  drawCtx.save();
+  drawCtx.globalAlpha = (exitAlpha || 1.0);
+
+  if (useLineByLine && clipReveal < 1.0) {
+    const revealH = sprite.textH * clipReveal;
+    drawCtx.beginPath();
+    drawCtx.rect(
+      drawX - sprite.pad,
+      drawY - sprite.pad + (sprite.textH - revealH),
+      sprite.canvasW,
+      revealH + sprite.pad * 2
+    );
+    drawCtx.clip();
+  }
+
+  const cx = drawX + sprite.textW / 2;
+  const cy = drawY + sprite.textH / 2;
+  drawCtx.translate(cx, cy);
+  drawCtx.scale(animScale, animScale);
+  drawCtx.translate(-cx, -cy);
+
+  if (isPreviewSmooth || heroLook === 'solid') {
+    drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
+  } else {
+    if (sprite.glowCanvas) {
+      drawCtx.drawImage(sprite.glowCanvas, drawX - sprite.pad, drawY - sprite.pad);
+    }
+    drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
+
+    drawCtx.save();
+    let blended = false;
+    try {
+      drawCtx.globalCompositeOperation = 'overlay';
+      drawCtx.globalAlpha = (exitAlpha || 1.0) * 0.35;
+      drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
+      blended = true;
+    } catch (_) {}
+    if (!blended) {
+      try {
+        drawCtx.globalCompositeOperation = 'soft-light';
+        drawCtx.globalAlpha = (exitAlpha || 1.0) * 0.35;
+        drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
+        blended = true;
+      } catch (_) {}
+    }
+    if (!blended) {
+      drawCtx.globalCompositeOperation = 'source-over';
+      drawCtx.globalAlpha = (exitAlpha || 1.0) * 0.20;
+      drawCtx.drawImage(sprite.fillCanvas, drawX - sprite.pad, drawY - sprite.pad);
+    }
+    drawCtx.restore();
+  }
+
+  drawCtx.restore();
+}
+
+function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize, exitAlpha, t, lineStart, isTopLine) {
+  if (!ctxFore || !lineText) return;
+  const cleanLine = lineText.toLowerCase();
+
+  let alpha = (exitAlpha || 1.0);
+  let dy = 0;
+
+  const useLineByLine = S.lineByLine !== false;
+  if (useLineByLine) {
+    const elapsed = Math.max(0, t - lineStart);
+    const dur = 0.18;
+    const p = Math.min(1.0, elapsed / dur);
+    alpha *= p;
+    if (isTopLine) {
+      dy = (1.0 - p) * -10;
+    } else {
+      dy = (1.0 - p) * 10;
+    }
+  }
+
+  if (alpha <= 0.001) return;
+
+  ctxFore.save();
+  ctxFore.font = `600 ${fontSize}px "Poppins", sans-serif`;
+  ctxFore.textAlign = 'center';
+  ctxFore.textBaseline = 'alphabetic';
+  ctxFore.globalAlpha = alpha;
+
+  const curY = baselineY + dy;
+
+  ctxFore.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctxFore.shadowBlur = 4;
+  ctxFore.shadowOffsetX = 0;
+  ctxFore.shadowOffsetY = 2;
+
+  // Thin dark stroke (2px at 35% alpha) for readability on bright backgrounds, NO pill
+  ctxFore.lineWidth = 2;
+  ctxFore.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+  ctxFore.strokeText(cleanLine, centerX, curY);
+
+  ctxFore.fillStyle = '#FFFFFF';
+  ctxFore.fillText(cleanLine, centerX, curY);
+
+  ctxFore.restore();
+}
+
+async function ensureHeroFontsLoaded() {
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.load) {
+    try {
+      await Promise.all([
+        document.fonts.load('800 100px "Poppins"'),
+        document.fonts.load('italic 800 100px "Poppins"'),
+        document.fonts.load('600 48px "Poppins"')
+      ]);
+    } catch (_) {}
+  }
+}
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   if (!ctxFore) return;
@@ -3296,7 +3787,24 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'front-card-name';
-    nameSpan.textContent = preset.name.replace(/^Duo\s*[·-]\s*/i, '');
+        let dispName = preset.name.replace(/^Duo\s*[·-]\s*/i, '').replace(/^Sequence\s*[·-]\s*/i, '');
+    if (preset.id === 'duo_03' || preset.id === 'special_03' || dispName.toLowerCase().includes('white + navy') || dispName.toLowerCase().includes('real estate clr')) {
+      dispName = 'Real Estate Clr';
+      tag = '👑 REAL ESTATE';
+    }
+    nameSpan.textContent = dispName;
+
+    if (preset.id === 'duo_03' || preset.id === 'special_03' || dispName === 'Real Estate Clr') {
+      const dotsRow = document.createElement('div');
+      dotsRow.className = 'preset-card-dots-row';
+      REAL_ESTATE_CLR_PALETTE.forEach(c => {
+        const dot = document.createElement('span');
+        dot.className = 'mini-dot';
+        dot.style.background = c.top;
+        dotsRow.appendChild(dot);
+      });
+      art.appendChild(dotsRow);
+    }
 
     const checkSpan = document.createElement('span');
     checkSpan.className = 'front-card-check';
@@ -5049,6 +5557,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function applyPreset(preset, showGenToast = false) {
+    const cardReColors = $('cardRealEstateColors');
+    const isRePreset = (preset.id === 'duo_03' || preset.id === 'special_03' || (preset.name && preset.name.toLowerCase().includes('real estate clr')));
+    if (cardReColors) cardReColors.classList.toggle('hidden', !isRePreset);
     pushHistoryState('Template: ' + (preset.name || 'Template'));
     const isBehind = Boolean(
       preset.behindPerson ||
@@ -8490,6 +9001,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   initSpecialRealEstateUI();
   initPopStudioUI();
   initVideoTemplatesCompactUI();
+  initHeroLookUI();
+  ensureHeroFontsLoaded();
   setupQualityPills();
     setupPreviewPerfModeToggle();
   }
@@ -8893,6 +9406,9 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       if (document.fonts && document.fonts.load) {
         try {
           await Promise.all([
+            document.fonts.load('800 100px "Poppins"'),
+            document.fonts.load('italic 800 100px "Poppins"'),
+            document.fonts.load('600 48px "Poppins"'),
             document.fonts.load(`${Math.round(H * 0.16)}px Anton`),
             document.fonts.load(`600 ${Math.round(H * 0.05)}px Poppins`),
             document.fonts.ready
@@ -12393,4 +12909,58 @@ if (typeof window !== 'undefined' && window.location && window.location.search &
       if (debugToastEl) debugToastEl.style.opacity = '0';
     }, 2000);
   }, { capture: true, passive: true });
+}
+
+
+function initHeroLookUI() {
+  const btnSeeThrough = $('btnHeroLookSeeThrough');
+  const btnTexture = $('btnHeroLookTexture');
+  const btnSolid = $('btnHeroLookSolid');
+  const badgeLook = $('valHeroLookBadge');
+
+  function setHeroLook(look) {
+    S.heroLook = look;
+    if (S.style) S.style.heroLook = look;
+    if (btnSeeThrough) btnSeeThrough.classList.toggle('active', look === 'seeThrough');
+    if (btnTexture) btnTexture.classList.toggle('active', look === 'texture');
+    if (btnSolid) btnSolid.classList.toggle('active', look === 'solid');
+    if (badgeLook) {
+      badgeLook.textContent = look.toUpperCase();
+      badgeLook.className = 'val-badge ' + (look === 'solid' ? 'badge-gray' : 'badge-green');
+    }
+    _heroSpriteCache.clear();
+    showToast('Hero look: ' + look);
+    renderCanvas(true);
+  }
+
+  if (btnSeeThrough) btnSeeThrough.addEventListener('click', () => setHeroLook('seeThrough'));
+  if (btnTexture) btnTexture.addEventListener('click', () => setHeroLook('texture'));
+  if (btnSolid) btnSolid.addEventListener('click', () => setHeroLook('solid'));
+
+  const chkLineByLine = $('chkLineByLine');
+  if (chkLineByLine) {
+    chkLineByLine.checked = S.lineByLine !== false;
+    chkLineByLine.addEventListener('change', () => {
+      S.lineByLine = chkLineByLine.checked;
+      showToast('Line-by-line: ' + (S.lineByLine ? 'ON' : 'OFF'));
+      renderCanvas(true);
+    });
+  }
+
+  const dotBtns = Array.from(document.querySelectorAll('#realEstatePaletteDots .re-dot-btn'));
+  dotBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      dotBtns.forEach(b => b.classList.toggle('active', b === btn));
+      const color = btn.getAttribute('data-color') || 'auto';
+      S.realEstateColorLock = color;
+      if (S.style) S.style.lockedColor = color;
+      const badge = $('valRealEstateColorBadge');
+      if (badge) {
+        badge.textContent = color === 'auto' ? 'AUTO ROTATION' : color.toUpperCase();
+      }
+      _heroSpriteCache.clear();
+      showToast('Real Estate Color: ' + (color === 'auto' ? 'Auto Rotation' : color.toUpperCase()));
+      renderCanvas(true);
+    });
+  });
 }

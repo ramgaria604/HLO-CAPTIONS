@@ -1,7 +1,7 @@
 [
   {
     "id": "duo_01",
-    "name": "Duo · White + Orange (behind)",
+    "name": "Duo \u00b7 White + Orange (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -130,7 +130,7 @@
   },
   {
     "id": "duo_02",
-    "name": "Duo · White + Blue Italic (behind)",
+    "name": "Duo \u00b7 White + Blue Italic (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -261,7 +261,7 @@
   },
   {
     "id": "duo_03",
-    "name": "Duo · White + Navy (behind)",
+    "name": "Duo \u00b7 Real Estate Clr (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -384,11 +384,48 @@
     "topY": 0.095,
     "position": 0.18,
     "depthAccentSize": 0.26,
-    "highlightColor": "#2B1B9E"
+    "highlightColor": "#2B1B9E",
+    "heroPalette": [
+      {
+        "id": "emerald",
+        "top": "#2EE6A6",
+        "bottom": "#0F7A5A"
+      },
+      {
+        "id": "magenta",
+        "top": "#FF3DA5",
+        "bottom": "#8A1B5E"
+      },
+      {
+        "id": "gold",
+        "top": "#FFD23F",
+        "bottom": "#D18A00"
+      },
+      {
+        "id": "sky",
+        "top": "#4CB8FF",
+        "bottom": "#1D63B8"
+      },
+      {
+        "id": "navy",
+        "top": "#3550B8",
+        "bottom": "#121F5C"
+      },
+      {
+        "id": "orange",
+        "top": "#FF8A3D",
+        "bottom": "#D1470F"
+      },
+      {
+        "id": "violet",
+        "top": "#A66BFF",
+        "bottom": "#5B2BC2"
+      }
+    ]
   },
   {
     "id": "duo_04",
-    "name": "Duo · White + Gold Chrome (behind)",
+    "name": "Duo \u00b7 White + Gold Chrome (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -517,7 +554,7 @@
   },
   {
     "id": "duo_05",
-    "name": "Duo · White + Red Fire (behind)",
+    "name": "Duo \u00b7 White + Red Fire (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -646,7 +683,7 @@
   },
   {
     "id": "duo_06",
-    "name": "Duo · White + Purple Holo (behind)",
+    "name": "Duo \u00b7 White + Purple Holo (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -770,7 +807,7 @@
   },
   {
     "id": "duo_07",
-    "name": "Duo · White + Teal Liquid (behind)",
+    "name": "Duo \u00b7 White + Teal Liquid (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -902,7 +939,7 @@
   },
   {
     "id": "duo_08",
-    "name": "Duo · White + Coral Peach (behind)",
+    "name": "Duo \u00b7 White + Coral Peach (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -1030,7 +1067,7 @@
   },
   {
     "id": "duo_09",
-    "name": "Duo · White + Ice Blue (behind)",
+    "name": "Duo \u00b7 White + Ice Blue (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -1159,7 +1196,7 @@
   },
   {
     "id": "duo_10",
-    "name": "Duo · White + Emerald Gold (behind)",
+    "name": "Duo \u00b7 White + Emerald Gold (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -1288,7 +1325,7 @@
   },
   {
     "id": "duo_11",
-    "name": "Duo · Orange + Navy (behind)",
+    "name": "Duo \u00b7 Orange + Navy (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -1415,7 +1452,7 @@
   },
   {
     "id": "duo_12",
-    "name": "Duo · Cyan + Magenta Flow (behind)",
+    "name": "Duo \u00b7 Cyan + Magenta Flow (behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -1543,7 +1580,7 @@
   },
   {
     "id": "duo_13",
-    "name": "Duo · Orange then Blue (alternate, behind)",
+    "name": "Duo \u00b7 Orange then Blue (alternate, behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -1709,7 +1746,7 @@
   },
   {
     "id": "duo_14",
-    "name": "Duo · Pink then Green (alternate, front)",
+    "name": "Duo \u00b7 Pink then Green (alternate, front)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -1864,7 +1901,7 @@
   },
   {
     "id": "duo_15",
-    "name": "Duo · Gold then White (alternate, behind)",
+    "name": "Duo \u00b7 Gold then White (alternate, behind)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -2026,7 +2063,7 @@
   },
   {
     "id": "duo_16",
-    "name": "Duo · White + Hot Pink (front, low)",
+    "name": "Duo \u00b7 White + Hot Pink (front, low)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -2145,7 +2182,7 @@
   },
   {
     "id": "duo_17",
-    "name": "Duo · White + Lime Pop (front, low)",
+    "name": "Duo \u00b7 White + Lime Pop (front, low)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -2265,7 +2302,7 @@
   },
   {
     "id": "duo_18",
-    "name": "Duo · White + Rainbow (front, low)",
+    "name": "Duo \u00b7 White + Rainbow (front, low)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -2388,7 +2425,7 @@
   },
   {
     "id": "duo_19",
-    "name": "Duo · Black + Yellow (front, light videos)",
+    "name": "Duo \u00b7 Black + Yellow (front, light videos)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -2507,7 +2544,7 @@
   },
   {
     "id": "duo_20",
-    "name": "Duo · Yellow + White Outline (front)",
+    "name": "Duo \u00b7 Yellow + White Outline (front)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -2626,7 +2663,7 @@
   },
   {
     "id": "duo_21",
-    "name": "Duo · Pink Script + White Bold (front)",
+    "name": "Duo \u00b7 Pink Script + White Bold (front)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -2745,7 +2782,7 @@
   },
   {
     "id": "duo_22",
-    "name": "Duo · White + Mint Blue Flow (front)",
+    "name": "Duo \u00b7 White + Mint Blue Flow (front)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -2865,7 +2902,7 @@
   },
   {
     "id": "duo_23",
-    "name": "Duo · Lavender + Deep Purple Glow (front)",
+    "name": "Duo \u00b7 Lavender + Deep Purple Glow (front)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -2984,7 +3021,7 @@
   },
   {
     "id": "duo_24",
-    "name": "Duo · Sand + Teal (front)",
+    "name": "Duo \u00b7 Sand + Teal (front)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -3103,7 +3140,7 @@
   },
   {
     "id": "duo_25",
-    "name": "Duo · White + Neon Cyan (front, glow)",
+    "name": "Duo \u00b7 White + Neon Cyan (front, glow)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -3222,7 +3259,7 @@
   },
   {
     "id": "duo_26",
-    "name": "Duo · White + Crimson Serif (behind, alt)",
+    "name": "Duo \u00b7 White + Crimson Serif (behind, alt)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -3349,7 +3386,7 @@
   },
   {
     "id": "duo_27",
-    "name": "Duo · White + Sunset (behind first)",
+    "name": "Duo \u00b7 White + Sunset (behind first)",
     "mode": "emphasis",
     "layout": "stack",
     "anim": "none",
@@ -3478,7 +3515,7 @@
   },
   {
     "id": "duo_28",
-    "name": "Duo · Slide Line · White + Orange",
+    "name": "Duo \u00b7 Slide Line \u00b7 White + Orange",
     "mode": "highlight",
     "layout": "inline",
     "anim": "none",
@@ -3596,7 +3633,7 @@
   },
   {
     "id": "duo_29",
-    "name": "Duo · Slide Line · White + Blue",
+    "name": "Duo \u00b7 Slide Line \u00b7 White + Blue",
     "mode": "highlight",
     "layout": "inline",
     "anim": "none",
@@ -3714,7 +3751,7 @@
   },
   {
     "id": "duo_30",
-    "name": "Duo · Slide Line · White + Hot Pink",
+    "name": "Duo \u00b7 Slide Line \u00b7 White + Hot Pink",
     "mode": "highlight",
     "layout": "inline",
     "anim": "none",
@@ -3832,7 +3869,7 @@
   },
   {
     "id": "duo_31",
-    "name": "Duo · Slide Line · White + Green",
+    "name": "Duo \u00b7 Slide Line \u00b7 White + Green",
     "mode": "highlight",
     "layout": "inline",
     "anim": "none",

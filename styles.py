@@ -535,6 +535,8 @@ def load_presets():
                         "upper": bool(active.get("upper", False)),
                         "keyGradient": active_grad,
                     }
+                if p.get("heroPalette"):
+                    special_item["heroPalette"] = p["heroPalette"]
                 out.append(special_item)
         except Exception as se:
             print("Warning: could not load special_presets.json:", se)
@@ -664,6 +666,8 @@ def load_presets():
                         "outlineColor": alt.get("outlineColor", "#000000"),
                         "keyGradient": alt_grad,
                     }
+                if p.get("heroPalette"):
+                    duo_item["heroPalette"] = p["heroPalette"]
                 out.append(duo_item)
         except Exception as de:
             print("Warning: could not load duo_presets.json:", de)

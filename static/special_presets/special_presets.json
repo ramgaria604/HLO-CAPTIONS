@@ -249,7 +249,16 @@
  },
  {
   "id": "duo_03",
-  "name": "Duo \u00b7 White + Navy (behind)",
+  "name": "Duo \u00b7 Real Estate Clr (behind)",
+  "heroPalette": [
+    {"id": "emerald", "top": "#2EE6A6", "bottom": "#0F7A5A"},
+    {"id": "magenta", "top": "#FF3DA5", "bottom": "#8A1B5E"},
+    {"id": "gold", "top": "#FFD23F", "bottom": "#D18A00"},
+    {"id": "sky", "top": "#4CB8FF", "bottom": "#1D63B8"},
+    {"id": "navy", "top": "#3550B8", "bottom": "#121F5C"},
+    {"id": "orange", "top": "#FF8A3D", "bottom": "#D1470F"},
+    {"id": "violet", "top": "#A66BFF", "bottom": "#5B2BC2"}
+  ],
   "mode": "emphasis",
   "layout": "stack",
   "anim": "none",

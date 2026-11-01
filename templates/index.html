@@ -748,6 +748,51 @@
           <!-- TAB 3: STYLE OPTIONS -->
           <div id="tabStyle" class="tab-pane hidden">
             <div class="style-options-grid">
+              <!-- Hero Look Selector (Solid, See-through, Texture) -->
+              <div class="control-card" id="cardHeroLook">
+                <div class="control-header">
+                  <label>Hero Look</label>
+                  <span id="valHeroLookBadge" class="val-badge badge-green">SEE-THROUGH</span>
+                </div>
+                <p class="voiceover-help">Choose styling for the big hero word: see-through blend, video texture, or legacy solid.</p>
+                <div class="btn-group segmented-3" id="heroLookToggleGroup">
+                  <button type="button" class="btn-toggle active" id="btnHeroLookSeeThrough" data-look="seeThrough">See-Through</button>
+                  <button type="button" class="btn-toggle" id="btnHeroLookTexture" data-look="texture">Texture</button>
+                  <button type="button" class="btn-toggle" id="btnHeroLookSolid" data-look="solid">Solid</button>
+                </div>
+              </div>
+
+              <!-- Line by Line Animation Toggle -->
+              <div class="control-card" id="cardLineByLine">
+                <div class="control-header">
+                  <label>Line by Line Animation</label>
+                  <label class="switch-toggle">
+                    <input type="checkbox" id="chkLineByLine" checked>
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <p class="voiceover-help">Animate top line, hero word, and bottom line sequentially as spoken words arrive.</p>
+              </div>
+
+              <!-- Real Estate Clr Palette Dots -->
+              <div class="control-card" id="cardRealEstateColors">
+                <div class="control-header">
+                  <label>Real Estate Clr Palette</label>
+                  <span id="valRealEstateColorBadge" class="val-badge badge-green">AUTO ROTATION</span>
+                </div>
+                <p class="voiceover-help">Hero color rotates each caption. Tap a dot to lock a single color, or Auto for rotation.</p>
+                <div class="real-estate-palette-dots" id="realEstatePaletteDots">
+                  <button type="button" class="re-dot-btn active" data-color="auto" title="Auto rotation">Auto</button>
+                  <button type="button" class="re-dot-btn re-dot-emerald" data-color="emerald" title="Emerald" style="background:#2EE6A6;"></button>
+                  <button type="button" class="re-dot-btn re-dot-magenta" data-color="magenta" title="Magenta" style="background:#FF3DA5;"></button>
+                  <button type="button" class="re-dot-btn re-dot-gold" data-color="gold" title="Gold" style="background:#FFD23F;"></button>
+                  <button type="button" class="re-dot-btn re-dot-sky" data-color="sky" title="Sky" style="background:#4CB8FF;"></button>
+                  <button type="button" class="re-dot-btn re-dot-navy" data-color="navy" title="Royal Navy" style="background:#3550B8;"></button>
+                  <button type="button" class="re-dot-btn re-dot-orange" data-color="orange" title="Orange" style="background:#FF8A3D;"></button>
+                  <button type="button" class="re-dot-btn re-dot-violet" data-color="violet" title="Violet" style="background:#A66BFF;"></button>
+                </div>
+              </div>
+
               <!-- Big Type Switch (Behind Person) -->
               <div class="control-card" id="cardBigType">
                 <div class="control-header">
