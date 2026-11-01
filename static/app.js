@@ -843,6 +843,11 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 
 function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showAll, capId) {
   if (!words || !words.length) return;
+  const cIdx = Math.max(0, Number(capId || 1) - 1);
+  const nextCap = (S.captions && cIdx + 1 < S.captions.length) ? S.captions[cIdx + 1] : null;
+  if (nextCap && typeof nextCap.start === 'number' && t >= nextCap.start && !showAll) {
+    return;
+  }
 
   const heroLook = S.heroLook || st.heroLook || 'solid';
   const useUnified = (heroLook !== 'solid' || S.lineByLine !== false);
@@ -1130,6 +1135,12 @@ function getLayoutStackFn() {
 
 function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   if (!words || !words.length) return;
+  // Ghosting fix: If next caption has already started, do not draw this caption's lines
+  const curIdx = S.captions ? S.captions.indexOf(cap) : -1;
+  const nextCap = (S.captions && curIdx >= 0 && curIdx + 1 < S.captions.length) ? S.captions[curIdx + 1] : null;
+  if (nextCap && typeof nextCap.start === 'number' && t >= nextCap.start && !showAll) {
+    return;
+  }
   const roles = st.roles || {};
   const baseRole = roles.base || st.filler || {};
   const capId = (cap && (cap.index != null ? cap.index : cap.id)) || 1;
@@ -3470,10 +3481,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (pill && countSpan) {
       if (S.credits <= 0) {
         pill.classList.add('credit-zero');
-        countSpan.textContent = '🔒 0 Credits (Recharge)';
+        pill.title = '0 Credits (Recharge to Export). Tap to unlock';
+        countSpan.textContent = '0';
       } else {
         pill.classList.remove('credit-zero');
-        countSpan.textContent = text;
+        pill.title = `${text}. Click to recharge credits or enter VIP code`;
+        // Compact display in header chip: show number only so header never overflows mobile screens
+        countSpan.textContent = `${S.credits}`;
       }
     }
   }
@@ -3577,16 +3591,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const inputCode = $('inputCouponCode');
     const msg = $('couponMsg');
 
+    let _couponModalOpenedTime = 0;
     const handleOpenCoupon = (e) => {
       if (e) {
         e.preventDefault();
         e.stopPropagation();
       }
+      _couponModalOpenedTime = Date.now();
       openCouponModal();
     };
     if (pill) {
+      // Standard click listener with stopPropagation (NEVER pointerup to prevent ghost tap-through on backdrop)
       pill.addEventListener('click', handleOpenCoupon);
-      pill.addEventListener('pointerup', handleOpenCoupon);
     }
     if (btnCloseCoupon && modalCoupon) {
       btnCloseCoupon.addEventListener('click', (e) => {
@@ -3596,6 +3612,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
     if (modalCoupon) {
       modalCoupon.addEventListener('click', (e) => {
+        // Prevent accidental backdrop closing from tap-through within 350ms of opening
+        if (Date.now() - _couponModalOpenedTime < 350) return;
         if (e.target === modalCoupon) {
           modalCoupon.classList.add('hidden');
         }
@@ -8023,7 +8041,11 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
     liveDownscaleCanvas.height = downH;
   }
 
-  liveDownscaleCtx.drawImage(sourceCanvasOrFrame, 0, 0, downW, downH);
+  try {
+    liveDownscaleCtx.drawImage(sourceCanvasOrFrame, 0, 0, downW, downH);
+  } catch (_) {
+    return null;
+  }
 
   let resultMaskCanvas = null;
 
@@ -8377,11 +8399,17 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           }
 
           // Person cutout directly drawn onto personCanvas (layer 3)
-          personCtx.save();
-          personCtx.drawImage(vid, 0, 0, w, h);
-          personCtx.globalCompositeOperation = 'destination-in';
-          personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
-          personCtx.restore();
+          if (vid && vid.readyState >= 2) {
+            try {
+              personCtx.save();
+              personCtx.drawImage(vid, 0, 0, w, h);
+              personCtx.globalCompositeOperation = 'destination-in';
+              personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
+              personCtx.restore();
+            } catch (cutoutErr) {
+              try { personCtx.restore(); } catch (_) {}
+            }
+          }
         }
 
         drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
@@ -8402,12 +8430,28 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         updateDebugBadge(elapsed, effQuality);
       }
     } catch (renderErr) {
-      // Requirement 10: Safety fallback
+      // Requirement 10: Safety fallback - CLEAR DIRTY CANVASES FIRST TO PREVENT DOUBLE CAPTION OVERLAYS
       console.warn('[PREVIEW RENDER FALLBACK]', renderErr);
       try {
-        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, false, false);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
+        ctx.scale(dpr, dpr);
+        if (behindCtx) {
+          behindCtx.setTransform(1, 0, 0, 1, 0, 0);
+          behindCtx.clearRect(0, 0, behindCanvas.width, behindCanvas.height);
+          behindCtx.scale(dpr, dpr);
+        }
+        if (personCtx) {
+          personCtx.setTransform(1, 0, 0, 1, 0, 0);
+          personCtx.clearRect(0, 0, personCanvas.width, personCanvas.height);
+          personCtx.scale(dpr, dpr);
+        }
+        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, isShowAll, isPreview);
       } catch (_) {
         try {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
+          ctx.scale(dpr, dpr);
           drawSafePlainCaptions(ctx, activeCap, words, captionCanvas.width, captionCanvas.height);
         } catch (e2) {}
       }

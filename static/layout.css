@@ -145,9 +145,9 @@ html, body {
   flex-shrink: 0 !important;
 }
 
-.editor-header .header-btn,
-.editor-header .btn-save-project,
-.editor-header .btn-google-login {
+.editor-header .header-btn:not(.hidden),
+.editor-header .btn-save-project:not(.hidden),
+.editor-header .btn-google-login:not(.hidden) {
   min-width: 38px !important;
   min-height: 38px !important;
   display: inline-flex !important;
@@ -160,6 +160,14 @@ html, body {
   cursor: pointer !important;
   touch-action: manipulation !important;
   box-sizing: border-box !important;
+}
+
+.hidden,
+[hidden],
+.editor-header .hidden,
+.editor-header .btn-google-login.hidden,
+.editor-header .user-profile-pill.hidden {
+  display: none !important;
 }
 
 .editor-header .compact-credit-chip {
@@ -196,6 +204,64 @@ html, body {
   cursor: pointer !important;
   touch-action: manipulation !important;
   box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
+}
+
+/* Mobile Header Auto-Fit Rules (< 600px) */
+@media (max-width: 600px) {
+  .editor-header {
+    padding: 0 6px !important;
+    gap: 4px !important;
+  }
+  .editor-header .header-left {
+    flex: 0 0 auto !important;
+    gap: 4px !important;
+  }
+  .editor-header .video-filename {
+    display: none !important;
+  }
+  .editor-header .header-right {
+    flex: 1 1 auto !important;
+    justify-content: flex-end !important;
+    gap: 4px !important;
+  }
+  .editor-header .header-btn,
+  .editor-header .btn-save-project,
+  .editor-header .btn-google-login {
+    min-width: 34px !important;
+    min-height: 34px !important;
+  }
+  .editor-header .user-profile-pill {
+    padding: 2px 6px !important;
+    gap: 4px !important;
+  }
+  .editor-header .user-name {
+    max-width: 52px !important;
+    font-size: 11px !important;
+  }
+  .editor-header .compact-credit-chip {
+    min-height: 34px !important;
+    padding: 3px 6px !important;
+    font-size: 11px !important;
+    gap: 3px !important;
+  }
+  .editor-header .btn-export-moonshot {
+    min-height: 34px !important;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .editor-header .btn-export-moonshot {
+    padding: 0 8px !important;
+  }
+  .editor-header .btn-export-label {
+    font-size: 11px !important;
+  }
 }
 
 /* ==========================================================================
