@@ -9255,8 +9255,7 @@ button {
   z-index: 25 !important;
 }
 
-.tab-pane,
-#tabTemplates {
+.tab-pane {
   flex: 1 1 0 !important;
   min-height: 0 !important;
   overflow-y: auto !important;
@@ -9266,6 +9265,16 @@ button {
   display: flex !important;
   flex-direction: column !important;
   padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+.tab-pane.hidden,
+.tab-pane[hidden],
+.tab-pane:not(.active) {
+  display: none !important;
+}
+
+.tab-pane.active {
+  display: flex !important;
 }
 
 /* 2. Generate Bar: Sticky Bottom with Safe-Area */
@@ -9321,23 +9330,72 @@ button {
 }
 
 .preset-card-art {
-  flex: 1 1 0 !important;
+  flex: 1 1 auto !important;
   width: 100% !important;
-  min-height: 80px !important;
+  min-height: 85px !important;
   position: relative !important;
   overflow: hidden !important;
   background: #121320 !important;
   display: flex !important;
+  flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
+  box-sizing: border-box !important;
+  padding: 6px 4px !important;
 }
 
-.preset-card-thumb-img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  display: block !important;
+.preset-card-tag {
+  position: absolute !important;
+  top: 6px !important;
+  left: 6px !important;
+  font-size: 8.5px !important;
+  font-weight: 800 !important;
+  padding: 2px 5px !important;
+  border-radius: 4px !important;
+  border: 1px solid !important;
+  line-height: 1 !important;
+  z-index: 3 !important;
   pointer-events: none !important;
+}
+
+.preset-card-small {
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  color: #94a3b8 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  margin-bottom: 2px !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+}
+
+.preset-card-big {
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  line-height: 1.2 !important;
+  text-align: center !important;
+  max-width: 95% !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+}
+
+.preset-card-dots-row {
+  display: flex !important;
+  gap: 3px !important;
+  justify-content: center !important;
+  margin-top: 4px !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+}
+
+.preset-card-dots-row .mini-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  display: inline-block !important;
 }
 
 .preset-card-name-row {
@@ -9797,3 +9855,155 @@ button {
   flex-shrink: 0;
 }
 
+
+/* ==========================================================================
+   EDIT CAPTIONS TAB & OPERABILITY FIXES
+   ========================================================================== */
+#tabCaptions {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  touch-action: pan-y !important;
+  padding: 12px 14px calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+  box-sizing: border-box !important;
+}
+
+.captions-toolbar {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  margin-bottom: 12px !important;
+  flex-shrink: 0 !important;
+}
+
+.captions-info {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+  font-weight: 600 !important;
+}
+
+.captions-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  align-items: center !important;
+}
+
+.captions-actions .btn-subaction,
+.captions-actions .btn-chunk-mode {
+  min-height: 32px !important;
+  touch-action: manipulation !important;
+  cursor: pointer !important;
+}
+
+.captions-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  min-height: 100px !important;
+}
+
+.caption-row {
+  background: #181a2e !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+  touch-action: pan-y !important;
+  transition: border-color 0.15s, background-color 0.15s !important;
+}
+
+.caption-row.selected {
+  border-color: #8b5cf6 !important;
+  background: rgba(139, 92, 246, 0.14) !important;
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.3) !important;
+}
+
+.caption-row.active {
+  border-color: #8b5cf6 !important;
+}
+
+.caption-play-btn {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+}
+
+.caption-center {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.caption-dur-controls {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.btn-time-step {
+  font-size: 10px !important;
+  padding: 2px 6px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 4px !important;
+  color: #cbd5e1 !important;
+  cursor: pointer !important;
+}
+
+.caption-text-input {
+  width: 100% !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  padding: 6px 8px !important;
+  color: #fff !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+  resize: vertical !important;
+  box-sizing: border-box !important;
+}
+
+.caption-text-input:focus {
+  outline: none !important;
+  border-color: #8b5cf6 !important;
+  background: rgba(0, 0, 0, 0.4) !important;
+}
+
+.caption-delete-btn {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  border-radius: 6px !important;
+  color: #f87171 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 16px !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+}

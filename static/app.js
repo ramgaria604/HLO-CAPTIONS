@@ -859,7 +859,7 @@ function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showA
     const capDur = Math.max(0.2, (hero.e || 1) - heroStart);
 
     const targetCtx = ctxBehind || ctxFore;
-    renderUnifiedHeroWord(targetCtx, hero.t, capIdx, heroBox, st, W, H, t, heroStart, capDur, 1.0, false, typeof vid !== 'undefined' ? vid : null);
+    renderUnifiedHeroWord(targetCtx, hero.t, capIdx, heroBox, st, W, H, t, heroStart, capDur, 1.0, false, typeof vid !== 'undefined' ? vid : null, false);
 
     if (subtitle.length > 0 && ctxFore) {
       const subText = subtitle.map(w => w.t).join(' ');
@@ -1133,7 +1133,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const roles = st.roles || {};
   const baseRole = roles.base || st.filler || {};
   const capId = (cap && (cap.index != null ? cap.index : cap.id)) || 1;
-  const alt = (st.accent2 || roles.accent2) && (Math.max(0, Number(capId) - 1) % 2 === 1);
+  const rawIdx = typeof capId === 'number' ? capId : parseInt(capId, 10);
+  const capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
+  const alt = (st.accent2 || roles.accent2) && (capIdx % 2 === 1);
   const accentRole = (alt && (roles.accent2 || st.accent2)) || roles.accent || st.key || {};
   const uppercase = Boolean(st.uppercase != null ? st.uppercase : accentRole.upper);
   const inkGap = typeof st.inkGap === 'number' ? st.inkGap : 0.03;
@@ -1317,19 +1319,20 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         const heroWordObj = o.words[0] || { s: cap.start };
         const heroStart = (heroWordObj && typeof heroWordObj.s === 'number') ? heroWordObj.s : cap.start;
         const heroBox = {
-          x: Math.round(o.x - o.size * (heroText.length * 0.28)),
-          y: Math.round(o.baseline - o.size * 0.86),
-          w: Math.round(o.size * (heroText.length * 0.56)),
-          h: Math.round(o.size * 0.90),
-          fontSize: Math.round(o.size)
+          x: Math.round(o.x - (o.width || o.size * 2) / 2),
+          y: Math.round(o.inkTop || (o.baseline - o.size * 0.86)),
+          w: Math.round(o.width || (o.size * (heroText.length * 0.56))),
+          h: Math.round(o.asc + o.desc || o.size * 0.90),
+          fontSize: Math.round(o.size),
+          centerX: o.x
         };
-        renderUnifiedHeroWord(targetCtx, heroText, Number(capId || 1) - 1, heroBox, st, W, H, t, heroStart, cap.end - cap.start, 1.0, isPreview, vid);
+        renderUnifiedHeroWord(targetCtx, heroText, capIdx, heroBox, st, W, H, t, heroStart, cap.end - cap.start, 1.0, isPreview, vid, showAll);
         return;
       } else {
         const lineText = o.words.map(w => w.t || w.word || '').join(' ');
         const lineStart = (o.words[0] && typeof o.words[0].s === 'number') ? o.words[0].s : cap.start;
         const isTop = (o.lineType === 'top');
-        renderUnifiedSmallLine(ctxFore, lineText, o.x, o.baseline, Math.round(o.size), 1.0, t, lineStart, isTop);
+        renderUnifiedSmallLine(ctxFore, lineText, o.x, o.baseline, Math.round(o.size), 1.0, t, lineStart, isTop, showAll);
         return;
       }
     }
@@ -2115,7 +2118,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const heroWordObj = (data.heroWord) || { s: cap.start };
       const heroStart = (heroWordObj && typeof heroWordObj.s === 'number') ? heroWordObj.s : cap.start;
       const heroBox = { x: heroX, y: heroY, w: heroW, h: heroH, fontSize: heroFontSize };
-      renderUnifiedHeroWord(drawCtx, displayHeroText, capIdx, heroBox, st, W, H, t, heroStart, capDur, exitAlpha, isPreview, vid);
+      renderUnifiedHeroWord(drawCtx, displayHeroText, capIdx, heroBox, st, W, H, t, heroStart, capDur, exitAlpha, isPreview, vid, showAll);
     } else if (useBigType && heroMetricsObj) {
       drawBigTypeHeroWord(drawCtx, heroMetricsObj, heroX, heroY, heroGrad, '#111111', exitAlpha, {
         stTime,
@@ -2620,10 +2623,11 @@ function getOrCreateHeroSprite(text, fontSize, isItalic, colors, heroLook, lum, 
   return sprite;
 }
 
-function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t, heroStart, capDur, exitAlpha, isPreview, videoEl) {
+function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t, heroStart, capDur, exitAlpha, isPreview, videoEl, showAll = false) {
   if (!drawCtx || !heroWord) return;
 
-  const isItalic = (Math.max(0, Number(capIndex) || 0) % 2 === 1);
+  const validCapIdx = typeof capIndex === 'number' && !isNaN(capIndex) ? Math.max(0, capIndex) : 0;
+  const isItalic = (validCapIdx % 2 === 1);
   const fontStyle = isItalic ? 'italic ' : '';
   const cleanWord = heroWord.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim().toLowerCase();
   if (!cleanWord) return;
@@ -2677,7 +2681,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   let animScale = 1.0;
   let clipReveal = 1.0;
   const useLineByLine = S.lineByLine !== false;
-  if (useLineByLine) {
+  if (useLineByLine && !showAll && (capDur == null || capDur < 100)) {
     const elapsed = Math.max(0, t - heroStart);
     const scaleP = Math.min(1.0, elapsed / 0.28);
     const c1 = 1.70158;
@@ -2704,8 +2708,11 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
 
   const sprite = getOrCreateHeroSprite(cleanWord, fontSize, isItalic, colors, heroLook, lum, isPreviewSmooth, videoEl, heroBox, W, H);
 
-  const drawX = heroBox.x;
-  const drawY = heroBox.y;
+  const cx = (heroBox && heroBox.centerX != null)
+    ? heroBox.centerX
+    : ((heroBox && heroBox.w && heroBox.w > 0) ? (heroBox.x + heroBox.w / 2) : (heroBox ? heroBox.x : W / 2));
+  const drawX = Math.round(cx - sprite.textW / 2);
+  const drawY = Math.round(heroBox ? heroBox.y : H * 0.4);
 
   drawCtx.save();
   drawCtx.globalAlpha = (exitAlpha || 1.0);
@@ -2722,7 +2729,6 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
     drawCtx.clip();
   }
 
-  const cx = drawX + sprite.textW / 2;
   const cy = drawY + sprite.textH / 2;
   drawCtx.translate(cx, cy);
   drawCtx.scale(animScale, animScale);
@@ -2763,7 +2769,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   drawCtx.restore();
 }
 
-function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize, exitAlpha, t, lineStart, isTopLine) {
+function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize, exitAlpha, t, lineStart, isTopLine, showAll = false) {
   if (!ctxFore || !lineText) return;
   const cleanLine = lineText.toLowerCase();
 
@@ -2771,7 +2777,7 @@ function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize,
   let dy = 0;
 
   const useLineByLine = S.lineByLine !== false;
-  if (useLineByLine) {
+  if (useLineByLine && !showAll) {
     const elapsed = Math.max(0, t - lineStart);
     const dur = 0.18;
     const p = Math.min(1.0, elapsed / dur);
@@ -5100,7 +5106,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       btn.classList.toggle('active', tabAttr === targetId);
     });
 
-    $$('.tab-pane').forEach(p => p.classList.toggle('hidden', p.id !== targetId));
+    $$('.tab-pane').forEach(p => {
+      const isActive = (p.id === targetId);
+      p.classList.toggle('active', isActive);
+      p.classList.toggle('hidden', !isActive);
+      if (!isActive) {
+        p.setAttribute('hidden', '');
+        p.style.display = 'none';
+      } else {
+        p.removeAttribute('hidden');
+        p.style.display = 'flex';
+      }
+    });
 
     const titles = {
       tabTemplates: '🎨 Choose Template (164 Available)',
@@ -5416,38 +5433,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     );
     if (isBehind) tag = '👑 BEHIND';
 
-    // Visual Art Container with Thumbnail Image
+    // Visual Art Container
     const art = document.createElement('div');
     art.className = 'preset-card-art';
-    art.style.display = 'flex';
-    art.style.flexDirection = 'column';
-    art.style.alignItems = 'center';
-    art.style.justifyContent = 'center';
-    art.style.flex = '1 1 0';
-    art.style.minHeight = '80px';
-    art.style.position = 'relative';
-    art.style.boxSizing = 'border-box';
-    art.style.overflow = 'hidden';
-
-    const thumbImg = document.createElement('img');
-    thumbImg.className = 'preset-card-thumb-img';
-    thumbImg.alt = preset.name || 'Template preview';
-    thumbImg.loading = cardIndex < 12 ? 'eager' : 'lazy';
-
-    if (cardIndex < 12 || _templateThumbnailCache.has(preset.id)) {
-      thumbImg.src = getTemplateThumbnailUrl(preset);
-    } else {
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(() => {
-          thumbImg.src = getTemplateThumbnailUrl(preset);
-        });
-      } else {
-        setTimeout(() => {
-          thumbImg.src = getTemplateThumbnailUrl(preset);
-        }, 12 * (cardIndex - 12));
-      }
-    }
-    art.appendChild(thumbImg);
 
     const tagSpan = document.createElement('span');
     tagSpan.className = 'preset-card-tag';
@@ -5491,7 +5479,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
     art.appendChild(big);
 
-    // A5: Person silhouette in front of behind cards preview
+    // Person silhouette in front of behind cards preview
     if (isBehind) {
       const sil = document.createElement('div');
       sil.className = 'preset-card-silhouette';
@@ -5501,6 +5489,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       sil.style.zIndex = '2';
       sil.innerHTML = '<svg width="42" height="42" viewBox="0 0 24 24" fill="rgba(255,255,255,0.22)" stroke="rgba(255,255,255,0.45)" stroke-width="1.25"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
       art.appendChild(sil);
+    }
+
+    // Real estate dots
+    if (preset.id === 'duo_03' || preset.id === 'special_03' || (preset.name && preset.name.toLowerCase().includes('real estate clr'))) {
+      const dotsRow = document.createElement('div');
+      dotsRow.className = 'preset-card-dots-row';
+      REAL_ESTATE_CLR_PALETTE.forEach(c => {
+        const dot = document.createElement('span');
+        dot.className = 'mini-dot';
+        dot.style.background = c.top;
+        dotsRow.appendChild(dot);
+      });
+      art.appendChild(dotsRow);
     }
 
     // Name & Active Check Row
@@ -5537,16 +5538,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
 
     card.addEventListener('click', () => {
-      const wasActive = card.classList.contains('active');
       applyPreset(preset, false);
       $$('.preset-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-id') === preset.id));
-      if (isModal) {
-        if (wasActive) {
-          modalTemplates.classList.add('hidden');
-        } else {
-          showToast(`✨ ${preset.name} active · Previewing on video`);
-        }
-      }
+      if (isModal) modalTemplates.classList.add('hidden');
     });
 
     return card;
@@ -5636,9 +5630,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.captions.forEach((cap, idx) => {
       const row = document.createElement('div');
       const isCur = curTime >= cap.start && curTime <= cap.end;
-      row.className = 'caption-row' + (isCur ? ' active' : '');
+      const isSel = S.selectedCaptionId === cap.id;
+      row.className = 'caption-row' + (isCur ? ' active' : '') + (isSel ? ' selected' : '');
+      row.setAttribute('data-id', cap.id);
 
-      row.innerHTML = `<button class="caption-play-btn" title="Jump to timestamp">▶</button><div class="caption-center"><div class="caption-dur-controls"><button type="button" class="btn-time-step btn-step-minus" title="Decrease duration by 0.2s">-0.2s</button><span class="caption-time-pill">${formatTime(cap.start)} - ${formatTime(cap.end)} (${(cap.end - cap.start).toFixed(1)}s)</span><button type="button" class="btn-time-step btn-step-plus" title="Increase duration by 0.2s">+0.2s</button></div></div><button class="caption-delete-btn" title="Delete caption">&times;</button>`;
+      row.innerHTML = `<button type="button" class="caption-play-btn" title="Jump to timestamp">▶</button><div class="caption-center"><div class="caption-dur-controls"><button type="button" class="btn-time-step btn-step-minus" title="Decrease duration by 0.2s">-0.2s</button><span class="caption-time-pill">${formatTime(cap.start)} - ${formatTime(cap.end)} (${(cap.end - cap.start).toFixed(1)}s)</span><button type="button" class="btn-time-step btn-step-plus" title="Increase duration by 0.2s">+0.2s</button></div></div><button type="button" class="caption-delete-btn" title="Delete caption">&times;</button>`;
 
       const btnMinus = row.querySelector('.btn-step-minus');
       const btnPlus = row.querySelector('.btn-step-plus');
@@ -5670,9 +5666,28 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       captionInput.value = cleanCaptionText(cap.text);
       captionCenter.appendChild(captionInput);
 
-      row.querySelector('.caption-play-btn').addEventListener('click', () => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('textarea')) return;
+        selectCaption(cap.id);
         vid.currentTime = cap.start + 0.05;
-        vid.play();
+        renderCanvas();
+        renderTimeline();
+        renderCaptionsList();
+      });
+
+      captionInput.addEventListener('focus', () => {
+        selectCaption(cap.id);
+        renderTimeline();
+      });
+
+      row.querySelector('.caption-play-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectCaption(cap.id);
+        vid.currentTime = cap.start + 0.05;
+        vid.play().catch(() => {});
+        renderCanvas();
+        renderTimeline();
+        renderCaptionsList();
       });
 
       const textarea = captionInput;
@@ -5699,7 +5714,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         renderTimeline();
       });
 
-      row.querySelector('.caption-delete-btn').addEventListener('click', () => {
+      row.querySelector('.caption-delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (S.selectedCaptionId === cap.id) deselectCaption();
         S.captions.splice(idx, 1);
         renderCaptionsList();
         renderTimeline();
@@ -7473,6 +7490,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     function drawSampleCaptionPreview(ctx, W, H, st) {
     const sampleCap = {
       id: 'preview_sample',
+      index: 1,
       start: 0,
       end: 999,
       text: 'VIRAL AI CAPTIONS',
@@ -7490,7 +7508,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         (st.name && st.name.toLowerCase().includes('(behind)'))
       )
     );
-    drawCanvasTypography(ctx, null, sampleCap, sampleCap.words, 0, st || {}, W, H, isBehind, true);
+    drawCanvasTypography(ctx, null, sampleCap, sampleCap.words, 0, st || {}, W, H, isBehind, true, false);
   }
 
 
