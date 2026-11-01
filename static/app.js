@@ -3662,26 +3662,40 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   async function init() {
-    setupUploadHandlers();
-    setupTransportHandlers();
-    setupTimelineHandlers();
-    setupVideoOverlayInteractions();
-    setupTimelineActionBar();
-    setupCaptionEditSheet();
-    setupTemplateSearch();
-    setupDrawerAndNavHandlers();
-    setupStyleHandlers();
-    setupAudioHandlers();
-    setupBrollHandlers();
-    setupModalHandlers();
-    setupCanvasSizing();
-    setupCaptionDragging();
-    startKeepAliveHeartbeat();
-    setupAuthHandlers();
-    setupProjectHandlers();
-    setupCouponHandlers();
+    const runBlock = (blockName, fn) => {
+      try {
+        fn();
+      } catch (err) {
+        console.error('[INIT]', blockName, err);
+      }
+    };
 
-    await loadPresets();
+    // Load presets and templates early so screen is never blank
+    try {
+      await loadPresets();
+    } catch (err) {
+      console.error('[INIT]', 'loadPresets', err);
+    }
+
+    runBlock('uploadHandlers', setupUploadHandlers);
+    runBlock('transportHandlers', setupTransportHandlers);
+    runBlock('timelineHandlers', setupTimelineHandlers);
+    runBlock('videoOverlayInteractions', setupVideoOverlayInteractions);
+    runBlock('timelineActionBar', setupTimelineActionBar);
+    runBlock('captionEditSheet', setupCaptionEditSheet);
+    runBlock('templateSearch', setupTemplateSearch);
+    runBlock('drawerAndNavHandlers', setupDrawerAndNavHandlers);
+    runBlock('styleHandlers', setupStyleHandlers);
+    runBlock('audioHandlers', setupAudioHandlers);
+    runBlock('brollHandlers', setupBrollHandlers);
+    runBlock('modalHandlers', setupModalHandlers);
+    runBlock('canvasSizing', setupCanvasSizing);
+    runBlock('captionDragging', setupCaptionDragging);
+    runBlock('keepAliveHeartbeat', startKeepAliveHeartbeat);
+    runBlock('authHandlers', setupAuthHandlers);
+    runBlock('projectHandlers', setupProjectHandlers);
+    runBlock('couponHandlers', setupCouponHandlers);
+    runBlock('layoutDebugHelper', setupLayoutDebugHelper);
   }
 
   function startKeepAliveHeartbeat() {
@@ -3891,6 +3905,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   async function loadPresets() {
+    // 0. Ensure default presets exist immediately so screen is NEVER blank
+    if (!S.presets || S.presets.length === 0) {
+      S.presets = [
+        { id: 'yellow_box', name: 'Yellow Box Pop', category: 'box', highlightColor: '#FFE600', key: { font: 'Poppins', color: '#FFE600', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0, pill: '#FFE600' },
+        { id: 'box_pop', name: 'Box Pop Classic', category: 'box', highlightColor: '#FFE600', key: { font: 'Poppins', color: '#FFE600', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 },
+        { id: 'duo_sunset', name: 'Duo Sunset Pop', isDuo: true, category: 'duo', highlightColor: '#FF6B00', key: { font: 'Poppins', color: '#FF6B00', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 },
+        { id: 'neon_cyan', name: 'Electric Cyan Glow', category: 'neon', highlightColor: '#00F0FF', key: { font: 'Poppins', color: '#00F0FF', bold: true, glow: '#00F0FF' }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 },
+        { id: 'special_03', name: 'Real Estate Clr', category: 'real-estate', highlightColor: '#2EE6A6', key: { font: 'Poppins', color: '#2EE6A6', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 }
+      ];
+      renderFrontShowcasePresets('all');
+      setupFrontCategoryPills();
+      const initial = S.presets[0];
+      if (!S.style) applyPreset(initial, false);
+      renderPresetsTab('all');
+    }
+
     // 1. Instant cache load: render immediately so screen is never blank
     try {
       const cached = JSON.parse(localStorage.getItem('cs_presets_cache') || 'null');
@@ -5137,9 +5167,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.drawerOpen = true;
     drawerPanel.classList.remove('collapsed');
     drawerPanel.removeAttribute('hidden');
-    drawerPanel.style.setProperty('display', 'flex', 'important');
+    drawerPanel.style.setProperty('--sheet-h', 'var(--sheet-half)');
     const eb = $('editorBody') || $('.editor-body');
-    if (eb) eb.classList.add('drawer-open');
+    if (eb) {
+      eb.classList.add('drawer-open');
+      eb.style.setProperty('--sheet-h', 'var(--sheet-half)');
+    }
 
     $$('.bottom-nav-btn').forEach(btn => {
       const tabAttr = btn.getAttribute('data-tab');
@@ -5183,12 +5216,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const iconChevron = $('iconDrawerChevron');
     if (iconChevron) iconChevron.style.transform = 'rotate(180deg)';
     S.drawerOpen = false;
+    S.drawerFullscreen = false;
     drawerPanel.classList.add('collapsed');
     drawerPanel.classList.remove('fullscreen');
     drawerPanel.setAttribute('hidden', '');
-    drawerPanel.style.setProperty('display', 'none', 'important');
+    drawerPanel.style.setProperty('--sheet-h', '0dvh');
     const eb = $('editorBody') || $('.editor-body');
-    if (eb) eb.classList.remove('drawer-open');
+    if (eb) {
+      eb.classList.remove('drawer-open');
+      eb.classList.remove('sheet-fullscreen');
+      eb.style.setProperty('--sheet-h', '0dvh');
+    }
     $$('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
     if (btnToggleTimeline) btnToggleTimeline.classList.add('active');
     requestAnimationFrame(() => {
@@ -5209,6 +5247,20 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function toggleDrawerFullscreen() {
     S.drawerFullscreen = !S.drawerFullscreen;
     drawerPanel.classList.toggle('fullscreen', S.drawerFullscreen);
+    const eb = $('editorBody') || $('.editor-body');
+    if (S.drawerFullscreen) {
+      if (eb) {
+        eb.classList.add('sheet-fullscreen');
+        eb.style.setProperty('--sheet-h', 'var(--sheet-full)');
+      }
+      drawerPanel.style.setProperty('--sheet-h', 'var(--sheet-full)');
+    } else {
+      if (eb) {
+        eb.classList.remove('sheet-fullscreen');
+        eb.style.setProperty('--sheet-h', 'var(--sheet-half)');
+      }
+      drawerPanel.style.setProperty('--sheet-h', 'var(--sheet-half)');
+    }
     const drawerModeIcon = $('drawerModeIcon');
     const drawerModeText = $('drawerModeText');
     if (drawerModeIcon) drawerModeIcon.textContent = S.drawerFullscreen ? '🗗' : '⛶';
@@ -5273,10 +5325,45 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           return true;
         });
 
-    filtered.forEach((preset, idx) => {
-      const card = createPresetCard(preset, false, idx);
-      presetsGrid.appendChild(card);
-    });
+    // Render first 12 cards immediately (STEP 4)
+    const initialCount = Math.min(12, filtered.length);
+    for (let i = 0; i < initialCount; i++) {
+      presetsGrid.appendChild(createPresetCard(filtered[i], false, i));
+    }
+
+    // Lazy-render remainder as user scrolls the sheet body
+    if (filtered.length > initialCount) {
+      let nextIdx = initialCount;
+      const scrollBody = $('.drawer-content') || presetsGrid.parentElement;
+      const renderNextBatch = () => {
+        if (nextIdx >= filtered.length) return;
+        const chunk = Math.min(nextIdx + 16, filtered.length);
+        const frag = document.createDocumentFragment();
+        for (let i = nextIdx; i < chunk; i++) {
+          frag.appendChild(createPresetCard(filtered[i], false, i));
+        }
+        presetsGrid.appendChild(frag);
+        nextIdx = chunk;
+      };
+
+      const onScroll = () => {
+        if (scrollBody && (scrollBody.scrollTop + scrollBody.clientHeight >= scrollBody.scrollHeight - 350)) {
+          renderNextBatch();
+          if (nextIdx >= filtered.length) {
+            scrollBody.removeEventListener('scroll', onScroll);
+          }
+        }
+      };
+
+      if (scrollBody) {
+        scrollBody.addEventListener('scroll', onScroll, { passive: true });
+      }
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => { if (nextIdx < filtered.length) renderNextBatch(); });
+      } else {
+        setTimeout(renderNextBatch, 150);
+      }
+    }
   }
 
   const _templateThumbnailCache = new Map();
@@ -13025,3 +13112,69 @@ function initHeroLookUI() {
     });
   });
 }
+
+  // ==========================================================================
+  // STEP 9: ?layout=1 DEBUG HELPER
+  // ==========================================================================
+  function setupLayoutDebugHelper() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('layout') !== '1') return;
+
+      document.body.classList.add('debug-layout');
+
+      const dvhSupported = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('height', '100dvh');
+
+      let badge = $('layoutDebugBadge');
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.id = 'layoutDebugBadge';
+        document.body.appendChild(badge);
+      }
+
+      const updateBadge = () => {
+        const eb = $('editorBody') || $('.editor-body');
+        const sheetH = eb ? getComputedStyle(eb).getPropertyValue('--sheet-h').trim() : '0dvh';
+        let sheetState = 'closed';
+        if (drawerPanel && drawerPanel.classList.contains('fullscreen')) {
+          sheetState = 'full';
+        } else if (S.drawerOpen) {
+          sheetState = 'half';
+        }
+        badge.textContent = `${window.innerWidth}x${window.innerHeight} | dvh: ${dvhSupported ? 'yes' : 'no'} | sheet: ${sheetState} (${sheetH}) | tab: ${S.activeTab || 'none'}`;
+      };
+
+      window.addEventListener('resize', updateBadge);
+      setInterval(updateBadge, 500);
+      updateBadge();
+
+      // Tap inspector
+      document.addEventListener('pointerdown', (e) => {
+        const target = e.target;
+        if (!target || target === badge) return;
+        const comp = window.getComputedStyle(target);
+        const zIdx = comp.zIndex;
+        const tag = target.tagName.toLowerCase();
+        const id = target.id ? `#${target.id}` : '';
+        const cls = target.className && typeof target.className === 'string' ? `.${target.className.trim().split(/\s+/).join('.')}` : '';
+        const info = `<${tag}${id}${cls}> z-index:${zIdx}`;
+        console.log('[DEBUG LAYOUT TAP]', info, target);
+
+        // Show 1-second toast
+        const toast = $('toastNotification');
+        if (toast) {
+          toast.textContent = info;
+          toast.classList.remove('hidden');
+          toast.style.display = 'block';
+          clearTimeout(toast._debugTimer);
+          toast._debugTimer = setTimeout(() => {
+            toast.classList.add('hidden');
+            toast.style.display = 'none';
+          }, 1000);
+        }
+      }, true);
+    } catch (e) {
+      console.error('[INIT]', 'layoutDebugHelper', e);
+    }
+  }
+
