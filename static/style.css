@@ -9205,3 +9205,471 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+/* ==========================================================================
+   MOBILE CHROME TEMPLATES PANEL & TOUCH SCROLL FIXES (Bugfix Suite)
+   ========================================================================== */
+
+/* 1. Panel Layout: flex column with dvh units */
+.drawer-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 55vh;
+  height: 55dvh;
+  max-height: 55vh;
+  max-height: 55dvh;
+  background: #131522 !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.editor-body.drawer-open .drawer-panel {
+  height: 55vh !important;
+  height: 55dvh !important;
+  max-height: 55vh !important;
+  max-height: 55dvh !important;
+  flex: none !important;
+}
+
+.drawer-panel.fullscreen,
+.editor-body.drawer-open .drawer-panel.fullscreen {
+  position: fixed !important;
+  top: 48px !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 92vh !important;
+  height: 92dvh !important;
+  max-height: 92vh !important;
+  max-height: 92dvh !important;
+  z-index: 90 !important;
+}
+
+.drawer-header {
+  position: sticky !important;
+  top: 0 !important;
+  flex-shrink: 0 !important;
+  z-index: 25 !important;
+}
+
+.tab-pane,
+#tabTemplates {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  touch-action: pan-y !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* 2. Generate Bar: Sticky Bottom with Safe-Area */
+.generate-bar {
+  position: sticky !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  margin-top: auto !important;
+  background: #131522f5 !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding: 10px 16px max(12px, env(safe-area-inset-bottom, 12px)) !important;
+  z-index: 30 !important;
+  display: flex !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+/* 3. Presets Grid & Cards */
+.presets-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 10px !important;
+  padding: 8px 12px 16px 12px !important;
+  overflow: visible !important;
+  overflow-y: visible !important;
+  height: auto !important;
+  min-height: 180px !important;
+}
+
+.preset-card {
+  position: relative !important;
+  aspect-ratio: 4 / 5 !important;
+  height: auto !important;
+  min-height: 130px !important;
+  border-radius: 12px !important;
+  background: #1a1c2e !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  touch-action: pan-y !important;
+}
+
+.preset-card.active {
+  border: 2px solid #8b5cf6 !important;
+  box-shadow: 0 0 0 1px #8b5cf6 !important;
+}
+
+.preset-card-art {
+  flex: 1 1 0 !important;
+  width: 100% !important;
+  min-height: 80px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  background: #121320 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.preset-card-thumb-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  pointer-events: none !important;
+}
+
+.preset-card-name-row {
+  flex-shrink: 0 !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: #131522 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-sizing: border-box !important;
+}
+
+.preset-name {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #e2e8f0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.preset-check-icon {
+  font-size: 11px !important;
+  color: #8b5cf6 !important;
+  opacity: 0;
+}
+
+.preset-card.active .preset-check-icon {
+  opacity: 1 !important;
+}
+
+/* 4. Compact Video Template Row */
+.compact-vtemplate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 14px;
+  margin: 6px 12px 4px 12px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.14) 0%, rgba(236, 72, 153, 0.12) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+.compact-vtemplate-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.compact-vtemplate-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vtemplate-pill-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #a78bfa;
+}
+
+.compact-vtemplate-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-vtemplate-sub {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-vtemplate-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.vtemplate-select-pill {
+  background: #1a1c2e;
+  color: #ffffff;
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  max-width: 145px;
+}
+
+.btn-template-settings-gear {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.btn-template-settings-gear.active,
+.btn-template-settings-gear:hover {
+  background: rgba(139, 92, 246, 0.25);
+  color: #c4b5fd;
+  border-color: #8b5cf6;
+}
+
+/* 5. Featured Horizontal Scroll Row */
+.featured-templates-section {
+  padding: 4px 12px 6px 12px;
+}
+
+.featured-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.featured-templates-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
+.featured-templates-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.featured-card {
+  flex: 0 0 120px;
+  scroll-snap-align: start;
+  background: #181a2a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.featured-card.active {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 1px #8b5cf6;
+}
+
+.featured-thumb {
+  height: 64px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  overflow: hidden;
+}
+
+.featured-thumb-pop {
+  background: linear-gradient(135deg, #2A1B5E, #5B2EBF);
+}
+
+.featured-thumb-re {
+  background: linear-gradient(135deg, #111827, #1f2937);
+}
+
+.featured-thumb-duo {
+  background: linear-gradient(135deg, #31102b, #1f1d36);
+}
+
+.featured-sticker-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  font-size: 8px;
+  font-weight: 900;
+  background: #FFD93D;
+  color: #14102B;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.featured-karaoke-preview {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+}
+.featured-karaoke-preview .spoken {
+  color: #FFD93D;
+  text-decoration: underline;
+}
+
+.featured-hero-preview {
+  font-family: 'Anton', sans-serif;
+  font-size: 14px;
+  color: #facc15;
+  letter-spacing: 0.03em;
+}
+.featured-sub-preview {
+  font-size: 8px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.featured-duo-top {
+  font-size: 8px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+.featured-duo-bot {
+  font-size: 12px;
+  font-weight: 900;
+  color: #ec4899;
+}
+
+.featured-card-info {
+  padding: 5px 6px;
+  background: #111322;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.featured-tag {
+  font-size: 9px;
+  font-weight: 800;
+  color: #a78bfa;
+}
+
+.featured-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Accordion for template settings */
+.vtemplate-settings-accordion {
+  margin: 4px 12px 10px 12px;
+  background: #16182a;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.vtemplate-settings-accordion.hidden {
+  display: none !important;
+}
+
+.vtemplate-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vtemplate-settings-body.hidden {
+  display: none !important;
+}
+
+/* 6. Touch, Stage & Overlays */
+.stage, #stageWrapper {
+  touch-action: pan-y !important;
+}
+
+.video-edit-overlay-container {
+  pointer-events: none !important;
+}
+
+.video-edit-overlay-container.is-active,
+.video-edit-overlay-container .video-edit-box {
+  pointer-events: auto !important;
+}
+
+/* 7. Header & Credits Chip */
+.editor-header {
+  position: relative !important;
+  z-index: 100 !important;
+}
+
+#creditPill,
+.compact-credit-chip {
+  min-width: 44px !important;
+  min-height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 101 !important;
+  position: relative !important;
+  touch-action: manipulation !important;
+  border: 1px solid rgba(234, 179, 8, 0.35) !important;
+  border-radius: 8px !important;
+  background: rgba(234, 179, 8, 0.12) !important;
+  color: #facc15 !important;
+  padding: 4px 8px !important;
+}
+
+.modal-backdrop {
+  z-index: 1000 !important;
+  touch-action: manipulation !important;
+}
+

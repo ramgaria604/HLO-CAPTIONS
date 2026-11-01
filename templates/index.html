@@ -176,10 +176,10 @@
           <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
           <span class="btn-label-desktop">Sign In</span>
         </button>
-        <div id="creditPill" class="credit-pill compact-credit-chip" title="1 Credit = 1 Video Export. Click to recharge credits" aria-label="1 Credit available">
+        <button id="creditPill" type="button" class="credit-pill compact-credit-chip" title="1 Credit = 1 Video Export. Click to recharge credits" aria-label="Credits">
           <span class="credit-icon">🎟️</span>
           <span id="creditCount" class="credit-count-text">1</span>
-        </div>
+        </button>
         <button id="btnSaveProject" class="btn-save-project" title="Save this project to your account" aria-label="Save project">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           <span class="btn-label-desktop">Save</span>
@@ -516,27 +516,78 @@
               <button id="btnOpenFullTemplates" class="btn-pill-action" style="display:none;"></button>
             </div>
 
-            <!-- SPECIAL VIDEO TEMPLATE FEATURED CARD -->
-            <div class="vtemplate-card" id="cardSpecialRealEstate">
-              <div class="vtemplate-header">
-                <div class="vtemplate-title-col">
-                  <div class="vtemplate-badge-row">
-                    <span class="vtemplate-pill-badge">👑 VIDEO TEMPLATE</span>
-                    <span class="vtemplate-ai-badge">Below</span>
-                  </div>
-                  <h3 class="vtemplate-name">Special Real Estate</h3>
-                  <p class="vtemplate-sub">Hero words with city gradients • Clean bottom placement • PiP Inset & Lower Third</p>
+                        <!-- COMPACT VIDEO TEMPLATES ROW (Rule 2) -->
+            <div class="compact-vtemplate-row" id="videoTemplatesCompactRow">
+              <div class="compact-vtemplate-info">
+                <div class="compact-vtemplate-badge-row">
+                  <span class="vtemplate-pill-badge">👑 VIDEO TEMPLATES</span>
+                  <span id="activeTemplateBadge" class="vtemplate-ai-badge">Off</span>
                 </div>
-                <div class="vtemplate-toggle-col">
-                  <label class="switch-toggle" title="Toggle Special Real Estate Template">
+                <div class="compact-vtemplate-title">Video Templates</div>
+                <div class="compact-vtemplate-sub">Pop Studio & Real Estate styles</div>
+              </div>
+              <div class="compact-vtemplate-controls">
+                <select id="selectVideoTemplate" class="vtemplate-select-pill" title="Choose video template" aria-label="Choose video template">
+                  <option value="none">Off</option>
+                  <option value="popStudio">Pop Studio</option>
+                  <option value="specialRealEstate">Real Estate (Below)</option>
+                </select>
+                <button type="button" id="btnToggleTemplateSettings" class="btn-template-settings-gear" title="Template Settings" aria-label="Template Settings">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- FEATURED VIDEO TEMPLATES ROW (Rule 9) -->
+            <div class="featured-templates-section">
+              <div class="featured-section-title">FEATURED TEMPLATES</div>
+              <div class="featured-templates-scroll" id="featuredTemplatesScroll">
+                <div class="featured-card" id="featuredCardPopStudio" data-template="popStudio" title="Activate Pop Studio Template">
+                  <div class="featured-thumb featured-thumb-pop">
+                    <div class="featured-sticker-badge">STICKER</div>
+                    <div class="featured-karaoke-preview"><span class="spoken">Pop</span> Studio</div>
+                  </div>
+                  <div class="featured-card-info">
+                    <span class="featured-tag">🎉 POP STUDIO</span>
+                    <span class="featured-name">Scenes & Stickers</span>
+                  </div>
+                </div>
+
+                <div class="featured-card" id="featuredCardRealEstate" data-template="specialRealEstate" title="Activate Real Estate Below Template">
+                  <div class="featured-thumb featured-thumb-re">
+                    <div class="featured-hero-preview">HERO BELOW</div>
+                    <div class="featured-sub-preview">LUXURY ESTATE</div>
+                  </div>
+                  <div class="featured-card-info">
+                    <span class="featured-tag">👑 REAL ESTATE</span>
+                    <span class="featured-name">Below / Lower 3rd</span>
+                  </div>
+                </div>
+
+                <div class="featured-card" id="featuredCardDuoPop" data-preset="duo_sunset" title="Apply Duo Pop Preset">
+                  <div class="featured-thumb featured-thumb-duo">
+                    <div class="featured-duo-top">SOME MOMENTS</div>
+                    <div class="featured-duo-bot">DUO POP</div>
+                  </div>
+                  <div class="featured-card-info">
+                    <span class="featured-tag">⚡ DUO STACK</span>
+                    <span class="featured-name">2-Word Punch</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- EXPANDABLE ACCORDION FOR TEMPLATE SETTINGS -->
+            <div id="vtemplateSettingsAccordion" class="vtemplate-settings-accordion hidden">
+              <!-- Real Estate Settings Body -->
+              <div id="vtemplateRealEstateSection" class="vtemplate-settings-body hidden">
+                <div class="vtemplate-header" style="margin-bottom:8px;">
+                  <span class="vtemplate-name" style="font-size:14px;">Special Real Estate Controls</span>
+                  <label class="switch-toggle">
                     <input type="checkbox" id="toggleSpecialRealEstate">
                     <span class="switch-slider"></span>
                   </label>
                 </div>
-              </div>
-
-              <div class="vtemplate-settings-body" id="vtemplateRealEstateBody">
-                <!-- Palette Picker -->
                 <div class="vtemplate-row">
                   <span class="vtemplate-row-label">Palette:</span>
                   <div class="palette-swatch-list" id="realEstatePaletteSwatches">
@@ -549,8 +600,6 @@
                     <button type="button" class="swatch-pill" data-palette="gold" title="Gold Amber" style="background: linear-gradient(135deg, #fde047, #f59e0b);"></button>
                   </div>
                 </div>
-
-                <!-- Feature Toggles -->
                 <div class="vtemplate-checks-grid">
                   <label class="vtemplate-check-label" id="lblRealEstateBigType">
                     <input type="checkbox" id="chkRealEstateBigType" checked>
@@ -577,8 +626,6 @@
                     <span>👥 Depth Shadow</span>
                   </label>
                 </div>
-
-                <!-- Lower Third Name & Role Inputs -->
                 <div class="vtemplate-inputs-grid" id="vtemplateLowerThirdInputs">
                   <div class="vtemplate-input-box">
                     <label>Presenter Name</label>
@@ -589,34 +636,17 @@
                     <input type="text" id="inputRealEstateRole" value="" placeholder="Role or Brokerage">
                   </div>
                 </div>
-
-                <div class="vtemplate-footer-note">
-                  <span>💡 Clean bottom placement in front of the video</span>
-                </div>
               </div>
-            </div>
 
-            <!-- POP STUDIO VIDEO TEMPLATE CARD -->
-            <div class="vtemplate-card" id="cardPopStudio">
-              <div class="vtemplate-header">
-                <div class="vtemplate-title-col">
-                  <div class="vtemplate-badge-row">
-                    <span class="vtemplate-pill-badge">🎉 VIDEO TEMPLATE</span>
-                    <span class="vtemplate-ai-badge" style="background: linear-gradient(135deg, #ec4899, #8b5cf6);">Scenes & Stickers</span>
-                  </div>
-                  <h3 class="vtemplate-name">Pop Studio</h3>
-                  <p class="vtemplate-sub">Dynamic scenes • Sticker title cards • Video in card • Doodles & Karaoke</p>
-                </div>
-                <div class="vtemplate-toggle-col">
-                  <label class="switch-toggle" title="Toggle Pop Studio Template">
+              <!-- Pop Studio Settings Body -->
+              <div id="vtemplatePopStudioSection" class="vtemplate-settings-body hidden">
+                <div class="vtemplate-header" style="margin-bottom:8px;">
+                  <span class="vtemplate-name" style="font-size:14px;">Pop Studio Controls</span>
+                  <label class="switch-toggle">
                     <input type="checkbox" id="togglePopStudio">
                     <span class="switch-slider"></span>
                   </label>
                 </div>
-              </div>
-
-              <div class="vtemplate-settings-body is-disabled" id="vtemplatePopStudioBody">
-                <!-- Palette Picker (Auto + 5) -->
                 <div class="vtemplate-row">
                   <span class="vtemplate-row-label">Palette:</span>
                   <div class="palette-swatch-list" id="popStudioPaletteSwatches">
@@ -628,8 +658,6 @@
                     <button type="button" class="swatch-pill" data-palette="bubblegum" title="Bubblegum" style="background: linear-gradient(135deg, #FFD6E8, #E6C7FF, #7B4DFF);"></button>
                   </div>
                 </div>
-
-                <!-- Scene Mix (Calm / Balanced / Wild) -->
                 <div class="vtemplate-row">
                   <span class="vtemplate-row-label">Scene mix:</span>
                   <div class="segmented-control" id="popStudioSceneMixGroup" style="display:inline-flex; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.12);">
@@ -638,8 +666,6 @@
                     <button type="button" class="btn-segment" data-mix="wild" style="padding:4px 10px; font-size:11px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:none; cursor:pointer;">Wild</button>
                   </div>
                 </div>
-
-                <!-- Feature Toggles -->
                 <div class="vtemplate-checks-grid">
                   <label class="vtemplate-check-label">
                     <input type="checkbox" id="chkPopDoodles" checked>
@@ -654,25 +680,18 @@
                     <span>⚡ Camera Punch</span>
                   </label>
                 </div>
-
-                <!-- Beats Breakdown & Scene Overrides -->
                 <div class="vtemplate-row" style="flex-direction: column; align-items: stretch; margin-top: 8px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                     <span class="vtemplate-row-label">Scene Beats:</span>
                     <span id="popBeatsCountLabel" style="font-size:11px; color:#94a3b8;">0 beats</span>
                   </div>
                   <div id="popBeatsListContainer" class="pop-beats-scroll-list" style="display:flex; gap:6px; overflow-x:auto; padding-bottom:6px;">
-                    <!-- Populated dynamically -->
                   </div>
-                </div>
-
-                <div class="vtemplate-footer-note">
-                  <span>💡 Automatic director switches scenes every 2.5–4.5s</span>
                 </div>
               </div>
             </div>
 
-            <!-- Horizontal/Scrollable Presets Cards Grid -->
+<!-- Horizontal/Scrollable Presets Cards Grid -->
             <div class="presets-grid" id="presetsGrid">
               <!-- Populated via JavaScript -->
             </div>
