@@ -1620,6 +1620,19 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.96 });
   }
 
+  window._capdbgKeys = window._capdbgKeys || new Set();
+  const capDbgKey = `${W}x${H}|${S.style && S.style.lineSpacing}`;
+  if (!window._capdbgKeys.has(capDbgKey)) {
+    window._capdbgKeys.add(capDbgKey);
+    const topItem = lay.find(o => o.lineType === 'top' || (!o.isHero && lay.indexOf(o) === 0));
+    const heroItem = lay.find(o => o.isHero || o.lineType === 'hero');
+    const midItem = lay.find(o => o !== topItem && o !== heroItem);
+    const topPx = topItem ? Math.round(topItem.size) : 0;
+    const midPx = midItem ? Math.round(midItem.size) : 0;
+    const heroPx = heroItem ? Math.round(heroItem.size) : 0;
+    console.log(`[CAPDBG] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} scale=${scale} fontScale=${fontScale} lineSpacing=${S.style && S.style.lineSpacing} top=${topPx} mid=${midPx} hero=${heroPx}`);
+  }
+
   const heroLookStack = S.heroLook || st.heroLook || 'solid';
   const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false) && !st.dubaiLuxuryStack && st.id !== 'dubai_luxury_stack';
 
@@ -3367,10 +3380,12 @@ async function ensureHeroFontsLoaded() {
 }
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
-  if (!window._capdbg2Count) window._capdbg2Count = 0;
-  if (window._capdbg2Count < 5) {
-    window._capdbg2Count++;
-    console.log(`[CAPDBG2] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} styleId=${S.style && S.style.id} styleName=${S.style && S.style.name} layout=${S.style && S.style.layout} dubaiFlag=${S.style && S.style.dubaiLuxuryStack} isBehind=${isBehind} lineSpacing=${S.style && S.style.lineSpacing} fontScale=${S.style && S.style.fontScale}`);
+  window._capdbg2Keys = window._capdbg2Keys || new Set();
+  const capdbg2Key = `${isPreview}|${W}x${H}|${S.style && S.style.lineSpacing}`;
+  if (!window._capdbg2Keys.has(capdbg2Key)) {
+    window._capdbg2Keys.add(capdbg2Key);
+    const caller = (new Error().stack || '').split('\n').slice(2, 4).join(' <- ');
+    console.log(`[CAPDBG2] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} styleId=${S.style && S.style.id} styleName=${S.style && S.style.name} layout=${S.style && S.style.layout} dubaiFlag=${S.style && S.style.dubaiLuxuryStack} isBehind=${isBehind} lineSpacing=${S.style && S.style.lineSpacing} fontScale=${S.style && S.style.fontScale} caller=${caller}`);
   }
   if (!ctxFore) return;
   _captionsDrawnCount++;
