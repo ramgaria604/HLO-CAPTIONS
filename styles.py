@@ -1364,7 +1364,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         desc_mid = {
                             "text": " ".join(str(w.get("t") or w.get("word") or "") for w in w_conn),
                             "font_file": base_font_file,
-                            "size": small_size,
+                            "size": max(small_size, 68.0 * scale_h),
                             "track": float(base_role.get("track", -0.01)),
                             "words": w_conn,
                             "role": {**base_role, "color": "#FFFFFF"},
