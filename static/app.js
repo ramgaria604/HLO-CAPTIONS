@@ -903,8 +903,12 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
   });
   ctx.restore();
 
-  // If text width exceeds 84% safe screen width, scale font size down proportionally
-  const fitScale = Math.min(1.0, (W * 0.84) / Math.max(1, maxLineWidth));
+  // If text width exceeds safe screen width, scale font size down proportionally without cancelling fontScale
+  const stdFontScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
+    ? S.style.fontScale
+    : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
+  const maxAllowedLineWidth = Math.min(W * 0.96, W * 0.86 * Math.max(1.0, stdFontScale));
+  const fitScale = Math.min(1.0, maxAllowedLineWidth / Math.max(1, maxLineWidth));
   if (fitScale < 1.0) {
     fs = Math.max(14, Math.floor(fs * fitScale));
   }
@@ -1121,7 +1125,8 @@ function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showA
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const width = Math.max(1, ctx.measureText(heroText).width);
     const stretch = 1.10;
-    const fit = Math.min(1, W * 0.88 / (width * stretch));
+    const depthFontScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0 ? S.style.fontScale : 1.0);
+    const fit = Math.min(1, Math.min(W * 0.96, W * 0.90 * Math.max(1.0, depthFontScale)) / (width * stretch));
     ctx.scale(stretch * fit, 1);
     const blendMode = ['screen', 'soft-light', 'overlay', 'lighter'].includes(st.blendMode) ? st.blendMode : 'screen';
     // Keep the preset's lettering color while avoiding a second colored halo layer.
@@ -1146,7 +1151,9 @@ function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showA
   let fs = Math.max(16, Math.round(base * (st.subtitleSize || 0.058)));
   ctx.save();
   ctx.font = (fRole.italic ? 'italic ' : '') + (fRole.bold ? 800 : 700) + ' ' + fs + 'px ' + foreFont;
-  fs = Math.max(14, Math.floor(fs * Math.min(1, W * 0.84 / Math.max(1, ctx.measureText(text).width))));
+  const subScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0 ? S.style.fontScale : 1.0);
+  const subMaxW = Math.min(W * 0.96, W * 0.86 * Math.max(1.0, subScale));
+  fs = Math.max(14, Math.floor(fs * Math.min(1, subMaxW / Math.max(1, ctx.measureText(text).width))));
   ctx.translate(W / 2, Math.max(fs + 8, Math.min(H - fs - 8, H * (st.subtitlePosition || 0.76))));
   ctx.font = (fRole.italic ? 'italic ' : '') + (fRole.bold ? 800 : 700) + ' ' + fs + 'px ' + foreFont;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1298,7 +1305,7 @@ function getLayoutStackFn() {
   if (typeof window !== 'undefined' && typeof window.layoutStack === 'function') {
     return window.layoutStack;
   }
-  return function(lines, {W = 1080, H = 1920, posX = .5, posY = .5, inkGap = .03, maxWidth = .9} = {}) {
+  return function(lines, {W = 1080, H = 1920, posX = .5, posY = .5, inkGap = .03, maxWidth = .96} = {}) {
     const cv = document.createElement('canvas').getContext('2d');
     const fontStr = (l, size) => `${l.italic ? 'italic ' : ''}${l.weight} ${size}px "${l.font}"`;
     const measureInk = (l, size = l.size) => {
@@ -1359,7 +1366,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const scale = Math.max(0.24, Math.min(W / 1080, H / 1920)) * fontScale;
   const getRolePx = (r, defaultPx) => {
     const s = Number(r && r.size) || defaultPx;
-    return Math.max(16, s > 1 ? s * scale : s * H * fontScale);
+    const pxFromRatio = s <= 1.0 ? s * H * fontScale : s * scale;
+    const pxFromDefault = defaultPx > 1.0 ? defaultPx * scale : defaultPx * H * fontScale;
+    return Math.max(16, Math.max(pxFromRatio, pxFromDefault));
   };
 
   const layoutFn = getLayoutStackFn();
@@ -1416,7 +1425,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: baseRole,
         words: topWords
       };
-      lay = lay.concat(layoutFn([topDesc], { W, H, posX, posY: topY, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX, posY: topY, inkGap, maxWidth: 0.96 }));
     }
 
     if (heroWords.length > 0) {
@@ -1432,7 +1441,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: accentRole,
         words: heroWords
       };
-      lay = lay.concat(layoutFn([heroDesc], { W, H, posX, posY: heroY, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([heroDesc], { W, H, posX, posY: heroY, inkGap, maxWidth: 0.96 }));
     }
 
     if (bottomWords.length > 0) {
@@ -1448,7 +1457,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: baseRole,
         words: bottomWords
       };
-      lay = lay.concat(layoutFn([bottomDesc], { W, H, posX, posY: subY, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([bottomDesc], { W, H, posX, posY: subY, inkGap, maxWidth: 0.96 }));
     }
   } else if (st.dubaiLuxuryStack || st.id === 'dubai_luxury_stack') {
     const accent2Role = roles.accent2 || st.accent2 || accentRole;
@@ -1499,7 +1508,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
         words: impactWords
       };
-      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap3 * 1.02, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap3 * 1.02, inkGap, maxWidth: 0.96 }));
       if (connWords.length > 0) {
         const midDesc = {
           text: connWords.map(w => w.t).join(' '),
@@ -1512,7 +1521,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           role: Object.assign({}, baseRole, { color: '#FFFFFF', whiteBloom: hasWhiteBloom }),
           words: connWords
         };
-        lay = lay.concat(layoutFn([midDesc], { W, H, posX: 0.50, posY: posY, inkGap, maxWidth: 0.90 }));
+        lay = lay.concat(layoutFn([midDesc], { W, H, posX: 0.50, posY: posY, inkGap, maxWidth: 0.96 }));
       }
       const botDesc = {
         text: keyWords.map(w => w.t.toUpperCase()).join(' '),
@@ -1525,7 +1534,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: goldRole,
         words: keyWords
       };
-      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap3 * 1.05, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap3 * 1.05, inkGap, maxWidth: 0.96 }));
     } else if (words.length === 2) {
       const keyIdx = words[0].key ? 0 : 1;
       const keyWords = [words[keyIdx]];
@@ -1541,7 +1550,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
         words: topWords
       };
-      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap2, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap2, inkGap, maxWidth: 0.96 }));
       const botDesc = {
         text: keyWords[0].t.toUpperCase(),
         font: accentRole.font || 'Montserrat',
@@ -1553,7 +1562,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: goldRole,
         words: keyWords
       };
-      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap2, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap2, inkGap, maxWidth: 0.96 }));
     } else {
       const midDesc = {
         text: words[0].t.toUpperCase(),
@@ -1566,7 +1575,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: goldRole,
         words: words
       };
-      lay = layoutFn([midDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.90 });
+      lay = layoutFn([midDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.96 });
     }
   } else {
     let smallWords = [];
@@ -1608,7 +1617,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         words: bigWords
       });
     }
-    lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.90 });
+    lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.96 });
   }
 
   const heroLookStack = S.heroLook || st.heroLook || 'solid';
@@ -2311,7 +2320,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     displayHeroText = applyTextCase(getCleanDisplayHeroText(displayHeroText), currentCase);
 
     // FIT CALCULATION: Reduce font size until measured width at PEAK scale <= 0.84 * W
-    const maxAllowedHeroWidth = HERO_MAX_WIDTH_RATIO * W;
+    const maxAllowedHeroWidth = Math.min(0.96 * W, HERO_MAX_WIDTH_RATIO * W * Math.max(1.0, reScale));
     const peakEntranceScale = 1.10;
     const letterSpacing = 2;
     const strokePadding = 8;
@@ -3166,8 +3175,11 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   const effQuality = isPreview ? getEffectivePreviewQuality() : 'full';
   const isPreviewSmooth = (effQuality === 'smooth');
 
-  const maxAllowedW = 0.84 * W;
-  let fontSize = heroBox.fontSize || Math.round(W * 0.17);
+  const heroFontScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
+    ? S.style.fontScale
+    : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
+  const maxAllowedW = Math.min(0.96 * W, 0.86 * W * Math.max(1.0, heroFontScale));
+  let fontSize = heroBox.fontSize || Math.round(W * 0.17 * heroFontScale);
   drawCtx.save();
   drawCtx.font = `${fontStyle}800 ${fontSize}px "Poppins", sans-serif`;
   if ('letterSpacing' in drawCtx) drawCtx.letterSpacing = '-0.02em';
