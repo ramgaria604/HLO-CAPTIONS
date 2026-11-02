@@ -5807,7 +5807,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const minDrawerHeight = 160;
       const maxDrawerHeight = Math.max(minDrawerHeight, editorHeight - 190);
       const newHeight = Math.max(minDrawerHeight, Math.min(maxDrawerHeight, startHeight + deltaY));
-      editorBody.style.setProperty('--drawer-height', `${Math.round(newHeight)}px`);
+      const heightPx = `${Math.round(newHeight)}px`;
+      editorBody.style.setProperty('--drawer-height', heightPx);
+      editorBody.style.setProperty('--sheet-h', heightPx);
+      drawerPanel.style.setProperty('--sheet-h', heightPx);
       fitCanvas();
     });
 
@@ -5830,7 +5833,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const compactH = Math.round(editorHeight * 0.30);
       const standardH = Math.round(editorHeight * 0.46);
       const targetH = (currentHeight > compactH + 30) ? compactH : standardH;
-      editorBody.style.setProperty('--drawer-height', `${targetH}px`);
+      const targetPx = `${targetH}px`;
+      editorBody.style.setProperty('--drawer-height', targetPx);
+      editorBody.style.setProperty('--sheet-h', targetPx);
+      drawerPanel.style.setProperty('--sheet-h', targetPx);
       fitCanvas();
     });
   }

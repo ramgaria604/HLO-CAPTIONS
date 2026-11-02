@@ -615,10 +615,7 @@ html, body {
 .drawer-content {
   flex: 1 1 0 !important;
   min-height: 0 !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  overscroll-behavior: contain !important;
-  touch-action: pan-y !important;
+  overflow: hidden !important;
   position: relative !important;
   display: flex !important;
   flex-direction: column !important;
@@ -627,7 +624,7 @@ html, body {
 
 .tab-pane {
   flex: 1 1 auto !important;
-  min-height: 100% !important;
+  min-height: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;

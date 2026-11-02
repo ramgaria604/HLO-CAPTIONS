@@ -2173,7 +2173,7 @@ button {
 
   overflow-y: auto;
 
-  padding: 10px 14px 70px; /* padding for generate bar */
+  padding: 10px 14px 16px;
 
   min-height: 0;
 
@@ -2573,7 +2573,7 @@ button {
 
   gap: 8px;
 
-  overflow-y: auto;
+  overflow: visible;
 
 }
 
@@ -2755,7 +2755,7 @@ button {
 
   gap: 10px;
 
-  overflow-y: auto;
+  overflow: visible;
 
 }
 
@@ -6427,7 +6427,7 @@ button {
 
 #tabTemplates {
 
-  padding-bottom: 80px;
+  padding-bottom: 16px;
 
 }
 
@@ -9201,7 +9201,7 @@ button {
   touch-action: pan-y !important;
   display: flex !important;
   flex-direction: column !important;
-  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: 16px !important;
 }
 
 .tab-pane.hidden,
@@ -9803,7 +9803,7 @@ button {
   -webkit-overflow-scrolling: touch !important;
   overscroll-behavior: contain !important;
   touch-action: pan-y !important;
-  padding: 12px 14px calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+  padding: 12px 14px 16px !important;
   box-sizing: border-box !important;
 }
 
@@ -9842,7 +9842,8 @@ button {
   display: flex !important;
   flex-direction: column !important;
   gap: 8px !important;
-  min-height: 100px !important;
+  min-height: 0 !important;
+  overflow: visible !important;
 }
 
 .caption-row {
