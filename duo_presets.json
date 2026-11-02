@@ -24,7 +24,7 @@
     "animation": "slide-up",
     "outlineMode": "none",
     "glowEnabled": false,
-    "highlightColor": "#F6E55A",
+    "highlightColor": "#FFC72C",
     "baseColor": "#FFFFFF",
     "key": {
       "font": "Montserrat",
@@ -33,7 +33,7 @@
       "bold": true,
       "italic": false,
       "upper": true,
-      "color": "#F6E55A",
+      "color": "#FFC72C",
       "outline": 0,
       "shadow": 8,
       "shadowColor": "rgba(0, 0, 0, 0.65)",
@@ -91,7 +91,7 @@
         "bold": true,
         "italic": false,
         "upper": true,
-        "color": "#F6E55A",
+        "color": "#FFC72C",
         "outline": 0,
         "shadow": 8,
         "shadowColor": "rgba(0, 0, 0, 0.65)",
@@ -101,7 +101,7 @@
         "fill": {
           "type": "solid",
           "colors": [
-            "#F6E55A"
+            "#FFC72C"
           ],
           "angle": 90
         }

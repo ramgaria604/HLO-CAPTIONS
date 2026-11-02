@@ -1331,8 +1331,14 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const caseMode = S.style?.textCase || S.textCase || (st.uppercase ? 'upper' : (accentRole.upper ? 'upper' : 'upper'));
   const inkGap = typeof st.inkGap === 'number' ? st.inkGap : 0.03;
   const posX = typeof st.posX === 'number' ? st.posX : 0.5;
-  let posY = typeof st.posY === 'number' ? st.posY : 0.5;
-  if (Array.isArray(st.posCycle) && st.posCycle.length > 0) {
+  let posY = typeof S.style?.posY === 'number'
+    ? S.style.posY
+    : (typeof S.style?.position === 'number'
+        ? S.style.position
+        : (typeof st.posY === 'number'
+            ? st.posY
+            : (typeof st.position === 'number' ? st.position : 0.67)));
+  if (Array.isArray(st.posCycle) && st.posCycle.length > 0 && typeof S.style?.posY !== 'number' && typeof S.style?.position !== 'number') {
     const idx = Math.max(0, Number(capId) - 1) % st.posCycle.length;
     posY = st.posCycle[idx];
   }
@@ -1347,7 +1353,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
   const up = (txt) => applyTextCase(txt, caseMode);
   const chosenFont = S.style?.fontFamily || S.font || st.fontFamily || st.font;
-  const scale = Math.max(0.24, Math.min(W / 1080, H / 1920)) * (Number(st.fontScale) || 1);
+  const fontScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
+    ? S.style.fontScale
+    : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
+  const scale = Math.max(0.24, Math.min(W / 1080, H / 1920)) * fontScale;
   const getRolePx = (r, defaultPx) => {
     const s = Number(r.size) || defaultPx;
     return Math.max(16, s > 1 ? s * scale : s * H);
@@ -1443,6 +1452,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
   } else if (st.dubaiLuxuryStack || st.id === 'dubai_luxury_stack') {
     const accent2Role = roles.accent2 || st.accent2 || accentRole;
+    const heroColor = S.style?.highlightColor || accentRole.color || '#FFC72C';
+    const lineGap3 = 0.052 * fontScale;
     lay = [];
     if (words.length >= 3) {
       const impactWords = [words[0]];
@@ -1456,10 +1467,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
         isHero: false,
-        role: Object.assign({}, accent2Role, { lower: true, upper: false }),
+        role: Object.assign({}, accent2Role, { color: '#FFFFFF', lower: true, upper: false }),
         words: impactWords
       };
-      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - 0.05, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap3 * 0.95, inkGap, maxWidth: 0.90 }));
       if (connWords.length > 0) {
         const midDesc = {
           text: connWords.map(w => w.t).join(' '),
@@ -1469,7 +1480,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           italic: Boolean(baseRole.italic),
           track: Number(baseRole.track) || -0.01,
           isHero: false,
-          role: baseRole,
+          role: Object.assign({}, baseRole, { color: '#FFFFFF' }),
           words: connWords
         };
         lay = lay.concat(layoutFn([midDesc], { W, H, posX: 0.50, posY: posY, inkGap, maxWidth: 0.90 }));
@@ -1482,11 +1493,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
         isHero: true,
-        role: accentRole,
+        role: Object.assign({}, accentRole, { color: heroColor, fill: { type: 'solid', colors: [heroColor], angle: 90 } }),
         words: keyWords
       };
-      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + 0.055, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap3 * 1.05, inkGap, maxWidth: 0.90 }));
     } else if (words.length === 2) {
+      const lineGap2 = 0.038 * fontScale;
       const topDesc = {
         text: words[0].t.toLowerCase(),
         font: accent2Role.font || 'Poppins',
@@ -1495,10 +1507,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
         isHero: false,
-        role: Object.assign({}, accent2Role, { lower: true, upper: false }),
+        role: Object.assign({}, accent2Role, { color: '#FFFFFF', lower: true, upper: false }),
         words: [words[0]]
       };
-      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - 0.035, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap2, inkGap, maxWidth: 0.90 }));
       const botDesc = {
         text: words[1].t.toUpperCase(),
         font: accentRole.font || 'Montserrat',
@@ -1507,10 +1519,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
         isHero: true,
-        role: accentRole,
+        role: Object.assign({}, accentRole, { color: heroColor, fill: { type: 'solid', colors: [heroColor], angle: 90 } }),
         words: [words[1]]
       };
-      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + 0.035, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap2, inkGap, maxWidth: 0.90 }));
     } else {
       const midDesc = {
         text: words[0].t.toUpperCase(),
@@ -1520,7 +1532,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
         isHero: true,
-        role: accentRole,
+        role: Object.assign({}, accentRole, { color: heroColor, fill: { type: 'solid', colors: [heroColor], angle: 90 } }),
         words: words
       };
       lay = layoutFn([midDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.90 });
@@ -4408,7 +4420,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           animation: "slide-up",
           outlineMode: "none",
           glowEnabled: false,
-          highlightColor: "#F6E55A",
+          highlightColor: "#FFC72C",
           baseColor: "#FFFFFF",
           key: {
             font: "Montserrat",
@@ -4417,7 +4429,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             bold: true,
             italic: false,
             upper: true,
-            color: "#F6E55A",
+            color: "#FFC72C",
             outline: 0,
             shadow: 8,
             shadowColor: "rgba(0, 0, 0, 0.65)",
@@ -4475,7 +4487,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               bold: true,
               italic: false,
               upper: true,
-              color: "#F6E55A",
+              color: "#FFC72C",
               outline: 0,
               shadow: 8,
               shadowColor: "rgba(0, 0, 0, 0.65)",
@@ -4484,7 +4496,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               layer: "front",
               fill: {
                 type: "solid",
-                colors: ["#F6E55A"],
+                colors: ["#FFC72C"],
                 angle: 90
               }
             },
@@ -6401,6 +6413,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       selectFont.value = preset.key.font;
     }
 
+    if (typeof updatePositionUI === 'function') {
+      updatePositionUI(S.style.posY || S.style.position || 0.67);
+    }
+    if (typeof updateFontScaleUI === 'function') {
+      updateFontScaleUI();
+    }
+    if (valHighlightColor && S.style.highlightColor) {
+      valHighlightColor.textContent = S.style.highlightColor;
+      valHighlightColor.style.background = S.style.highlightColor;
+      valHighlightColor.style.color = '#000';
+    }
+    if (inputCustomHighlight && S.style.highlightColor) {
+      inputCustomHighlight.value = S.style.highlightColor.startsWith('#') && S.style.highlightColor.length === 7 ? S.style.highlightColor : '#FFC72C';
+    }
+    if (typeof $$ === 'function') {
+      $$('#colorSwatches .swatch').forEach(sw => {
+        const c = sw.getAttribute('data-color');
+        sw.classList.toggle('active', c && c.toLowerCase() === (S.style.highlightColor || '').toLowerCase());
+      });
+    }
+
     renderCanvas();
     renderTimeline();
 
@@ -6603,7 +6636,20 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const pct = Math.round(S.style.fontScale * 100);
       if (valFontSize) valFontSize.textContent = `${pct}% (${px}px)`;
       if (inputFontSize) inputFontSize.value = String(pct);
+      $$('.btn-size-preset').forEach(b => {
+        const s = parseFloat(b.getAttribute('data-scale')) || 1.0;
+        b.classList.toggle('active', Math.abs(s - S.style.fontScale) < 0.05);
+      });
     };
+    if (inputFontSize) {
+      inputFontSize.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10) || 100;
+        if (!S.style) S.style = {};
+        S.style.fontScale = Math.round(val) / 100;
+        updateFontScaleUI();
+        renderCanvas();
+      });
+    }
 
     if (btnStepSizeDown) {
       btnStepSizeDown.addEventListener('click', () => {
@@ -6713,16 +6759,64 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       renderCanvas();
     });
 
+    const inputCustomPos = $('inputCustomPos');
+    const valPosition = $('valPosition');
+    const btnStepPosUp = $('btnStepPosUp');
+    const btnStepPosDown = $('btnStepPosDown');
+    const btnResetPos = $('btnResetPos');
+
+    function updatePositionUI(posVal) {
+      if (typeof posVal !== 'number' || isNaN(posVal)) posVal = 0.67;
+      posVal = Math.max(0.15, Math.min(0.85, Math.round(posVal * 100) / 100));
+      if (!S.style) S.style = {};
+      S.style.position = posVal;
+      S.style.posY = posVal;
+      if (S.style.isDuo || S.style.isSpecial) {
+        S.style.depthAccentY = Math.max(0.20, Math.min(0.82, posVal));
+        S.style.subtitlePosition = Math.max(0.20, Math.min(0.90, posVal + 0.07));
+      }
+      const pct = Math.round(posVal * 100);
+      let desc = `${pct}%`;
+      if (pct <= 35) desc += ' (Top)';
+      else if (pct <= 58) desc += ' (Center)';
+      else desc += ' (Lower)';
+      if (valPosition) valPosition.textContent = desc;
+      if (inputCustomPos) inputCustomPos.value = String(pct);
+
+      $$('#posButtonGroup .btn-toggle').forEach(b => {
+        const bPos = parseFloat(b.getAttribute('data-pos'));
+        b.classList.toggle('active', Math.abs(bPos - posVal) < 0.06);
+      });
+      renderCanvas();
+    }
+    window.updatePositionUI = updatePositionUI;
+
+    if (inputCustomPos) {
+      inputCustomPos.addEventListener('input', (e) => {
+        updatePositionUI(parseFloat(e.target.value) / 100);
+      });
+    }
+    if (btnStepPosUp) {
+      btnStepPosUp.addEventListener('click', () => {
+        const cur = (typeof S.style?.posY === 'number' ? S.style.posY : (typeof S.style?.position === 'number' ? S.style.position : 0.67));
+        updatePositionUI(cur - 0.03);
+      });
+    }
+    if (btnStepPosDown) {
+      btnStepPosDown.addEventListener('click', () => {
+        const cur = (typeof S.style?.posY === 'number' ? S.style.posY : (typeof S.style?.position === 'number' ? S.style.position : 0.67));
+        updatePositionUI(cur + 0.03);
+      });
+    }
+    if (btnResetPos) {
+      btnResetPos.addEventListener('click', () => {
+        updatePositionUI(0.67);
+      });
+    }
+
     $$('#posButtonGroup .btn-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
-        $$('#posButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
-        if (!S.style) S.style = {};
-        S.style.position = parseFloat(btn.getAttribute('data-pos'));
-        if (S.style.isDuo || S.style.isSpecial) {
-          S.style.depthAccentY = Math.max(0.20, Math.min(0.82, S.style.position));
-          S.style.subtitlePosition = Math.max(0.20, Math.min(0.90, S.style.position + 0.07));
-        }
-        renderCanvas();
+        updatePositionUI(parseFloat(btn.getAttribute('data-pos')));
       });
     });
 
@@ -6760,7 +6854,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       delete S.style.roles.accent.keyGradient;
       delete S.style.roles.accent.textGradient;
       delete S.style.roles.accent.fill;
-      if (S.style.roles.accent2) {
+      if (S.style.roles.accent2 && !S.style.dubaiLuxuryStack && S.style.id !== 'dubai_luxury_stack') {
         S.style.roles.accent2.color = color;
         delete S.style.roles.accent2.keyGradient;
         delete S.style.roles.accent2.textGradient;

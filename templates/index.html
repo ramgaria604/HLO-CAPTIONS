@@ -1001,7 +1001,9 @@
                   <button type="button" class="btn-size-preset" data-scale="1.2">120% L</button>
                   <button type="button" class="btn-size-preset" data-scale="1.4">140% XL</button>
                 </div>
-                <input type="range" id="inputFontSize" min="60" max="180" value="100" class="styled-slider" style="display:none;">
+                <div style="margin-top: 8px;">
+                  <input type="range" id="inputFontSize" min="50" max="180" value="100" class="styled-slider" style="width: 100%;">
+                </div>
               </div>
 
               <!-- 3. Line Spacing Stepper -->
@@ -1036,7 +1038,8 @@
                 <div id="glowOptionsBox" class="glow-options-box">
                   <div class="color-picker-row" style="margin-bottom:10px;">
                     <div class="color-swatches" id="glowColorSwatches">
-                      <button type="button" class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Viral Yellow"></button>
+                      <button type="button" class="swatch active" style="--c:#FFC72C" data-color="#FFC72C" title="Dubai Luxury Gold"></button>
+                    <button type="button" class="swatch" style="--c:#FFE600" data-color="#FFE600" title="Viral Yellow"></button>
                       <button type="button" class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan Neon"></button>
                       <button type="button" class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
                       <button type="button" class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>
@@ -1070,8 +1073,17 @@
                   <div class="btn-group" id="posButtonGroup">
                     <button type="button" class="btn-toggle" data-pos="0.25">Top</button>
                     <button type="button" class="btn-toggle" data-pos="0.50">Middle</button>
-                    <button type="button" class="btn-toggle active" data-pos="0.75">Bottom</button>
+                    <button type="button" class="btn-toggle active" data-pos="0.67">Bottom</button>
                   </div>
+                </div>
+                <div class="stepper-control-row" style="margin-top: 10px;">
+                  <button type="button" class="btn-step" id="btnStepPosUp" title="Move Up">▲ Up</button>
+                  <span class="stepper-value" id="valPosition">67% (Lower)</span>
+                  <button type="button" class="btn-step" id="btnStepPosDown" title="Move Down">▼ Down</button>
+                  <button type="button" class="btn-step-reset" id="btnResetPos">Reset</button>
+                </div>
+                <div style="margin-top: 8px;">
+                  <input type="range" id="inputCustomPos" min="15" max="85" value="67" class="styled-slider" style="width: 100%;">
                 </div>
               </div>
 
@@ -1131,7 +1143,8 @@
                 </div>
                 <div class="color-picker-row">
                   <div class="color-swatches" id="colorSwatches">
-                    <button type="button" class="swatch active" style="--c:#FFE600" data-color="#FFE600" title="Viral Yellow"></button>
+                    <button type="button" class="swatch active" style="--c:#FFC72C" data-color="#FFC72C" title="Dubai Luxury Gold"></button>
+                    <button type="button" class="swatch" style="--c:#FFE600" data-color="#FFE600" title="Viral Yellow"></button>
                     <button type="button" class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Cyan Neon"></button>
                     <button type="button" class="swatch" style="--c:#FF0055" data-color="#FF0055" title="Hot Red"></button>
                     <button type="button" class="swatch" style="--c:#A855F7" data-color="#A855F7" title="Purple"></button>

@@ -1222,7 +1222,8 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         base_font_file = find_font_file(base_role)
         accent_font_file = find_font_file(accent_role)
 
-        scale_h = H / 1920.0
+        font_scale = float(style.get("fontScale") or 1.0)
+        scale_h = (H / 1920.0) * font_scale
         small_size = float(base_role.get("size", 62))
         if small_size <= 1.0:
             small_size = small_size * H
@@ -1238,7 +1239,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         if pos_cycle and len(pos_cycle) > 0:
             pos_y = float(pos_cycle[cap_idx % len(pos_cycle)])
         else:
-            pos_y = float(style.get("posY", 0.5))
+            pos_y = float(style.get("posY") if style.get("posY") is not None else style.get("position", 0.67))
 
         is_behind = bool(
             style.get("behindPerson") or
@@ -1332,6 +1333,8 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 else:
                     accent2_size = accent2_size * scale_h
 
+                hero_col = style.get("highlightColor") or accent_role.get("color") or "#FFC72C"
+                line_gap = 0.052 * font_scale
                 lay = []
                 if len(words) >= 3:
                     w_impact = [words[0]]
@@ -1343,10 +1346,10 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         "size": accent2_size,
                         "track": float(accent2_role.get("track", -0.03)),
                         "words": w_impact,
-                        "role": {**accent2_role, "lower": True, "upper": False},
+                        "role": {**accent2_role, "color": "#FFFFFF", "lower": True, "upper": False},
                         "is_hero": False
                     }
-                    lay += ink_layout.layout_stack([desc_top], W, H, pos_x=0.42, pos_y=pos_y - 0.05, ink_gap=ink_gap)
+                    lay += ink_layout.layout_stack([desc_top], W, H, pos_x=0.42, pos_y=pos_y - line_gap * 0.95, ink_gap=ink_gap)
                     if w_conn:
                         desc_mid = {
                             "text": " ".join(str(w.get("t") or w.get("word") or "") for w in w_conn),
@@ -1354,7 +1357,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                             "size": small_size,
                             "track": float(base_role.get("track", -0.01)),
                             "words": w_conn,
-                            "role": base_role,
+                            "role": {**base_role, "color": "#FFFFFF"},
                             "is_hero": False
                         }
                         lay += ink_layout.layout_stack([desc_mid], W, H, pos_x=0.50, pos_y=pos_y, ink_gap=ink_gap)
@@ -1364,31 +1367,32 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         "size": big_size,
                         "track": float(accent_role.get("track", -0.02)),
                         "words": w_key,
-                        "role": accent_role,
+                        "role": {**accent_role, "color": hero_col},
                         "is_hero": True
                     }
-                    lay += ink_layout.layout_stack([desc_bot], W, H, pos_x=0.57, pos_y=pos_y + 0.055, ink_gap=ink_gap)
+                    lay += ink_layout.layout_stack([desc_bot], W, H, pos_x=0.57, pos_y=pos_y + line_gap * 1.05, ink_gap=ink_gap)
                 elif len(words) == 2:
+                    line_gap2 = 0.038 * font_scale
                     desc_top = {
                         "text": str(words[0].get("t") or words[0].get("word") or "").lower(),
                         "font_file": accent2_font_file,
                         "size": accent2_size,
                         "track": float(accent2_role.get("track", -0.03)),
                         "words": [words[0]],
-                        "role": {**accent2_role, "lower": True, "upper": False},
+                        "role": {**accent2_role, "color": "#FFFFFF", "lower": True, "upper": False},
                         "is_hero": False
                     }
-                    lay += ink_layout.layout_stack([desc_top], W, H, pos_x=0.42, pos_y=pos_y - 0.035, ink_gap=ink_gap)
+                    lay += ink_layout.layout_stack([desc_top], W, H, pos_x=0.42, pos_y=pos_y - line_gap2, ink_gap=ink_gap)
                     desc_bot = {
                         "text": str(words[1].get("t") or words[1].get("word") or "").upper(),
                         "font_file": accent_font_file,
                         "size": big_size,
                         "track": float(accent_role.get("track", -0.02)),
                         "words": [words[1]],
-                        "role": accent_role,
+                        "role": {**accent_role, "color": hero_col},
                         "is_hero": True
                     }
-                    lay += ink_layout.layout_stack([desc_bot], W, H, pos_x=0.57, pos_y=pos_y + 0.035, ink_gap=ink_gap)
+                    lay += ink_layout.layout_stack([desc_bot], W, H, pos_x=0.57, pos_y=pos_y + line_gap2, ink_gap=ink_gap)
                 else:
                     desc_mid = {
                         "text": str(words[0].get("t") or words[0].get("word") or "").upper(),
@@ -1396,7 +1400,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         "size": big_size,
                         "track": float(accent_role.get("track", -0.02)),
                         "words": words,
-                        "role": accent_role,
+                        "role": {**accent_role, "color": hero_col},
                         "is_hero": True
                     }
                     lay += ink_layout.layout_stack([desc_mid], W, H, pos_x=0.50, pos_y=pos_y, ink_gap=ink_gap)
