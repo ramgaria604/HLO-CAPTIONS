@@ -671,6 +671,8 @@ def load_presets():
                         "size": round(alt.get("size", accent.get("size", 190)) / 1080.0, 3) if float(alt.get("size", accent.get("size", 190))) > 1.0 else round(float(alt.get("size", 0.096)), 3),
                         "color": alt_colors[0], "bold": bool(alt.get("bold", True)),
                         "italic": bool(alt.get("italic", False)),
+                        "upper": bool(alt.get("upper", False)),
+                        "lower": bool(alt.get("lower", False)),
                         "shadow": round(alt.get("shadow", 0) / 100.0, 3),
                         "shadowColor": alt.get("shadowColor", "#000000"),
                         "glow": alt.get("glowColor", "#FFFFFF"),
@@ -1323,36 +1325,37 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         else:
             lines_in = []
             if style.get("dubaiLuxuryStack") or style.get("id") == "dubai_luxury_stack":
-                accent2_role = style.get("accent2") or (style.get("roles") or {}).get("accent2") or accent_role
+                accent2_role = (style.get("roles") or {}).get("accent2") or style.get("accent2") or accent_role
                 accent2_font_file = find_font_file(accent2_role)
                 accent2_size = float(accent2_role.get("size", 104))
                 if accent2_size <= 1.0:
-                    accent2_size = accent2_size * H
+                    accent2_size = accent2_size * 1080.0 * scale_h
                 else:
                     accent2_size = accent2_size * scale_h
 
                 if len(words) >= 3:
-                    w_conn = words[:-2]
-                    w_impact = [words[-2]]
+                    w_impact = [words[0]]
+                    w_conn = words[1:-1]
                     w_key = [words[-1]]
-                    lines_in.append({
-                        "text": " ".join(str(w.get("t") or w.get("word") or "") for w in w_conn),
-                        "font_file": base_font_file,
-                        "size": small_size,
-                        "track": float(base_role.get("track", -0.01)),
-                        "words": w_conn,
-                        "role": base_role,
-                        "is_hero": False
-                    })
                     lines_in.append({
                         "text": " ".join(str(w.get("t") or w.get("word") or "").lower() for w in w_impact),
                         "font_file": accent2_font_file,
                         "size": accent2_size,
                         "track": float(accent2_role.get("track", -0.03)),
                         "words": w_impact,
-                        "role": accent2_role,
+                        "role": {**accent2_role, "lower": True, "upper": False},
                         "is_hero": False
                     })
+                    if w_conn:
+                        lines_in.append({
+                            "text": " ".join(str(w.get("t") or w.get("word") or "") for w in w_conn),
+                            "font_file": base_font_file,
+                            "size": small_size,
+                            "track": float(base_role.get("track", -0.01)),
+                            "words": w_conn,
+                            "role": base_role,
+                            "is_hero": False
+                        })
                     lines_in.append({
                         "text": " ".join(str(w.get("t") or w.get("word") or "").upper() for w in w_key),
                         "font_file": accent_font_file,

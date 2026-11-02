@@ -15,7 +15,7 @@
     "position": 0.67,
     "posY": 0.67,
     "posX": 0.5,
-    "inkGap": 0.01,
+    "inkGap": 0.012,
     "leading": 0.88,
     "fontScale": 1.0,
     "wordsPerPage": 3,
@@ -24,7 +24,7 @@
     "animation": "slide-up",
     "outlineMode": "none",
     "glowEnabled": false,
-    "highlightColor": "#F3D060",
+    "highlightColor": "#F6E55A",
     "baseColor": "#FFFFFF",
     "key": {
       "font": "Montserrat",
@@ -33,10 +33,10 @@
       "bold": true,
       "italic": false,
       "upper": true,
-      "color": "#F3D060",
+      "color": "#F6E55A",
       "outline": 0,
       "shadow": 8,
-      "shadowColor": "rgba(0, 0, 0, 0.68)",
+      "shadowColor": "rgba(0, 0, 0, 0.65)",
       "track": -0.02
     },
     "accent2": {
@@ -50,7 +50,7 @@
       "color": "#FFFFFF",
       "outline": 0,
       "shadow": 8,
-      "shadowColor": "rgba(0, 0, 0, 0.68)",
+      "shadowColor": "rgba(0, 0, 0, 0.65)",
       "track": -0.03
     },
     "filler": {
@@ -91,17 +91,17 @@
         "bold": true,
         "italic": false,
         "upper": true,
-        "color": "#F3D060",
+        "color": "#F6E55A",
         "outline": 0,
         "shadow": 8,
-        "shadowColor": "rgba(0, 0, 0, 0.68)",
+        "shadowColor": "rgba(0, 0, 0, 0.65)",
         "track": -0.02,
         "enter": "slide-up",
         "layer": "front",
         "fill": {
           "type": "solid",
           "colors": [
-            "#F3D060"
+            "#F6E55A"
           ],
           "angle": 90
         }
@@ -117,7 +117,7 @@
         "color": "#FFFFFF",
         "outline": 0,
         "shadow": 8,
-        "shadowColor": "rgba(0, 0, 0, 0.68)",
+        "shadowColor": "rgba(0, 0, 0, 0.65)",
         "track": -0.03,
         "enter": "slide-up",
         "layer": "front",

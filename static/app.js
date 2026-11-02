@@ -1444,20 +1444,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const accent2Role = roles.accent2 || st.accent2 || accentRole;
     const lineDescriptors = [];
     if (words.length >= 3) {
-      const connWords = words.slice(0, -2);
-      const impactWords = [words[words.length - 2]];
+      const impactWords = [words[0]];
+      const connWords = words.slice(1, -1);
       const keyWords = [words[words.length - 1]];
-      lineDescriptors.push({
-        text: connWords.map(w => w.t).join(' '),
-        font: baseRole.font || 'Poppins',
-        size: Math.max(14, getRolePx(baseRole, 48)),
-        weight: baseRole.weight || 700,
-        italic: Boolean(baseRole.italic),
-        track: Number(baseRole.track) || -0.01,
-        isHero: false,
-        role: baseRole,
-        words: connWords
-      });
       lineDescriptors.push({
         text: impactWords.map(w => w.t.toLowerCase()).join(' '),
         font: accent2Role.font || 'Poppins',
@@ -1469,6 +1458,19 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: accent2Role,
         words: impactWords
       });
+      if (connWords.length > 0) {
+        lineDescriptors.push({
+          text: connWords.map(w => w.t).join(' '),
+          font: baseRole.font || 'Poppins',
+          size: Math.max(14, getRolePx(baseRole, 48)),
+          weight: baseRole.weight || 700,
+          italic: Boolean(baseRole.italic),
+          track: Number(baseRole.track) || -0.01,
+          isHero: false,
+          role: baseRole,
+          words: connWords
+        });
+      }
       lineDescriptors.push({
         text: keyWords.map(w => w.t.toUpperCase()).join(' '),
         font: accentRole.font || 'Montserrat',
@@ -4402,7 +4404,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           animation: "slide-up",
           outlineMode: "none",
           glowEnabled: false,
-          highlightColor: "#F3D060",
+          highlightColor: "#F6E55A",
           baseColor: "#FFFFFF",
           key: {
             font: "Montserrat",
@@ -4411,10 +4413,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             bold: true,
             italic: false,
             upper: true,
-            color: "#F3D060",
+            color: "#F6E55A",
             outline: 0,
             shadow: 8,
-            shadowColor: "rgba(0, 0, 0, 0.68)",
+            shadowColor: "rgba(0, 0, 0, 0.65)",
             track: -0.02
           },
           accent2: {
@@ -4428,7 +4430,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             color: "#FFFFFF",
             outline: 0,
             shadow: 8,
-            shadowColor: "rgba(0, 0, 0, 0.68)",
+            shadowColor: "rgba(0, 0, 0, 0.65)",
             track: -0.03
           },
           filler: {
@@ -4469,16 +4471,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               bold: true,
               italic: false,
               upper: true,
-              color: "#F3D060",
+              color: "#F6E55A",
               outline: 0,
               shadow: 8,
-              shadowColor: "rgba(0, 0, 0, 0.68)",
+              shadowColor: "rgba(0, 0, 0, 0.65)",
               track: -0.02,
               enter: "slide-up",
               layer: "front",
               fill: {
                 type: "solid",
-                colors: ["#F3D060"],
+                colors: ["#F6E55A"],
                 angle: 90
               }
             },
