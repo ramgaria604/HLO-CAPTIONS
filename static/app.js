@@ -5161,7 +5161,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     vid.addEventListener('play', () => syncBrollPlayback());
     vid.addEventListener('pause', () => syncBrollPlayback());
-    vid.addEventListener('seeked', () => syncBrollPlayback());
+    vid.addEventListener('seeked', () => {
+      syncBrollPlayback();
+      if (vid.paused) {
+        renderCanvas(true);
+        syncTimelinePlayhead();
+      }
+    });
 
     btnMute.addEventListener('click', () => {
       vid.muted = !vid.muted;
@@ -6575,9 +6581,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             const wasKey = Boolean(wo.key);
             cap.words.forEach(w => { w.key = false; });
             wo.key = !wasKey;
+            selectCaption(cap.id);
+            const targetTime = (wo.s != null)
+              ? Math.min(cap.end - 0.02, Math.max(cap.start, wo.s + 0.02))
+              : (cap.start + 0.05);
+            try { vid.currentTime = Math.max(0, targetTime); } catch (_) {}
             renderCaptionsList();
-            renderCanvas();
+            renderCanvas(true);
             renderTimeline();
+            syncTimelinePlayhead();
           });
           wordsRow.appendChild(chip);
         });
@@ -6595,7 +6607,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
       captionInput.addEventListener('focus', () => {
         selectCaption(cap.id);
+        try { vid.currentTime = Math.max(0, cap.start + 0.05); } catch (_) {}
+        renderCanvas(true);
         renderTimeline();
+        syncTimelinePlayhead();
+      });
+      captionInput.addEventListener('click', () => {
+        selectCaption(cap.id);
+        try { vid.currentTime = Math.max(0, cap.start + 0.05); } catch (_) {}
+        renderCanvas(true);
+        renderTimeline();
+        syncTimelinePlayhead();
       });
 
       row.querySelector('.caption-play-btn').addEventListener('click', (e) => {
@@ -12559,6 +12581,11 @@ function renderSheetWordChips(cap) {
       S.selectedWordIndex = wIdx;
       $$('.sheet-word-chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
+      if (w.s != null) {
+        try { vid.currentTime = Math.max(0, w.s + 0.02); } catch (_) {}
+        renderCanvas(true);
+        syncTimelinePlayhead();
+      }
     });
 
     wordsScroll.appendChild(chip);
