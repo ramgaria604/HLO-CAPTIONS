@@ -1323,7 +1323,6 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 }
                 lay += ink_layout.layout_stack([desc_bottom], W, H, pos_x=pos_x, pos_y=sub_y, ink_gap=ink_gap)
         else:
-            lines_in = []
             if style.get("dubaiLuxuryStack") or style.get("id") == "dubai_luxury_stack":
                 accent2_role = (style.get("roles") or {}).get("accent2") or style.get("accent2") or accent_role
                 accent2_font_file = find_font_file(accent2_role)
@@ -1333,11 +1332,12 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 else:
                     accent2_size = accent2_size * scale_h
 
+                lay = []
                 if len(words) >= 3:
                     w_impact = [words[0]]
                     w_conn = words[1:-1]
                     w_key = [words[-1]]
-                    lines_in.append({
+                    desc_top = {
                         "text": " ".join(str(w.get("t") or w.get("word") or "").lower() for w in w_impact),
                         "font_file": accent2_font_file,
                         "size": accent2_size,
@@ -1345,9 +1345,10 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         "words": w_impact,
                         "role": {**accent2_role, "lower": True, "upper": False},
                         "is_hero": False
-                    })
+                    }
+                    lay += ink_layout.layout_stack([desc_top], W, H, pos_x=0.42, pos_y=pos_y - 0.05, ink_gap=ink_gap)
                     if w_conn:
-                        lines_in.append({
+                        desc_mid = {
                             "text": " ".join(str(w.get("t") or w.get("word") or "") for w in w_conn),
                             "font_file": base_font_file,
                             "size": small_size,
@@ -1355,8 +1356,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                             "words": w_conn,
                             "role": base_role,
                             "is_hero": False
-                        })
-                    lines_in.append({
+                        }
+                        lay += ink_layout.layout_stack([desc_mid], W, H, pos_x=0.50, pos_y=pos_y, ink_gap=ink_gap)
+                    desc_bot = {
                         "text": " ".join(str(w.get("t") or w.get("word") or "").upper() for w in w_key),
                         "font_file": accent_font_file,
                         "size": big_size,
@@ -1364,18 +1366,20 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         "words": w_key,
                         "role": accent_role,
                         "is_hero": True
-                    })
+                    }
+                    lay += ink_layout.layout_stack([desc_bot], W, H, pos_x=0.57, pos_y=pos_y + 0.055, ink_gap=ink_gap)
                 elif len(words) == 2:
-                    lines_in.append({
+                    desc_top = {
                         "text": str(words[0].get("t") or words[0].get("word") or "").lower(),
                         "font_file": accent2_font_file,
                         "size": accent2_size,
                         "track": float(accent2_role.get("track", -0.03)),
                         "words": [words[0]],
-                        "role": accent2_role,
+                        "role": {**accent2_role, "lower": True, "upper": False},
                         "is_hero": False
-                    })
-                    lines_in.append({
+                    }
+                    lay += ink_layout.layout_stack([desc_top], W, H, pos_x=0.42, pos_y=pos_y - 0.035, ink_gap=ink_gap)
+                    desc_bot = {
                         "text": str(words[1].get("t") or words[1].get("word") or "").upper(),
                         "font_file": accent_font_file,
                         "size": big_size,
@@ -1383,9 +1387,10 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         "words": [words[1]],
                         "role": accent_role,
                         "is_hero": True
-                    })
+                    }
+                    lay += ink_layout.layout_stack([desc_bot], W, H, pos_x=0.57, pos_y=pos_y + 0.035, ink_gap=ink_gap)
                 else:
-                    lines_in.append({
+                    desc_mid = {
                         "text": str(words[0].get("t") or words[0].get("word") or "").upper(),
                         "font_file": accent_font_file,
                         "size": big_size,
@@ -1393,8 +1398,10 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         "words": words,
                         "role": accent_role,
                         "is_hero": True
-                    })
+                    }
+                    lay += ink_layout.layout_stack([desc_mid], W, H, pos_x=0.50, pos_y=pos_y, ink_gap=ink_gap)
             else:
+                lines_in = []
                 if small_words:
                     lines_in.append({
                         "text": small_text,
@@ -1415,7 +1422,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         "role": accent_role,
                         "is_hero": True
                     })
-            lay = ink_layout.layout_stack(lines_in, W, H, pos_x=pos_x, pos_y=pos_y, ink_gap=ink_gap)
+                lay = ink_layout.layout_stack(lines_in, W, H, pos_x=pos_x, pos_y=pos_y, ink_gap=ink_gap)
 
         for line_idx, o in enumerate(lay):
             if layer_filter == "depth" and not o["is_hero"]:
@@ -1533,7 +1540,13 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
                 else:
                     tags.append(r"\bord0")
-                tags.append(r"\shad0")
+                shad_val = float(r.get("shadow", 0))
+                if shad_val > 0:
+                    shad_px = max(1.0, round(shad_val * (o["size"] / 70.0) * 0.4, 1))
+                    shad_col = _c(r.get("shadowColor", "#000000"))
+                    tags += [f"\\shad{shad_px:.1f}", f"\\4c{shad_col}"]
+                else:
+                    tags.append(r"\shad0")
                 tags += anim_tags
 
                 rows.append(f"Dialogue: {line_idx},{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")

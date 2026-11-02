@@ -415,20 +415,21 @@ function getWordPop(w, t, showAll, anim) {
       return { visible: false, scale: 1.0, dx: 0, dy: 0, opacity: 0.0 };
     }
 
-    const dur = 0.25;
+    const isSlide = (anim === 'slide-up' || anim === 'slide-down' || anim === 'slide-left' || anim === 'slide-right');
+    const dur = isSlide ? 0.15 : 0.25;
     if (dt < dur) {
       const p = Math.max(0, Math.min(1, dt / dur));
       const ease = 1 - Math.pow(1 - p, 3);
       let dx = 0, dy = 0, scale = 1.0;
       const enterAnim = anim || 'pop';
       if (enterAnim === 'slide-up') {
-        dy = 28 * (1 - ease);
+        dy = 18 * (1 - ease);
       } else if (enterAnim === 'slide-down') {
-        dy = -28 * (1 - ease);
+        dy = -18 * (1 - ease);
       } else if (enterAnim === 'slide-left') {
-        dx = 32 * (1 - ease);
+        dx = 24 * (1 - ease);
       } else if (enterAnim === 'slide-right') {
-        dx = -32 * (1 - ease);
+        dx = -24 * (1 - ease);
       } else if (enterAnim === 'fade') {
         scale = 1.0;
       } else if (enterAnim === 'pop' || enterAnim === 'bounce') {
@@ -1442,12 +1443,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
   } else if (st.dubaiLuxuryStack || st.id === 'dubai_luxury_stack') {
     const accent2Role = roles.accent2 || st.accent2 || accentRole;
-    const lineDescriptors = [];
+    lay = [];
     if (words.length >= 3) {
       const impactWords = [words[0]];
       const connWords = words.slice(1, -1);
       const keyWords = [words[words.length - 1]];
-      lineDescriptors.push({
+      const topDesc = {
         text: impactWords.map(w => w.t.toLowerCase()).join(' '),
         font: accent2Role.font || 'Poppins',
         size: Math.max(18, getRolePx(accent2Role, 104)),
@@ -1455,11 +1456,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
         isHero: false,
-        role: accent2Role,
+        role: Object.assign({}, accent2Role, { lower: true, upper: false }),
         words: impactWords
-      });
+      };
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - 0.05, inkGap, maxWidth: 0.90 }));
       if (connWords.length > 0) {
-        lineDescriptors.push({
+        const midDesc = {
           text: connWords.map(w => w.t).join(' '),
           font: baseRole.font || 'Poppins',
           size: Math.max(14, getRolePx(baseRole, 48)),
@@ -1469,9 +1471,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           isHero: false,
           role: baseRole,
           words: connWords
-        });
+        };
+        lay = lay.concat(layoutFn([midDesc], { W, H, posX: 0.50, posY: posY, inkGap, maxWidth: 0.90 }));
       }
-      lineDescriptors.push({
+      const botDesc = {
         text: keyWords.map(w => w.t.toUpperCase()).join(' '),
         font: accentRole.font || 'Montserrat',
         size: Math.max(18, getRolePx(accentRole, 95)),
@@ -1481,9 +1484,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         isHero: true,
         role: accentRole,
         words: keyWords
-      });
+      };
+      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + 0.055, inkGap, maxWidth: 0.90 }));
     } else if (words.length === 2) {
-      lineDescriptors.push({
+      const topDesc = {
         text: words[0].t.toLowerCase(),
         font: accent2Role.font || 'Poppins',
         size: Math.max(18, getRolePx(accent2Role, 104)),
@@ -1491,10 +1495,11 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
         isHero: false,
-        role: accent2Role,
+        role: Object.assign({}, accent2Role, { lower: true, upper: false }),
         words: [words[0]]
-      });
-      lineDescriptors.push({
+      };
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - 0.035, inkGap, maxWidth: 0.90 }));
+      const botDesc = {
         text: words[1].t.toUpperCase(),
         font: accentRole.font || 'Montserrat',
         size: Math.max(18, getRolePx(accentRole, 95)),
@@ -1504,9 +1509,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         isHero: true,
         role: accentRole,
         words: [words[1]]
-      });
+      };
+      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + 0.035, inkGap, maxWidth: 0.90 }));
     } else {
-      lineDescriptors.push({
+      const midDesc = {
         text: words[0].t.toUpperCase(),
         font: accentRole.font || 'Montserrat',
         size: Math.max(18, getRolePx(accentRole, 95)),
@@ -1516,9 +1522,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         isHero: true,
         role: accentRole,
         words: words
-      });
+      };
+      lay = layoutFn([midDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.90 });
     }
-    lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.90 });
   } else {
     let smallWords = [];
     let bigWords = [];
