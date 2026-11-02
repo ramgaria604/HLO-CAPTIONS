@@ -6606,18 +6606,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
 
       captionInput.addEventListener('focus', () => {
-        selectCaption(cap.id);
-        try { vid.currentTime = Math.max(0, cap.start + 0.05); } catch (_) {}
-        renderCanvas(true);
+        S.selectedCaptionId = cap.id;
         renderTimeline();
-        syncTimelinePlayhead();
-      });
-      captionInput.addEventListener('click', () => {
-        selectCaption(cap.id);
-        try { vid.currentTime = Math.max(0, cap.start + 0.05); } catch (_) {}
-        renderCanvas(true);
-        renderTimeline();
-        syncTimelinePlayhead();
       });
 
       row.querySelector('.caption-play-btn').addEventListener('click', (e) => {

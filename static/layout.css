@@ -615,7 +615,10 @@ html, body {
 .drawer-content {
   flex: 1 1 0 !important;
   min-height: 0 !important;
-  overflow: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  touch-action: pan-y !important;
   position: relative !important;
   display: flex !important;
   flex-direction: column !important;
