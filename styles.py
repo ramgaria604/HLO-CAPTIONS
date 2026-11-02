@@ -1338,9 +1338,18 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 line_gap = 0.078 * font_scale * line_spacing_mult
                 lay = []
                 if len(words) >= 3:
-                    w_impact = [words[0]]
-                    w_conn = words[1:-1]
-                    w_key = [words[-1]]
+                    key_idx = -1
+                    for ki in range(len(words) - 1, -1, -1):
+                        if words[ki].get("key"):
+                            key_idx = ki
+                            break
+                    if key_idx == -1:
+                        key_idx = len(words) - 1
+
+                    w_key = [words[key_idx]]
+                    rem_words = [w for wi, w in enumerate(words) if wi != key_idx]
+                    w_impact = [rem_words[0]]
+                    w_conn = rem_words[1:]
                     desc_top = {
                         "text": " ".join(str(w.get("t") or w.get("word") or "").lower() for w in w_impact),
                         "font_file": accent2_font_file,
@@ -1374,22 +1383,25 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     lay += ink_layout.layout_stack([desc_bot], W, H, pos_x=0.57, pos_y=pos_y + line_gap * 1.05, ink_gap=ink_gap)
                 elif len(words) == 2:
                     line_gap2 = 0.055 * font_scale * line_spacing_mult
+                    key_idx = 0 if words[0].get("key") else 1
+                    w_key = [words[key_idx]]
+                    w_top = [words[1 if key_idx == 0 else 0]]
                     desc_top = {
-                        "text": str(words[0].get("t") or words[0].get("word") or "").lower(),
+                        "text": str(w_top[0].get("t") or w_top[0].get("word") or "").lower(),
                         "font_file": accent2_font_file,
                         "size": accent2_size,
                         "track": float(accent2_role.get("track", -0.03)),
-                        "words": [words[0]],
+                        "words": w_top,
                         "role": {**accent2_role, "color": "#FFFFFF", "lower": True, "upper": False},
                         "is_hero": False
                     }
                     lay += ink_layout.layout_stack([desc_top], W, H, pos_x=0.42, pos_y=pos_y - line_gap2, ink_gap=ink_gap)
                     desc_bot = {
-                        "text": str(words[1].get("t") or words[1].get("word") or "").upper(),
+                        "text": str(w_key[0].get("t") or w_key[0].get("word") or "").upper(),
                         "font_file": accent_font_file,
                         "size": big_size,
                         "track": float(accent_role.get("track", -0.02)),
-                        "words": [words[1]],
+                        "words": w_key,
                         "role": {**accent_role, "color": hero_col},
                         "is_hero": True
                     }

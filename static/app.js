@@ -1478,9 +1478,16 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
 
     lay = [];
     if (words.length >= 3) {
-      const impactWords = [words[0]];
-      const connWords = words.slice(1, -1);
-      const keyWords = [words[words.length - 1]];
+      let keyIdx = -1;
+      for (let i = words.length - 1; i >= 0; i--) {
+        if (words[i].key) { keyIdx = i; break; }
+      }
+      if (keyIdx === -1) keyIdx = words.length - 1;
+
+      const keyWords = [words[keyIdx]];
+      const remWords = words.filter((_, idx) => idx !== keyIdx);
+      const impactWords = [remWords[0]];
+      const connWords = remWords.slice(1);
       const topDesc = {
         text: impactWords.map(w => w.t.toLowerCase()).join(' '),
         font: accent2Role.font || 'Poppins',
@@ -1520,8 +1527,11 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       };
       lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap3 * 1.05, inkGap, maxWidth: 0.90 }));
     } else if (words.length === 2) {
+      const keyIdx = words[0].key ? 0 : 1;
+      const keyWords = [words[keyIdx]];
+      const topWords = [words[keyIdx === 0 ? 1 : 0]];
       const topDesc = {
-        text: words[0].t.toLowerCase(),
+        text: topWords[0].t.toLowerCase(),
         font: accent2Role.font || 'Poppins',
         size: Math.max(18, getRolePx(accent2Role, 104)),
         weight: accent2Role.weight || 800,
@@ -1529,11 +1539,11 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         track: Number(accent2Role.track) || -0.03,
         isHero: false,
         role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
-        words: [words[0]]
+        words: topWords
       };
       lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap2, inkGap, maxWidth: 0.90 }));
       const botDesc = {
-        text: words[1].t.toUpperCase(),
+        text: keyWords[0].t.toUpperCase(),
         font: accentRole.font || 'Montserrat',
         size: Math.max(18, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
@@ -1541,7 +1551,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         track: Number(accentRole.track) || -0.02,
         isHero: true,
         role: goldRole,
-        words: [words[1]]
+        words: keyWords
       };
       lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap2, inkGap, maxWidth: 0.90 }));
     } else {
@@ -6538,6 +6548,36 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       captionInput.value = cleanCaptionText(cap.text);
       captionCenter.appendChild(captionInput);
 
+      // 1-Click Word Chips for instant 👑 Hero Highlight
+      if (Array.isArray(cap.words) && cap.words.length > 0) {
+        const wordsRow = document.createElement('div');
+        wordsRow.className = 'caption-words-chips-row';
+        wordsRow.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;';
+        cap.words.forEach((wo) => {
+          const isHero = Boolean(wo.key);
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'caption-word-chip' + (isHero ? ' is-key' : '');
+          chip.title = 'Click to toggle 👑 Gold Hero Highlight on this word';
+          chip.innerHTML = (isHero ? '👑 ' : '') + (wo.t || wo.word || '');
+          chip.style.cssText = isHero
+            ? 'font-size:11px; padding:2px 8px; border-radius:4px; background:linear-gradient(135deg,#FFC72C,#D99000); color:#000; font-weight:800; border:none; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.3);'
+            : 'font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.08); color:#cbd5e1; border:1px solid rgba(255,255,255,0.12); cursor:pointer;';
+
+          chip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wasKey = Boolean(wo.key);
+            cap.words.forEach(w => { w.key = false; });
+            wo.key = !wasKey;
+            renderCaptionsList();
+            renderCanvas();
+            renderTimeline();
+          });
+          wordsRow.appendChild(chip);
+        });
+        captionCenter.appendChild(wordsRow);
+      }
+
       row.addEventListener('click', (e) => {
         if (e.target.closest('button') || e.target.closest('textarea')) return;
         selectCaption(cap.id);
@@ -6564,24 +6604,30 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
       const textarea = captionInput;
       textarea.addEventListener('input', (e) => {
-        const cleanValue = cleanCaptionText(e.target.value);
-        if (cleanValue !== e.target.value) {
-          const caret = Math.max(0, e.target.selectionStart - (e.target.value.length - cleanValue.length));
+        const rawValue = e.target.value;
+        const cleanValue = cleanCaptionText(rawValue);
+        if (cleanValue !== rawValue) {
+          const caret = Math.max(0, e.target.selectionStart - (rawValue.length - cleanValue.length));
           e.target.value = cleanValue;
           e.target.setSelectionRange(caret, caret);
         }
         cap.text = cleanValue;
-        const words = cap.text.split(/\s+/).filter(Boolean);
+        const rawTokens = rawValue.split(/\s+/).filter(Boolean);
+        const words = cleanValue.split(/\s+/).filter(Boolean);
         const dur = (cap.end - cap.start) / Math.max(words.length, 1);
-        cap.words = words.map((w, wIdx) => ({
-          t: w,
-          word: w,
-          s: cap.start + wIdx * dur,
-          start: cap.start + wIdx * dur,
-          e: cap.start + (wIdx + 1) * dur,
-          end: cap.start + (wIdx + 1) * dur,
-          key: false
-        }));
+        cap.words = words.map((w, wIdx) => {
+          const hasAsterisk = rawTokens[wIdx] ? rawTokens[wIdx].includes('*') : false;
+          return {
+            t: w,
+            word: w,
+            s: cap.start + wIdx * dur,
+            start: cap.start + wIdx * dur,
+            e: cap.start + (wIdx + 1) * dur,
+            end: cap.start + (wIdx + 1) * dur,
+            key: hasAsterisk
+          };
+        });
+        renderCaptionsList();
         renderCanvas();
         renderTimeline();
       });
