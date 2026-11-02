@@ -4176,10 +4176,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function startKeepAliveHeartbeat() {
-    // Keep-alive heartbeat: ping server every 8 minutes so server never sleeps while tab is open
-    setInterval(() => {
-      fetch('/api/ping', { cache: 'no-store' }).catch(() => {});
-    }, 8 * 60 * 1000);
+    // Keep-alive heartbeat removed/disabled on test website
+    return;
   }
 
   // ==========================================================================
