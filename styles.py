@@ -1334,7 +1334,8 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     accent2_size = accent2_size * scale_h
 
                 hero_col = style.get("highlightColor") or accent_role.get("color") or "#FFC72C"
-                line_gap = 0.052 * font_scale
+                line_spacing_mult = float(style.get("lineSpacing") or 1.2) / 1.2
+                line_gap = 0.078 * font_scale * line_spacing_mult
                 lay = []
                 if len(words) >= 3:
                     w_impact = [words[0]]
@@ -1349,7 +1350,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                         "role": {**accent2_role, "color": "#FFFFFF", "lower": True, "upper": False},
                         "is_hero": False
                     }
-                    lay += ink_layout.layout_stack([desc_top], W, H, pos_x=0.42, pos_y=pos_y - line_gap * 0.95, ink_gap=ink_gap)
+                    lay += ink_layout.layout_stack([desc_top], W, H, pos_x=0.42, pos_y=pos_y - line_gap * 1.02, ink_gap=ink_gap)
                     if w_conn:
                         desc_mid = {
                             "text": " ".join(str(w.get("t") or w.get("word") or "") for w in w_conn),
@@ -1372,7 +1373,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     }
                     lay += ink_layout.layout_stack([desc_bot], W, H, pos_x=0.57, pos_y=pos_y + line_gap * 1.05, ink_gap=ink_gap)
                 elif len(words) == 2:
-                    line_gap2 = 0.038 * font_scale
+                    line_gap2 = 0.055 * font_scale * line_spacing_mult
                     desc_top = {
                         "text": str(words[0].get("t") or words[0].get("word") or "").lower(),
                         "font_file": accent2_font_file,

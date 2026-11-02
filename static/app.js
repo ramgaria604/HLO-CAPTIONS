@@ -1453,7 +1453,29 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   } else if (st.dubaiLuxuryStack || st.id === 'dubai_luxury_stack') {
     const accent2Role = roles.accent2 || st.accent2 || accentRole;
     const heroColor = S.style?.highlightColor || accentRole.color || '#FFC72C';
-    const lineGap3 = 0.052 * fontScale;
+    const hasWhiteSplash = (S.style?.whiteSplash !== false && st.whiteSplash !== false);
+    const hasWhiteBloom = (S.style?.whiteBloom !== false && st.whiteBloom !== false);
+    const lineSpacingMult = (typeof S.style?.lineSpacing === 'number' && S.style.lineSpacing > 0)
+      ? (S.style.lineSpacing / 1.2)
+      : 1.0;
+    const lineGap3 = 0.078 * fontScale * lineSpacingMult;
+    const lineGap2 = 0.055 * fontScale * lineSpacingMult;
+
+    const goldRole = Object.assign({}, accentRole, {
+      color: heroColor,
+      whiteBloom: hasWhiteBloom,
+      fill: hasWhiteSplash ? {
+        type: 'chrome-gold',
+        colors: ['#FFFFFF', '#FFF2A8', heroColor, '#D99000'],
+        angle: 180
+      } : {
+        type: 'solid',
+        colors: [heroColor],
+        angle: 90
+      },
+      keyGradient: hasWhiteSplash ? `linear-gradient(180deg, #FFFFFF, #FFF2A8, ${heroColor}, #D99000)` : undefined
+    });
+
     lay = [];
     if (words.length >= 3) {
       const impactWords = [words[0]];
@@ -1467,10 +1489,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
         isHero: false,
-        role: Object.assign({}, accent2Role, { color: '#FFFFFF', lower: true, upper: false }),
+        role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
         words: impactWords
       };
-      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap3 * 0.95, inkGap, maxWidth: 0.90 }));
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap3 * 1.02, inkGap, maxWidth: 0.90 }));
       if (connWords.length > 0) {
         const midDesc = {
           text: connWords.map(w => w.t).join(' '),
@@ -1480,7 +1502,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           italic: Boolean(baseRole.italic),
           track: Number(baseRole.track) || -0.01,
           isHero: false,
-          role: Object.assign({}, baseRole, { color: '#FFFFFF' }),
+          role: Object.assign({}, baseRole, { color: '#FFFFFF', whiteBloom: hasWhiteBloom }),
           words: connWords
         };
         lay = lay.concat(layoutFn([midDesc], { W, H, posX: 0.50, posY: posY, inkGap, maxWidth: 0.90 }));
@@ -1493,12 +1515,11 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
         isHero: true,
-        role: Object.assign({}, accentRole, { color: heroColor, fill: { type: 'solid', colors: [heroColor], angle: 90 } }),
+        role: goldRole,
         words: keyWords
       };
       lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap3 * 1.05, inkGap, maxWidth: 0.90 }));
     } else if (words.length === 2) {
-      const lineGap2 = 0.038 * fontScale;
       const topDesc = {
         text: words[0].t.toLowerCase(),
         font: accent2Role.font || 'Poppins',
@@ -1507,7 +1528,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
         isHero: false,
-        role: Object.assign({}, accent2Role, { color: '#FFFFFF', lower: true, upper: false }),
+        role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
         words: [words[0]]
       };
       lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap2, inkGap, maxWidth: 0.90 }));
@@ -1519,7 +1540,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
         isHero: true,
-        role: Object.assign({}, accentRole, { color: heroColor, fill: { type: 'solid', colors: [heroColor], angle: 90 } }),
+        role: goldRole,
         words: [words[1]]
       };
       lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap2, inkGap, maxWidth: 0.90 }));
@@ -1532,7 +1553,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
         isHero: true,
-        role: Object.assign({}, accentRole, { color: heroColor, fill: { type: 'solid', colors: [heroColor], angle: 90 } }),
+        role: goldRole,
         words: words
       };
       lay = layoutFn([midDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.90 });
@@ -1680,6 +1701,17 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           targetCtx.shadowBlur = gBlur;
           targetCtx.shadowOffsetX = 0;
           targetCtx.shadowOffsetY = 0;
+          targetCtx.fillText(wo.txt, 0, 0);
+          targetCtx.restore();
+        }
+
+        if (o.role && o.role.whiteBloom) {
+          targetCtx.save();
+          targetCtx.shadowColor = 'rgba(255, 255, 255, 0.45)';
+          targetCtx.shadowBlur = Math.round(o.size * 0.28);
+          targetCtx.shadowOffsetX = 0;
+          targetCtx.shadowOffsetY = 0;
+          targetCtx.fillStyle = 'rgba(255, 255, 255, 0.15)';
           targetCtx.fillText(wo.txt, 0, 0);
           targetCtx.restore();
         }
@@ -6419,6 +6451,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (typeof updateFontScaleUI === 'function') {
       updateFontScaleUI();
     }
+    if (chkWhiteSplash) {
+      chkWhiteSplash.checked = (preset.whiteSplash !== false);
+    }
+    if (chkWhiteBloom) {
+      chkWhiteBloom.checked = (preset.whiteBloom !== false);
+    }
+    if (cardDubaiEffects) {
+      const isDubai = (preset.id === 'dubai_luxury_stack' || preset.dubaiLuxuryStack);
+      cardDubaiEffects.style.display = isDubai ? 'block' : 'none';
+    }
     if (valHighlightColor && S.style.highlightColor) {
       valHighlightColor.textContent = S.style.highlightColor;
       valHighlightColor.style.background = S.style.highlightColor;
@@ -6819,6 +6861,25 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         updatePositionUI(parseFloat(btn.getAttribute('data-pos')));
       });
     });
+
+    const chkWhiteSplash = $('chkWhiteSplash');
+    const chkWhiteBloom = $('chkWhiteBloom');
+    const cardDubaiEffects = $('cardDubaiEffects');
+
+    if (chkWhiteSplash) {
+      chkWhiteSplash.addEventListener('change', (e) => {
+        if (!S.style) S.style = {};
+        S.style.whiteSplash = e.target.checked;
+        renderCanvas();
+      });
+    }
+    if (chkWhiteBloom) {
+      chkWhiteBloom.addEventListener('change', (e) => {
+        if (!S.style) S.style = {};
+        S.style.whiteBloom = e.target.checked;
+        renderCanvas();
+      });
+    }
 
     // 1. Text Motion & Animation Chooser
     const valAnimName = $('valAnimName');

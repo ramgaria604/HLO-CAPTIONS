@@ -99,11 +99,14 @@
         "enter": "slide-up",
         "layer": "front",
         "fill": {
-          "type": "solid",
+          "type": "chrome-gold",
           "colors": [
-            "#FFC72C"
+            "#FFFFFF",
+            "#FFF2A8",
+            "#FFC72C",
+            "#D99000"
           ],
-          "angle": 90
+          "angle": 180
         }
       },
       "accent2": {
@@ -129,7 +132,9 @@
           "angle": 90
         }
       }
-    }
+    },
+    "whiteSplash": true,
+    "whiteBloom": true
   },
   {
     "id": "duo_01",
