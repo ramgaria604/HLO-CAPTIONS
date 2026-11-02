@@ -1224,17 +1224,17 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 
         font_scale = float(style.get("fontScale") or 1.0)
         scale_h = (H / 1920.0) * font_scale
-        small_size = float(base_role.get("size", 62))
-        if small_size <= 1.0:
-            small_size = small_size * H * font_scale
+        small_size_val = float(base_role.get("size", 62))
+        if small_size_val <= 1.0:
+            small_size = max(small_size_val * H * font_scale, 62.0 * scale_h)
         else:
-            small_size = small_size * scale_h
+            small_size = small_size_val * scale_h
 
-        big_size = float(accent_role.get("size", 230))
-        if big_size <= 1.0:
-            big_size = big_size * H * font_scale
+        big_size_val = float(accent_role.get("size", 230))
+        if big_size_val <= 1.0:
+            big_size = max(big_size_val * H * font_scale, 230.0 * scale_h)
         else:
-            big_size = big_size * scale_h
+            big_size = big_size_val * scale_h
 
         if pos_cycle and len(pos_cycle) > 0:
             pos_y = float(pos_cycle[cap_idx % len(pos_cycle)])
