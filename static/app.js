@@ -1358,8 +1358,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
   const scale = Math.max(0.24, Math.min(W / 1080, H / 1920)) * fontScale;
   const getRolePx = (r, defaultPx) => {
-    const s = Number(r.size) || defaultPx;
-    return Math.max(16, s > 1 ? s * scale : s * H);
+    const s = Number(r && r.size) || defaultPx;
+    return Math.max(16, s > 1 ? s * scale : s * H * fontScale);
   };
 
   const layoutFn = getLayoutStackFn();
@@ -2208,7 +2208,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   function drawNormalInFrontCaption(ctx, cap, words, t, stTime, capDur, W, H, showAll) {
     if (!ctx || !words || words.length === 0) return;
 
-    const fontSize = Math.round(W * 0.056);
+    const normScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0) ? S.style.fontScale : 1.0;
+    const fontSize = Math.round(W * 0.056 * normScale);
     const font = `800 ${fontSize}px 'Montserrat', 'Poppins', sans-serif`;
     const lineSpacing = fontSize * 1.34;
 
@@ -2315,7 +2316,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const letterSpacing = 2;
     const strokePadding = 8;
 
-    let heroFontSize = Math.round(W * 0.17);
+    const reScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
+      ? S.style.fontScale
+      : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
+    let heroFontSize = Math.round(W * 0.17 * reScale);
     ctxFore.save();
     while (heroFontSize > 14) {
       const testFont = `900 ${heroFontSize}px 'Montserrat', 'Impact', 'Anton', sans-serif`;
@@ -3382,7 +3386,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (st && (st.videoTemplate === 'specialRealEstate' || (S.realEstateConfig && S.realEstateConfig.enabled))) {
       drawSpecialRealEstateTemplate(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
     } else {
-      const base = Math.max(260, Math.min(W, H)) * Math.max(0.7, Math.min(1.5, Number(st.fontScale) || 1));
+      const fontScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
+        ? S.style.fontScale
+        : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
+      const base = Math.max(260, Math.min(W, H)) * Math.max(0.5, Math.min(2.5, fontScale));
       const presetId = st.id || '';
       const offsetX = (Number(st.offsetX) || 0) * W;
       ctxFore.save(); ctxFore.translate(offsetX, 0);

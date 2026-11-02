@@ -792,7 +792,7 @@ def clean_style(s):
         "accent2": accent2_role,
         "palette": palette,
         "rotation": float(s.get("rotation", 0.0)),
-        "fontScale": float(_num(s.get("fontScale"), 0.6, 1.5, 1.0)),
+        "fontScale": float(_num(s.get("fontScale"), 0.5, 2.5, 1.0)),
         "offsetX": float(_num(s.get("offsetX"), -0.10, 0.10, 0.0)),
         "scaleX": float(_num(s.get("scaleX"), 0.7, 1.5, 1.0)),
     })
@@ -1226,13 +1226,13 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         scale_h = (H / 1920.0) * font_scale
         small_size = float(base_role.get("size", 62))
         if small_size <= 1.0:
-            small_size = small_size * H
+            small_size = small_size * H * font_scale
         else:
             small_size = small_size * scale_h
 
         big_size = float(accent_role.get("size", 230))
         if big_size <= 1.0:
-            big_size = big_size * H
+            big_size = big_size * H * font_scale
         else:
             big_size = big_size * scale_h
 
