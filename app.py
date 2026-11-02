@@ -985,16 +985,13 @@ def auth_google():
     client_c = client_credits if isinstance(client_credits, int) and client_credits > 0 else 0
     user_record = dev_data.get(email)
     if not user_record and "credits" in existing:
-        base_c = max(existing["credits"], client_c)
+        base_c = existing.get("credits", 0)
         user_record = {"credits": base_c, "used": existing.get("used", 0), "email": email, "name": name}
         dev_data[email] = user_record
     elif not user_record:
-        init_credits = max(client_c, 0 if free_used else 1)
-        user_record = {"credits": init_credits, "used": 1 if init_credits == 0 else 0, "email": email, "name": name, "created_at": time.time()}
+        user_record = {"credits": 0, "used": 0, "email": email, "name": name, "created_at": time.time()}
         dev_data[email] = user_record
     else:
-        if client_c > user_record.get("credits", 0):
-            user_record["credits"] = client_c
         user_record["email"] = email
         if name: user_record["name"] = name
         user_record["last_login"] = time.time()
@@ -1118,7 +1115,7 @@ def check_device_credits():
     client_c = client_credits if (isinstance(client_credits, int) and client_credits >= 0) else None
     key = user_email or device_id
     if not key:
-        return jsonify(credits=1, used=0)
+        return jsonify(credits=0, used=0)
 
     dev_file = DATA_DIR / "device_credits.json"
     data = {}
@@ -1161,33 +1158,53 @@ def check_device_credits():
         recorded_credits = max(recorded_credits, user_profile.get("credits", 0))
         used_count = max(used_count, user_profile.get("used", 0))
 
-    if not has_record:
-        if client_c is not None and client_c > 0:
-            final_credits = client_c
-            final_used = 0
-        elif free_used or client_c == 0:
-            final_credits = 0
-            final_used = 1
-        else:
-            final_credits = 1
-            final_used = 0
+    # Verify if user or device has a genuine payment or coupon redemption
+    has_legit_payment = False
+    try:
+        payments_file = DATA_DIR / "razorpay_payments.json"
+        if payments_file.exists():
+            pay_data = json.loads(payments_file.read_text(encoding="utf-8"))
+            for p in pay_data:
+                if (user_email and p.get("email") == user_email) or (device_id and p.get("device_id") == device_id):
+                    has_legit_payment = True
+                    break
+    except Exception:
+        pass
 
-        record = {"credits": final_credits, "used": final_used, "created_at": time.time()}
+    try:
+        redeemed_file = WORK / "redeemed_coupons.json"
+        if redeemed_file.exists():
+            red_data = json.loads(redeemed_file.read_text(encoding="utf-8"))
+            for rk in red_data:
+                if (user_id and rk.startswith(f"{user_id}:")) or (device_id and rk.startswith(f"{device_id}:")):
+                    has_legit_payment = True
+                    break
+    except Exception:
+        pass
+
+    # If recorded credits is 1 and user has no payment or coupon record, it was the legacy 1-free-export
+    if not has_legit_payment and recorded_credits <= 1 and used_count == 0:
+        recorded_credits = 0
+
+    if not has_record:
+        final_credits = 0
+        final_used = 0
+        record = {"credits": 0, "used": 0, "created_at": time.time()}
         if user_email: record["email"] = user_email
         data[key] = record
         if device_id: data[device_id] = record
         save_device_credits_data(data)
         if user_file:
-            user_profile["credits"] = final_credits
-            user_profile["used"] = final_used
+            user_profile["credits"] = 0
+            user_profile["used"] = 0
             try:
                 user_file.write_text(json.dumps(user_profile, indent=2), encoding="utf-8")
             except Exception:
                 pass
-        return jsonify(credits=final_credits, used=final_used)
+        return jsonify(credits=0, used=0)
 
     final_credits = recorded_credits
-    if client_c is not None and client_c > final_credits:
+    if has_legit_payment and client_c is not None and client_c > final_credits:
         final_credits = client_c
 
     # Check for expiration of pack
@@ -1236,8 +1253,8 @@ def consume_device_credit():
         except Exception:
             pass
 
-    record = data.get(key, {"credits": 1, "used": 0})
-    cur_credits = record.get("credits", 1)
+    record = data.get(key, {"credits": 0, "used": 0})
+    cur_credits = record.get("credits", 0)
     new_credits = max(0, cur_credits - 1)
     record["credits"] = new_credits
     record["used"] = record.get("used", 0) + 1
@@ -1281,6 +1298,32 @@ def sync_device_credits():
     key = user_email or device_id
     if not key:
         return jsonify(ok=False), 400
+
+    # Ensure user has actually paid or redeemed a coupon before accepting positive client credits
+    if credits > 0:
+        has_legit_payment = False
+        try:
+            payments_file = DATA_DIR / "razorpay_payments.json"
+            if payments_file.exists():
+                pay_data = json.loads(payments_file.read_text(encoding="utf-8"))
+                for p in pay_data:
+                    if (user_email and p.get("email") == user_email) or (device_id and p.get("device_id") == device_id):
+                        has_legit_payment = True
+                        break
+        except Exception:
+            pass
+        try:
+            redeemed_file = WORK / "redeemed_coupons.json"
+            if redeemed_file.exists():
+                red_data = json.loads(redeemed_file.read_text(encoding="utf-8"))
+                for rk in red_data:
+                    if (user_email and rk.startswith(f"{user_email}:")) or (device_id and rk.startswith(f"{device_id}:")):
+                        has_legit_payment = True
+                        break
+        except Exception:
+            pass
+        if not has_legit_payment:
+            credits = 0
 
     dev_file = DATA_DIR / "device_credits.json"
     data = {}
