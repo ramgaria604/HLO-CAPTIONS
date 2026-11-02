@@ -1329,7 +1329,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 accent2_font_file = find_font_file(accent2_role)
                 accent2_size = float(accent2_role.get("size", 104))
                 if accent2_size <= 1.0:
-                    accent2_size = accent2_size * 1080.0 * scale_h
+                    accent2_size = max(accent2_size * H * font_scale, 104.0 * scale_h)
                 else:
                     accent2_size = accent2_size * scale_h
 
