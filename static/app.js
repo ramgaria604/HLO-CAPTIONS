@@ -6561,6 +6561,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       captionCenter.appendChild(captionInput);
 
       // 1-Click Word Chips for instant 👑 Hero Highlight
+      if (!Array.isArray(cap.words) || cap.words.length === 0 || cap.words.length !== (cap.text || '').trim().split(/\s+/).filter(Boolean).length) {
+        updateCaptionWordTimings(cap);
+        const textTokens = (cap.text || '').trim().split(/\s+/).filter(Boolean);
+        const existingWords = Array.isArray(cap.words) ? cap.words : [];
+        const dur = Math.max(0.1, cap.end - cap.start);
+        const wDur = dur / Math.max(textTokens.length, 1);
+        cap.words = textTokens.map((tw, idx) => ({
+          t: tw,
+          word: tw,
+          s: Math.round((cap.start + idx * wDur) * 100) / 100,
+          start: Math.round((cap.start + idx * wDur) * 100) / 100,
+          e: Math.round((cap.start + (idx + 1) * wDur) * 100) / 100,
+          end: Math.round((cap.start + (idx + 1) * wDur) * 100) / 100,
+          key: existingWords[idx] ? Boolean(existingWords[idx].key) : false
+        }));
+      }
       if (Array.isArray(cap.words) && cap.words.length > 0) {
         const wordsRow = document.createElement('div');
         wordsRow.className = 'caption-words-chips-row';
@@ -6577,16 +6593,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             : 'font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.08); color:#cbd5e1; border:1px solid rgba(255,255,255,0.12); cursor:pointer;';
 
           chip.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
             const wasKey = Boolean(wo.key);
             cap.words.forEach(w => { w.key = false; });
             wo.key = !wasKey;
-            selectCaption(cap.id);
-            const targetTime = (wo.s != null)
+            S.selectedCaptionId = cap.id;
+
+            // In-place chip update: never freezes list or breaks touch scroll!
+            wordsRow.querySelectorAll('.caption-word-chip').forEach((c, cIdx) => {
+              const w = cap.words[cIdx];
+              const isH = Boolean(w && w.key);
+              c.className = 'caption-word-chip' + (isH ? ' is-key' : '');
+              c.innerHTML = (isH ? '👑 ' : '') + (w ? (w.t || w.word || '') : '');
+              c.style.cssText = isH
+                ? 'font-size:11px; padding:2px 8px; border-radius:4px; background:linear-gradient(135deg,#FFC72C,#D99000); color:#000; font-weight:800; border:none; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.3);'
+                : 'font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.08); color:#cbd5e1; border:1px solid rgba(255,255,255,0.12); cursor:pointer;';
+            });
+
+            const targetTime = (typeof wo.s === 'number')
               ? Math.min(cap.end - 0.02, Math.max(cap.start, wo.s + 0.02))
               : (cap.start + 0.05);
             try { vid.currentTime = Math.max(0, targetTime); } catch (_) {}
-            renderCaptionsList();
+
             renderCanvas(true);
             renderTimeline();
             syncTimelinePlayhead();
@@ -6645,7 +6674,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             key: hasAsterisk
           };
         });
-        renderCaptionsList();
         renderCanvas();
         renderTimeline();
       });
@@ -9139,6 +9167,9 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
       const t = vid.currentTime || 0;
       let activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+      if (!activeCap && vid.paused && S.selectedCaptionId) {
+        activeCap = S.captions.find(c => c.id === S.selectedCaptionId) || null;
+      }
 
       // Requirement 6: Do less work when nothing changes / no active caption
       if (!activeCap) {
