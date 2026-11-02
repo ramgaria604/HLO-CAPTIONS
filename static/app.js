@@ -1508,12 +1508,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
         words: impactWords
       };
-      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap3 * 1.02, inkGap, maxWidth: 0.96 }));
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap3 * 1.0, inkGap, maxWidth: 0.96 }));
       if (connWords.length > 0) {
         const midDesc = {
           text: connWords.map(w => w.t).join(' '),
           font: baseRole.font || 'Poppins',
-          size: Math.max(16, getRolePx(baseRole, 68)),
+          size: Math.max(16, getRolePx(baseRole, 80)),
           weight: baseRole.weight || 700,
           italic: Boolean(baseRole.italic),
           track: Number(baseRole.track) || -0.01,
@@ -1534,7 +1534,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: goldRole,
         words: keyWords
       };
-      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap3 * 1.05, inkGap, maxWidth: 0.96 }));
+      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap3 * 1.0, inkGap, maxWidth: 0.96 }));
     } else if (words.length === 2) {
       const keyIdx = words[0].key ? 0 : 1;
       const keyWords = [words[keyIdx]];
