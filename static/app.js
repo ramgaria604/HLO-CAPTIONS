@@ -1467,8 +1467,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const lineSpacingMult = (typeof S.style?.lineSpacing === 'number' && S.style.lineSpacing > 0)
       ? (S.style.lineSpacing / 1.2)
       : 1.0;
-    const lineGap3 = 0.078 * fontScale * lineSpacingMult;
-    const lineGap2 = 0.055 * fontScale * lineSpacingMult;
+    const lineGap3 = 0.054 * fontScale * lineSpacingMult;
+    const lineGap2 = 0.044 * fontScale * lineSpacingMult;
 
     const goldRole = Object.assign({}, accentRole, {
       color: heroColor,
@@ -1513,7 +1513,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         const midDesc = {
           text: connWords.map(w => w.t).join(' '),
           font: baseRole.font || 'Poppins',
-          size: Math.max(14, getRolePx(baseRole, 48)),
+          size: Math.max(16, getRolePx(baseRole, 68)),
           weight: baseRole.weight || 700,
           italic: Boolean(baseRole.italic),
           track: Number(baseRole.track) || -0.01,

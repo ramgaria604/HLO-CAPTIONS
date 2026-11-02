@@ -1315,7 +1315,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 desc_bottom = {
                     "text": bottom_txt,
                     "font_file": base_font_file,
-                    "size": small_size,
+                    "size": max(small_size, 68.0 * scale_h),
                     "track": float(base_role.get("track", 0.0)),
                     "words": bottom_w,
                     "role": base_role,
@@ -1335,7 +1335,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 
                 hero_col = style.get("highlightColor") or accent_role.get("color") or "#FFC72C"
                 line_spacing_mult = float(style.get("lineSpacing") or 1.2) / 1.2
-                line_gap = 0.078 * font_scale * line_spacing_mult
+                line_gap = 0.054 * font_scale * line_spacing_mult
                 lay = []
                 if len(words) >= 3:
                     key_idx = -1
@@ -1382,7 +1382,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     }
                     lay += ink_layout.layout_stack([desc_bot], W, H, pos_x=0.57, pos_y=pos_y + line_gap * 1.05, ink_gap=ink_gap)
                 elif len(words) == 2:
-                    line_gap2 = 0.055 * font_scale * line_spacing_mult
+                    line_gap2 = 0.044 * font_scale * line_spacing_mult
                     key_idx = 0 if words[0].get("key") else 1
                     w_key = [words[key_idx]]
                     w_top = [words[1 if key_idx == 0 else 0]]
