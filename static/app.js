@@ -1440,6 +1440,83 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       };
       lay = lay.concat(layoutFn([bottomDesc], { W, H, posX, posY: subY, inkGap, maxWidth: 0.90 }));
     }
+  } else if (st.dubaiLuxuryStack || st.id === 'dubai_luxury_stack') {
+    const accent2Role = roles.accent2 || st.accent2 || accentRole;
+    const lineDescriptors = [];
+    if (words.length >= 3) {
+      const connWords = words.slice(0, -2);
+      const impactWords = [words[words.length - 2]];
+      const keyWords = [words[words.length - 1]];
+      lineDescriptors.push({
+        text: connWords.map(w => w.t).join(' '),
+        font: baseRole.font || 'Poppins',
+        size: Math.max(14, getRolePx(baseRole, 48)),
+        weight: baseRole.weight || 700,
+        italic: Boolean(baseRole.italic),
+        track: Number(baseRole.track) || -0.01,
+        isHero: false,
+        role: baseRole,
+        words: connWords
+      });
+      lineDescriptors.push({
+        text: impactWords.map(w => w.t.toLowerCase()).join(' '),
+        font: accent2Role.font || 'Poppins',
+        size: Math.max(18, getRolePx(accent2Role, 104)),
+        weight: accent2Role.weight || 800,
+        italic: Boolean(accent2Role.italic),
+        track: Number(accent2Role.track) || -0.03,
+        isHero: false,
+        role: accent2Role,
+        words: impactWords
+      });
+      lineDescriptors.push({
+        text: keyWords.map(w => w.t.toUpperCase()).join(' '),
+        font: accentRole.font || 'Montserrat',
+        size: Math.max(18, getRolePx(accentRole, 95)),
+        weight: accentRole.weight || 900,
+        italic: Boolean(accentRole.italic),
+        track: Number(accentRole.track) || -0.02,
+        isHero: true,
+        role: accentRole,
+        words: keyWords
+      });
+    } else if (words.length === 2) {
+      lineDescriptors.push({
+        text: words[0].t.toLowerCase(),
+        font: accent2Role.font || 'Poppins',
+        size: Math.max(18, getRolePx(accent2Role, 104)),
+        weight: accent2Role.weight || 800,
+        italic: Boolean(accent2Role.italic),
+        track: Number(accent2Role.track) || -0.03,
+        isHero: false,
+        role: accent2Role,
+        words: [words[0]]
+      });
+      lineDescriptors.push({
+        text: words[1].t.toUpperCase(),
+        font: accentRole.font || 'Montserrat',
+        size: Math.max(18, getRolePx(accentRole, 95)),
+        weight: accentRole.weight || 900,
+        italic: Boolean(accentRole.italic),
+        track: Number(accentRole.track) || -0.02,
+        isHero: true,
+        role: accentRole,
+        words: [words[1]]
+      });
+    } else {
+      lineDescriptors.push({
+        text: words[0].t.toUpperCase(),
+        font: accentRole.font || 'Montserrat',
+        size: Math.max(18, getRolePx(accentRole, 95)),
+        weight: accentRole.weight || 900,
+        italic: Boolean(accentRole.italic),
+        track: Number(accentRole.track) || -0.02,
+        isHero: true,
+        role: accentRole,
+        words: words
+      });
+    }
+    lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.90 });
   } else {
     let smallWords = [];
     let bigWords = [];
@@ -1484,7 +1561,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   }
 
   const heroLookStack = S.heroLook || st.heroLook || 'solid';
-  const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false);
+  const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false) && !st.dubaiLuxuryStack && st.id !== 'dubai_luxury_stack';
 
   lay.forEach((o) => {
     let lineLayer = 'front';
@@ -1537,7 +1614,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const minSpace = 0.16 * o.size;
     const spaceWidth = Math.max(minSpace, targetCtx.measureText(' ').width);
     const wordObjs = o.words.map((w) => {
-      const txt = up(w.t);
+      let txt = up(w.t);
+      if (o.role && o.role.upper) txt = txt.toUpperCase();
+      else if (o.role && o.role.lower) txt = txt.toLowerCase();
       const wWidth = targetCtx.measureText(txt).width;
       return { w, txt, width: wWidth };
     });
@@ -4298,6 +4377,134 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // 0. Ensure default presets exist immediately so screen is NEVER blank
     if (!S.presets || S.presets.length === 0) {
       S.presets = [
+        {
+          id: "dubai_luxury_stack",
+          name: "Dubai Luxury Stack",
+          category: "real-estate",
+          badge: "👑 DUBAI REEL",
+          previewWord: "INVESTMENT",
+          isDuo: true,
+          isSpecial: true,
+          behindPerson: false,
+          depthAccent: false,
+          dubaiLuxuryStack: true,
+          layout: "stack",
+          mode: "emphasis",
+          position: 0.67,
+          posY: 0.67,
+          posX: 0.5,
+          inkGap: 0.01,
+          leading: 0.88,
+          fontScale: 1.0,
+          wordsPerPage: 3,
+          wordsPerCaption: 3,
+          maxKeys: 1,
+          animation: "slide-up",
+          outlineMode: "none",
+          glowEnabled: false,
+          highlightColor: "#F3D060",
+          baseColor: "#FFFFFF",
+          key: {
+            font: "Montserrat",
+            size: 0.088,
+            weight: 900,
+            bold: true,
+            italic: false,
+            upper: true,
+            color: "#F3D060",
+            outline: 0,
+            shadow: 8,
+            shadowColor: "rgba(0, 0, 0, 0.68)",
+            track: -0.02
+          },
+          accent2: {
+            font: "Poppins",
+            size: 0.096,
+            weight: 800,
+            bold: true,
+            italic: false,
+            upper: false,
+            lower: true,
+            color: "#FFFFFF",
+            outline: 0,
+            shadow: 8,
+            shadowColor: "rgba(0, 0, 0, 0.68)",
+            track: -0.03
+          },
+          filler: {
+            font: "Poppins",
+            size: 0.044,
+            weight: 700,
+            bold: true,
+            italic: false,
+            upper: false,
+            lower: true,
+            color: "#FFFFFF",
+            outline: 0,
+            shadow: 6,
+            shadowColor: "rgba(0, 0, 0, 0.65)",
+            track: -0.01
+          },
+          roles: {
+            base: {
+              font: "Poppins",
+              size: 48.0,
+              weight: 700,
+              bold: true,
+              italic: false,
+              upper: false,
+              lower: true,
+              color: "#FFFFFF",
+              outline: 0,
+              shadow: 6,
+              shadowColor: "rgba(0, 0, 0, 0.65)",
+              track: -0.01,
+              enter: "slide-up",
+              layer: "front"
+            },
+            accent: {
+              font: "Montserrat",
+              size: 95.0,
+              weight: 900,
+              bold: true,
+              italic: false,
+              upper: true,
+              color: "#F3D060",
+              outline: 0,
+              shadow: 8,
+              shadowColor: "rgba(0, 0, 0, 0.68)",
+              track: -0.02,
+              enter: "slide-up",
+              layer: "front",
+              fill: {
+                type: "solid",
+                colors: ["#F3D060"],
+                angle: 90
+              }
+            },
+            accent2: {
+              font: "Poppins",
+              size: 104.0,
+              weight: 800,
+              bold: true,
+              italic: false,
+              upper: false,
+              lower: true,
+              color: "#FFFFFF",
+              outline: 0,
+              shadow: 8,
+              shadowColor: "rgba(0, 0, 0, 0.68)",
+              track: -0.03,
+              enter: "slide-up",
+              layer: "front",
+              fill: {
+                type: "solid",
+                colors: ["#FFFFFF"],
+                angle: 90
+              }
+            }
+          }
+        },
         { id: 'yellow_box', name: 'Yellow Box Pop', category: 'box', highlightColor: '#FFE600', key: { font: 'Poppins', color: '#FFE600', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0, pill: '#FFE600' },
         { id: 'box_pop', name: 'Box Pop Classic', category: 'box', highlightColor: '#FFE600', key: { font: 'Poppins', color: '#FFE600', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 },
         { id: 'duo_sunset', name: 'Duo Sunset Pop', isDuo: true, category: 'duo', highlightColor: '#FF6B00', key: { font: 'Poppins', color: '#FF6B00', bold: true }, filler: { font: 'Poppins', color: '#FFFFFF' }, position: 0.75, fontScale: 1.0 },

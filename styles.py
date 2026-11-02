@@ -590,15 +590,15 @@ def load_presets():
                     "wordsPerCaption": int(p.get("wordsPerPage", 3)),
                     "maxKeys": int(p.get("maxKeys", 1)),
                     "position": (0.18 if is_behind
-                                  else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48))),
+                                  else (float(p["position"]) if "position" in p else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48)))),
                     "posCycle": None if is_behind else p.get("posCycle"),
                     "behindPerson": is_behind,
                     "depthAccent": is_behind,
-                    "depthAccentSize": round(accent.get("size", 230) / 1080.0, 3),
+                    "depthAccentSize": round(accent.get("size", 230) / 1080.0, 3) if float(accent.get("size", 230)) > 1.0 else round(float(accent.get("size", 0.088)), 3),
                     "topY": top_y if is_behind else 0.10,
                     "depthAccentY": 0.18 if is_behind else preset_y,
                     "subtitlePosition": 0.72 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))),
-                    "subtitleSize": round(base.get("size", 62) / 1080.0, 3),
+                    "subtitleSize": round(base.get("size", 62) / 1080.0, 3) if float(base.get("size", 62)) > 1.0 else round(float(base.get("size", 0.044)), 3),
                     "blend": p.get("blend", "screen"),
                     "blendMode": p.get("blend", "screen"),
                     "highlightColor": accent_color,
@@ -608,10 +608,10 @@ def load_presets():
                     "wordGap": float(p.get("wordGap", 0.08)),
                     "roles": roles,
                     "previewWord": p.get("previewWord") or p.get("name", "").replace("Duo ·", "").strip().upper()[:16],
-                    "badge": "DUO ⚡",
+                    "badge": p.get("badge") or "DUO ⚡",
                     "key": {
                         "font": accent.get("font", "Montserrat"),
-                        "size": round(accent.get("size", 160) / 1080.0, 3),
+                        "size": round(accent.get("size", 160) / 1080.0, 3) if float(accent.get("size", 160)) > 1.0 else round(float(accent.get("size", 0.088)), 3),
                         "color": accent_color,
                         "bold": bool(accent.get("bold", True)),
                         "italic": bool(accent.get("italic", False)),
@@ -628,7 +628,7 @@ def load_presets():
                     },
                     "filler": {
                         "font": base.get("font", "Poppins"),
-                        "size": round(base.get("size", 62) / 1080.0, 3),
+                        "size": round(base.get("size", 62) / 1080.0, 3) if float(base.get("size", 62)) > 1.0 else round(float(base.get("size", 0.044)), 3),
                         "color": base_color,
                         "bold": bool(base.get("bold", True)),
                         "italic": bool(base.get("italic", False)),
@@ -642,9 +642,23 @@ def load_presets():
                         "track": base.get("track", 0),
                         "upper": bool(base.get("upper", False))
                     },
-                    "big": {"font": accent.get("font", "Montserrat"), "weight": accent.get("weight", 900), "size": round(accent.get("size", 160) / 1080.0, 3), "fill": fill},
-                    "small": {"font": base.get("font", "Poppins"), "weight": base.get("weight", 700), "size": round(base.get("size", 62) / 1080.0, 3), "fill": {"colors": [base_color]}}
+                    "big": {"font": accent.get("font", "Montserrat"), "weight": accent.get("weight", 900), "size": round(accent.get("size", 160) / 1080.0, 3) if float(accent.get("size", 160)) > 1.0 else round(float(accent.get("size", 0.088)), 3), "fill": fill},
+                    "small": {"font": base.get("font", "Poppins"), "weight": base.get("weight", 700), "size": round(base.get("size", 62) / 1080.0, 3) if float(base.get("size", 62)) > 1.0 else round(float(base.get("size", 0.044)), 3), "fill": {"colors": [base_color]}}
                 }
+                if p.get("dubaiLuxuryStack"):
+                    duo_item["dubaiLuxuryStack"] = True
+                if p.get("inkGap") is not None:
+                    duo_item["inkGap"] = float(p["inkGap"])
+                if p.get("leading") is not None:
+                    duo_item["leading"] = float(p["leading"])
+                if p.get("fontScale") is not None:
+                    duo_item["fontScale"] = float(p["fontScale"])
+                if p.get("posY") is not None:
+                    duo_item["posY"] = float(p["posY"])
+                if p.get("posX") is not None:
+                    duo_item["posX"] = float(p["posX"])
+                if p.get("outlineMode") is not None:
+                    duo_item["outlineMode"] = p["outlineMode"]
                 if roles.get("accent2"):
                     alt = roles["accent2"]
                     alt_fill = alt.get("fill", {})
@@ -654,7 +668,7 @@ def load_presets():
                         alt_grad = f"linear-gradient({alt_fill.get('angle', 90)}deg, {', '.join(alt_colors)})"
                     duo_item["accent2"] = {
                         "font": alt.get("font", accent.get("font", "Montserrat")),
-                        "size": round(alt.get("size", accent.get("size", 190)) / 1080.0, 3),
+                        "size": round(alt.get("size", accent.get("size", 190)) / 1080.0, 3) if float(alt.get("size", accent.get("size", 190))) > 1.0 else round(float(alt.get("size", 0.096)), 3),
                         "color": alt_colors[0], "bold": bool(alt.get("bold", True)),
                         "italic": bool(alt.get("italic", False)),
                         "shadow": round(alt.get("shadow", 0) / 100.0, 3),
@@ -1308,26 +1322,96 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 lay += ink_layout.layout_stack([desc_bottom], W, H, pos_x=pos_x, pos_y=sub_y, ink_gap=ink_gap)
         else:
             lines_in = []
-            if small_words:
-                lines_in.append({
-                    "text": small_text,
-                    "font_file": base_font_file,
-                    "size": small_size,
-                    "track": float(base_role.get("track", 0.0)),
-                    "words": small_words,
-                    "role": base_role,
-                    "is_hero": False
-                })
-            if big_words:
-                lines_in.append({
-                    "text": big_text,
-                    "font_file": accent_font_file,
-                    "size": big_size,
-                    "track": float(accent_role.get("track", 0.0)),
-                    "words": big_words,
-                    "role": accent_role,
-                    "is_hero": True
-                })
+            if style.get("dubaiLuxuryStack") or style.get("id") == "dubai_luxury_stack":
+                accent2_role = style.get("accent2") or (style.get("roles") or {}).get("accent2") or accent_role
+                accent2_font_file = find_font_file(accent2_role)
+                accent2_size = float(accent2_role.get("size", 104))
+                if accent2_size <= 1.0:
+                    accent2_size = accent2_size * H
+                else:
+                    accent2_size = accent2_size * scale_h
+
+                if len(words) >= 3:
+                    w_conn = words[:-2]
+                    w_impact = [words[-2]]
+                    w_key = [words[-1]]
+                    lines_in.append({
+                        "text": " ".join(str(w.get("t") or w.get("word") or "") for w in w_conn),
+                        "font_file": base_font_file,
+                        "size": small_size,
+                        "track": float(base_role.get("track", -0.01)),
+                        "words": w_conn,
+                        "role": base_role,
+                        "is_hero": False
+                    })
+                    lines_in.append({
+                        "text": " ".join(str(w.get("t") or w.get("word") or "").lower() for w in w_impact),
+                        "font_file": accent2_font_file,
+                        "size": accent2_size,
+                        "track": float(accent2_role.get("track", -0.03)),
+                        "words": w_impact,
+                        "role": accent2_role,
+                        "is_hero": False
+                    })
+                    lines_in.append({
+                        "text": " ".join(str(w.get("t") or w.get("word") or "").upper() for w in w_key),
+                        "font_file": accent_font_file,
+                        "size": big_size,
+                        "track": float(accent_role.get("track", -0.02)),
+                        "words": w_key,
+                        "role": accent_role,
+                        "is_hero": True
+                    })
+                elif len(words) == 2:
+                    lines_in.append({
+                        "text": str(words[0].get("t") or words[0].get("word") or "").lower(),
+                        "font_file": accent2_font_file,
+                        "size": accent2_size,
+                        "track": float(accent2_role.get("track", -0.03)),
+                        "words": [words[0]],
+                        "role": accent2_role,
+                        "is_hero": False
+                    })
+                    lines_in.append({
+                        "text": str(words[1].get("t") or words[1].get("word") or "").upper(),
+                        "font_file": accent_font_file,
+                        "size": big_size,
+                        "track": float(accent_role.get("track", -0.02)),
+                        "words": [words[1]],
+                        "role": accent_role,
+                        "is_hero": True
+                    })
+                else:
+                    lines_in.append({
+                        "text": str(words[0].get("t") or words[0].get("word") or "").upper(),
+                        "font_file": accent_font_file,
+                        "size": big_size,
+                        "track": float(accent_role.get("track", -0.02)),
+                        "words": words,
+                        "role": accent_role,
+                        "is_hero": True
+                    })
+            else:
+                if small_words:
+                    lines_in.append({
+                        "text": small_text,
+                        "font_file": base_font_file,
+                        "size": small_size,
+                        "track": float(base_role.get("track", 0.0)),
+                        "words": small_words,
+                        "role": base_role,
+                        "is_hero": False
+                    })
+                if big_words:
+                    lines_in.append({
+                        "text": big_text,
+                        "font_file": accent_font_file,
+                        "size": big_size,
+                        "track": float(accent_role.get("track", 0.0)),
+                        "words": big_words,
+                        "role": accent_role,
+                        "is_hero": True
+                    })
             lay = ink_layout.layout_stack(lines_in, W, H, pos_x=pos_x, pos_y=pos_y, ink_gap=ink_gap)
 
         for line_idx, o in enumerate(lay):
@@ -1376,6 +1460,10 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             measured = []
             for w in line_words:
                 txt = up(w["t"])
+                if o.get("role", {}).get("upper"):
+                    txt = txt.upper()
+                elif o.get("role", {}).get("lower"):
+                    txt = txt.lower()
                 we = ink_layout.ink_extents(o["font_file"], txt, o["size"], o["track"])
                 measured.append({
                     "w": w,
