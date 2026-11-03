@@ -2444,10 +2444,10 @@ def export_worker(job_id, d):
 
             # Quality settings
             quality = d.get("quality", "balanced")
-            crf_map = {"high": "18", "balanced": "22", "fast": "26"}
-            preset_map = {"high": "fast", "balanced": "veryfast", "fast": "ultrafast"}
-            crf = crf_map.get(quality, "22")
-            preset = preset_map.get(quality, "veryfast")
+            crf_map = {"high": "18", "balanced": "20", "fast": "24"}
+            preset_map = {"high": "veryfast", "balanced": "ultrafast", "fast": "ultrafast"}
+            crf = crf_map.get(quality, "20")
+            preset = preset_map.get(quality, "ultrafast")
 
             # Speed setting
             speed = max(0.5, min(3.0, float(d.get("speed", 1.0))))
@@ -2489,7 +2489,7 @@ def export_worker(job_id, d):
                 args = ["-i", name, "-filter_complex", cut_filter(keep, W, H, fps, bool(d.get("zoom")),
                                                                      info["has_audio"]),
                         "-map", "[vo]"] + (["-map", "[ao]"] if info["has_audio"] else []) + \
-                       ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "18", "-pix_fmt", "yuv420p"] + \
+                       ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "18", "-pix_fmt", "yuv420p", "-threads", "0"] + \
                        (["-c:a", "aac", "-b:a", "192k"] if info["has_audio"] else []) + [cut_name]
                 run_ffmpeg(args, job, cur_duration, 0, 30)
                 current, step_span = cut_name, 50.0
@@ -2769,7 +2769,7 @@ def export_worker(job_id, d):
                          "-pix_fmt", "yuv420p", "-c:a", "libopus", "-b:a", "128k"]
             else:
                 args += ["-c:v", "libx264", "-preset", preset, "-crf", crf,
-                         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"]
+                         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-threads", "0"]
 
             args += [out_name]
             run_ffmpeg(args, job, cur_duration, base, step_span)
