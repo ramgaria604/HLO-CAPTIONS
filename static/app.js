@@ -1363,12 +1363,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const fontScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
     ? S.style.fontScale
     : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
-  const scale = Math.max(0.24, Math.min(W / 1080, H / 1920)) * fontScale;
+  const scale = Math.max(0.01, Math.min(W / 1080, H / 1920)) * fontScale;
   const getRolePx = (r, defaultPx) => {
     const s = Number(r && r.size) || defaultPx;
     const pxFromRatio = s <= 1.0 ? s * H * fontScale : s * scale;
     const pxFromDefault = defaultPx > 1.0 ? defaultPx * scale : defaultPx * H * fontScale;
-    return Math.max(16, Math.max(pxFromRatio, pxFromDefault));
+    return Math.max(4, Math.max(pxFromRatio, pxFromDefault));
   };
 
   const layoutFn = getLayoutStackFn();
@@ -1416,7 +1416,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const topDesc = {
         text: topWords.map(w => up(w.t)).join(' '),
         font: chosenFont || baseRole.font || 'Poppins',
-        size: Math.max(14, getRolePx(baseRole, 56)),
+        size: Math.max(4, getRolePx(baseRole, 56)),
         weight: baseRole.weight || (baseRole.bold ? 700 : 500),
         italic: Boolean(baseRole.italic),
         track: Number(baseRole.track) || 0,
@@ -1432,7 +1432,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const heroDesc = {
         text: heroWords.map(w => up(w.t)).join(' '),
         font: chosenFont || accentRole.font || 'Montserrat',
-        size: Math.max(22, getRolePx(accentRole, 230)),
+        size: Math.max(4, getRolePx(accentRole, 230)),
         weight: accentRole.weight || (accentRole.bold ? 900 : 800),
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || 0,
@@ -1448,7 +1448,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const bottomDesc = {
         text: bottomWords.map(w => up(w.t)).join(' '),
         font: chosenFont || baseRole.font || 'Poppins',
-        size: Math.max(14, getRolePx(baseRole, 58)),
+        size: Math.max(4, getRolePx(baseRole, 58)),
         weight: baseRole.weight || (baseRole.bold ? 700 : 500),
         italic: Boolean(baseRole.italic),
         track: Number(baseRole.track) || 0,
@@ -1500,7 +1500,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const topDesc = {
         text: impactWords.map(w => w.t.toLowerCase()).join(' '),
         font: accent2Role.font || 'Poppins',
-        size: Math.max(18, getRolePx(accent2Role, 104)),
+        size: Math.max(4, getRolePx(accent2Role, 104)),
         weight: accent2Role.weight || 800,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
@@ -1513,7 +1513,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         const midDesc = {
           text: connWords.map(w => w.t).join(' '),
           font: baseRole.font || 'Poppins',
-          size: Math.max(16, getRolePx(baseRole, 80)),
+          size: Math.max(4, getRolePx(baseRole, 80)),
           weight: baseRole.weight || 700,
           italic: Boolean(baseRole.italic),
           track: Number(baseRole.track) || -0.01,
@@ -1526,7 +1526,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const botDesc = {
         text: keyWords.map(w => w.t.toUpperCase()).join(' '),
         font: accentRole.font || 'Montserrat',
-        size: Math.max(18, getRolePx(accentRole, 95)),
+        size: Math.max(4, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
@@ -1542,7 +1542,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const topDesc = {
         text: topWords[0].t.toLowerCase(),
         font: accent2Role.font || 'Poppins',
-        size: Math.max(18, getRolePx(accent2Role, 104)),
+        size: Math.max(4, getRolePx(accent2Role, 104)),
         weight: accent2Role.weight || 800,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
@@ -1554,7 +1554,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const botDesc = {
         text: keyWords[0].t.toUpperCase(),
         font: accentRole.font || 'Montserrat',
-        size: Math.max(18, getRolePx(accentRole, 95)),
+        size: Math.max(4, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
@@ -1567,7 +1567,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const midDesc = {
         text: words[0].t.toUpperCase(),
         font: accentRole.font || 'Montserrat',
-        size: Math.max(18, getRolePx(accentRole, 95)),
+        size: Math.max(4, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
@@ -1595,7 +1595,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       lineDescriptors.push({
         text: smallText,
         font: baseRole.font || 'Poppins',
-        size: Math.max(14, getRolePx(baseRole, 62)),
+        size: Math.max(4, getRolePx(baseRole, 62)),
         weight: baseRole.weight || (baseRole.bold ? 700 : 500),
         italic: Boolean(baseRole.italic),
         track: Number(baseRole.track) || 0,
@@ -1608,7 +1608,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       lineDescriptors.push({
         text: bigText,
         font: accentRole.font || 'Montserrat',
-        size: Math.max(18, getRolePx(accentRole, 190)),
+        size: Math.max(4, getRolePx(accentRole, 190)),
         weight: accentRole.weight || (accentRole.bold ? 900 : 800),
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || 0,
