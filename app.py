@@ -1664,7 +1664,7 @@ def transcribe():
     groq_key = (os.environ.get("GROQ_API_KEY") or d.get("groq_api_key") or _DEFAULT_GROQ_KEY).strip()
     groq_model = d.get("groq_model") or os.environ.get("GROQ_MODEL")
     if groq_model not in ("whisper-large-v3", "whisper-large-v3-turbo"):
-        groq_model = "whisper-large-v3"
+        groq_model = "whisper-large-v3-turbo"
     groq_engine_name = "Groq Whisper Large v3 Turbo" if groq_model.endswith("-turbo") else "Groq Whisper Large v3"
     if groq_key:
         audio_for_groq = WORK / f"{name}_groq.mp3"

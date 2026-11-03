@@ -4871,6 +4871,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       btnGenerateCaptions.disabled = false;
       btnGenerateCaptions.innerHTML = '<span>Generate captions</span><span aria-hidden="true">→</span>';
     }
+
+    // Instant video loader: immediately open editor screen
+    showView('viewEditor');
+    showToast('⚡ Video loaded! Generating captions in background...');
   }
 
   async function processSelectedFile(file) {
@@ -5019,6 +5023,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         vid.load();
       }
 
+      showToast('✨ Captions ready!');
       setTimeout(() => {
         showView('viewEditor');
         showPreviewQualityNoticeBanner();
