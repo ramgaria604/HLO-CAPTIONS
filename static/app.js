@@ -10641,7 +10641,23 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   }
 
   let activeDirectExport = null;
+  let _expErrHandlersAdded = false;
   async function startFrameExport() {
+    if (!_expErrHandlersAdded) {
+      _expErrHandlersAdded = true;
+      window.addEventListener('unhandledrejection', (ev) => {
+        console.error('[EXPERR] unhandledrejection:', ev && (ev.reason?.message || ev.reason));
+      });
+      window.addEventListener('error', (ev) => {
+        console.error('[EXPERR] error:', ev && (ev.message || ev.error?.message || ev.error));
+      });
+    }
+
+    let dbgFrameCount = 0;
+    let dbgVideoDrawMs = 0;
+    let dbgCaptionMs = 0;
+    let dbgSegMs = 0;
+    const dbgStartTime = performance.now();
     if (!window.Mediabunny) {
       try {
         window.Mediabunny = await import('https://cdn.jsdelivr.net/npm/mediabunny@1.65.0/+esm');
@@ -10937,6 +10953,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
         // PROBLEM A Point 3: Per frame, order must be:
         // a) video frame
+        dbgFrameCount++;
+        const _tVideo0 = performance.now();
         ctx.clearRect(0, 0, W, H);
         const reExportPunch = ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) ? getRealEstateCameraPunch(t, S.captions) : 1.0;
         const effExportZoom = isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch;
@@ -11010,6 +11028,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             ctx.drawImage(bv, 0, 0, W, H);
           }
         }
+        dbgVideoDrawMs += (performance.now() - _tVideo0);
 
         // Reel Progress Bar
         if (hasProgressBar) {
@@ -11064,14 +11083,18 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             segExportForeCtx.clearRect(0, 0, W, H);
 
             // Separate lines into behind and front contexts
+            const _tCapBehind0 = performance.now();
             drawCanvasTypography(segExportForeCtx, segExportBehindCtx, activeCap, words, t, S.style || {}, W, H, true, false);
+            dbgCaptionMs += (performance.now() - _tCapBehind0);
 
             exportMaskFrameIdx++;
             let maskCanvas = null;
 
             // Run person mask only on every 2nd frame, and reuse previous mask in between
             if (exportMaskFrameIdx % 2 === 1 || !lastExportMaskCanvas) {
+              const _tSeg0 = performance.now();
               const newMask = getExportPersonMask(exportSegmenter, exportCleanFrameCanvas, frameMs, W, H);
+              dbgSegMs += (performance.now() - _tSeg0);
               if (newMask && newMask.width === W && newMask.height === H) {
                 if (!segExportCachedMaskCanvas) {
                   segExportCachedMaskCanvas = document.createElement('canvas');
@@ -11147,7 +11170,9 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             // Standard non-behind preset path
             lastExportMaskCanvas = null;
             exportMaskFrameIdx = 0;
+            const _tCapStd0 = performance.now();
             drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
+            dbgCaptionMs += (performance.now() - _tCapStd0);
             drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
           }
         } else {
@@ -11274,7 +11299,18 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
       deductCreditAfterExport();
       updateExportPipeline(3);
+
+      const totalSec = Number(((performance.now() - dbgStartTime) / 1000).toFixed(2));
+      const brollUsed = Boolean(S.brolls && S.brolls.length > 0);
+      console.log(`[EXPDBG] frames=${dbgFrameCount} totalSec=${totalSec} videoDrawMs=${Math.round(dbgVideoDrawMs)} captionMs=${Math.round(dbgCaptionMs)} segMs=${Math.round(dbgSegMs)} size=${targetW}x${targetH} bitrate=${targetBitrate} brollUsed=${brollUsed}`);
+
       showExportComplete(url, blob);
+    } catch (e) {
+      console.error('[EXPERR]', e && e.message, e && e.stack);
+      if (exportProgressText && e && e.message) {
+        exportProgressText.textContent = 'Export error: ' + e.message;
+      }
+      throw e;
     } finally {
       // PROBLEM A Point 2: Close export segmenter when export ends
       if (exportSegmenter) {
