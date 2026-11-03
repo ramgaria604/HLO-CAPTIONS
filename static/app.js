@@ -3367,6 +3367,11 @@ async function ensureHeroFontsLoaded() {
 }
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
+  if (!window._capdbg2Count) window._capdbg2Count = 0;
+  if (window._capdbg2Count < 5) {
+    window._capdbg2Count++;
+    console.log(`[CAPDBG2] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} styleId=${S.style && S.style.id} styleName=${S.style && S.style.name} layout=${S.style && S.style.layout} dubaiFlag=${S.style && S.style.dubaiLuxuryStack} isBehind=${isBehind} lineSpacing=${S.style && S.style.lineSpacing} fontScale=${S.style && S.style.fontScale}`);
+  }
   if (!ctxFore) return;
   _captionsDrawnCount++;
   if (st && st.videoTemplate === 'popStudio') {
