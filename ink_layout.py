@@ -16,7 +16,7 @@ from fontTools.ttLib import TTFont
 @lru_cache(maxsize=64)
 def load_font(path):
     tt = TTFont(path, lazy=True)
-    return tt, tt.getGlyphSet(), tt.getBestCmap(), tt['head'].unitsPerEm, tt['OS/2'].usWinDescent
+    return tt, tt.getGlyphSet(), tt.getBestCmap(), tt['head'].unitsPerEm, abs(tt['hhea'].descent)
 
 
 def ink_extents(font_file, text, size, track=0.0):

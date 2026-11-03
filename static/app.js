@@ -1363,12 +1363,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const fontScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
     ? S.style.fontScale
     : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
-  const scale = Math.max(0.24, Math.min(W / 1080, H / 1920)) * fontScale;
+  const scale = Math.max(0.01, Math.min(W / 1080, H / 1920)) * fontScale;
   const getRolePx = (r, defaultPx) => {
     const s = Number(r && r.size) || defaultPx;
     const pxFromRatio = s <= 1.0 ? s * H * fontScale : s * scale;
     const pxFromDefault = defaultPx > 1.0 ? defaultPx * scale : defaultPx * H * fontScale;
-    return Math.max(16, Math.max(pxFromRatio, pxFromDefault));
+    return Math.max(4, Math.max(pxFromRatio, pxFromDefault));
   };
 
   const layoutFn = getLayoutStackFn();
@@ -1416,7 +1416,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const topDesc = {
         text: topWords.map(w => up(w.t)).join(' '),
         font: chosenFont || baseRole.font || 'Poppins',
-        size: Math.max(14, getRolePx(baseRole, 56)),
+        size: Math.max(4, getRolePx(baseRole, 56)),
         weight: baseRole.weight || (baseRole.bold ? 700 : 500),
         italic: Boolean(baseRole.italic),
         track: Number(baseRole.track) || 0,
@@ -1432,7 +1432,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const heroDesc = {
         text: heroWords.map(w => up(w.t)).join(' '),
         font: chosenFont || accentRole.font || 'Montserrat',
-        size: Math.max(22, getRolePx(accentRole, 230)),
+        size: Math.max(4, getRolePx(accentRole, 230)),
         weight: accentRole.weight || (accentRole.bold ? 900 : 800),
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || 0,
@@ -1448,7 +1448,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const bottomDesc = {
         text: bottomWords.map(w => up(w.t)).join(' '),
         font: chosenFont || baseRole.font || 'Poppins',
-        size: Math.max(14, getRolePx(baseRole, 58)),
+        size: Math.max(4, getRolePx(baseRole, 58)),
         weight: baseRole.weight || (baseRole.bold ? 700 : 500),
         italic: Boolean(baseRole.italic),
         track: Number(baseRole.track) || 0,
@@ -1467,8 +1467,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const lineSpacingMult = (typeof S.style?.lineSpacing === 'number' && S.style.lineSpacing > 0)
       ? (S.style.lineSpacing / 1.2)
       : 1.0;
-    const lineGap3 = 0.078 * fontScale * lineSpacingMult;
-    const lineGap2 = 0.055 * fontScale * lineSpacingMult;
+    const lineGap3 = 0.054 * fontScale * lineSpacingMult;
+    const lineGap2 = 0.044 * fontScale * lineSpacingMult;
 
     const goldRole = Object.assign({}, accentRole, {
       color: heroColor,
@@ -1500,7 +1500,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const topDesc = {
         text: impactWords.map(w => w.t.toLowerCase()).join(' '),
         font: accent2Role.font || 'Poppins',
-        size: Math.max(18, getRolePx(accent2Role, 104)),
+        size: Math.max(4, getRolePx(accent2Role, 104)),
         weight: accent2Role.weight || 800,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
@@ -1508,12 +1508,12 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
         words: impactWords
       };
-      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap3 * 1.02, inkGap, maxWidth: 0.96 }));
+      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap3 * 1.0, inkGap, maxWidth: 0.96 }));
       if (connWords.length > 0) {
         const midDesc = {
           text: connWords.map(w => w.t).join(' '),
           font: baseRole.font || 'Poppins',
-          size: Math.max(14, getRolePx(baseRole, 48)),
+          size: Math.max(4, getRolePx(baseRole, 80)),
           weight: baseRole.weight || 700,
           italic: Boolean(baseRole.italic),
           track: Number(baseRole.track) || -0.01,
@@ -1526,7 +1526,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const botDesc = {
         text: keyWords.map(w => w.t.toUpperCase()).join(' '),
         font: accentRole.font || 'Montserrat',
-        size: Math.max(18, getRolePx(accentRole, 95)),
+        size: Math.max(4, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
@@ -1534,7 +1534,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         role: goldRole,
         words: keyWords
       };
-      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap3 * 1.05, inkGap, maxWidth: 0.96 }));
+      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap3 * 1.0, inkGap, maxWidth: 0.96 }));
     } else if (words.length === 2) {
       const keyIdx = words[0].key ? 0 : 1;
       const keyWords = [words[keyIdx]];
@@ -1542,7 +1542,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const topDesc = {
         text: topWords[0].t.toLowerCase(),
         font: accent2Role.font || 'Poppins',
-        size: Math.max(18, getRolePx(accent2Role, 104)),
+        size: Math.max(4, getRolePx(accent2Role, 104)),
         weight: accent2Role.weight || 800,
         italic: Boolean(accent2Role.italic),
         track: Number(accent2Role.track) || -0.03,
@@ -1554,7 +1554,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const botDesc = {
         text: keyWords[0].t.toUpperCase(),
         font: accentRole.font || 'Montserrat',
-        size: Math.max(18, getRolePx(accentRole, 95)),
+        size: Math.max(4, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
@@ -1567,7 +1567,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       const midDesc = {
         text: words[0].t.toUpperCase(),
         font: accentRole.font || 'Montserrat',
-        size: Math.max(18, getRolePx(accentRole, 95)),
+        size: Math.max(4, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || -0.02,
@@ -1595,7 +1595,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       lineDescriptors.push({
         text: smallText,
         font: baseRole.font || 'Poppins',
-        size: Math.max(14, getRolePx(baseRole, 62)),
+        size: Math.max(4, getRolePx(baseRole, 62)),
         weight: baseRole.weight || (baseRole.bold ? 700 : 500),
         italic: Boolean(baseRole.italic),
         track: Number(baseRole.track) || 0,
@@ -1608,7 +1608,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       lineDescriptors.push({
         text: bigText,
         font: accentRole.font || 'Montserrat',
-        size: Math.max(18, getRolePx(accentRole, 190)),
+        size: Math.max(4, getRolePx(accentRole, 190)),
         weight: accentRole.weight || (accentRole.bold ? 900 : 800),
         italic: Boolean(accentRole.italic),
         track: Number(accentRole.track) || 0,
@@ -1620,20 +1620,17 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.96 });
   }
 
-  // STEP 3: CAPDBG debug log once per caption
-  if (!window._lastCapDbgKey) window._lastCapDbgKey = '';
-  const capDbgKey = `${capId}_${isPreview ? 'preview' : 'export'}_${Math.round(fontScale * 100)}`;
-  if (window._lastCapDbgKey !== capDbgKey) {
-    window._lastCapDbgKey = capDbgKey;
+  window._capdbgKeys = window._capdbgKeys || new Set();
+  const capDbgKey = `${W}x${H}|${S.style && S.style.lineSpacing}`;
+  if (!window._capdbgKeys.has(capDbgKey)) {
+    window._capdbgKeys.add(capDbgKey);
     const topItem = lay.find(o => o.lineType === 'top' || (!o.isHero && lay.indexOf(o) === 0));
     const heroItem = lay.find(o => o.isHero || o.lineType === 'hero');
     const midItem = lay.find(o => o !== topItem && o !== heroItem);
     const topPx = topItem ? Math.round(topItem.size) : 0;
     const midPx = midItem ? Math.round(midItem.size) : 0;
     const heroPx = heroItem ? Math.round(heroItem.size) : 0;
-    const modeStr = isPreview ? 'preview' : 'export';
-    const lsVal = S.style?.lineSpacing ?? st.lineSpacing ?? 1.2;
-    console.log(`[CAPDBG] mode=${modeStr} W=${W} H=${H} scale=${scale} fontScale=${fontScale} lineSpacing=${lsVal} top=${topPx} mid=${midPx} hero=${heroPx}`);
+    console.log(`[CAPDBG] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} scale=${scale} fontScale=${fontScale} lineSpacing=${S.style && S.style.lineSpacing} top=${topPx} mid=${midPx} hero=${heroPx}`);
   }
 
   const heroLookStack = S.heroLook || st.heroLook || 'solid';
@@ -2335,15 +2332,15 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
     displayHeroText = applyTextCase(getCleanDisplayHeroText(displayHeroText), currentCase);
 
+    const reScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
+      ? S.style.fontScale
+      : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
+
     // FIT CALCULATION: Reduce font size until measured width at PEAK scale <= 0.84 * W
     const maxAllowedHeroWidth = Math.min(0.96 * W, HERO_MAX_WIDTH_RATIO * W * Math.max(1.0, reScale));
     const peakEntranceScale = 1.10;
     const letterSpacing = 2;
     const strokePadding = 8;
-
-    const reScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
-      ? S.style.fontScale
-      : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
     let heroFontSize = Math.round(W * 0.17 * reScale);
     ctxFore.save();
     while (heroFontSize > 14) {
@@ -3383,6 +3380,13 @@ async function ensureHeroFontsLoaded() {
 }
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
+  window._capdbg2Keys = window._capdbg2Keys || new Set();
+  const capdbg2Key = `${isPreview}|${W}x${H}|${S.style && S.style.lineSpacing}`;
+  if (!window._capdbg2Keys.has(capdbg2Key)) {
+    window._capdbg2Keys.add(capdbg2Key);
+    const caller = (new Error().stack || '').split('\n').slice(2, 4).join(' <- ');
+    console.log(`[CAPDBG2] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} styleId=${S.style && S.style.id} styleName=${S.style && S.style.name} layout=${S.style && S.style.layout} dubaiFlag=${S.style && S.style.dubaiLuxuryStack} isBehind=${isBehind} lineSpacing=${S.style && S.style.lineSpacing} fontScale=${S.style && S.style.fontScale} caller=${caller}`);
+  }
   if (!ctxFore) return;
   _captionsDrawnCount++;
   if (st && st.videoTemplate === 'popStudio') {
@@ -4266,8 +4270,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function startKeepAliveHeartbeat() {
-    // Keep-alive heartbeat removed/disabled on test website
-    return;
+    // Keep-alive heartbeat: ping server every 8 minutes so server never sleeps while tab is open
+    setInterval(() => {
+      fetch('/api/ping', { cache: 'no-store' }).catch(() => {});
+    }, 8 * 60 * 1000);
   }
 
   // ==========================================================================
