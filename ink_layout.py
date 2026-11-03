@@ -38,7 +38,7 @@ def ink_extents(font_file, text, size, track=0.0):
     return {'width': x - track * size, 'asc': asc, 'desc': desc}
 
 
-def layout_stack(lines, W, H, pos_x=.5, pos_y=.5, ink_gap=.03, max_width=.9):
+def layout_stack(lines, W, H, pos_x=.5, pos_y=.5, ink_gap=.03, max_width=.96):
     """Stack lines top to bottom. ink_gap = empty space between the BOTTOM of the letters of one line and the TOP of the letters of the next,
     as a fraction of the bigger font size of the two lines (0.03 = tight, 0 = touching, negative = tucked, 0.2 = airy).
     Lines wider than max_width*W are shrunk to fit."""
