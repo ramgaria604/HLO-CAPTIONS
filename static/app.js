@@ -2332,15 +2332,15 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
     displayHeroText = applyTextCase(getCleanDisplayHeroText(displayHeroText), currentCase);
 
+    const reScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
+      ? S.style.fontScale
+      : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
+
     // FIT CALCULATION: Reduce font size until measured width at PEAK scale <= 0.84 * W
     const maxAllowedHeroWidth = Math.min(0.96 * W, HERO_MAX_WIDTH_RATIO * W * Math.max(1.0, reScale));
     const peakEntranceScale = 1.10;
     const letterSpacing = 2;
     const strokePadding = 8;
-
-    const reScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
-      ? S.style.fontScale
-      : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
     let heroFontSize = Math.round(W * 0.17 * reScale);
     ctxFore.save();
     while (heroFontSize > 14) {
