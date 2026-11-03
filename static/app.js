@@ -1620,6 +1620,22 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.96 });
   }
 
+  // STEP 3: CAPDBG debug log once per caption
+  if (!window._lastCapDbgKey) window._lastCapDbgKey = '';
+  const capDbgKey = `${capId}_${isPreview ? 'preview' : 'export'}_${Math.round(fontScale * 100)}`;
+  if (window._lastCapDbgKey !== capDbgKey) {
+    window._lastCapDbgKey = capDbgKey;
+    const topItem = lay.find(o => o.lineType === 'top' || (!o.isHero && lay.indexOf(o) === 0));
+    const heroItem = lay.find(o => o.isHero || o.lineType === 'hero');
+    const midItem = lay.find(o => o !== topItem && o !== heroItem);
+    const topPx = topItem ? Math.round(topItem.size) : 0;
+    const midPx = midItem ? Math.round(midItem.size) : 0;
+    const heroPx = heroItem ? Math.round(heroItem.size) : 0;
+    const modeStr = isPreview ? 'preview' : 'export';
+    const lsVal = S.style?.lineSpacing ?? st.lineSpacing ?? 1.2;
+    console.log(`[CAPDBG] mode=${modeStr} W=${W} H=${H} scale=${scale} fontScale=${fontScale} lineSpacing=${lsVal} top=${topPx} mid=${midPx} hero=${heroPx}`);
+  }
+
   const heroLookStack = S.heroLook || st.heroLook || 'solid';
   const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false) && !st.dubaiLuxuryStack && st.id !== 'dubai_luxury_stack';
 

@@ -1144,6 +1144,7 @@ def _chunk_text(words, style, W, H, layer, ev_start):
 
 
 def build_stack_ass(captions, style, W, H, layer_filter="all"):
+    _capdbg_count = 0
     r"""
     Renders stack-layout captions (e.g. Duo presets) with exact glyph bounding box measurement,
     word-by-word stable positioning, and 100% visual parity with canvas preview.
@@ -1449,6 +1450,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 
             font_name, ratio = get_ass_font_info(o["font_file"])
             ass_fs = o["size"] * ratio
+            if _capdbg_count < 12:
+                _capdbg_count += 1
+                print(f"[CAPDBG-SRV] W={W} H={H} lineSpacing={style.get('lineSpacing')} fontScale={style.get('fontScale')} text={o['text']!r} size={o['size']:.1f} ratio={ratio} ass_fs={ass_fs:.1f} font={font_name}", flush=True)
             fsp = o["track"] * o["size"]
 
             r = o["role"]
