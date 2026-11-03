@@ -10363,11 +10363,51 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     $$('.btn-quality-pill').forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-quality') === curQ);
     });
+    const selectHeader = $('selectHeaderExportQuality');
+    if (selectHeader && selectHeader.value !== curQ) {
+      selectHeader.value = curQ;
+    }
     const stepFinalizeTitle = $('stepFinalizeTitle');
     if (stepFinalizeTitle) {
       if (curQ === 'fast') stepFinalizeTitle.textContent = '960p MP4';
       else if (curQ === 'high') stepFinalizeTitle.textContent = '1080p MP4';
       else stepFinalizeTitle.textContent = '720p MP4';
+    }
+  }
+
+  function setExportQuality(q) {
+    if (!q) return;
+    const isSame = (q === S.exportQuality);
+    S.exportQuality = q;
+    try { localStorage.setItem('captionstudio_export_quality', q); } catch (_) {}
+    updateQualityPillsUI();
+
+    const qLabel = q === 'fast' ? 'Fast (960p)' : (q === 'high' ? 'High (1080p)' : 'Balanced (720p)');
+    showToast('⚡ Quality: ' + qLabel, 1500);
+
+    const modalExp = $('modalExport');
+    const isModalOpen = modalExp && !modalExp.classList.contains('hidden');
+    const isWorking = exportWorkingState && !exportWorkingState.classList.contains('hidden');
+
+    if (isModalOpen && isWorking && !isSame) {
+      S._restartingExport = true;
+      S.exportAbortSignal = true;
+      if (activeDirectExport) {
+        try { activeDirectExport.stop(); } catch (_) {}
+        activeDirectExport = null;
+      }
+      if (S.exportTimer) clearInterval(S.exportTimer);
+      if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+      exportProgressBar.style.width = '3%';
+      exportPercent.textContent = '3%';
+      exportProgressText.textContent = 'Switching to ' + qLabel + '...';
+      setTimeout(() => {
+        S._restartingExport = false;
+        S.exportAbortSignal = false;
+        if (!modalExp.classList.contains('hidden')) {
+          startExport();
+        }
+      }, 120);
     }
   }
 
@@ -10394,22 +10434,22 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
   function setupQualityPills() {
     $$('.btn-quality-pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const q = btn.getAttribute('data-quality');
-        if (!q || q === S.exportQuality) return;
-        S.exportQuality = q;
-        try { localStorage.setItem('captionstudio_export_quality', q); } catch (_) {}
-        updateQualityPillsUI();
-        if (activeDirectExport) {
-          try { activeDirectExport.stop(); } catch (_) {}
-          setTimeout(() => {
-            if (!modalExport.classList.contains('hidden')) {
-              startExport();
-            }
-          }, 80);
+      const onAction = (e) => {
+        if (e) {
+          try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
         }
-      });
+        const q = btn.getAttribute('data-quality');
+        setExportQuality(q);
+      };
+      btn.onclick = onAction;
+      btn.ontouchend = onAction;
     });
+
+    const selectHeader = $('selectHeaderExportQuality');
+    if (selectHeader) {
+      selectHeader.onchange = () => setExportQuality(selectHeader.value);
+    }
+
     updateQualityPillsUI();
   }
 
@@ -11513,6 +11553,10 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           await startFrameExport();
           return;
         } catch (frameErr) {
+          if (S._restartingExport) {
+            console.log('Frame export aborted for quality restart.');
+            return;
+          }
           frameExportFailure = frameErr;
           console.error('[BEHIND] startFrameExport failed with full stack trace:', frameErr && frameErr.stack ? frameErr.stack : frameErr);
           
@@ -11588,7 +11632,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         })),
         style: S.style,
         preset_id: S.style?.id || 'yellow_box',
-        quality: 'balanced',
+        quality: S.exportQuality || 'balanced',
         aspect: S.aspect || 'original',
         speed: 1.0,
         zoom: Boolean(S.autoZoom && S.autoZoom.enabled),
@@ -14305,3 +14349,24 @@ function initHeroLookUI() {
     }
   }
 
+
+// Global delegated click listener so quality buttons are 100% clickable anywhere
+document.addEventListener('click', function(e) {
+  var pill = e.target && e.target.closest ? e.target.closest('.btn-quality-pill') : null;
+  if (pill) {
+    var q = pill.getAttribute('data-quality');
+    if (q && typeof setExportQuality === 'function') {
+      setExportQuality(q);
+    }
+  }
+}, true);
+document.addEventListener('touchend', function(e) {
+  var pill = e.target && e.target.closest ? e.target.closest('.btn-quality-pill') : null;
+  if (pill) {
+    var q = pill.getAttribute('data-quality');
+    if (q && typeof setExportQuality === 'function') {
+      setExportQuality(q);
+    }
+  }
+}, true);
+/* cs_delegated_quality */
