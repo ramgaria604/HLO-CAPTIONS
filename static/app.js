@@ -10868,10 +10868,18 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         const H = targetH;
 
         if (!canvas) {
-          canvas = document.createElement('canvas');
-          canvas.width = W;
-          canvas.height = H;
-          ctx = canvas.getContext('2d');
+          if (typeof OffscreenCanvas !== 'undefined') {
+            try {
+              canvas = new OffscreenCanvas(W, H);
+              ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+            } catch (_) {}
+          }
+          if (!ctx) {
+            canvas = document.createElement('canvas');
+            canvas.width = W;
+            canvas.height = H;
+            ctx = canvas.getContext('2d', { alpha: false });
+          }
         }
 
         const t = sample.timestamp || 0;
@@ -11189,6 +11197,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         fit: 'contain',
         frameRate: 30,
         bitrate: targetBitrate,
+        bitrateMode: 'variable',
+        latencyMode: 'realtime',
       };
 
       try {
