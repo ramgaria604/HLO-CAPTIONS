@@ -10941,7 +10941,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       }
 
       const processFrame = (sample) => {
-        exportFrameIndex++;
+        try {
+          exportFrameIndex++;
         const W = targetW;
         const H = targetH;
 
@@ -11265,6 +11266,17 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         drawWatermark(ctx, W, H);
 
         return canvas;
+        } catch (procFrameErr) {
+          console.warn('[EXPORT] processFrame recovered frame:', procFrameErr);
+          try {
+            if (canvas && ctx) {
+              ctx.clearRect(0, 0, targetW, targetH);
+              sample.draw(ctx, 0, 0, targetW, targetH);
+              return canvas;
+            }
+          } catch (_) {}
+          return sample;
+        }
       };
 
       let conversion = null;
@@ -11276,15 +11288,16 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         frameRate: 30,
         bitrate: targetBitrate,
         bitrateMode: 'variable',
-        latencyMode: 'realtime',
       };
+
+      const audioConfig = audioSource ? { discard: true } : undefined;
 
       try {
         conversion = await window.Mediabunny.Conversion.init({
           input,
           output,
           composable: Boolean(audioSource),
-          audio: audioSource ? { discard: true } : { codec: 'aac' },
+          audio: audioConfig,
           video: {
             ...baseVideoConfig,
             hardwareAcceleration: 'prefer-hardware',
@@ -11297,7 +11310,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           input,
           output,
           composable: Boolean(audioSource),
-          audio: audioSource ? { discard: true } : { codec: 'aac' },
+          audio: audioConfig,
           video: {
             ...baseVideoConfig,
             hardwareAcceleration: 'no-preference',
