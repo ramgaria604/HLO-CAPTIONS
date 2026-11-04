@@ -825,19 +825,27 @@ html, body {
   }
 
   .editor-header {
-    flex: 0 0 auto !important;
+    flex: 0 0 52px !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
     width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  .editor-body {
+  .editor-body,
+  .editor-body.drawer-open,
+  .editor-body:not(.drawer-open) {
     flex: 1 1 0 !important;
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) clamp(380px, 30vw, 440px) !important;
     grid-template-rows: 1fr auto !important;
     height: calc(100% - 52px) !important;
+    max-height: calc(100% - 52px) !important;
     min-height: 0 !important;
     width: 100% !important;
     padding-bottom: 0 !important;
+    margin: 0 !important;
     overflow: hidden !important;
   }
 
@@ -848,9 +856,10 @@ html, body {
     grid-row: 1 !important;
     min-height: 0 !important;
     height: 100% !important;
-    max-height: none !important;
+    max-height: 100% !important;
     flex: none !important;
     overflow: hidden !important;
+    padding: 8px 12px 6px 12px !important;
   }
 
   .editor-body.drawer-open .timeline-section,
@@ -859,14 +868,21 @@ html, body {
     grid-column: 1 !important;
     grid-row: 2 !important;
     display: flex !important;
+    flex-direction: column !important;
     height: clamp(140px, 20vh, 180px) !important;
     min-height: 130px !important;
+    max-height: 180px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: #0d0f1a !important;
   }
 
   /* Desktop side drawer panel */
   .drawer-panel,
+  .drawer-panel.collapsed,
+  .drawer-panel.fullscreen,
   .editor-body.drawer-open .drawer-panel,
-  .editor-body:not(.drawer-open) .drawer-panel {
+  .editor-body:not(.drawer-open) .drawer-panel,
+  .editor-body.drawer-open .drawer-panel:not(.collapsed) {
     grid-column: 2 !important;
     grid-row: 1 / -1 !important;
     position: relative !important;
@@ -877,6 +893,7 @@ html, body {
     width: 100% !important;
     height: 100% !important;
     max-height: 100% !important;
+    min-height: 0 !important;
     border-top: none !important;
     border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 0 !important;
@@ -885,13 +902,12 @@ html, body {
     pointer-events: auto !important;
     box-shadow: none !important;
     display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
   }
 
-  .drawer-panel.collapsed {
-    transform: none !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    display: flex !important;
+  .drawer-drag-handle-bar {
+    display: none !important;
   }
 
   .bottom-nav-bar {
