@@ -9008,28 +9008,32 @@ async function createExportSegmenter() {
   }
 
   const modelPath = '/static/mediapipe/selfie_segmenter.tflite';
+  const cdnModelPath = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+
+  async function tryInitSegmenter(path, delegate) {
+    return await ImageSegmenter.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: path,
+        delegate: delegate
+      },
+      runningMode: 'VIDEO',
+      outputConfidenceMasks: true,
+      outputCategoryMask: false
+    });
+  }
 
   try {
-    return await ImageSegmenter.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: modelPath,
-        delegate: 'GPU'
-      },
-      runningMode: 'VIDEO',
-      outputConfidenceMasks: true,
-      outputCategoryMask: false
-    });
-  } catch (gpuErr) {
-    console.warn('[BEHIND] Export segmenter GPU failed, falling back to CPU:', gpuErr);
-    return await ImageSegmenter.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: modelPath,
-        delegate: 'CPU'
-      },
-      runningMode: 'VIDEO',
-      outputConfidenceMasks: true,
-      outputCategoryMask: false
-    });
+    return await tryInitSegmenter(modelPath, 'GPU');
+  } catch (e1) {
+    try {
+      return await tryInitSegmenter(modelPath, 'CPU');
+    } catch (e2) {
+      try {
+        return await tryInitSegmenter(cdnModelPath, 'GPU');
+      } catch (e3) {
+        return await tryInitSegmenter(cdnModelPath, 'CPU');
+      }
+    }
   }
 }
 
@@ -9167,7 +9171,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   const outW = targetW || srcW;
   const outH = targetH || srcH;
 
-  const downScale = Math.min(1, 192 / Math.max(srcW, srcH));
+  const downScale = Math.min(1, 160 / Math.max(srcW, srcH));
   const downW = Math.max(64, Math.round(srcW * downScale));
   const downH = Math.max(64, Math.round(srcH * downScale));
 
@@ -9246,9 +9250,9 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         }
 
         exportSegFinalCtx.clearRect(0, 0, outW, outH);
-        exportSegFinalCtx.filter = 'blur(1.5px)';
+        exportSegFinalCtx.imageSmoothingEnabled = true;
+        exportSegFinalCtx.imageSmoothingQuality = 'medium';
         exportSegFinalCtx.drawImage(exportSegMaskRawCanvas, 0, 0, outW, outH);
-        exportSegFinalCtx.filter = 'none';
 
         resultMaskCanvas = exportSegFinalCanvas;
       } finally {
@@ -11202,12 +11206,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             }
 
             if (!maskOk) {
-              consecutiveMaskFailures++;
-              // If mask fails 5 frames in a row, stop and throw error
-              if (consecutiveMaskFailures >= 5) {
-                throw new Error('Behind-person person mask failed for 5 consecutive frames. Model could not detect person in frame.');
-              }
-              // Isolated glitch frame: draw all lines in front
+              // Person not detected in this frame: safely draw captions in front without aborting export
               ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
               ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
               drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
@@ -11294,7 +11293,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         bitrateMode: 'variable',
       };
 
-      const audioConfig = audioSource ? { discard: true } : undefined;
+      const audioConfig = audioSource ? { discard: true } : { copy: true };
 
       try {
         conversion = await window.Mediabunny.Conversion.init({
