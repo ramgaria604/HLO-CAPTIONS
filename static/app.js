@@ -10800,6 +10800,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
     // Request Screen Wake Lock during export
     let wakeLock = null;
+    let stallWatchdog = null;
     try {
       if ('wakeLock' in navigator && navigator.wakeLock && typeof navigator.wakeLock.request === 'function') {
         wakeLock = await navigator.wakeLock.request('screen');
@@ -10991,6 +10992,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           sample.draw(ctx, 0, 0, W, H);
           lastExportMaskCanvas = null;
           exportMaskFrameIdx = 0;
+          try { if (sample && typeof sample.close === 'function') sample.close(); } catch (_) {}
           return canvas;
         }
 
@@ -11027,6 +11029,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         if (isPopStudioExport) {
           ctx.clearRect(0, 0, W, H);
           drawPopStudioFrame(ctx, segExportBehindCtx || ctx, t, W, H, false, sample);
+          try { if (sample && typeof sample.close === 'function') sample.close(); } catch (_) {}
           return canvas;
         }
 
@@ -11265,6 +11268,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         drawRealEstateOverlays(ctx, W, H, t);
         drawWatermark(ctx, W, H);
 
+        try { if (sample && typeof sample.close === 'function') sample.close(); } catch (_) {}
         return canvas;
         } catch (procFrameErr) {
           console.warn('[EXPORT] processFrame recovered frame:', procFrameErr);
@@ -11272,6 +11276,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             if (canvas && ctx) {
               ctx.clearRect(0, 0, targetW, targetH);
               sample.draw(ctx, 0, 0, targetW, targetH);
+              try { if (sample && typeof sample.close === 'function') sample.close(); } catch (_) {}
               return canvas;
             }
           } catch (_) {}
@@ -11333,7 +11338,18 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       let lastEtaUpdateTime = 0;
       let lastEtaText = 'calculating...';
 
+      stallWatchdog = setTimeout(() => {
+        if (exportFrameIndex < 5) {
+          console.warn('[EXPORT] Hardware pipeline stalled at frame 1, triggering compatibility export...');
+          try { conversion.cancel(); } catch (_) {}
+        }
+      }, 4000);
+
       conversion.onProgress = (progress) => {
+        if (progress > 0.02 && stallWatchdog) {
+          clearTimeout(stallWatchdog);
+          stallWatchdog = null;
+        }
         const now = performance.now();
         if (now - lastUiUpdate < 250 && progress < 0.99) {
           return;
@@ -11408,6 +11424,10 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       }
       throw e;
     } finally {
+      if (stallWatchdog) {
+        clearTimeout(stallWatchdog);
+        stallWatchdog = null;
+      }
       // PROBLEM A Point 2: Close export segmenter when export ends
       if (exportSegmenter) {
         try {
