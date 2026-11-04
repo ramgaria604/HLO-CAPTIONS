@@ -2819,7 +2819,12 @@ def save_canvas_export():
         voiceover_file = None
 
     orig_video_file = None
-    if orig_filename:
+    if "originalVideoFile" in request.files and request.files["originalVideoFile"].filename:
+        vf = request.files["originalVideoFile"]
+        v_ext = Path(secure_filename(vf.filename)).suffix.lower() or ".mp4"
+        orig_video_file = WORK / f"orig_{uuid.uuid4().hex[:8]}{v_ext}"
+        vf.save(str(orig_video_file))
+    elif orig_filename:
         clean_name = secure_filename(orig_filename)
         candidate = WORK / clean_name
         if candidate.exists() and candidate.is_file():

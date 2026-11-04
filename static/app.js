@@ -10800,7 +10800,6 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
     // Request Screen Wake Lock during export
     let wakeLock = null;
-    let stallWatchdog = null;
     try {
       if ('wakeLock' in navigator && navigator.wakeLock && typeof navigator.wakeLock.request === 'function') {
         wakeLock = await navigator.wakeLock.request('screen');
@@ -11338,18 +11337,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       let lastEtaUpdateTime = 0;
       let lastEtaText = 'calculating...';
 
-      stallWatchdog = setTimeout(() => {
-        if (exportFrameIndex < 5) {
-          console.warn('[EXPORT] Hardware pipeline stalled at frame 1, triggering compatibility export...');
-          try { conversion.cancel(); } catch (_) {}
-        }
-      }, 4000);
-
       conversion.onProgress = (progress) => {
-        if (progress > 0.02 && stallWatchdog) {
-          clearTimeout(stallWatchdog);
-          stallWatchdog = null;
-        }
         const now = performance.now();
         if (now - lastUiUpdate < 250 && progress < 0.99) {
           return;
@@ -11424,10 +11412,6 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       }
       throw e;
     } finally {
-      if (stallWatchdog) {
-        clearTimeout(stallWatchdog);
-        stallWatchdog = null;
-      }
       // PROBLEM A Point 2: Close export segmenter when export ends
       if (exportSegmenter) {
         try {
@@ -11595,6 +11579,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           const formData = new FormData();
           formData.append('video', recordedBlob, `captions_overlay.${ext}`);
           formData.append('originalVideo', S.filename || '');
+          if (S.file) formData.append('originalVideoFile', S.file);
           if (S.bgmFilename) formData.append('bgMusic', S.bgmFilename);
           if (S.bgmVolume != null) formData.append('musicVol', Math.round(S.bgmVolume * 100));
           if (S.voiceoverFilename && btnReplaceVoiceover.classList.contains('active')) {
