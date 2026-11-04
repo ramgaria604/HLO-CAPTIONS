@@ -116,7 +116,7 @@ html, body {
   z-index: var(--z-header) !important;
   box-sizing: border-box !important;
   position: relative !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 .editor-header .header-left {
@@ -205,7 +205,8 @@ html, body {
   touch-action: manipulation !important;
   box-sizing: border-box !important;
   flex-shrink: 0 !important;
-  margin-left: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Mobile Header Auto-Fit Rules (< 600px) */

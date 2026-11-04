@@ -4872,9 +4872,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       btnGenerateCaptions.innerHTML = '<span>Generate captions</span><span aria-hidden="true">→</span>';
     }
 
-    // Instant video loader: immediately open editor screen
-    showView('viewEditor');
-    showToast('⚡ Video loaded! Generating captions in background...');
+
   }
 
   async function processSelectedFile(file) {
@@ -10363,10 +10361,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     $$('.btn-quality-pill').forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-quality') === curQ);
     });
-    const selectHeader = $('selectHeaderExportQuality');
-    if (selectHeader && selectHeader.value !== curQ) {
-      selectHeader.value = curQ;
-    }
+
     const stepFinalizeTitle = $('stepFinalizeTitle');
     if (stepFinalizeTitle) {
       if (curQ === 'fast') stepFinalizeTitle.textContent = '960p MP4';
@@ -10445,10 +10440,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       btn.ontouchend = onAction;
     });
 
-    const selectHeader = $('selectHeaderExportQuality');
-    if (selectHeader) {
-      selectHeader.onchange = () => setExportQuality(selectHeader.value);
-    }
+
 
     updateQualityPillsUI();
   }
