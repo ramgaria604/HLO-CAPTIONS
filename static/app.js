@@ -11055,13 +11055,16 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         }
 
         if (activeCap) {
-          const words = (activeCap.words || []).map(w => ({
-            t: w.t || w.word || '',
-            s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
-            e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
-            key: Boolean(w.key),
-            color: w.color || undefined
-          }));
+          if (!activeCap._cachedExportWords) {
+            activeCap._cachedExportWords = (activeCap.words || []).map(w => ({
+              t: w.t || w.word || '',
+              s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
+              e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
+              key: Boolean(w.key),
+              color: w.color || undefined
+            }));
+          }
+          const words = activeCap._cachedExportWords;
 
           if (isBehind && exportCleanFrameCanvas && exportSegmenter) {
             if (!segExportBehindCanvas) {
@@ -11091,7 +11094,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             let maskCanvas = null;
 
             // Run person mask only on every 2nd frame, and reuse previous mask in between
-            if (exportMaskFrameIdx % 2 === 1 || !lastExportMaskCanvas) {
+            if (exportMaskFrameIdx % 3 === 1 || !lastExportMaskCanvas) {
               const _tSeg0 = performance.now();
               const newMask = getExportPersonMask(exportSegmenter, exportCleanFrameCanvas, frameMs, W, H);
               dbgSegMs += (performance.now() - _tSeg0);

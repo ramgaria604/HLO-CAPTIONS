@@ -1670,7 +1670,7 @@ def transcribe():
         audio_for_groq = WORK / f"{name}_groq.mp3"
         try:
             subprocess.run([
-                ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
+                ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
                 "-ar", "16000", "-ac", "1", "-b:a", "64k", str(audio_for_groq)
             ], capture_output=True, check=True)
 
