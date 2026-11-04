@@ -11293,7 +11293,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         bitrateMode: 'variable',
       };
 
-      const audioConfig = audioSource ? { discard: true } : { copy: true };
+      const audioConfig = audioSource ? { discard: true } : undefined;
 
       try {
         conversion = await window.Mediabunny.Conversion.init({
@@ -11747,8 +11747,14 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       showToast('WebCodecs unsupported on this device. Using compatibility mode.', 8000);
     }
 
-    // Hybrid fallback is strictly for non-behind presets
-    await startDirectCanvasExport();
+    // Never fall back to slow server upload
+    console.error('[EXPORT] Hardware export failed:', frameExportFailure);
+    showToast('Export error: ' + (frameExportFailure ? frameExportFailure.message : 'Encoder error'), 8000);
+    exportWorkingState.classList.add('hidden');
+    exportErrorState.classList.remove('hidden');
+    const exportErrorMessage = $('exportErrorMessage');
+    if (exportErrorMessage) exportErrorMessage.textContent = frameExportFailure ? frameExportFailure.message : 'Export failed. Please check browser console.';
+    if (exportElapsedInterval) clearInterval(exportElapsedInterval);
   }
 
   async function startServerExport() {
