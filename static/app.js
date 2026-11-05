@@ -11339,33 +11339,17 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
       const audioConfig = audioSource ? { discard: true } : undefined;
 
-      try {
-        conversion = await window.Mediabunny.Conversion.init({
-          input,
-          output,
-          composable: Boolean(audioSource),
-          audio: audioConfig,
-          video: {
-            ...baseVideoConfig,
-            hardwareAcceleration: 'prefer-hardware',
-            process: processFrame
-          }
-        });
-      } catch (hwInitErr) {
-        console.warn('Hardware init fallback:', hwInitErr);
-        conversion = await window.Mediabunny.Conversion.init({
-          input,
-          output,
-          composable: Boolean(audioSource),
-          audio: audioConfig,
-          video: {
-            ...baseVideoConfig,
-            hardwareAcceleration: 'no-preference',
-            process: processFrame
-          }
-        });
-      }
-
+      conversion = await window.Mediabunny.Conversion.init({
+        input,
+        output,
+        composable: Boolean(audioSource),
+        audio: audioConfig,
+        video: {
+          ...baseVideoConfig,
+          hardwareAcceleration: 'no-preference',
+          process: processFrame
+        }
+      });
       if (!conversion.isValid) {
         throw new Error('Mediabunny conversion is invalid');
       }
