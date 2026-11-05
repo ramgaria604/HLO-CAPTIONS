@@ -10974,24 +10974,27 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         }
         lastExportTimestampMs = frameMs;
 
-        // 1. Dynamic Auto-Zoom
-        const az = S.autoZoom;
-        const isZoomed = az && az.enabled && (() => {
-          if (az.interval > 0) {
-            return (t % az.interval) < (az.duration || 3.5);
-          }
-          const idx = S.captions.findIndex(c => t >= c.start && t <= c.end);
-          return idx !== -1 && idx % 4 === 1;
-        })();
-
-        const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
-        const hasProgressBar = Boolean(S.progressBar && S.progressBar.enabled === true);
+        // Binary/fast caption lookup by time
         const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+
+        // Dynamic Auto-Zoom calculation (optimized)
+        const az = S.autoZoom;
+        let isZoomed = false;
+        if (az && az.enabled) {
+          if (az.interval > 0) {
+            isZoomed = (t % az.interval) < (az.duration || 3.5);
+          } else if (activeCap) {
+            const idx = S.captions.indexOf(activeCap);
+            isZoomed = (idx !== -1 && idx % 4 === 1);
+          }
+        }
+
+        const activeBroll = (S.brolls && S.brolls.length > 0) ? S.brolls.find(b => b.url && t >= b.start && t <= b.end) : null;
+        const hasProgressBar = Boolean(S.progressBar && S.progressBar.enabled === true);
         const hasWatermark = Boolean(S.watermark && S.watermark.text && S.watermark.text.trim());
 
-        // Skip all drawing work on frames with no active caption or graphic
+        // Skip all extra drawing work on frames with no active caption or overlay
         if (!isZoomed && !activeBroll && !hasProgressBar && !activeCap && !hasWatermark) {
-          ctx.clearRect(0, 0, W, H);
           sample.draw(ctx, 0, 0, W, H);
           lastExportMaskCanvas = null;
           exportMaskFrameIdx = 0;
@@ -11861,7 +11864,10 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
     const doneMeta = $('exportDoneMeta');
     if (doneMeta) {
-      doneMeta.textContent = 'Completed in ' + timeStr + ' • 1080p high quality with full audio.';
+      const videoDur = Math.round(vid.duration || S.probe?.duration || 0);
+      const speedMultiplier = videoDur > 0 ? (videoDur / Math.max(1, totalSec)).toFixed(1) + 'x speed' : '';
+      const speedPart = speedMultiplier ? (' • ' + speedMultiplier) : '';
+      doneMeta.textContent = 'Completed in ' + timeStr + speedPart + ' • High quality with synced audio.';
     }
 
     const isBlob = String(filename || '').startsWith('blob:');
