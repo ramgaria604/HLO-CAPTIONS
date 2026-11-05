@@ -11286,8 +11286,38 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       };
 
       let conversion = null;
+      
+      // Probe exact mobile hardware AVC profiles (avc1.4d002a Main@L4.2 or avc1.42001f Baseline@L3.1)
+      let selectedCodec = 'avc';
+      let selectedHwAcc = 'prefer-hardware';
+      if (typeof VideoEncoder !== 'undefined' && typeof VideoEncoder.isConfigSupported === 'function') {
+        const testProfiles = [
+          'avc1.4d002a', // Main Profile (H.264 hardware on MediaTek Dimensity / Qualcomm)
+          'avc1.42001f', // Baseline Profile (Widely supported hardware)
+          'avc'          // Generic fallback
+        ];
+        for (const p of testProfiles) {
+          try {
+            const supp = await VideoEncoder.isConfigSupported({
+              codec: p,
+              width: targetW,
+              height: targetH,
+              bitrate: targetBitrate,
+              framerate: 30,
+              hardwareAcceleration: 'prefer-hardware'
+            });
+            if (supp && supp.supported) {
+              selectedCodec = p;
+              selectedHwAcc = supp.config?.hardwareAcceleration || 'prefer-hardware';
+              console.log('[EXPORT] Hardware acceleration matched with codec:', p, 'hw:', selectedHwAcc);
+              break;
+            }
+          } catch (_) {}
+        }
+      }
+
       const baseVideoConfig = {
-        codec: 'avc',
+        codec: selectedCodec,
         width: targetW,
         height: targetH,
         fit: 'contain',
@@ -11306,19 +11336,25 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           audio: audioConfig,
           video: {
             ...baseVideoConfig,
-            hardwareAcceleration: 'prefer-hardware',
+            hardwareAcceleration: selectedHwAcc,
             process: processFrame
           }
         });
       } catch (hwInitErr) {
-        console.warn('Conversion with prefer-hardware failed, retrying with no-preference:', hwInitErr);
+        console.warn('Conversion with matched hardware failed, retrying with default avc:', hwInitErr);
         conversion = await window.Mediabunny.Conversion.init({
           input,
           output,
           composable: Boolean(audioSource),
           audio: audioConfig,
           video: {
-            ...baseVideoConfig,
+            codec: 'avc',
+            width: targetW,
+            height: targetH,
+            fit: 'contain',
+            frameRate: 30,
+            bitrate: targetBitrate,
+            bitrateMode: 'variable',
             hardwareAcceleration: 'no-preference',
             process: processFrame
           }
@@ -11404,7 +11440,10 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
       const totalSec = Number(((performance.now() - dbgStartTime) / 1000).toFixed(2));
       const brollUsed = Boolean(S.brolls && S.brolls.length > 0);
-      console.log(`[EXPDBG] frames=${dbgFrameCount} totalSec=${totalSec} videoDrawMs=${Math.round(dbgVideoDrawMs)} captionMs=${Math.round(dbgCaptionMs)} segMs=${Math.round(dbgSegMs)} size=${targetW}x${targetH} bitrate=${targetBitrate} brollUsed=${brollUsed}`);
+      const fpsActual = totalSec > 0 ? (dbgFrameCount / totalSec).toFixed(1) : 0;
+      const perfBreakdown = `Export: ${totalSec}s (${fpsActual} FPS) | Video: ${Math.round(dbgVideoDrawMs)}ms | Captions: ${Math.round(dbgCaptionMs)}ms | Codec: ${selectedCodec}`;
+      console.log('[EXPDBG]', perfBreakdown);
+      window._lastExportPerf = perfBreakdown;
 
       showExportComplete(url, blob);
     } catch (e) {
