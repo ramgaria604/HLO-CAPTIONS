@@ -11371,32 +11371,15 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
       conversion.onProgress = (progress) => {
         const now = performance.now();
-        if (now - lastUiUpdate < 1200 && progress < 0.99) {
+        if (now - lastUiUpdate < 1500 && progress < 0.99) {
           return;
         }
         lastUiUpdate = now;
 
         const pct = Math.min(99, Math.max(1, Math.round(progress * 100)));
-        exportProgressBar.style.width = pct + '%';
-        exportPercent.textContent = pct + '%';
-        exportProgressText.textContent = `Rendering video with frame sync (${pct}%)...`;
-        exportProgressDetail.textContent = 'Keep this screen open while exporting';
-        updateExportPipeline(1, `${pct}%`, 'Queued');
-
-        if (now - lastEtaUpdateTime >= 1000) {
-          lastEtaUpdateTime = now;
-          if (progress > 0.02) {
-            const elapsedSec = (Date.now() - exportStartTime) / 1000;
-            const totalEstimatedSec = elapsedSec / progress;
-            const remainingSec = Math.max(0, Math.ceil(totalEstimatedSec - elapsedSec));
-            const mins = Math.floor(remainingSec / 60);
-            const secs = remainingSec % 60;
-            lastEtaText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-          }
-        }
-
-        const etaVal = $('exportEtaVal');
-        if (etaVal) etaVal.textContent = lastEtaText;
+        if (exportProgressBar) exportProgressBar.style.width = pct + '%';
+        if (exportPercent) exportPercent.textContent = pct + '%';
+        if (exportProgressText) exportProgressText.textContent = `Exporting: ${pct}%`;
       };
 
       updateExportPipeline(1, 'Processing Frames...', 'Queued');
@@ -11683,10 +11666,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     exportStartTime = Date.now();
     const timerVal = $('exportTimerVal');
     if (timerVal) timerVal.textContent = '00:00';
-    exportElapsedInterval = setInterval(() => {
-      const elapsedSec = Math.floor((Date.now() - exportStartTime) / 1000);
-      if (timerVal) timerVal.textContent = formatTimeElapsed(elapsedSec);
-    }, 500);
+    /* setInterval disabled during export */
 
     updateExportPipeline(1, 'Rendering Video...', 'Queued');
 
