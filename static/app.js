@@ -9,6 +9,8 @@
   // --- Helpers ---
   const $ = (id) => document.getElementById(id);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  window.$ = $;
+  window.$$ = $$;
   const round = (n, d = 2) => Number(Number(n).toFixed(d));
   const cleanCaptionText = (value) => String(value ?? '').replace(/\*/g, '');
 
@@ -12024,6 +12026,13 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
 
 // ============================================================================
+if (typeof window.$ !== 'function') {
+  window.$ = (id) => document.getElementById(id);
+  window.$$ = (sel) => Array.from(document.querySelectorAll(sel));
+}
+var $ = window.$;
+var $$ = window.$$;
+
 // PART B: INTERACTIVE CAPTION TIMELINE & VIDEO TAP-TO-EDIT SUITE
 // ============================================================================
 
