@@ -10894,14 +10894,16 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       targetW = Math.max(2, targetW);
       targetH = Math.max(2, targetH);
 
-      let targetBitrate = 4000000;
+      // Streamlined mobile bitrate for fast software/hardware encoding passes
+      const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+      let targetBitrate = isMobileDevice ? 2200000 : 3500000;
       const chosenLong = Math.max(targetW, targetH);
       if (chosenLong <= 960) {
-        targetBitrate = 2500000;
+        targetBitrate = isMobileDevice ? 1800000 : 2500000;
       } else if (chosenLong <= 1280) {
-        targetBitrate = 4000000;
+        targetBitrate = isMobileDevice ? 2200000 : 3500000;
       } else {
-        targetBitrate = 6000000;
+        targetBitrate = isMobileDevice ? 3200000 : 5000000;
       }
 
       const isBehind = Boolean(
