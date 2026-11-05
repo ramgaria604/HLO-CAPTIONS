@@ -10844,7 +10844,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             let swDecode = 'unknown';
             if (cfg && typeof VideoDecoder !== 'undefined' && typeof VideoDecoder.isConfigSupported === 'function') {
               try {
-                const hwSupp = await VideoDecoder.isConfigSupported({ ...cfg, hardwareAcceleration: 'prefer-hardware' });
+                const hwSupp = await VideoDecoder.isConfigSupported({ ...cfg, hardwareAcceleration: 'no-preference' });
                 hwDecode = Boolean(hwSupp && hwSupp.supported);
               } catch (_) { hwDecode = false; }
               try {
@@ -11090,7 +11090,6 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         // a) video frame
         dbgFrameCount++;
         const _tVideo0 = performance.now();
-        ctx.clearRect(0, 0, W, H);
         const reExportPunch = ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) ? getRealEstateCameraPunch(t, S.captions) : 1.0;
         const effExportZoom = isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch;
         if (effExportZoom > 1.001) {
@@ -11372,7 +11371,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
       conversion.onProgress = (progress) => {
         const now = performance.now();
-        if (now - lastUiUpdate < 250 && progress < 0.99) {
+        if (now - lastUiUpdate < 1200 && progress < 0.99) {
           return;
         }
         lastUiUpdate = now;
