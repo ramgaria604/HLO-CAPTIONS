@@ -10745,7 +10745,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       }
     }
 
-    const { Input, Output, Mp4OutputFormat, BufferTarget, ALL_FORMATS, BlobSource, UrlSource } = window.Mediabunny;
+    const { Input, Output, Mp4OutputFormat, BufferTarget, ALL_FORMATS, BlobSource, BufferSource, UrlSource } = window.Mediabunny;
 
     const isBehindExport = Boolean(
                   (S.style && (
@@ -10769,38 +10769,42 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     let source = null;
     let videoBlobUrl = null;
 
-    // (a) S.file as Mediabunny BlobSource whenever it exists
-    if (S.file && (S.file instanceof Blob || S.file instanceof File)) {
-      source = new BlobSource(S.file);
-      try { videoBlobUrl = URL.createObjectURL(S.file); } catch (_) {}
-    } else {
-      // (b) If S.file is missing, fetch video URL ONCE, convert response to Blob, use BlobSource
-      let videoUrl = '';
-      if (vid.src && vid.src.startsWith('blob:')) {
-        videoUrl = vid.src;
-      } else if (S.filename) {
-        videoUrl = new URL('/video/' + encodeURIComponent(S.filename), window.location.href).href;
-      } else if (vid.src) {
-        videoUrl = new URL(vid.src, window.location.href).href;
-      }
+    // Fast in-memory buffer reading to bypass slow mobile FileReader chunk latency
+    try {
+      if (S.file && (S.file instanceof Blob || S.file instanceof File)) {
+        try { videoBlobUrl = URL.createObjectURL(S.file); } catch (_) {}
+        if (typeof BufferSource !== 'undefined') {
+          const ab = await S.file.arrayBuffer();
+          source = new BufferSource(ab);
+        } else {
+          source = new BlobSource(S.file);
+        }
+      } else {
+        let videoUrl = '';
+        if (vid.src && vid.src.startsWith('blob:')) {
+          videoUrl = vid.src;
+        } else if (S.filename) {
+          videoUrl = new URL('/video/' + encodeURIComponent(S.filename), window.location.href).href;
+        } else if (vid.src) {
+          videoUrl = new URL(vid.src, window.location.href).href;
+        }
 
-      if (videoUrl) {
-        try {
-          const res = await fetch(videoUrl);
-          if (!res.ok) throw new Error(`HTTP ${res.status} fetching video blob`);
-          const blobData = await res.blob();
-          source = new BlobSource(blobData);
-          try { videoBlobUrl = URL.createObjectURL(blobData); } catch (_) {}
-        } catch (fetchErr) {
-          console.warn('Blob fetch failed, falling back to UrlSource:', fetchErr);
-          // (c) Only if that fails, use UrlSource
+        if (videoUrl) {
           try {
+            const res = await fetch(videoUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status} fetching video buffer`);
+            const ab = await res.arrayBuffer();
+            try { videoBlobUrl = URL.createObjectURL(new Blob([ab])); } catch (_) {}
+            source = (typeof BufferSource !== 'undefined') ? new BufferSource(ab) : new BlobSource(new Blob([ab]));
+          } catch (fetchErr) {
+            console.warn('Buffer fetch failed, falling back to UrlSource:', fetchErr);
             source = new UrlSource(videoUrl);
-          } catch (urlErr) {
-            console.error('UrlSource failed:', urlErr);
           }
         }
       }
+    } catch (srcInitErr) {
+      console.warn('In-memory buffer source init error, falling back to BlobSource:', srcInitErr);
+      if (S.file) source = new BlobSource(S.file);
     }
 
     if (!source) {
