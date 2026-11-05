@@ -10731,6 +10731,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     let dbgVideoDrawMs = 0;
     let dbgCaptionMs = 0;
     let dbgSegMs = 0;
+    let dbgProcMs = 0;
+    let dbgEmojiMs = 0;
+    let dbgOverlayMs = 0;
+    let dbgWatermarkMs = 0;
+    let dbgExecMs = 0;
     const dbgStartTime = performance.now();
     if (!window.Mediabunny) {
       try {
