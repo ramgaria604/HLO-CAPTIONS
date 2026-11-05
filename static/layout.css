@@ -1169,13 +1169,13 @@ body.debug-layout .generate-bar {
   box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
 }
 
-/* PURE SOLID FULLSCREEN EXPORT SCREEN */
+/* PURE SOLID WHITE EXPORT SCREEN - ZERO ANIMATIONS */
 #modalExport {
   position: fixed !important;
   inset: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  background: #000000 !important;
+  background: #ffffff !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   z-index: 9999999 !important;
@@ -1186,8 +1186,130 @@ body.debug-layout .generate-bar {
 #modalExport.hidden {
   display: none !important;
 }
-#modalExport .modal-card {
-  background: #000000 !important;
-  border: 1px solid #222222 !important;
+#modalExport .modal-card,
+#modalExport .modal-export-card {
+  background: #ffffff !important;
+  border: none !important;
   box-shadow: none !important;
+  width: 100% !important;
+  max-width: 440px !important;
+  padding: 32px 24px !important;
+  color: #111827 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+
+/* Zero animations or transitions anywhere in export modal */
+#modalExport,
+#modalExport * {
+  animation: none !important;
+  -webkit-animation: none !important;
+  transition: none !important;
+  -webkit-transition: none !important;
+}
+
+/* Hide animations, spinner, blinking pipeline, quality bar, and tips */
+#modalExport .export-spinner-wrap,
+#modalExport .export-spinner,
+#modalExport .export-live-dot,
+#modalExport #exportStepsPipeline,
+#modalExport .export-quality-bar,
+#modalExport #exportProgressDetail,
+#modalExport #exportWaitTip,
+#modalExport .modal-header {
+  display: none !important;
+}
+
+#exportWorkingState {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #ffffff !important;
+}
+
+#modalExport #exportProgressText {
+  color: #111827 !important;
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  margin: 0 0 24px 0 !important;
+  text-align: center !important;
+  letter-spacing: -0.02em !important;
+}
+
+#modalExport .progress-box {
+  width: 100% !important;
+  max-width: 380px !important;
+  margin: 0 auto !important;
+}
+
+#modalExport .progress-label-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 10px !important;
+  color: #4b5563 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+#modalExport #exportTimerRow {
+  color: #6b7280 !important;
+  font-size: 13px !important;
+}
+
+#modalExport #exportTimerRow strong {
+  color: #111827 !important;
+}
+
+#modalExport #exportPercent {
+  color: #111827 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+}
+
+#modalExport .progress-bar-track {
+  width: 100% !important;
+  height: 14px !important;
+  background: #e5e7eb !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+#modalExport #exportProgressBar {
+  height: 100% !important;
+  background: #2563eb !important;
+  border-radius: 999px !important;
+  transition: none !important;
+}
+
+/* Completion state styling on clean white background */
+#exportDoneState {
+  width: 100% !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+#exportDoneState .export-status-title {
+  color: #111827 !important;
+}
+#exportDoneState .export-status-sub {
+  color: #4b5563 !important;
+}
+#exportDoneState .success-icon-badge {
+  background: #16a34a !important;
+  color: #ffffff !important;
+}
+#exportDoneState .btn-download {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+#exportDoneState .btn-share-mobile {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
 }

@@ -11656,7 +11656,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     // Hide complex underlying video and editor DOM to give 100% GPU to video encoder
     const editorMain = document.querySelector('.editor-main') || $('editorMain') || document.body;
     document.body.classList.add('export-mode-active');
-    modalExport.style.backgroundColor = '#0b0f19';
+    modalExport.style.backgroundColor = '#ffffff';
     modalExport.style.opacity = '1';
     modalExport.classList.remove('hidden');
     exportWorkingState.classList.remove('hidden');
