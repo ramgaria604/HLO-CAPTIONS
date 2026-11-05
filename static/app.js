@@ -11335,7 +11335,6 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         fit: 'contain',
         frameRate: 30,
         bitrate: targetBitrate,
-        bitrateMode: 'variable',
       };
 
       const audioConfig = audioSource ? { discard: true } : undefined;
