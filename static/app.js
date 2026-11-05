@@ -11437,6 +11437,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         } catch (_) {}
         exportSegmenter = null;
       }
+      document.body.classList.remove('export-mode-active');
+      if (modalExport) modalExport.style.backgroundColor = '';
       if (wakeLock) {
         try {
           await wakeLock.release();
@@ -11648,6 +11650,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     }
 
     vid.pause();
+    // Hide complex underlying video and editor DOM to give 100% GPU to video encoder
+    const editorMain = document.querySelector('.editor-main') || $('editorMain') || document.body;
+    document.body.classList.add('export-mode-active');
+    modalExport.style.backgroundColor = '#0b0f19';
+    modalExport.style.opacity = '1';
     modalExport.classList.remove('hidden');
     exportWorkingState.classList.remove('hidden');
     exportDoneState.classList.add('hidden');
