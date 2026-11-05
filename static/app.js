@@ -11447,7 +11447,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       const totalSec = Number(((performance.now() - dbgStartTime) / 1000).toFixed(2));
       const brollUsed = Boolean(S.brolls && S.brolls.length > 0);
       const fpsActual = totalSec > 0 ? (dbgFrameCount / totalSec).toFixed(1) : 0;
-      const perfBreakdown = `[EXPDBG] frames=${dbgFrameCount} totalSec=${totalSec} procMs=${Math.round(dbgProcMs)} emojiMs=${Math.round(dbgEmojiMs)} overlayMs=${Math.round(dbgOverlayMs)} watermarkMs=${Math.round(dbgWatermarkMs)} execMs=${Math.round(dbgExecMs)} codec=${selectedCodec}`;
+      const perfBreakdown = `[EXPDBG] frames=${dbgFrameCount} totalSec=${totalSec} procMs=${Math.round(dbgProcMs)} emojiMs=${Math.round(dbgEmojiMs)} overlayMs=${Math.round(dbgOverlayMs)} watermarkMs=${Math.round(dbgWatermarkMs)} execMs=${Math.round(dbgExecMs)} codec=avc`;
       console.log(perfBreakdown);
       window._lastExportPerf = perfBreakdown;
 
