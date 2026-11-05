@@ -10827,6 +10827,42 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
         target: new BufferTarget(),
       });
+      // Diagnostic logging for source video decoder support
+      try {
+        if (typeof input.getPrimaryVideoTrack === 'function') {
+          const vt = await input.getPrimaryVideoTrack();
+          if (vt) {
+            let cfg = null;
+            if (typeof vt.getDecoderConfig === 'function') {
+              cfg = await vt.getDecoderConfig();
+            }
+            let hwDecode = 'unknown';
+            let swDecode = 'unknown';
+            if (cfg && typeof VideoDecoder !== 'undefined' && typeof VideoDecoder.isConfigSupported === 'function') {
+              try {
+                const hwSupp = await VideoDecoder.isConfigSupported({ ...cfg, hardwareAcceleration: 'prefer-hardware' });
+                hwDecode = Boolean(hwSupp && hwSupp.supported);
+              } catch (_) { hwDecode = false; }
+              try {
+                const swSupp = await VideoDecoder.isConfigSupported({ ...cfg, hardwareAcceleration: 'prefer-software' });
+                swDecode = Boolean(swSupp && swSupp.supported);
+              } catch (_) { swDecode = false; }
+            }
+            let avgFps = 'unknown';
+            if (typeof vt.computePacketStats === 'function') {
+              try {
+                const stats = await vt.computePacketStats(100);
+                avgFps = stats?.averagePacketRate ? stats.averagePacketRate.toFixed(1) : (stats?.packetRate ? stats.packetRate.toFixed(1) : 'unknown');
+              } catch (_) {}
+            }
+            const cWidth = vt.codedWidth || vt.width || 'unknown';
+            const cHeight = vt.codedHeight || vt.height || 'unknown';
+            console.log(`[SRCDBG] codec=${cfg?.codec || 'unknown'} size=${cWidth}x${cHeight} avgFps=${avgFps} hwDecode=${hwDecode} swDecode=${swDecode}`);
+          }
+        }
+      } catch (srcDbgErr) {
+        console.warn('[SRCDBG] Diagnostic warning (ignored):', srcDbgErr);
+      }
 
       const rawW = vid.videoWidth || S.probe?.width || 1280;
       const rawH = vid.videoHeight || S.probe?.height || 720;
