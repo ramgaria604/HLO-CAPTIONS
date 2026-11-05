@@ -10873,8 +10873,9 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       let targetW = rawW;
       let targetH = rawH;
 
-      let maxLongSide = 1280;
-      const curQ = S.exportQuality || 'balanced';
+      const isMobileDeviceCheck = /Android|iPhone|Mobile/i.test(navigator.userAgent || '');
+      let maxLongSide = isMobileDeviceCheck ? 960 : 1280;
+      const curQ = S.exportQuality || (isMobileDeviceCheck ? 'fast' : 'balanced');
       if (curQ === 'fast') {
         maxLongSide = 960;
       } else if (curQ === 'high') {
