@@ -11620,11 +11620,13 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   }
 
   async function startExport() {
-    // Test branch: Auto-enable direct export without Google Sign In or credits
+    // If not logged in, prompt sign in
     if (!S.user) {
-      S.user = { id: 'test_creator', name: 'Tester', email: 'test@hlocaptions.com' };
+      if (typeof openAuthModal === 'function') {
+        openAuthModal();
+        return;
+      }
     }
-    S.credits = 999;
 
     vid.pause();
     modalExport.classList.remove('hidden');
@@ -11634,8 +11636,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
     exportProgressBar.style.width = '5%';
     exportPercent.textContent = '5%';
-    exportProgressText.textContent = 'Initiating Same-Engine video render...';
-    exportProgressDetail.textContent = 'Preparing frame-by-frame canvas recording for 100% visual match.';
+    exportProgressText.textContent = 'Initiating hardware video render...';
+    exportProgressDetail.textContent = 'Preparing WebCodecs frame-by-frame renderer.';
 
     if ('Notification' in window && Notification.permission === 'default') {
       try { Notification.requestPermission(); } catch (_) {}
@@ -11650,111 +11652,59 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       if (timerVal) timerVal.textContent = formatTimeElapsed(elapsedSec);
     }, 500);
 
-    updateExportPipeline(1, 'Recording Canvas...', 'Queued');
+    updateExportPipeline(1, 'Rendering Video...', 'Queued');
 
-    // Fast exporter check for Pop Studio
     if (S.popStudioConfig && S.popStudioConfig.enabled) {
       await ensurePopStudioFonts();
     }
 
-    // Dual-engine export selector:
     const hasWebCodecs = typeof VideoEncoder !== 'undefined' && typeof VideoDecoder !== 'undefined';
-    if (S.popStudioConfig && S.popStudioConfig.enabled && !hasWebCodecs) {
+    if (!hasWebCodecs) {
       if (exportElapsedInterval) clearInterval(exportElapsedInterval);
-      modalExport.classList.add('hidden');
-      alert("Pop Studio needs the fast exporter. Try Chrome, Edge or a newer browser");
+      const errMsg = 'Hardware video export requires WebCodecs support. Please open this app in Chrome or Edge.';
+      showToast(errMsg, 10000);
+      exportWorkingState.classList.add('hidden');
+      exportErrorState.classList.remove('hidden');
+      const exportErrorMessage = $('exportErrorMessage');
+      if (exportErrorMessage) exportErrorMessage.textContent = errMsg;
       return;
     }
-    let frameExportFailure = null;
 
-    const isBehindStyle = Boolean(
-                  (S.style && (
-        S.style.behindPerson ||
-        S.style.depthAccent ||
-        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind') ||
-        (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
-      ))
-    );
-
-    if (hasWebCodecs) {
-      if (!window.Mediabunny) {
-        try {
-          window.Mediabunny = await import('https://cdn.jsdelivr.net/npm/mediabunny@1.65.0/+esm');
-        } catch (mErr) {
-          console.warn('Could not load Mediabunny dynamically:', mErr);
-        }
+    if (!window.Mediabunny) {
+      try {
+        window.Mediabunny = await import('https://cdn.jsdelivr.net/npm/mediabunny@1.65.0/+esm');
+      } catch (mErr) {
+        console.warn('Could not load Mediabunny dynamically:', mErr);
       }
-      if (window.Mediabunny) {
-        try {
-          await startFrameExport();
-          return;
-        } catch (frameErr) {
-          if (S._restartingExport) {
-            console.log('Frame export aborted for quality restart.');
-            return;
-          }
-          frameExportFailure = frameErr;
-          console.error('[BEHIND] startFrameExport failed with full stack trace:', frameErr && frameErr.stack ? frameErr.stack : frameErr);
-          
-          // PROBLEM A Point 1: For any style that uses behind-person layering, ALWAYS use startFrameExport.
-          // Never silently use the hybrid path. Show clear error for at least 8 seconds!
-          if (isBehindStyle) {
-            console.error('[BEHIND] Behind-person export failed error stack:', frameErr && frameErr.stack ? frameErr.stack : frameErr);
-            const failMsg = 'Behind-person export failed: ' + (frameErr.message || String(frameErr));
-            showToast(failMsg, 8000);
-            exportWorkingState.classList.add('hidden');
-            exportErrorState.classList.remove('hidden');
-            const exportErrorMessage = $('exportErrorMessage');
-            if (exportErrorMessage) exportErrorMessage.textContent = failMsg;
-            if (exportElapsedInterval) clearInterval(exportElapsedInterval);
-            return;
-          }
-
-          const failMsg = 'Frame export failed: ' + (frameErr.message || String(frameErr));
-          showToast(failMsg, 8000);
-          if (exportProgressDetail) {
-            exportProgressDetail.textContent = failMsg + ' (Falling back to compatibility mode)';
-          }
-        }
-      } else {
-        frameExportFailure = new Error('Mediabunny library failed to load');
-        console.error('Mediabunny missing:', frameExportFailure.stack || frameExportFailure);
-        if (isBehindStyle) {
-          const failMsg = 'Behind-person export failed: Mediabunny library failed to load';
-          showToast(failMsg, 8000);
-          exportWorkingState.classList.add('hidden');
-          exportErrorState.classList.remove('hidden');
-          const exportErrorMessage = $('exportErrorMessage');
-          if (exportErrorMessage) exportErrorMessage.textContent = failMsg;
-          if (exportElapsedInterval) clearInterval(exportElapsedInterval);
-          return;
-        }
-        showToast('Frame export unavailable: Mediabunny not loaded', 8000);
-      }
-    } else {
-      frameExportFailure = new Error('Browser WebCodecs (VideoEncoder/Decoder) not supported on this device');
-      console.error('WebCodecs missing:', frameExportFailure.stack || frameExportFailure);
-      if (isBehindStyle) {
-        const failMsg = 'Behind-person export failed: Browser WebCodecs is not supported on this device';
-        showToast(failMsg, 8000);
-        exportWorkingState.classList.add('hidden');
-        exportErrorState.classList.remove('hidden');
-        const exportErrorMessage = $('exportErrorMessage');
-        if (exportErrorMessage) exportErrorMessage.textContent = failMsg;
-        if (exportElapsedInterval) clearInterval(exportElapsedInterval);
-        return;
-      }
-      showToast('WebCodecs unsupported on this device. Using compatibility mode.', 8000);
     }
 
-    // Never fall back to slow server upload
-    console.error('[EXPORT] Hardware export failed:', frameExportFailure);
-    showToast('Export error: ' + (frameExportFailure ? frameExportFailure.message : 'Encoder error'), 8000);
-    exportWorkingState.classList.add('hidden');
-    exportErrorState.classList.remove('hidden');
-    const exportErrorMessage = $('exportErrorMessage');
-    if (exportErrorMessage) exportErrorMessage.textContent = frameExportFailure ? frameExportFailure.message : 'Export failed. Please check browser console.';
-    if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+    if (!window.Mediabunny) {
+      if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+      const failMsg = 'Export library (Mediabunny) could not be loaded. Please check your internet connection.';
+      showToast(failMsg, 10000);
+      exportWorkingState.classList.add('hidden');
+      exportErrorState.classList.remove('hidden');
+      const exportErrorMessage = $('exportErrorMessage');
+      if (exportErrorMessage) exportErrorMessage.textContent = failMsg;
+      return;
+    }
+
+    try {
+      await startFrameExport();
+    } catch (frameErr) {
+      if (S._restartingExport) {
+        console.log('Frame export aborted for quality restart.');
+        return;
+      }
+      console.error('[EXPORT] Hardware export failed with error:', frameErr && frameErr.stack ? frameErr.stack : frameErr);
+      const failMsg = 'Export failed: ' + (frameErr && frameErr.message ? frameErr.message : String(frameErr));
+      showToast(failMsg, 10000);
+      exportWorkingState.classList.add('hidden');
+      exportErrorState.classList.remove('hidden');
+      const exportErrorMessage = $('exportErrorMessage');
+      if (exportErrorMessage) exportErrorMessage.textContent = failMsg;
+      if (exportElapsedInterval) clearInterval(exportElapsedInterval);
+    }
   }
 
   async function startServerExport() {
@@ -11935,25 +11885,10 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     btnDownloadExport.download = targetFileName;
     btnDownloadExport.removeAttribute('target'); // NEVER use _blank so browser downloads file instead of opening player
 
-    // Background upload to server: generates a real HTTP attachment URL for Android DownloadManager
-    const currentBlob = blobData || window._lastExportedBlob;
-    if (currentBlob) {
-      const fd = new FormData();
-      fd.append('video', currentBlob, 'captioned_video.mp4');
-      fetch('/api/direct_download', { method: 'POST', body: fd })
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.ok && data.download) {
-            targetDownloadUrl = data.download;
-            btnDownloadExport.href = data.download;
-            btnDownloadExport.download = 'captioned_video.mp4';
-            console.log('[DOWNLOAD] Real HTTP attachment download URL ready:', data.download);
-            // Automatically trigger download via server attachment
-            forceDirectDownload(data.download, 'captioned_video.mp4');
-          }
-        })
-        .catch(err => console.warn('[DOWNLOAD] Server upload fallback error:', err));
-    }
+    // Direct instant local download (Server auto-upload disabled)
+    setTimeout(() => {
+      forceDirectDownload(targetDownloadUrl, targetFileName);
+    }, 150);
 
     // Direct file download helper without opening video player
     function forceDirectDownload(urlOverride, nameOverride) {
