@@ -11352,7 +11352,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         audio: audioConfig,
         video: {
           ...baseVideoConfig,
-          hardwareAcceleration: 'no-preference',
+          hardwareAcceleration: 'prefer-hardware',
           process: processFrame
         }
       });
