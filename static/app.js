@@ -10290,6 +10290,13 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     });
 
     btnRetryExport.addEventListener('click', startExport);
+
+    const btnCancelExportAction = $('btnCancelExportAction');
+    if (btnCancelExportAction) {
+      btnCancelExportAction.addEventListener('click', () => {
+        if (btnCloseExportModal) btnCloseExportModal.click();
+      });
+    }
   
   // Initialize Special Real Estate Video Template UI Controls
   function initSpecialRealEstateUI() {

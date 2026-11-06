@@ -1169,7 +1169,7 @@ body.debug-layout .generate-bar {
   box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
 }
 
-/* PURE SOLID WHITE EXPORT SCREEN - ZERO ANIMATIONS */
+/* PURE SOLID WHITE EXPORT SCREEN - ZERO ANIMATIONS - MINIMAL POWER */
 #modalExport {
   position: fixed !important;
   inset: 0 !important;
@@ -1192,13 +1192,14 @@ body.debug-layout .generate-bar {
   border: none !important;
   box-shadow: none !important;
   width: 100% !important;
-  max-width: 440px !important;
-  padding: 32px 24px !important;
+  max-width: 380px !important;
+  padding: 24px 20px !important;
   color: #111827 !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   text-align: center !important;
+  position: relative !important;
 }
 
 /* Zero animations or transitions anywhere in export modal */
@@ -1210,6 +1211,44 @@ body.debug-layout .generate-bar {
   -webkit-transition: none !important;
 }
 
+/* CUT / CLOSE BUTTON - PROMINENT AND ACCESSIBLE */
+#modalExport .modal-header {
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+
+#modalExport .modal-title {
+  display: none !important;
+}
+
+#modalExport #btnCloseExportModal {
+  position: fixed !important;
+  top: 18px !important;
+  right: 18px !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50% !important;
+  background: #f3f4f6 !important;
+  border: 1px solid #e5e7eb !important;
+  color: #111827 !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  z-index: 99999999 !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;
+  outline: none !important;
+}
+
+#modalExport #btnCloseExportModal:active {
+  background: #e5e7eb !important;
+  transform: scale(0.94);
+}
+
 /* Hide animations, spinner, blinking pipeline, quality bar, and tips */
 #modalExport .export-spinner-wrap,
 #modalExport .export-spinner,
@@ -1217,8 +1256,7 @@ body.debug-layout .generate-bar {
 #modalExport #exportStepsPipeline,
 #modalExport .export-quality-bar,
 #modalExport #exportProgressDetail,
-#modalExport #exportWaitTip,
-#modalExport .modal-header {
+#modalExport #exportWaitTip {
   display: none !important;
 }
 
@@ -1233,16 +1271,16 @@ body.debug-layout .generate-bar {
 
 #modalExport #exportProgressText {
   color: #111827 !important;
-  font-size: 26px !important;
-  font-weight: 700 !important;
-  margin: 0 0 24px 0 !important;
+  font-size: 19px !important;
+  font-weight: 600 !important;
+  margin: 0 0 18px 0 !important;
   text-align: center !important;
-  letter-spacing: -0.02em !important;
 }
 
+/* Compact, normal progress bar */
 #modalExport .progress-box {
   width: 100% !important;
-  max-width: 380px !important;
+  max-width: 290px !important;
   margin: 0 auto !important;
 }
 
@@ -1250,15 +1288,15 @@ body.debug-layout .generate-bar {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  margin-bottom: 10px !important;
-  color: #4b5563 !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
+  margin-bottom: 8px !important;
+  color: #6b7280 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
 }
 
 #modalExport #exportTimerRow {
   color: #6b7280 !important;
-  font-size: 13px !important;
+  font-size: 12px !important;
 }
 
 #modalExport #exportTimerRow strong {
@@ -1267,13 +1305,14 @@ body.debug-layout .generate-bar {
 
 #modalExport #exportPercent {
   color: #111827 !important;
-  font-size: 20px !important;
+  font-size: 16px !important;
   font-weight: 700 !important;
 }
 
+/* Normal slender monochrome bar (minimal power) */
 #modalExport .progress-bar-track {
   width: 100% !important;
-  height: 14px !important;
+  height: 6px !important;
   background: #e5e7eb !important;
   border-radius: 999px !important;
   overflow: hidden !important;
@@ -1283,9 +1322,28 @@ body.debug-layout .generate-bar {
 
 #modalExport #exportProgressBar {
   height: 100% !important;
-  background: #2563eb !important;
+  background: #111827 !important; /* Normal neutral dark/black bar, no bright saturated color */
   border-radius: 999px !important;
   transition: none !important;
+}
+
+#modalExport .btn-cancel-export {
+  margin-top: 18px !important;
+  background: transparent !important;
+  border: 1px solid #e5e7eb !important;
+  color: #4b5563 !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  padding: 6px 14px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+#modalExport .btn-cancel-export:active {
+  background: #f3f4f6 !important;
 }
 
 /* Completion state styling on clean white background */
@@ -1305,7 +1363,7 @@ body.debug-layout .generate-bar {
   color: #ffffff !important;
 }
 #exportDoneState .btn-download {
-  background: #2563eb !important;
+  background: #111827 !important;
   color: #ffffff !important;
 }
 #exportDoneState .btn-share-mobile {
