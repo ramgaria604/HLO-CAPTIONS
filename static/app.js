@@ -12023,22 +12023,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     exportErrorMessage.textContent = msg;
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-
-})();
-
-
 // ============================================================================
-if (typeof window.$ !== 'function') {
-  window.$ = (id) => document.getElementById(id);
-  window.$$ = (sel) => Array.from(document.querySelectorAll(sel));
-}
-var $ = window.$;
-var $$ = window.$$;
 
 // PART B: INTERACTIVE CAPTION TIMELINE & VIDEO TAP-TO-EDIT SUITE
 // ============================================================================
@@ -14469,6 +14454,15 @@ function initHeroLookUI() {
     }
   }
 
+
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
 
 // Global delegated click listener so quality buttons are 100% clickable anywhere
 document.addEventListener('click', function(e) {
