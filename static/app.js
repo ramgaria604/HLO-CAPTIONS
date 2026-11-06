@@ -3512,12 +3512,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const stored = localStorage.getItem('cs_user');
       if (stored) S.user = JSON.parse(stored);
     } catch (_) {}
-    if (!S.user) {
-      S.user = { id: 'test_creator', name: 'Creator', email: 'creator@hlocaptions.com' };
-    }
-    S.credits = 999;
     syncUserUI();
-    updateCreditsUI();
 
     const modalLogin = $('modalLogin');
     const btnCloseLogin = $('btnCloseLoginModal');
@@ -11651,12 +11646,24 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   }
 
   async function startExport() {
-    // If not logged in, prompt sign in
-    if (!S.user) {
-      if (typeof openAuthModal === 'function') {
+    // 1. Mandatory Sign In Check: User must sign in with Google/Email to export!
+    if (!S.user || !S.user.id) {
+      S.pendingExportAfterLogin = true;
+      const modalLogin = $('modalLogin');
+      if (modalLogin) {
+        modalLogin.classList.remove('hidden');
+        showToast('🔐 Please sign in with your Gmail/Account to export!');
+      } else if (typeof openAuthModal === 'function') {
         openAuthModal();
-        return;
       }
+      return;
+    }
+
+    // 2. Export Credits / Paywall Check
+    if (S.credits <= 0) {
+      S.pendingExportAfterCoupon = true;
+      openCouponModal();
+      return;
     }
 
     vid.pause();
