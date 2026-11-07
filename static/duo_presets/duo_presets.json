@@ -376,6 +376,140 @@
     }
   },
   {
+    "id": "electric_kinetic_stack",
+    "name": "Electric Kinetic Stack",
+    "category": "viral",
+    "badge": "\u26a1 VIRAL KINETIC",
+    "previewWord": "BUILD INTENT",
+    "isDuo": true,
+    "isSpecial": true,
+    "behindPerson": false,
+    "depthAccent": false,
+    "layout": "stack",
+    "mode": "emphasis",
+    "position": 0.78,
+    "posY": 0.78,
+    "posX": 0.5,
+    "inkGap": 0.015,
+    "leading": 0.9,
+    "fontScale": 1.0,
+    "wordsPerPage": 3,
+    "wordsPerCaption": 3,
+    "maxKeys": 1,
+    "animation": "slide-up",
+    "outlineMode": "none",
+    "glowEnabled": false,
+    "highlightColor": "#FFE600",
+    "baseColor": "#FFFFFF",
+    "key": {
+      "font": "Montserrat",
+      "size": 0.088,
+      "weight": 900,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "color": "#FFE600",
+      "outline": 0,
+      "shadow": 6,
+      "shadowColor": "rgba(0, 0, 0, 0.75)",
+      "track": -0.02
+    },
+    "accent2": {
+      "font": "Montserrat",
+      "size": 0.08,
+      "weight": 800,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "color": "#FFFFFF",
+      "outline": 0,
+      "shadow": 5,
+      "shadowColor": "rgba(0, 0, 0, 0.75)",
+      "track": -0.02
+    },
+    "filler": {
+      "font": "Poppins",
+      "size": 0.046,
+      "weight": 700,
+      "bold": true,
+      "italic": false,
+      "upper": false,
+      "color": "#FFFFFF",
+      "outline": 0,
+      "shadow": 4,
+      "shadowColor": "rgba(0, 0, 0, 0.75)",
+      "track": -0.01
+    },
+    "roles": {
+      "base": {
+        "font": "Poppins",
+        "size": 52.0,
+        "weight": 700,
+        "bold": true,
+        "italic": false,
+        "upper": false,
+        "color": "#FFFFFF",
+        "outline": 0,
+        "shadow": 4,
+        "shadowColor": "rgba(0, 0, 0, 0.75)",
+        "track": -0.01,
+        "enter": "slide-up",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#FFFFFF"
+          ],
+          "angle": 90
+        }
+      },
+      "accent": {
+        "font": "Montserrat",
+        "size": 95.0,
+        "weight": 900,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "color": "#FFE600",
+        "outline": 0,
+        "shadow": 6,
+        "shadowColor": "rgba(0, 0, 0, 0.75)",
+        "track": -0.02,
+        "enter": "slide-up",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#FFE600"
+          ],
+          "angle": 90
+        }
+      },
+      "accent2": {
+        "font": "Montserrat",
+        "size": 88.0,
+        "weight": 800,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "color": "#FFFFFF",
+        "outline": 0,
+        "shadow": 5,
+        "shadowColor": "rgba(0, 0, 0, 0.75)",
+        "track": -0.02,
+        "enter": "slide-up",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#FFFFFF"
+          ],
+          "angle": 90
+        }
+      }
+    }
+  },
+  {
     "id": "duo_03",
     "name": "Duo \u00b7 Real Estate Clr (behind)",
     "mode": "emphasis",
