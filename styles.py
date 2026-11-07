@@ -265,6 +265,21 @@ def role(font, fallback, size, color, **kw):
     return r
 
 
+def _safe_float(val, default=0.0):
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+def _resolve_glow(role_dict, default_color="#FFFFFF"):
+    glow_col = role_dict.get("glowColor") or (role_dict.get("glow") if isinstance(role_dict.get("glow"), str) and ("#" in str(role_dict.get("glow")) or "rgb" in str(role_dict.get("glow")).lower()) else default_color)
+    raw_size = role_dict.get("glowSize") if role_dict.get("glowSize") is not None else (role_dict.get("glow", 0) if not isinstance(role_dict.get("glow"), str) or not ("#" in str(role_dict.get("glow")) or "rgb" in str(role_dict.get("glow")).lower()) else 0)
+    if str(glow_col).lower() in ("#000000", "#000", "#050505", "#111111"):
+        glow_size = 0.0
+    else:
+        glow_size = round(_safe_float(raw_size, 0) / 100.0, 3)
+    return str(glow_col), glow_size
+
 def load_presets():
     """Load the official caption preset pack from static/presets51.json."""
     json_path = os.path.join(os.path.dirname(__file__), "static", "presets51.json")
@@ -426,6 +441,8 @@ def load_presets():
                 
                 base_color = base.get("color") or "#FFFFFF"
                 accent_color = colors[0] if colors else (accent.get("color") or "#FFFFFF")
+                acc_glow_col, acc_glow_sz = _resolve_glow(accent, "#FFFFFF")
+                base_glow_col, base_glow_sz = _resolve_glow(base, "#000000")
 
                 special_item = {
                     "id": p["id"].replace("duo_", "special_"),
@@ -463,9 +480,8 @@ def load_presets():
                         "italic": bool(accent.get("italic", False)),
                         "shadow": round(accent.get("shadow", 0) / 100.0, 3),
                         "shadowColor": accent.get("shadowColor", "#000000"),
-                        "glow": accent.get("glowColor", "#FFFFFF"),
-                        "glowSize": (0.0 if accent.get("glowColor", "#FFFFFF").lower() in ("#000000", "#000", "#050505", "#111111")
-                                     else round(accent.get("glow", 0) / 100.0, 3)),
+                        "glow": acc_glow_col,
+                        "glowSize": acc_glow_sz,
                         "outline": round(accent.get("outline", 0) / 1080.0, 3),
                         "outlineColor": accent.get("outlineColor", "#000000"),
                         "track": accent.get("track", 0),
@@ -575,10 +591,12 @@ def load_presets():
                     accent.get("layer") == "behind" or
                     "(behind)" in str(p.get("name", "")).lower()
                 )
-                accent_sz = float(accent.get("size", 230))
-                base_sz = float(base.get("size", 62))
+                accent_sz = _safe_float(accent.get("size", 230), 230)
+                base_sz = _safe_float(base.get("size", 62), 62)
                 font_span = (accent_sz + base_sz) * 0.5 / 1920.0 + 0.008
                 top_y = round(0.18 - font_span, 3)
+                acc_glow_col, acc_glow_sz = _resolve_glow(accent, "#FFFFFF")
+                base_glow_col, base_glow_sz = _resolve_glow(base, "#FFFFFF")
 
                 duo_item = {
                     "id": p["id"],
@@ -594,11 +612,11 @@ def load_presets():
                     "posCycle": None if is_behind else p.get("posCycle"),
                     "behindPerson": is_behind,
                     "depthAccent": is_behind,
-                    "depthAccentSize": round(accent.get("size", 230) / 1080.0, 3) if float(accent.get("size", 230)) > 1.0 else round(float(accent.get("size", 0.088)), 3),
+                    "depthAccentSize": round(_safe_float(accent.get("size", 230)) / 1080.0, 3) if _safe_float(accent.get("size", 230)) > 1.0 else round(_safe_float(accent.get("size", 0.088), 0.088), 3),
                     "topY": top_y if is_behind else 0.10,
                     "depthAccentY": 0.18 if is_behind else preset_y,
                     "subtitlePosition": 0.72 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))),
-                    "subtitleSize": round(base.get("size", 62) / 1080.0, 3) if float(base.get("size", 62)) > 1.0 else round(float(base.get("size", 0.044)), 3),
+                    "subtitleSize": round(_safe_float(base.get("size", 62)) / 1080.0, 3) if _safe_float(base.get("size", 62)) > 1.0 else round(_safe_float(base.get("size", 0.044), 0.044), 3),
                     "blend": p.get("blend", "screen"),
                     "blendMode": p.get("blend", "screen"),
                     "highlightColor": accent_color,
@@ -611,7 +629,7 @@ def load_presets():
                     "badge": p.get("badge") or "DUO ⚡",
                     "key": {
                         "font": accent.get("font", "Montserrat"),
-                        "size": round(accent.get("size", 160) / 1080.0, 3) if float(accent.get("size", 160)) > 1.0 else round(float(accent.get("size", 0.088)), 3),
+                        "size": round(_safe_float(accent.get("size", 160)) / 1080.0, 3) if _safe_float(accent.get("size", 160)) > 1.0 else round(_safe_float(accent.get("size", 0.088), 0.088), 3),
                         "color": accent_color,
                         "bold": bool(accent.get("bold", True)),
                         "italic": bool(accent.get("italic", False)),
@@ -628,15 +646,14 @@ def load_presets():
                     },
                     "filler": {
                         "font": base.get("font", "Poppins"),
-                        "size": round(base.get("size", 62) / 1080.0, 3) if float(base.get("size", 62)) > 1.0 else round(float(base.get("size", 0.044)), 3),
+                        "size": round(_safe_float(base.get("size", 62)) / 1080.0, 3) if _safe_float(base.get("size", 62)) > 1.0 else round(_safe_float(base.get("size", 0.044), 0.044), 3),
                         "color": base_color,
                         "bold": bool(base.get("bold", True)),
                         "italic": bool(base.get("italic", False)),
                         "shadow": round(base.get("shadow", 0) / 100.0, 3),
                         "shadowColor": base.get("shadowColor", "#000000"),
-                        "glow": base.get("glowColor", "#FFFFFF"),
-                        "glowSize": (0.0 if base.get("glowColor", "#FFFFFF").lower() in ("#000000", "#000", "#050505", "#111111")
-                                     else round(base.get("glow", 0) / 100.0, 3)),
+                        "glow": base_glow_col,
+                        "glowSize": base_glow_sz,
                         "outline": round(base.get("outline", 0) / 1080.0, 3),
                         "outlineColor": base.get("outlineColor", "#000000"),
                         "track": base.get("track", 0),

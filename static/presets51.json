@@ -75,7 +75,7 @@
   },
   "electric_blue_blend": {
     "id": "electric_blue_blend",
-    "name": "Electric Blue Blend (Reference 🌊)",
+    "name": "Electric Blue Blend (Reference \ud83c\udf0a)",
     "layout": "stack",
     "anim": "pop",
     "reveal": "cumulative",
@@ -122,7 +122,7 @@
   },
   "orange_pop": {
     "id": "orange_pop",
-    "name": "Orange Grunge (Reference 🍊)",
+    "name": "Orange Grunge (Reference \ud83c\udf4a)",
     "layout": "scatter",
     "anim": "pop",
     "reveal": "cumulative",
@@ -166,7 +166,7 @@
   },
   "mono_echo": {
     "id": "mono_echo",
-    "name": "Mono Echo 🖤",
+    "name": "Mono Echo \ud83d\udda4",
     "layout": "echo",
     "anim": "pop",
     "reveal": "cumulative",
@@ -204,52 +204,9 @@
     },
     "opacity": 0.9
   },
-  "wipe_italic": {
-    "id": "wipe_italic",
-    "name": "Wipe Italic ⚡",
-    "layout": "line",
-    "anim": "fade",
-    "reveal": "all",
-    "pos": 0.78,
-    "wordsPerCaption": 2,
-    "keyWords": 0,
-    "category": "classic",
-    "highlightColor": "#4DA3FF",
-    "highlight": {
-      "mode": "wipe",
-      "color": "#4DA3FF",
-      "wipe": [
-        "#FFFFFF",
-        "#4DA3FF"
-      ]
-    },
-    "big": {
-      "font": "Inter",
-      "weight": 900,
-      "italic": true,
-      "size": 0.085,
-      "fill": {
-        "colors": [
-          "#111111"
-        ]
-      }
-    },
-    "small": {
-      "font": "Inter",
-      "weight": 900,
-      "italic": true,
-      "size": 0.049,
-      "fill": {
-        "colors": [
-          "#111111"
-        ]
-      }
-    },
-    "opacity": 0.9
-  },
   "hype_yellow": {
     "id": "hype_yellow",
-    "name": "Hype Yellow ⚡",
+    "name": "Hype Yellow \u26a1",
     "layout": "line",
     "anim": "pop",
     "reveal": "all",
@@ -296,7 +253,7 @@
   },
   "box_pop": {
     "id": "box_pop",
-    "name": "Box Pop ⭐",
+    "name": "Box Pop \u2b50",
     "layout": "line",
     "anim": "pop",
     "reveal": "all",
@@ -348,7 +305,7 @@
   },
   "clean_cyan": {
     "id": "clean_cyan",
-    "name": "Clean Cyan 💎",
+    "name": "Clean Cyan \ud83d\udc8e",
     "layout": "line",
     "anim": "fade",
     "reveal": "all",
@@ -395,7 +352,7 @@
   },
   "gold_luxury": {
     "id": "gold_luxury",
-    "name": "Gold Luxury 👑",
+    "name": "Gold Luxury \ud83d\udc51",
     "layout": "stack",
     "anim": "slide",
     "reveal": "cumulative",
@@ -444,7 +401,7 @@
   },
   "fire_gradient": {
     "id": "fire_gradient",
-    "name": "Fire 🔥",
+    "name": "Fire \ud83d\udd25",
     "layout": "stack",
     "anim": "bounce",
     "reveal": "cumulative",
@@ -496,7 +453,7 @@
   },
   "ice_blue": {
     "id": "ice_blue",
-    "name": "Ice Blue ❄️",
+    "name": "Ice Blue \u2744\ufe0f",
     "layout": "line",
     "anim": "fade",
     "reveal": "all",
@@ -545,7 +502,7 @@
   },
   "retro_sunset": {
     "id": "retro_sunset",
-    "name": "Retro Sunset 🌅",
+    "name": "Retro Sunset \ud83c\udf05",
     "layout": "stack",
     "anim": "bounce",
     "reveal": "cumulative",
@@ -590,7 +547,7 @@
   },
   "comic_pow": {
     "id": "comic_pow",
-    "name": "Comic Pow 💥",
+    "name": "Comic Pow \ud83d\udca5",
     "layout": "stack",
     "anim": "bounce",
     "reveal": "cumulative",
@@ -636,7 +593,7 @@
   },
   "marker_highlight": {
     "id": "marker_highlight",
-    "name": "Marker 🖊️",
+    "name": "Marker \ud83d\udd8a\ufe0f",
     "layout": "line",
     "anim": "pop",
     "reveal": "all",
@@ -683,7 +640,7 @@
   },
   "terminal_type": {
     "id": "terminal_type",
-    "name": "Terminal 💻",
+    "name": "Terminal \ud83d\udcbb",
     "layout": "line",
     "anim": "type",
     "reveal": "cumulative",
@@ -717,7 +674,7 @@
   },
   "glitch_rgb": {
     "id": "glitch_rgb",
-    "name": "Glitch RGB 👾",
+    "name": "Glitch RGB \ud83d\udc7e",
     "layout": "line",
     "anim": "glitch",
     "reveal": "all",
