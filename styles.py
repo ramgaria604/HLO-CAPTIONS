@@ -380,39 +380,6 @@ def load_presets():
             preset_item["tilt"] = p["tilt"]
         out.append(preset_item)
 
-    # Load 26 Unique Presets
-    unique_json = os.path.join(os.path.dirname(__file__), "static", "unique_presets.json")
-    if os.path.exists(unique_json):
-        try:
-            with open(unique_json, "r", encoding="utf-8") as uf:
-                u_data = json.load(uf)
-            for u in u_data:
-                uid = u["id"]
-                ucolors = u.get("colors", ["#FFFFFF"])
-                u_item = {
-                    "id": uid,
-                    "name": u["name"],
-                    "tagline": u.get("tagline", ""),
-                    "category": "unique",
-                    "layout": "stack",
-                    "animation": "pop",
-                    "wordsPerCaption": int(u.get("wordsPerLine", 3)),
-                    "maxKeys": 1,
-                    "position": 0.78,
-                    "opacity": 0.95,
-                    "highlightColor": ucolors[-1] if ucolors else "#FFE600",
-                    "previewImg": f"/static/preset_previews/{uid}.png",
-                    "isUnique": True,
-                    "is_remotion": True,
-                    "key": role("Inter", "Arial", 0.09, ucolors[0] if ucolors else "#FFFFFF", bold=True),
-                    "filler": role("Inter", "Arial", 0.05, "#FFFFFF"),
-                    "big": {"font": "Inter", "weight": 800, "size": 0.09, "fill": {"colors": ucolors}},
-                    "small": {"font": "Inter", "weight": 500, "size": 0.05, "fill": {"colors": ["#FFFFFF"]}}
-                }
-                out.append(u_item)
-        except Exception as ue:
-            print("Warning: could not load unique_presets.json:", ue)
-
     # Load the supplied Special Presets pack.
     special_json = os.path.join(os.path.dirname(__file__), "static", "special_presets", "special_presets.json")
     if os.path.exists(special_json):

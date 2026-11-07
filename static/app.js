@@ -1,6 +1,6 @@
 /* ==========================================================================
    HLO CAPTIONS - CLIENT APPLICATION (v3.04)
-   164 Presets + Instant Zero-Lag Video Preview + Accurate Listening AI + Duo Pack
+   Viral Presets + Instant Zero-Lag Video Preview + Accurate Listening AI + Duo Pack
    ========================================================================== */
 
 (function () {
@@ -4598,6 +4598,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   function setupFrontCategoryPills() {
     const frontCatPills = $$('#frontCategoryPills .cat-pill');
+    const allPill = $('#frontCategoryPills .cat-pill[data-cat="all"]');
+    if (allPill && S.presets && S.presets.length) {
+      allPill.textContent = `All (${S.presets.length})`;
+    }
+    const duoPill = $('#frontCategoryPills .cat-pill[data-cat="duo"]');
+    if (duoPill && S.presets) {
+      const duoCount = S.presets.filter(p => p.isDuo || (p.category === 'duo')).length;
+      duoPill.textContent = `⚡ Duo Styles (${duoCount})`;
+    }
     frontCatPills.forEach(pill => {
       pill.addEventListener('click', () => {
         frontCatPills.forEach(p => p.classList.toggle('active', p === pill));
@@ -4608,6 +4617,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   async function loadPresets() {
+    // Invalidate stale caches so old deleted duplicates never persist
+    const CURRENT_PRESET_VER = 'v7.0.0';
+    try {
+      if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
+        localStorage.removeItem('cs_presets_cache');
+        localStorage.removeItem('cs_presets');
+        localStorage.setItem('cs_preset_version', CURRENT_PRESET_VER);
+      }
+    } catch (_) {}
+
     // 0. Ensure default presets exist immediately so screen is NEVER blank
     if (!S.presets || S.presets.length === 0) {
       S.presets = [
@@ -4776,13 +4795,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         try { localStorage.setItem('cs_presets_cache', JSON.stringify(serverPresets)); } catch (_) {}
       }
 
-      // Merge locally saved custom presets
+      // Merge user custom presets ONLY (never resurrect deleted default presets)
       try {
         const stored = JSON.parse(localStorage.getItem('cs_presets') || '[]');
         if (Array.isArray(stored) && stored.length > 0) {
           const haveNames = new Set(S.presets.map(p => p.name));
           stored.forEach(p => {
-            if (!haveNames.has(p.name)) {
+            if (p.isUserCustom && !haveNames.has(p.name)) {
               S.presets.push(p);
               haveNames.add(p.name);
             }
@@ -6320,7 +6339,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
 
     const titles = {
-      tabTemplates: '🎨 Choose Template (164 Available)',
+      tabTemplates: '🎨 Choose Template',
       tabCaptions: '📝 Edit Captions',
       tabBroll: '🎬 B-Roll & Visuals',
       tabStyle: '🎚️ Style Options',
