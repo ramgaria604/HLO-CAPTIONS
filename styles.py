@@ -668,6 +668,20 @@ def load_presets():
                     }
                 if p.get("heroPalette"):
                     duo_item["heroPalette"] = p["heroPalette"]
+                if p.get("depthAccentY") is not None:
+                    duo_item["depthAccentY"] = float(p["depthAccentY"])
+                if p.get("topY") is not None:
+                    duo_item["topY"] = float(p["topY"])
+                if p.get("subtitlePosition") is not None:
+                    duo_item["subtitlePosition"] = float(p["subtitlePosition"])
+                if p.get("textCase") is not None:
+                    duo_item["textCase"] = p["textCase"]
+                if p.get("uppercase") is not None:
+                    duo_item["uppercase"] = bool(p["uppercase"])
+                if p.get("noItalic") is not None:
+                    duo_item["noItalic"] = bool(p["noItalic"])
+                if p.get("allowItalicCycle") is not None:
+                    duo_item["allowItalicCycle"] = bool(p["allowItalicCycle"])
                 out.append(duo_item)
         except Exception as de:
             print("Warning: could not load duo_presets.json:", de)

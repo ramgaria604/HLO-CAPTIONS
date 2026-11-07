@@ -1337,7 +1337,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
   const alt = (st.accent2 || roles.accent2) && (capIdx % 2 === 1);
   const accentRole = (alt && (roles.accent2 || st.accent2)) || roles.accent || st.key || {};
-  const caseMode = S.style?.textCase || S.textCase || (st.uppercase ? 'upper' : (accentRole.upper ? 'upper' : 'upper'));
+  const caseMode = S.style?.textCase || S.textCase || st.textCase || (st.uppercase === false || accentRole.upper === false ? (accentRole.lower ? 'lower' : 'asIs') : 'upper');
   const inkGap = typeof st.inkGap === 'number' ? st.inkGap : 0.03;
   const posX = typeof st.posX === 'number' ? st.posX : 0.5;
   let posY = typeof S.style?.posY === 'number'
@@ -1811,7 +1811,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         const lineText = o.words.map(w => w.t || w.word || '').join(' ');
         const lineStart = (o.words[0] && typeof o.words[0].s === 'number') ? o.words[0].s : cap.start;
         const isTop = (o.lineType === 'top');
-        renderUnifiedSmallLine(ctxFore, lineText, o.x, o.baseline, Math.round(o.size), 1.0, t, lineStart, isTop, showAll);
+        const smallCase = o.role?.upper ? 'upper' : (o.role?.lower ? 'lower' : (st.uppercase === false ? 'asIs' : 'asIs'));
+        renderUnifiedSmallLine(ctxFore, lineText, o.x, o.baseline, Math.round(o.size), 1.0, t, lineStart, isTop, showAll, smallCase);
         return;
       }
     }
@@ -2934,13 +2935,14 @@ const REAL_ESTATE_CLR_PALETTE = [
   { id: 'violet',  name: 'Violet',  top: '#A66BFF', bottom: '#5B2BC2' }
 ];
 
-function getRealEstateClrGradient(captionIndex, lockedColor = 'auto') {
+function getRealEstateClrGradient(captionIndex, lockedColor = 'auto', customPalette = null) {
+  const activePalette = (customPalette && Array.isArray(customPalette) && customPalette.length > 0) ? customPalette : REAL_ESTATE_CLR_PALETTE;
   if (lockedColor && lockedColor !== 'auto') {
-    const found = REAL_ESTATE_CLR_PALETTE.find(c => c.id === lockedColor);
-    if (found) return { palette: found, colorIndex: REAL_ESTATE_CLR_PALETTE.indexOf(found) };
+    const found = activePalette.find(c => c.id === lockedColor);
+    if (found) return { palette: found, colorIndex: activePalette.indexOf(found) };
   }
-  const colorIndex = Math.max(0, Number(captionIndex) || 0) % REAL_ESTATE_CLR_PALETTE.length;
-  return { palette: REAL_ESTATE_CLR_PALETTE[colorIndex], colorIndex };
+  const colorIndex = Math.max(0, Number(captionIndex) || 0) % activePalette.length;
+  return { palette: activePalette[colorIndex], colorIndex };
 }
 
 let _lastLoggedUnifiedHeroCapIdx = -1;
@@ -3252,17 +3254,20 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   if (!drawCtx || !heroWord) return;
 
   const validCapIdx = typeof capIndex === 'number' && !isNaN(capIndex) ? Math.max(0, capIndex) : 0;
-  const isItalic = (validCapIdx % 2 === 1);
+  const allowItalic = st.allowItalicCycle !== false && !st.noItalic && st.roles?.accent?.italic !== false && st.key?.italic !== false;
+  const isItalic = allowItalic && (validCapIdx % 2 === 1);
   const fontStyle = isItalic ? 'italic ' : '';
   const rawClean = heroWord.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim();
   if (!rawClean) return;
-  const currentCase = S.style?.textCase || S.textCase || 'upper';
+  const currentCase = S.style?.textCase || S.textCase || st.textCase || (st.roles?.accent?.lower ? 'lower' : (st.uppercase === false ? 'lower' : 'upper'));
   const cleanWord = applyTextCase(rawClean, currentCase);
 
   const isReClr = Boolean(
     st.id === 'special_03' ||
     st.id === 'duo_03' ||
+    st.id === 'editorial_depth_stack' ||
     (st.name && st.name.toLowerCase().includes('real estate clr')) ||
+    (st.name && st.name.toLowerCase().includes('editorial')) ||
     st.heroPalette
   );
 
@@ -3270,7 +3275,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   let colorIndex = 0;
   if (isReClr) {
     const lock = S.realEstateColorLock || (S.style && S.style.lockedColor) || 'auto';
-    const clrData = getRealEstateClrGradient(capIndex, lock);
+    const clrData = getRealEstateClrGradient(capIndex, lock, st.heroPalette);
     colors = clrData.palette;
     colorIndex = clrData.colorIndex;
   } else {
@@ -3434,9 +3439,18 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
   drawCtx.globalCompositeOperation = 'source-over';
 }
 
-function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize, exitAlpha, t, lineStart, isTopLine, showAll = false) {
+function renderUnifiedSmallLine(ctxFore, lineText, centerX, baselineY, fontSize, exitAlpha, t, lineStart, isTopLine, showAll = false, caseMode = 'asIs') {
   if (!ctxFore || !lineText) return;
-  const cleanLine = lineText.toLowerCase();
+  let cleanLine = lineText;
+  if (caseMode === 'lower') {
+    cleanLine = lineText.toLowerCase();
+  } else if (caseMode === 'upper') {
+    cleanLine = lineText.toUpperCase();
+  } else if (caseMode === 'title') {
+    cleanLine = lineText.replace(/\b([a-zA-Z])/g, c => c.toUpperCase());
+  } else if (caseMode === 'asIs' || caseMode === 'normal' || !caseMode) {
+    cleanLine = lineText;
+  }
 
   let alpha = (exitAlpha || 1.0);
   let dy = 0;
