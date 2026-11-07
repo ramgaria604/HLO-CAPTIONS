@@ -631,6 +631,8 @@ def load_presets():
                 }
                 if p.get("dubaiLuxuryStack"):
                     duo_item["dubaiLuxuryStack"] = True
+                if p.get("adaptiveEstateFlex"):
+                    duo_item["adaptiveEstateFlex"] = True
                 if p.get("inkGap") is not None:
                     duo_item["inkGap"] = float(p["inkGap"])
                 if p.get("leading") is not None:

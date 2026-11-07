@@ -1715,6 +1715,305 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       };
       lay = layoutFn([singleDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.95 });
     }
+  } else if (st.adaptiveEstateFlex || st.id === 'adaptive_estate_flex') {
+    const toCapTitle = (s) => (s || '').split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
+    const fullText = words.map(w => w.t || w.word || '').join(' ');
+    
+    // Check if caption contains numeric values / prices
+    const numWordIdx = words.findIndex(w => {
+      const clean = (w.t || w.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
+      return /\b\d+[\d,.]*(?:k|m|b|lakh|cr|x)?\b/i.test(clean);
+    });
+
+    // Check if caption is punch/climax word (e.g. "attention", "profit", "results")
+    const isPunchBeam = (
+      /attention|numbers|viral|secret|money|grow|hook|deal/i.test(fullText) ||
+      (capIdx % 4 === 2 && numWordIdx === -1)
+    );
+
+    lay = [];
+
+    if (numWordIdx !== -1) {
+      // STATE 1: METRIC / STAT BEHIND PERSON
+      const metricWordObj = words[numWordIdx];
+      const otherWords = words.filter((_, i) => i !== numWordIdx);
+      
+      const unitWords = [];
+      const bodyWords = [];
+      otherWords.forEach(w => {
+        const tw = (w.t || w.word || '').toLowerCase();
+        if (['lakh', 'cr', 'k', 'm', 'usd', 'inr', 'listed', 'at', 'for', 'paying', 'a'].includes(tw) && otherWords.length > 2) {
+          unitWords.push(w);
+        } else {
+          bodyWords.push(w);
+        }
+      });
+      if (bodyWords.length === 0) {
+        bodyWords.push(...unitWords);
+        unitWords.length = 0;
+      }
+
+      const isRainbowHollow = (capIdx % 2 === 0);
+      const metricRole = Object.assign({}, accentRole, {
+        font: 'Poppins',
+        weight: 900,
+        italic: false,
+        upper: false,
+        lower: false,
+        layer: 'behind',
+        hollow: isRainbowHollow,
+        fill: isRainbowHollow ? null : {
+          type: 'gradient',
+          colors: ['#E000FF', '#8A1B5E'],
+          angle: 180
+        },
+        shadow: isRainbowHollow ? 0 : 8,
+        shadowColor: 'rgba(0,0,0,0.65)'
+      });
+
+      const bodyRole = Object.assign({}, baseRole, {
+        font: 'Poppins',
+        weight: 700,
+        italic: false,
+        color: '#FFFFFF',
+        layer: 'front',
+        shadow: 6,
+        shadowColor: 'rgba(0,0,0,0.85)'
+      });
+
+      // 1. Hero Metric Word behind head (Y ~ 0.20)
+      lay = lay.concat(layoutFn([{
+        text: metricWordObj.t || metricWordObj.word || '',
+        font: 'Poppins',
+        size: Math.max(4, getRolePx(accentRole, 230)),
+        weight: 900,
+        italic: false,
+        track: -0.02,
+        isHero: true,
+        role: metricRole,
+        words: [metricWordObj]
+      }], { W, H, posX: 0.50, posY: 0.20, inkGap, maxWidth: 0.95 }));
+
+      // 2. Unit Words flanking metric if present
+      if (unitWords.length > 0) {
+        lay = lay.concat(layoutFn([{
+          text: unitWords.map(w => w.t || w.word || '').join(' '),
+          font: 'Poppins',
+          size: Math.max(4, getRolePx(baseRole, 56)),
+          weight: 700,
+          italic: false,
+          color: '#FFFFFF',
+          isHero: false,
+          role: bodyRole,
+          words: unitWords
+        }], { W, H, posX: 0.68, posY: 0.24, inkGap, maxWidth: 0.40 }));
+      }
+
+      // 3. Front Body sentence in front of torso (Y ~ 0.52)
+      lay = lay.concat(layoutFn([{
+        text: toCapTitle(bodyWords.map(w => w.t || w.word || '').join(' ')),
+        font: 'Poppins',
+        size: Math.max(4, getRolePx(baseRole, 68)),
+        weight: 700,
+        italic: false,
+        color: '#FFFFFF',
+        isHero: false,
+        role: bodyRole,
+        words: bodyWords
+      }], { W, H, posX: 0.50, posY: 0.52, inkGap, maxWidth: 0.95 }));
+
+    } else if (isPunchBeam) {
+      // STATE 2: PUNCH KEYWORD WITH MAGENTA NEON BEAM
+      let heroIdx = words.findIndex(w => /attention|numbers|viral|secret|money|grow|hook|deal/i.test(w.t || w.word || ''));
+      if (heroIdx === -1) heroIdx = words.length - 1;
+
+      const leadWords = words.slice(0, heroIdx);
+      const punchWords = [words[heroIdx]];
+
+      const beamRole = Object.assign({}, accentRole, {
+        font: 'Poppins',
+        weight: 900,
+        italic: false,
+        upper: false,
+        lower: true,
+        color: '#FFFFFF',
+        neonBeam: true,
+        layer: 'front',
+        shadow: 8,
+        shadowColor: 'rgba(224, 0, 255, 0.85)'
+      });
+
+      const leadRole = Object.assign({}, baseRole, {
+        font: 'Poppins',
+        weight: 700,
+        italic: false,
+        color: '#FFFFFF',
+        layer: 'front',
+        shadow: 5,
+        shadowColor: 'rgba(0,0,0,0.80)'
+      });
+
+      if (leadWords.length > 0) {
+        lay = lay.concat(layoutFn([{
+          text: toCapTitle(leadWords.map(w => w.t || w.word || '').join(' ')),
+          font: 'Poppins',
+          size: Math.max(4, getRolePx(baseRole, 64)),
+          weight: 700,
+          italic: false,
+          color: '#FFFFFF',
+          isHero: false,
+          role: leadRole,
+          words: leadWords
+        }], { W, H, posX: 0.50, posY: 0.49, inkGap, maxWidth: 0.95 }));
+      }
+
+      lay = lay.concat(layoutFn([{
+        text: (punchWords[0].t || punchWords[0].word || '').toLowerCase(),
+        font: 'Poppins',
+        size: Math.max(4, getRolePx(accentRole, 125)),
+        weight: 900,
+        italic: false,
+        color: '#FFFFFF',
+        track: -0.02,
+        isHero: true,
+        role: beamRole,
+        words: punchWords
+      }], { W, H, posX: 0.50, posY: 0.54, inkGap, maxWidth: 0.95 }));
+
+    } else {
+      // STATE 3: EDITORIAL LIQUID CHROME DEPTH + ITALIC STACK
+      let keyIdx = words.findIndex((w, i) => w.key && i < 3);
+      if (keyIdx === -1) keyIdx = Math.min(2, Math.floor(words.length / 2));
+      if (keyIdx === 0 && words.length > 1) keyIdx = 1;
+
+      const topLeadWords = words.slice(0, keyIdx);
+      const heroKeyWords = [words[keyIdx]];
+      const botStackWords = words.slice(keyIdx + 1);
+
+      const chromeRole = Object.assign({}, accentRole, {
+        font: 'Poppins',
+        weight: 900,
+        italic: false,
+        upper: false,
+        lower: true,
+        layer: 'behind',
+        liquidPurple: true,
+        fill: {
+          type: 'gradient',
+          colors: ['#4A1D96', '#7C3AED', '#3B0764'],
+          angle: 180
+        },
+        shadow: 8,
+        shadowColor: 'rgba(0, 0, 0, 0.75)'
+      });
+
+      const whiteTiltedRole = Object.assign({}, baseRole, {
+        font: 'Poppins',
+        weight: 700,
+        italic: true,
+        color: '#FFFFFF',
+        layer: 'front',
+        shadow: 5,
+        shadowColor: 'rgba(0, 0, 0, 0.85)'
+      });
+
+      const whiteBoldRole = Object.assign({}, baseRole, {
+        font: 'Poppins',
+        weight: 700,
+        italic: false,
+        color: '#FFFFFF',
+        layer: 'front',
+        shadow: 5,
+        shadowColor: 'rgba(0, 0, 0, 0.85)'
+      });
+
+      const whiteItalicPunchRole = Object.assign({}, baseRole, {
+        font: 'Poppins',
+        weight: 900,
+        italic: true,
+        color: '#FFFFFF',
+        layer: 'front',
+        shadow: 6,
+        shadowColor: 'rgba(0, 0, 0, 0.85)'
+      });
+
+      if (topLeadWords.length > 0) {
+        lay = lay.concat(layoutFn([{
+          text: toCapTitle(topLeadWords.map(w => w.t || w.word || '').join(' ')),
+          font: 'Poppins',
+          size: Math.max(4, getRolePx(whiteTiltedRole, 62)),
+          weight: 700,
+          italic: true,
+          track: -0.01,
+          isHero: false,
+          role: whiteTiltedRole,
+          words: topLeadWords
+        }], { W, H, posX: 0.32, posY: 0.16, inkGap, maxWidth: 0.50 }));
+      }
+
+      lay = lay.concat(layoutFn([{
+        text: (heroKeyWords[0].t || heroKeyWords[0].word || '').toLowerCase(),
+        font: 'Poppins',
+        size: Math.max(4, getRolePx(accentRole, 210)),
+        weight: 900,
+        italic: false,
+        track: -0.03,
+        isHero: true,
+        role: chromeRole,
+        words: heroKeyWords
+      }], { W, H, posX: 0.50, posY: 0.20, inkGap, maxWidth: 0.95 }));
+
+      if (botStackWords.length > 0) {
+        if (botStackWords.length >= 3) {
+          const wLine1 = [botStackWords[0], botStackWords[1]];
+          const wLine2 = [botStackWords[2]];
+          const wLine3 = botStackWords.slice(3);
+
+          lay = lay.concat(layoutFn([{
+            text: wLine1.map(w => w.t || w.word || '').join(' ').toLowerCase(),
+            font: 'Poppins',
+            size: Math.max(4, getRolePx(whiteBoldRole, 52)),
+            weight: 700,
+            italic: false,
+            role: whiteBoldRole,
+            words: wLine1
+          }], { W, H, posX: 0.50, posY: 0.50, inkGap, maxWidth: 0.90 }));
+
+          lay = lay.concat(layoutFn([{
+            text: (wLine2[0].t || wLine2[0].word || '').toLowerCase(),
+            font: 'Poppins',
+            size: Math.max(4, getRolePx(whiteItalicPunchRole, 88)),
+            weight: 900,
+            italic: true,
+            track: -0.02,
+            role: whiteItalicPunchRole,
+            words: wLine2
+          }], { W, H, posX: 0.50, posY: 0.54, inkGap, maxWidth: 0.90 }));
+
+          if (wLine3.length > 0) {
+            lay = lay.concat(layoutFn([{
+              text: wLine3.map(w => w.t || w.word || '').join(' ').toLowerCase(),
+              font: 'Poppins',
+              size: Math.max(4, getRolePx(whiteBoldRole, 56)),
+              weight: 700,
+              italic: false,
+              role: whiteBoldRole,
+              words: wLine3
+            }], { W, H, posX: 0.50, posY: 0.58, inkGap, maxWidth: 0.90 }));
+          }
+        } else {
+          lay = lay.concat(layoutFn([{
+            text: botStackWords.map(w => w.t || w.word || '').join(' '),
+            font: 'Poppins',
+            size: Math.max(4, getRolePx(whiteBoldRole, 64)),
+            weight: 700,
+            italic: false,
+            role: whiteBoldRole,
+            words: botStackWords
+          }], { W, H, posX: 0.50, posY: 0.54, inkGap, maxWidth: 0.90 }));
+        }
+      }
+    }
   } else {
     let smallWords = [];
     let bigWords = [];
@@ -1772,7 +2071,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   }
 
   const heroLookStack = S.heroLook || st.heroLook || 'solid';
-  const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false) && !st.dubaiLuxuryStack && st.id !== 'dubai_luxury_stack' && !st.crazySunsetStack && st.id !== 'crazy_sunset_stack';
+  const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false) && !st.dubaiLuxuryStack && st.id !== 'dubai_luxury_stack' && !st.crazySunsetStack && st.id !== 'crazy_sunset_stack' && !st.adaptiveEstateFlex && st.id !== 'adaptive_estate_flex';
 
   lay.forEach((o) => {
     let lineLayer = 'front';
@@ -1885,6 +2184,52 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           targetCtx.fillStyle = 'rgba(255, 255, 255, 0.15)';
           targetCtx.fillText(wo.txt, 0, 0);
           targetCtx.restore();
+        }
+
+        if (o.role && o.role.neonBeam) {
+          targetCtx.save();
+          const beamW = Math.max(W * 0.44, wo.width * 1.6);
+          const beamH = o.size * 0.65;
+          const beamGrad = targetCtx.createRadialGradient(wo.width / 2, -o.size * 0.35, 8, wo.width / 2, -o.size * 0.35, beamW);
+          beamGrad.addColorStop(0, 'rgba(230, 0, 255, 0.95)');
+          beamGrad.addColorStop(0.35, 'rgba(255, 0, 160, 0.65)');
+          beamGrad.addColorStop(0.7, 'rgba(180, 0, 255, 0.25)');
+          beamGrad.addColorStop(1, 'rgba(180, 0, 255, 0)');
+          targetCtx.fillStyle = beamGrad;
+          targetCtx.beginPath();
+          targetCtx.ellipse(wo.width / 2, -o.size * 0.35, beamW, beamH, 0, 0, Math.PI * 2);
+          targetCtx.fill();
+          targetCtx.restore();
+        }
+
+        if (o.role && o.role.hollow) {
+          targetCtx.save();
+          targetCtx.lineJoin = 'round';
+          targetCtx.lineWidth = Math.max(3, Math.round(o.size * 0.032));
+          const strokeGrad = targetCtx.createLinearGradient(0, -o.size, wo.width, 0);
+          strokeGrad.addColorStop(0, '#2EE6A6');
+          strokeGrad.addColorStop(0.35, '#4CB8FF');
+          strokeGrad.addColorStop(0.7, '#3550B8');
+          strokeGrad.addColorStop(1, '#A66BFF');
+          targetCtx.strokeStyle = strokeGrad;
+          targetCtx.strokeText(wo.txt, 0, 0);
+          targetCtx.restore();
+          curX += wo.width + spaceWidth;
+          return;
+        }
+
+        if (o.role && o.role.liquidPurple) {
+          targetCtx.save();
+          const pGrad = targetCtx.createLinearGradient(0, -o.size, 0, 0);
+          pGrad.addColorStop(0, '#4A1D96');
+          pGrad.addColorStop(0.35, '#7C3AED');
+          pGrad.addColorStop(0.65, '#A855F7');
+          pGrad.addColorStop(1, '#3B0764');
+          targetCtx.fillStyle = pGrad;
+          targetCtx.fillText(wo.txt, 0, 0);
+          targetCtx.restore();
+          curX += wo.width + spaceWidth;
+          return;
         }
 
         if (outlineWidth > 0) {
