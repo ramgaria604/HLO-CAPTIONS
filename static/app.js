@@ -4950,23 +4950,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     uploadProgressBar.style.width = '5%';
     uploadPercent.textContent = '5%';
 
-    let fileToUpload = file;
-    try {
-      uploadStatusText.textContent = 'Extracting speech audio for fast upload...';
-      const extractedWav = await extractAudioForTranscription(file);
-      if (extractedWav && extractedWav.size > 1000) {
-        fileToUpload = new File([extractedWav], (file.name || 'speech').replace(/\.[^.]+$/, '') + '.wav', { type: 'audio/wav' });
-        console.log(`[FAST-IMPORT] Compressed payload: ${(fileToUpload.size / (1024*1024)).toFixed(2)} MB vs original ${(file.size / (1024*1024)).toFixed(2)} MB`);
-      }
-    } catch (e) {
-      console.warn('[FAST-IMPORT] Audio extraction fallback to direct file:', e);
-      fileToUpload = file;
-    }
-
-    uploadStatusText.textContent = 'Uploading audio track...';
+    uploadStatusText.textContent = 'Uploading video for AI captioning...';
     const formData = new FormData();
-    formData.append('video', fileToUpload);
-    formData.append('file', fileToUpload);
+    formData.append('video', file);
+    formData.append('file', file);
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/upload', true);

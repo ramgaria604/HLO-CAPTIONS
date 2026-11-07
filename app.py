@@ -1669,33 +1669,56 @@ def transcribe():
     if groq_key:
         audio_for_groq = WORK / f"{name}_groq.mp3"
         try:
-            subprocess.run([
-                ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
-                "-ar", "16000", "-ac", "1", "-b:a", "64k", str(audio_for_groq)
-            ], capture_output=True, check=True)
+            try:
+                subprocess.run([
+                    ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
+                    "-af", "dynaudnorm=f=75:g=15:m=10.0,highpass=f=80,lowpass=f=7500,volume=1.5",
+                    "-ar", "16000", "-ac", "1", "-b:a", "64k", str(audio_for_groq)
+                ], capture_output=True, check=True)
+            except Exception:
+                subprocess.run([
+                    ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
+                    "-ar", "16000", "-ac", "1", "-b:a", "64k", str(audio_for_groq)
+                ], capture_output=True, check=True)
 
             with open(audio_for_groq, "rb") as af:
-                files = {"file": (f"{name}.mp3", af, "audio/mpeg")}
-                post_data = {
-                    "model": groq_model,
-                    "response_format": "verbose_json",
-                    "timestamp_granularities[]": "word"
-                }
+                post_data = [
+                    ("model", groq_model),
+                    ("response_format", "verbose_json"),
+                    ("timestamp_granularities[]", "word"),
+                    ("timestamp_granularities[]", "segment"),
+                ]
                 if whisper_lang:
-                    post_data["language"] = whisper_lang
+                    post_data.append(("language", whisper_lang))
                 if whisper_prompt:
-                    post_data["prompt"] = whisper_prompt
+                    post_data.append(("prompt", whisper_prompt))
 
                 headers = {"Authorization": f"Bearer {groq_key}"}
-                import requests
-                groq_resp = requests.post(
-                    "https://api.groq.com/openai/v1/audio/transcriptions",
-                    headers=headers,
-                    files=files,
-                    data=post_data,
-                    timeout=60
-                )
-                if groq_resp.ok:
+                import requests, time
+                groq_resp = None
+                for attempt in range(2):
+                    af.seek(0)
+                    files = {"file": (f"{name}.mp3", af, "audio/mpeg")}
+                    try:
+                        groq_resp = requests.post(
+                            "https://api.groq.com/openai/v1/audio/transcriptions",
+                            headers=headers,
+                            files=files,
+                            data=post_data,
+                            timeout=120
+                        )
+                        if groq_resp.ok:
+                            break
+                        if groq_resp.status_code in (429, 500, 502, 503, 504) and attempt == 0:
+                            time.sleep(2)
+                            continue
+                    except (requests.Timeout, requests.RequestException):
+                        if attempt == 0:
+                            time.sleep(2)
+                            continue
+                        break
+
+                if groq_resp and groq_resp.ok:
                     res_json = groq_resp.json()
                     raw_words = res_json.get("words") or []
                     if not raw_words and "segments" in res_json:
@@ -1719,18 +1742,19 @@ def transcribe():
                                 t = hinglish.devanagari_to_hinglish(t)
                             words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
 
-                    # If words is empty but text was returned in response, parse segments/tokens
-                    if not words and res_json.get("text"):
-                        full_text = res_json.get("text", "")
-                        if raw_lang in ("hinglish", "en-in", "hi-latn", "hi_en") or hinglish.is_devanagari(full_text):
-                            is_hinglish = True
-                            detected_lang = "Hinglish"
-                        for seg in res_json.get("segments", []):
-                            s_start = float(seg.get("start", 0))
-                            s_end = float(seg.get("end", s_start + 1.0))
-                            seg_tokens = (seg.get("text") or "").split()
+                    # Crucial: Ensure NO segments across the full video are skipped even if word timestamps ended early
+                    for seg in res_json.get("segments", []):
+                        s_start = float(seg.get("start", 0))
+                        s_end = float(seg.get("end", s_start + 1.0))
+                        seg_text = (seg.get("text") or "").strip()
+                        if not seg_text:
+                            continue
+                        # If no words exist inside this segment's duration, parse its tokens
+                        has_words = any(s_start <= w[0] < s_end for w in words)
+                        if not has_words:
+                            seg_tokens = seg_text.split()
                             if seg_tokens:
-                                dur_per_token = (s_end - s_start) / len(seg_tokens)
+                                dur_per_token = max(0.08, (s_end - s_start) / len(seg_tokens))
                                 for idx_t, tok in enumerate(seg_tokens):
                                     w_s = round(s_start + idx_t * dur_per_token, 3)
                                     w_e = round(s_start + (idx_t + 1) * dur_per_token, 3)
@@ -1738,6 +1762,23 @@ def transcribe():
                                         tok = hinglish.devanagari_to_hinglish(tok)
                                     words.append((w_s, w_e, tok))
 
+                    if not words and res_json.get("text"):
+                        full_text = res_json.get("text", "")
+                        if raw_lang in ("hinglish", "en-in", "hi-latn", "hi_en") or hinglish.is_devanagari(full_text):
+                            is_hinglish = True
+                            detected_lang = "Hinglish"
+                        tokens = full_text.split()
+                        if tokens:
+                            audio_dur = float(res_json.get("duration") or 5.0)
+                            token_dur = max(0.1, audio_dur / len(tokens))
+                            for idx_t, tok in enumerate(tokens):
+                                w_s = round(idx_t * token_dur, 3)
+                                w_e = round((idx_t + 1) * token_dur, 3)
+                                if is_hinglish and hinglish.is_devanagari(tok):
+                                    tok = hinglish.devanagari_to_hinglish(tok)
+                                words.append((w_s, w_e, tok))
+
+                    words.sort(key=lambda x: x[0])
                     if words:
                         transcription_engine = groq_engine_name
         except Exception as groq_err:
@@ -1839,14 +1880,8 @@ def transcribe():
 
                 txt = None
                 langs_to_try = [google_lang]
-                if google_lang in ("hi-IN", "hi"):
-                    langs_to_try.extend(["en-IN", "en-US"])
-                elif google_lang in ("en-IN", "en-US", "en-GB"):
-                    if "en-IN" not in langs_to_try: langs_to_try.append("en-IN")
-                    if "en-US" not in langs_to_try: langs_to_try.append("en-US")
+                if is_hinglish and "hi-IN" not in langs_to_try:
                     langs_to_try.append("hi-IN")
-                else:
-                    langs_to_try.extend(["en-US", "hi-IN"])
 
                 for lang_candidate in langs_to_try:
                     try:
