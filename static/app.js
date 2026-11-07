@@ -4250,6 +4250,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       console.error('[INIT]', 'loadPresets', err);
     }
 
+    runBlock('inAppBrowserHandler', initInAppBrowserHandler);
     runBlock('uploadHandlers', setupUploadHandlers);
     runBlock('transportHandlers', setupTransportHandlers);
     runBlock('timelineHandlers', setupTimelineHandlers);
@@ -4782,10 +4783,109 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   // UPLOAD & TRANSCRIPTION
   // ==========================================================================
+
+  // ==========================================================================
+  // INSTAGRAM & IN-APP BROWSER GUARD (CONTINUE TO CHROME)
+  // ==========================================================================
+  let inAppBrowserDismissed = false;
+
+  function isInAppBrowser() {
+    const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    return /Instagram|FBAN|FBAV|Threads/i.test(ua);
+  }
+
+  function openExternalBrowser() {
+    const href = window.location.href;
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isAndroid) {
+      const cleanUrl = href.replace(/^https?:\/\//, '');
+      const chromeIntent = `intent://${cleanUrl}#Intent;scheme=https;package=com.android.chrome;end;`;
+      window.location.href = chromeIntent;
+
+      setTimeout(() => {
+        const fallbackIntent = `intent://${cleanUrl}#Intent;scheme=https;action=android.intent.action.VIEW;end;`;
+        window.location.href = fallbackIntent;
+      }, 700);
+      return;
+    }
+
+    if (isIOS) {
+      try {
+        navigator.clipboard.writeText(href);
+        if (typeof showToast === 'function') showToast('📋 Link copied! Open Safari or Chrome to paste.');
+      } catch (_) {}
+      const iosInstructions = $('inappIosInstructions');
+      if (iosInstructions) iosInstructions.style.display = 'block';
+    }
+  }
+
+  function showInAppBrowserModal() {
+    const modal = $('modalInAppBrowser');
+    if (!modal) return;
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const iosBox = $('inappIosInstructions');
+    if (iosBox) iosBox.style.display = isIOS ? 'block' : 'none';
+    modal.classList.remove('hidden');
+  }
+
+  function hideInAppBrowserModal() {
+    const modal = $('modalInAppBrowser');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function initInAppBrowserHandler() {
+    if (isInAppBrowser()) {
+      const banner = $('inappBrowserBanner');
+      if (banner) banner.classList.remove('hidden');
+      document.body.classList.add('is-inapp-browser');
+
+      const btnBanner = $('btnContinueToChromeBanner');
+      if (btnBanner) {
+        btnBanner.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openExternalBrowser();
+        });
+      }
+
+      const btnModalChrome = $('btnContinueToChromeModal');
+      if (btnModalChrome) {
+        btnModalChrome.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openExternalBrowser();
+        });
+      }
+
+      const btnCloseModal = $('btnCloseInAppModal');
+      if (btnCloseModal) {
+        btnCloseModal.addEventListener('click', (e) => {
+          e.stopPropagation();
+          inAppBrowserDismissed = true;
+          hideInAppBrowserModal();
+        });
+      }
+
+      const btnProceed = $('btnProceedInApp');
+      if (btnProceed) {
+        btnProceed.addEventListener('click', (e) => {
+          e.stopPropagation();
+          inAppBrowserDismissed = true;
+          hideInAppBrowserModal();
+          fileInput.click();
+        });
+      }
+    }
+  }
+
   function setupUploadHandlers() {
     btnSelectFile.addEventListener('click', (e) => {
       e.stopPropagation();
       if (dropZone.classList.contains('is-uploading')) return;
+      if (isInAppBrowser() && !inAppBrowserDismissed) {
+        showInAppBrowserModal();
+        return;
+      }
       S.generateAfterPicker = false;
       fileInput.click();
     });
@@ -4805,6 +4905,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     dropZone.addEventListener('click', (e) => {
       // Allow clicking anywhere inside the drop card to open file chooser
       if (!dropZone.classList.contains('is-uploading') && e.target !== fileInput && !e.target.closest('select') && !e.target.closest('details') && !e.target.closest('textarea')) {
+        if (isInAppBrowser() && !inAppBrowserDismissed) {
+          showInAppBrowserModal();
+          return;
+        }
         fileInput.click();
       }
     });
@@ -12087,7 +12191,17 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           e.preventDefault();
           e.stopPropagation();
         }
-        const blobForShare = currentBlob || (filename instanceof Blob ? filename : null);
+        let blobForShare = currentBlob || (filename instanceof Blob ? filename : null);
+        if (!blobForShare && targetDownloadUrl) {
+          if (typeof showToast === 'function') showToast('⏳ Preparing video to save...');
+          try {
+            const fetchRes = await fetch(targetDownloadUrl);
+            blobForShare = await fetchRes.blob();
+            currentBlob = blobForShare;
+          } catch (fetchErr) {
+            console.warn('[SHARE] Video blob fetch note:', fetchErr);
+          }
+        }
         if (blobForShare && navigator.share && navigator.canShare) {
           try {
             const shareFile = new File([blobForShare], targetFileName || 'captioned_video.mp4', { type: 'video/mp4' });
@@ -12104,6 +12218,20 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           }
         }
         forceDirectDownload();
+      };
+    }
+
+    const btnCopyExportLink = $('btnCopyExportLink');
+    if (btnCopyExportLink) {
+      btnCopyExportLink.onclick = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const fullUrl = new URL(targetDownloadUrl, window.location.href).href;
+        try {
+          navigator.clipboard.writeText(fullUrl);
+          if (typeof showToast === 'function') showToast('📋 Direct download link copied!');
+        } catch (_) {
+          prompt('Copy this video download link:', fullUrl);
+        }
       };
     }
 
