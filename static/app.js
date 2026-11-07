@@ -1579,6 +1579,142 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       };
       lay = layoutFn([midDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.96 });
     }
+  } else if (st.crazySunsetStack || st.id === 'crazy_sunset_stack') {
+    const toCapTitle = (s) => (s || '').split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
+    const heroColor = S.style?.highlightColor || '#FF7A00';
+    const lineSpacingMult = (typeof S.style?.lineSpacing === 'number' && S.style.lineSpacing > 0)
+      ? (S.style.lineSpacing / 1.2)
+      : 1.0;
+    const lineGap3 = 0.052 * fontScale * lineSpacingMult;
+    const lineGap2 = 0.046 * fontScale * lineSpacingMult;
+
+    const sunsetRole = Object.assign({}, accentRole, {
+      font: 'Montserrat',
+      weight: 900,
+      italic: false,
+      color: heroColor,
+      fill: {
+        type: 'sunset-gradient',
+        colors: ['#FFE033', '#FFB800', heroColor],
+        angle: 180
+      },
+      keyGradient: `linear-gradient(180deg, #FFE033 0%, #FFB800 40%, ${heroColor} 100%)`,
+      glow: 'rgba(255, 110, 0, 0.40)',
+      glowSize: 14,
+      shadow: 6,
+      shadowColor: 'rgba(0, 0, 0, 0.50)'
+    });
+
+    const whiteItalicRole = Object.assign({}, baseRole, {
+      font: 'Poppins',
+      weight: 700,
+      italic: true,
+      color: '#FFFFFF',
+      shadow: 5,
+      shadowColor: 'rgba(0, 0, 0, 0.65)'
+    });
+
+    lay = [];
+    if (words.length >= 3) {
+      let keyIdx = -1;
+      for (let i = 0; i < words.length; i++) {
+        if (words[i].key) { keyIdx = i; break; }
+      }
+      if (keyIdx === -1) keyIdx = 1; // Default middle word as hero
+
+      const topWords = words.slice(0, keyIdx);
+      const heroWords = [words[keyIdx]];
+      const botWords = words.slice(keyIdx + 1);
+
+      if (topWords.length > 0) {
+        lay = lay.concat(layoutFn([{
+          text: toCapTitle(topWords.map(w => w.t || w.word || '').join(' ')),
+          font: 'Poppins',
+          size: Math.max(4, getRolePx(whiteItalicRole, 68)),
+          weight: 700,
+          italic: true,
+          track: -0.01,
+          isHero: false,
+          role: whiteItalicRole,
+          words: topWords
+        }], { W, H, posX: 0.50, posY: posY - lineGap3, inkGap, maxWidth: 0.95 }));
+      }
+
+      lay = lay.concat(layoutFn([{
+        text: toCapTitle(heroWords.map(w => w.t || w.word || '').join(' ')),
+        font: 'Montserrat',
+        size: Math.max(4, getRolePx(sunsetRole, 115)),
+        weight: 900,
+        italic: false,
+        track: -0.02,
+        isHero: true,
+        role: sunsetRole,
+        words: heroWords
+      }], { W, H, posX: 0.50, posY: posY, inkGap, maxWidth: 0.95 }));
+
+      if (botWords.length > 0) {
+        lay = lay.concat(layoutFn([{
+          text: toCapTitle(botWords.map(w => w.t || w.word || '').join(' ')),
+          font: 'Poppins',
+          size: Math.max(4, getRolePx(whiteItalicRole, 68)),
+          weight: 700,
+          italic: true,
+          track: -0.01,
+          isHero: false,
+          role: whiteItalicRole,
+          words: botWords
+        }], { W, H, posX: 0.50, posY: posY + lineGap3, inkGap, maxWidth: 0.95 }));
+      }
+    } else if (words.length === 2) {
+      const isFirstHero = words[0].key || !words[1].key;
+      const heroWords = isFirstHero ? [words[0]] : [words[1]];
+      const subWords = isFirstHero ? [words[1]] : [words[0]];
+
+      const heroDesc = {
+        text: toCapTitle(heroWords[0].t || heroWords[0].word || ''),
+        font: 'Montserrat',
+        size: Math.max(4, getRolePx(sunsetRole, 118)),
+        weight: 900,
+        italic: false,
+        track: -0.02,
+        isHero: true,
+        role: sunsetRole,
+        words: heroWords
+      };
+
+      const subDesc = {
+        text: toCapTitle(subWords[0].t || subWords[0].word || ''),
+        font: 'Poppins',
+        size: Math.max(4, getRolePx(whiteItalicRole, 72)),
+        weight: 700,
+        italic: true,
+        track: -0.01,
+        isHero: false,
+        role: whiteItalicRole,
+        words: subWords
+      };
+
+      if (isFirstHero) {
+        lay = lay.concat(layoutFn([heroDesc], { W, H, posX: 0.50, posY: posY - lineGap2 * 0.45, inkGap, maxWidth: 0.95 }));
+        lay = lay.concat(layoutFn([subDesc], { W, H, posX: 0.50, posY: posY + lineGap2 * 0.55, inkGap, maxWidth: 0.95 }));
+      } else {
+        lay = lay.concat(layoutFn([subDesc], { W, H, posX: 0.50, posY: posY - lineGap2 * 0.55, inkGap, maxWidth: 0.95 }));
+        lay = lay.concat(layoutFn([heroDesc], { W, H, posX: 0.50, posY: posY + lineGap2 * 0.45, inkGap, maxWidth: 0.95 }));
+      }
+    } else {
+      const singleDesc = {
+        text: toCapTitle(words[0].t || words[0].word || ''),
+        font: 'Montserrat',
+        size: Math.max(4, getRolePx(sunsetRole, 122)),
+        weight: 900,
+        italic: false,
+        track: -0.02,
+        isHero: true,
+        role: sunsetRole,
+        words: words
+      };
+      lay = layoutFn([singleDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.95 });
+    }
   } else {
     let smallWords = [];
     let bigWords = [];
@@ -1636,7 +1772,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   }
 
   const heroLookStack = S.heroLook || st.heroLook || 'solid';
-  const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false) && !st.dubaiLuxuryStack && st.id !== 'dubai_luxury_stack';
+  const useUnifiedStack = (heroLookStack !== 'solid' || S.lineByLine !== false) && !st.dubaiLuxuryStack && st.id !== 'dubai_luxury_stack' && !st.crazySunsetStack && st.id !== 'crazy_sunset_stack';
 
   lay.forEach((o) => {
     let lineLayer = 'front';
