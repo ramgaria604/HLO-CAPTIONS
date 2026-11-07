@@ -4872,27 +4872,97 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   }
 
-  // Fast client-side audio extraction for sub-second uploads (95% smaller payload)
+  // Fast client-side audio extraction with guaranteed 16,000 Hz hardware resampling
   async function extractAudioForTranscription(file) {
     if (file.type && file.type.startsWith('audio/')) {
       return file;
     }
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     if (!AudioCtx) throw new Error('AudioContext unavailable');
 
-    const audioCtx = new AudioCtx({ sampleRate: 16000 });
+    const audioCtx = new AudioCtx();
+    let decodedBuffer;
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      return audioBufferToWav(decodedBuffer);
+      decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
     } finally {
       try { audioCtx.close(); } catch (_) {}
     }
+
+    if (!decodedBuffer) throw new Error('Could not decode audio track');
+
+    const targetRate = 16000;
+    const duration = decodedBuffer.duration;
+    if (!duration || duration <= 0) throw new Error('Invalid audio duration');
+
+    // Native high-performance hardware resampling to 16,000 Hz mono
+    if (OfflineCtx) {
+      const totalTargetSamples = Math.max(1, Math.ceil(duration * targetRate));
+      const offlineCtx = new OfflineCtx(1, totalTargetSamples, targetRate);
+      const bufferSource = offlineCtx.createBufferSource();
+      bufferSource.buffer = decodedBuffer;
+      bufferSource.connect(offlineCtx.destination);
+      bufferSource.start(0);
+
+      const resampledBuffer = await offlineCtx.startRendering();
+      return audioBufferToWav(resampledBuffer);
+    }
+
+    // High-accuracy linear interpolation fallback if OfflineAudioContext is unavailable
+    return manualResampleToWav(decodedBuffer, targetRate);
+  }
+
+  function manualResampleToWav(buffer, targetRate) {
+    const srcRate = buffer.sampleRate || 48000;
+    const numSrcChannels = buffer.numberOfChannels;
+    const srcLen = buffer.length;
+    const srcMono = new Float32Array(srcLen);
+    for (let c = 0; c < numSrcChannels; c++) {
+      const ch = buffer.getChannelData(c);
+      for (let i = 0; i < srcLen; i++) srcMono[i] += ch[i] / numSrcChannels;
+    }
+    const ratio = srcRate / targetRate;
+    const targetLen = Math.round(srcLen / ratio);
+    const resampled = new Float32Array(targetLen);
+    for (let i = 0; i < targetLen; i++) {
+      const srcIdx = i * ratio;
+      const idxFloor = Math.floor(srcIdx);
+      const frac = srcIdx - idxFloor;
+      const s1 = srcMono[idxFloor] || 0;
+      const s2 = srcMono[idxFloor + 1] || s1;
+      resampled[i] = s1 + frac * (s2 - s1);
+    }
+    const wavBuffer = new ArrayBuffer(44 + targetLen * 2);
+    const view = new DataView(wavBuffer);
+    function writeWavString(v, off, str) {
+      for (let j = 0; j < str.length; j++) v.setUint8(off + j, str.charCodeAt(j));
+    }
+    writeWavString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + targetLen * 2, true);
+    writeWavString(view, 8, 'WAVE');
+    writeWavString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, targetRate, true);
+    view.setUint32(28, targetRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeWavString(view, 36, 'data');
+    view.setUint32(40, targetLen * 2, true);
+    let offset = 44;
+    for (let i = 0; i < targetLen; i++) {
+      const s = Math.max(-1, Math.min(1, resampled[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+    return new Blob([wavBuffer], { type: 'audio/wav' });
   }
 
   function audioBufferToWav(buffer) {
     const numChannels = 1;
-    const sampleRate = 16000;
+    const sampleRate = buffer.sampleRate || 16000;
     const numSamples = buffer.length;
     const monoData = new Float32Array(numSamples);
     const numSrcChannels = buffer.numberOfChannels;
@@ -4950,10 +5020,24 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     uploadProgressBar.style.width = '5%';
     uploadPercent.textContent = '5%';
 
-    uploadStatusText.textContent = 'Uploading video for AI captioning...';
+    let fileToUpload = file;
+    try {
+      uploadStatusText.textContent = 'Extracting speech audio for fast upload...';
+      const extractedWav = await extractAudioForTranscription(file);
+      if (extractedWav && extractedWav.size > 1000) {
+        fileToUpload = new File([extractedWav], (file.name || 'speech').replace(/\.[^.]+$/, '') + '.wav', { type: 'audio/wav' });
+        console.log(`[FAST-IMPORT] Resampled 16kHz audio: ${(fileToUpload.size / (1024*1024)).toFixed(2)} MB vs original ${(file.size / (1024*1024)).toFixed(2)} MB`);
+      }
+    } catch (e) {
+      console.warn('[FAST-IMPORT] Audio extraction fallback to direct file:', e);
+      fileToUpload = file;
+    }
+
+    uploadStatusText.textContent = 'Uploading audio track...';
     const formData = new FormData();
-    formData.append('video', file);
-    formData.append('file', file);
+    formData.append('video', fileToUpload);
+    formData.append('file', fileToUpload);
+
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/upload', true);
