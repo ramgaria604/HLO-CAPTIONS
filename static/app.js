@@ -4401,19 +4401,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     runBlock('modalHandlers', setupModalHandlers);
     runBlock('canvasSizing', setupCanvasSizing);
     runBlock('captionDragging', setupCaptionDragging);
-    runBlock('keepAliveHeartbeat', startKeepAliveHeartbeat);
     runBlock('authHandlers', setupAuthHandlers);
     runBlock('projectHandlers', setupProjectHandlers);
     runBlock('couponHandlers', setupCouponHandlers);
     runBlock('layoutDebugHelper', setupLayoutDebugHelper);
   }
 
-  function startKeepAliveHeartbeat() {
-    // Keep-alive heartbeat: ping server every 8 minutes so server never sleeps while tab is open
-    setInterval(() => {
-      fetch('/api/ping', { cache: 'no-store' }).catch(() => {});
-    }, 8 * 60 * 1000);
-  }
 
   // ==========================================================================
   // LOAD PRESETS FROM SERVER + MERGE LOCAL CS_PRESETS (DUO PACK)
