@@ -7985,6 +7985,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // CANVAS SIZING & RENDERING LOOP
   // ==========================================================================
   function setupCanvasSizing() {
+    fitCanvas();
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') {
+      document.fonts.ready.then(() => {
+        renderCanvas(true);
+      }).catch(() => {});
+    }
     window.addEventListener('resize', () => {
       fitCanvas();
       if (timelineScrollContainer && timelineRibbon) {
@@ -9271,13 +9277,21 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
   function renderCanvas(isPreview = true) {
     const drawStart = performance.now();
+    let dpr = 1;
+    let w = 360;
+    let h = 640;
+    let t = 0;
+    let activeCap = null;
+    let words = [];
+    let isBehind = false;
+    let isShowAll = false;
     try {
       const effQuality = isPreview ? getEffectivePreviewQuality() : 'full';
       const cfg = PREVIEW_QUALITY_CONFIG[effQuality] || PREVIEW_QUALITY_CONFIG.balanced;
-      const dpr = isPreview ? Math.min(cfg.maxDpr, window.devicePixelRatio || 1) : 1;
+      dpr = isPreview ? Math.min(cfg.maxDpr, window.devicePixelRatio || 1) : 1;
 
-      const w = captionCanvas.width / dpr;
-      const h = captionCanvas.height / dpr;
+      w = (captionCanvas && captionCanvas.width > 0) ? (captionCanvas.width / dpr) : 360;
+      h = (captionCanvas && captionCanvas.height > 0) ? (captionCanvas.height / dpr) : 640;
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
@@ -9294,8 +9308,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         personCtx.scale(dpr, dpr);
       }
 
-      const t = vid.currentTime || 0;
-      let activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+      t = (vid && typeof vid.currentTime === 'number') ? vid.currentTime : 0;
+      activeCap = S.captions.find(c => t >= c.start && t <= c.end);
       if (!activeCap && vid.paused && S.selectedCaptionId) {
         activeCap = S.captions.find(c => c.id === S.selectedCaptionId) || null;
       }
@@ -9303,19 +9317,26 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       // Requirement 6: Do less work when nothing changes / no active caption
       if (!activeCap) {
         if (S.captions.length > 0) {
-          if (vid.paused) {
+          // If paused OR within first 1.2s of playback, show the first/closest caption
+          if (vid.paused || t <= 1.2) {
             activeCap = S.captions.find(c => t <= c.end) || S.captions[0];
           } else {
-            if (!_overlayWasCleared) {
-              drawWatermark(ctx, w, h);
-              _overlayWasCleared = true;
+            // Keep recent caption on screen during brief speech pauses (< 0.8s) so captions do not flash off
+            const recentCap = S.captions.find(c => t >= c.end && (t - c.end) <= 0.8);
+            if (recentCap) {
+              activeCap = recentCap;
+            } else {
+              if (!_overlayWasCleared) {
+                drawWatermark(ctx, w, h);
+                _overlayWasCleared = true;
+              }
+              if (isPreview) {
+                const elp = performance.now() - drawStart;
+                recordPreviewDrawTime(elp);
+                updateDebugBadge(elp, effQuality);
+              }
+              return;
             }
-            if (isPreview) {
-              const elp = performance.now() - drawStart;
-              recordPreviewDrawTime(elp);
-              updateDebugBadge(elp, effQuality);
-            }
-            return;
           }
         } else {
           drawSampleCaptionPreview(ctx, w, h, S.style || {});
@@ -9331,12 +9352,25 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       }
       _overlayWasCleared = false;
 
-      const words = (activeCap.words || []).map(w => ({
+      words = (activeCap.words || []).map(w => ({
         t: w.t || w.word || '',
         s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
         e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
         key: Boolean(w.key)
       }));
+
+      // Fallback: if activeCap text exists but words array is empty, construct words from text
+      if (!words.length && activeCap.text) {
+        const parts = activeCap.text.trim().split(/\s+/).filter(Boolean);
+        const segDur = Math.max(0.5, (activeCap.end || 1) - (activeCap.start || 0));
+        const step = segDur / Math.max(1, parts.length);
+        words = parts.map((pt, pIdx) => ({
+          t: pt,
+          s: (activeCap.start || 0) + pIdx * step,
+          e: (activeCap.start || 0) + (pIdx + 1) * step,
+          key: pIdx === 0
+        }));
+      }
 
       // Check for Pop Studio Scene-Based Video Template
       const isPopStudio = Boolean(
@@ -9451,21 +9485,27 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         if (behindCtx) {
           behindCtx.setTransform(1, 0, 0, 1, 0, 0);
           behindCtx.clearRect(0, 0, behindCanvas.width, behindCanvas.height);
-          behindCtx.scale(dpr, dpr);
         }
         if (personCtx) {
           personCtx.setTransform(1, 0, 0, 1, 0, 0);
           personCtx.clearRect(0, 0, personCanvas.width, personCanvas.height);
-          personCtx.scale(dpr, dpr);
         }
-        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, isShowAll, isPreview);
-      } catch (_) {
+        if (activeCap) {
+          drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, true, isPreview);
+        } else if (S.captions && S.captions.length > 0) {
+          const fallbackCap = S.captions[0];
+          const fallbackWords = (fallbackCap.words && fallbackCap.words.length) ? fallbackCap.words : (fallbackCap.text || '').split(' ').map(tx => ({ t: tx, s: 0, e: 1 }));
+          drawSafePlainCaptions(ctx, fallbackCap, fallbackWords, w, h);
+        }
+      } catch (errInner) {
         try {
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
           ctx.scale(dpr, dpr);
-          drawSafePlainCaptions(ctx, activeCap, words, captionCanvas.width, captionCanvas.height);
-        } catch (e2) {}
+          const capToDraw = activeCap || (S.captions && S.captions[0]) || { text: 'Preview Caption' };
+          const wordsToDraw = (words && words.length) ? words : [{ t: capToDraw.text || 'Preview' }];
+          drawSafePlainCaptions(ctx, capToDraw, wordsToDraw, w, h);
+        } catch (_) {}
       }
     }
   }
