@@ -4276,14 +4276,15 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
 
   // Exact 7-color luxury jewel palette from the editorial reference video
+  // Each palette has a vibrant left color and a deep dark right color for the horizontal gradient
   const palettes = [
-    { name: 'navy', top: '#1E1B4B', mid1: '#312E81', specular: '#E0E7FF', glow: '#4338CA', bottom: '#1E1B4B' },
-    { name: 'sky', top: '#0369A1', mid1: '#0284C7', specular: '#E0F2FE', glow: '#38BDF8', bottom: '#0C4A6E' },
-    { name: 'emerald', top: '#064E3B', mid1: '#059669', specular: '#D1FAE5', glow: '#10B981', bottom: '#022C22' },
-    { name: 'violet', top: '#4C1D95', mid1: '#6D28D9', specular: '#EDE9FE', glow: '#8B5CF6', bottom: '#2E1065' },
-    { name: 'cobalt', top: '#1E3A8A', mid1: '#2563EB', specular: '#DBEAFE', glow: '#3B82F6', bottom: '#172554' },
-    { name: 'teal', top: '#134E4A', mid1: '#0D9488', specular: '#CCFBF1', glow: '#14B8A6', bottom: '#042F2E' },
-    { name: 'orange', top: '#7C2D12', mid1: '#C2410C', specular: '#FFEDD5', glow: '#F97316', bottom: '#431407' }
+    { name: 'navy', left: '#2563EB', mid: '#1D4ED8', right: '#0F172A' },
+    { name: 'emerald', left: '#22C55E', mid: '#16A34A', right: '#052E16' },
+    { name: 'sky', left: '#38BDF8', mid: '#0284C7', right: '#0C4A6E' },
+    { name: 'violet', left: '#A855F7', mid: '#7C3AED', right: '#2E1065' },
+    { name: 'cobalt', left: '#3B82F6', mid: '#1E3A8A', right: '#172554' },
+    { name: 'teal', left: '#14B8A6', mid: '#0D9488', right: '#042F2E' },
+    { name: 'orange', left: '#FB923C', mid: '#EA580C', right: '#431407' }
   ];
   const pal = palettes[capIdx % palettes.length];
 
@@ -4321,7 +4322,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     heroText = (words[0]?.t || words[0]?.word || '').toLowerCase() || 'seen';
   }
 
-  // 1. TOP LEAD TEXT onto ctxFore (Layer 4, centered above head)
+  // 1. TOP LEAD TEXT onto ctxFore (Layer 4, centered directly above the hero word)
   if (leadText) {
     const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
     const leadFontSize = Math.round(H * 0.045); // ~58px on 1280h
@@ -4337,32 +4338,39 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     ctxFore.restore();
   }
 
-  // 2. GIANT LOWERCASE HERO KEYWORD onto targetBehind (Layer 2, behind speaker's head)
-  const heroFontSize = Math.round(H * 0.155); // ~200px on 1280h
-  const heroY = Math.round(H * 0.185);
+  // 2. GIANT SLANTED ITALIC LOWERCASE HERO WORD onto targetBehind (Layer 2, behind speaker's head)
+  // Dynamically calculate font size so word stretches across ~84% of width
+  let heroFontSize = Math.round(H * 0.165); // ~210px on 1280h
+  if (heroText.length > 8) {
+    heroFontSize = Math.round(heroFontSize * (8 / heroText.length));
+  }
+  heroFontSize = Math.max(Math.round(H * 0.10), heroFontSize);
+
+  const heroY = Math.round(H * 0.190);
   const heroX = Math.round(W * 0.50);
 
   targetBehind.save();
-  targetBehind.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
+  // EXACT MATCH: Slanted Italic 900 Poppins/Montserrat with tight tracking
+  targetBehind.font = `italic 900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
   targetBehind.textAlign = 'center';
   targetBehind.textBaseline = 'alphabetic';
   targetBehind.letterSpacing = '-0.03em';
 
   // Ambient depth shadow
-  targetBehind.shadowColor = 'rgba(0, 0, 0, 0.65)';
+  targetBehind.shadowColor = 'rgba(0, 0, 0, 0.70)';
   targetBehind.shadowBlur = 12;
   targetBehind.shadowOffsetX = 0;
   targetBehind.shadowOffsetY = 4;
 
-  // Split Horizon Specular Reflection Gradient
-  const grad = targetBehind.createLinearGradient(0, heroY - heroFontSize, 0, heroY);
-  grad.addColorStop(0.00, pal.top);
-  grad.addColorStop(0.48, pal.mid1);
-  grad.addColorStop(0.50, pal.specular); // Razor sharp specular reflection line
-  grad.addColorStop(0.52, pal.glow);     // Vibrant horizon glow
-  grad.addColorStop(1.00, pal.bottom);
+  // EXACT MATCH: Horizontal Linear Gradient from Left (Vibrant Jewel) to Right (Deep Dark Midnight)
+  const leftX = Math.round(W * 0.08);
+  const rightX = Math.round(W * 0.92);
+  const horizGrad = targetBehind.createLinearGradient(leftX, 0, rightX, 0);
+  horizGrad.addColorStop(0.00, pal.left);
+  horizGrad.addColorStop(0.40, pal.mid);
+  horizGrad.addColorStop(1.00, pal.right);
 
-  targetBehind.fillStyle = grad;
+  targetBehind.fillStyle = horizGrad;
   targetBehind.fillText(heroText, heroX, heroY);
   targetBehind.restore();
 
@@ -4396,53 +4404,59 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     if (waistHero) {
       // 2nd behind keyword at waist level (like "remembered" in reference frame 026)
       const pal2 = palettes[(capIdx + 1) % palettes.length];
-      const wHeroFontSize = Math.round(H * 0.125); // ~160px on 1280h
-      const wHeroY = Math.round(H * 0.515);
+      let wHeroFontSize = Math.round(H * 0.135); // ~172px on 1280h
+      if (waistHero.length > 8) {
+        wHeroFontSize = Math.round(wHeroFontSize * (8 / waistHero.length));
+      }
+      const wHeroY = Math.round(H * 0.520);
 
       targetBehind.save();
-      targetBehind.font = `900 ${wHeroFontSize}px "Poppins", "Montserrat", sans-serif`;
+      targetBehind.font = `italic 900 ${wHeroFontSize}px "Poppins", "Montserrat", sans-serif`;
       targetBehind.textAlign = 'center';
       targetBehind.textBaseline = 'alphabetic';
       targetBehind.letterSpacing = '-0.025em';
-      targetBehind.shadowColor = 'rgba(0, 0, 0, 0.60)';
+      targetBehind.shadowColor = 'rgba(0, 0, 0, 0.65)';
       targetBehind.shadowBlur = 10;
       targetBehind.shadowOffsetY = 4;
 
-      const grad2 = targetBehind.createLinearGradient(0, wHeroY - wHeroFontSize, 0, wHeroY);
-      grad2.addColorStop(0.00, pal2.top);
-      grad2.addColorStop(0.48, pal2.mid1);
-      grad2.addColorStop(0.50, pal2.specular);
-      grad2.addColorStop(0.52, pal2.glow);
-      grad2.addColorStop(1.00, pal2.bottom);
+      const horizGrad2 = targetBehind.createLinearGradient(leftX, 0, rightX, 0);
+      horizGrad2.addColorStop(0.00, pal2.left);
+      horizGrad2.addColorStop(0.40, pal2.mid);
+      horizGrad2.addColorStop(1.00, pal2.right);
 
-      targetBehind.fillStyle = grad2;
+      targetBehind.fillStyle = horizGrad2;
       targetBehind.fillText(waistHero, heroX, wHeroY);
       targetBehind.restore();
     }
   }
 }
-
 function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
 
   const isShowcaseSample = Boolean(showAll || isPreview || !words || words.length === 0);
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
 
-  // Reference Video 2 Pattern:
-  // - Top lead: "you can add" in clean white bold text (above head/shoulders, Y ~ 0.25)
-  // - Giant Word 1: "Real" in Fiery Red-Orange 3D extruded gradient BEHIND HEAD (Y ~ 0.33)
-  // - Giant Word 2: "Captions" in Fiery Red-Orange 3D extruded gradient BEHIND LEGS (Y ~ 0.63)
+  // Exact Match to Reference Video 2 (ref2_frame_024.jpg):
+  // - Top flanking words: "you can" on left of head (X ~ 0.22, Y ~ 0.255)
+  //                       "add" on right of head (X ~ 0.62, Y ~ 0.255)
+  // - Giant Word 1: "Real" BEHIND HEAD on Layer 2 (X ~ 0.50, Y ~ 0.335)
+  // - Giant Word 2: "Captions" BEHIND HIPS/LEGS on Layer 2 (X ~ 0.50, Y ~ 0.635)
+  // - Fill: Metallic Liquid Chrome Fire Gradient with dark crimson 3D bevel extrusion
 
-  let leadWords = [];
+  let flankLeft = '';
+  let flankRight = '';
   let hero1 = '';
   let hero2 = '';
 
   if (words.length >= 4) {
-    leadWords = words.slice(0, -2);
+    const leadCount = words.length - 2;
+    const half = Math.ceil(leadCount / 2);
+    flankLeft = words.slice(0, half).map(w => w.t || w.word || '').join(' ');
+    flankRight = words.slice(half, leadCount).map(w => w.t || w.word || '').join(' ');
     hero1 = (words[words.length - 2]?.t || words[words.length - 2]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
     hero2 = (words[words.length - 1]?.t || words[words.length - 1]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
   } else if (words.length === 3) {
-    leadWords = [words[0]];
+    flankLeft = words[0]?.t || words[0]?.word || '';
     hero1 = (words[1]?.t || words[1]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
     hero2 = (words[2]?.t || words[2]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
   } else if (words.length === 2) {
@@ -4452,31 +4466,44 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     hero1 = (words[0]?.t || words[0]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
   }
 
-  let leadText = leadWords.map(w => w.t || w.word || '').join(' ');
-
   if (isShowcaseSample) {
-    if (!leadText) leadText = 'you can add';
+    if (!flankLeft) flankLeft = 'you can';
+    if (!flankRight) flankRight = 'add';
     if (!hero1) hero1 = 'Real';
     if (!hero2) hero2 = 'Captions';
   }
   if (!hero1) hero1 = 'Real';
 
-  // 1. TOP WHITE LEAD TEXT onto ctxFore (Layer 4)
-  if (leadText) {
-    const leadFontSize = Math.round(H * 0.040); // ~51px on 1280h
+  // 1. TOP FLANKING WHITE WORDS onto ctxFore (Layer 4)
+  const flankFontSize = Math.round(H * 0.040); // ~51px on 1280h
+  if (flankLeft) {
     ctxFore.save();
-    ctxFore.font = `700 ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
-    ctxFore.textAlign = 'center';
+    ctxFore.font = `700 ${flankFontSize}px "Poppins", "Montserrat", sans-serif`;
+    ctxFore.textAlign = flankRight ? 'right' : 'center';
     ctxFore.textBaseline = 'alphabetic';
     ctxFore.fillStyle = '#FFFFFF';
     ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
     ctxFore.shadowBlur = 6;
     ctxFore.shadowOffsetY = 3;
-    ctxFore.fillText(leadText.toLowerCase(), Math.round(W * 0.50), Math.round(H * 0.255));
+    const xPos = flankRight ? Math.round(W * 0.36) : Math.round(W * 0.50);
+    ctxFore.fillText(flankLeft.toLowerCase(), xPos, Math.round(H * 0.255));
     ctxFore.restore();
   }
 
-  // 2. HELPER TO DRAW 3D FIERY ACCENT WORD
+  if (flankRight) {
+    ctxFore.save();
+    ctxFore.font = `700 ${flankFontSize}px "Poppins", "Montserrat", sans-serif`;
+    ctxFore.textAlign = 'left';
+    ctxFore.textBaseline = 'alphabetic';
+    ctxFore.fillStyle = '#FFFFFF';
+    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctxFore.shadowBlur = 6;
+    ctxFore.shadowOffsetY = 3;
+    ctxFore.fillText(flankRight.toLowerCase(), Math.round(W * 0.64), Math.round(H * 0.255));
+    ctxFore.restore();
+  }
+
+  // 2. HELPER TO DRAW 3D LIQUID CHROME FIRE ACCENT WORD onto targetBehind
   const drawFieryWord = (text, cx, cy, fontSize) => {
     targetBehind.save();
     targetBehind.font = `900 ${fontSize}px "Montserrat", "Poppins", sans-serif`;
@@ -4484,17 +4511,19 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     targetBehind.textBaseline = 'alphabetic';
     targetBehind.letterSpacing = '-0.02em';
 
-    // 3D Extrusion Shadow (deep dark crimson offset)
-    targetBehind.shadowColor = 'rgba(100, 0, 0, 0.95)';
+    // 3D Extrusion Shadow (deep dark crimson offset bevel)
+    targetBehind.shadowColor = 'rgba(90, 0, 0, 0.95)';
     targetBehind.shadowBlur = 0;
     targetBehind.shadowOffsetX = 3;
     targetBehind.shadowOffsetY = 5;
 
-    // Fiery Red-Orange Gradient Fill: Top Vivid Orange -> Bright Red -> Dark Crimson Base
+    // Metallic Liquid Chrome Fire Gradient: Top Gold Specular -> Flame Orange -> Vivid Red -> Deep Crimson
     const grad = targetBehind.createLinearGradient(0, cy - fontSize, 0, cy);
-    grad.addColorStop(0.00, '#FF8A00'); // Saturated fire orange
-    grad.addColorStop(0.45, '#FF3D00'); // Vivid flame red
-    grad.addColorStop(1.00, '#B70A00'); // Deep crimson
+    grad.addColorStop(0.00, '#FFA726'); // Gold specular highlight
+    grad.addColorStop(0.25, '#FF6B00'); // Saturated fire orange
+    grad.addColorStop(0.55, '#FF3D00'); // Vivid flame red
+    grad.addColorStop(0.85, '#D81B15'); // Rich ruby crimson
+    grad.addColorStop(1.00, '#8A0000'); // Dark crimson base
 
     targetBehind.fillStyle = grad;
     targetBehind.fillText(text, cx, cy);
@@ -4523,17 +4552,17 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     drawFieryWord(hero2, Math.round(W * 0.50), h2Y, h2FontSize);
   }
 }
-
 function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
   if (!words || !words.length) return;
 
   const isShowcaseSample = Boolean(showAll || isPreview || !words || words.length === 0);
   const capStart = (cap && typeof cap.start === 'number') ? cap.start : 0;
 
-  // Reference Video 3 has a 3-tier vertical stack:
-  // Line 1: Active word in Electric Canary Yellow (#FFE600), uppercase Montserrat 900
-  // Line 2: Supporting word in Pure White (#FFFFFF), uppercase Montserrat 900
-  // Line 3: Closing word in Ghosted / Semi-transparent White (rgba(255, 255, 255, 0.45)), lowercase Poppins 700
+  // Exact Match to Reference Video 3 (ref3_frame_016.jpg):
+  // - LEFT-ALIGNED 3-tier vertical stack positioned on chest / lower center (X ~ 0.34 * W)
+  // - Line 1: "BUILD" in uppercase Montserrat 900 Electric Canary Yellow (#FFE600)
+  // - Line 2: "INTENT" in uppercase Montserrat 900 Pure White (#FFFFFF)
+  // - Line 3: "daily" in lowercase Poppins 700 Ghosted Translucent White (opacity 0.45 with vertical motion sheen)
 
   let line1Text = '';
   let line2Text = '';
@@ -4576,8 +4605,9 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
     else activeLineIdx = 1;
   }
 
-  const cx = Math.round(W * 0.50);
-  const baseY = Math.round(H * 0.76);
+  // EXACT MATCH: Left-aligned column on lower-center (X ~ 0.34 * W)
+  const leftX = Math.round(W * 0.34);
+  const baseY = Math.round(H * 0.74);
 
   const l1FontSize = Math.round(H * 0.086); // ~110px on 1280h
   const l2FontSize = Math.round(H * 0.080); // ~102px on 1280h
@@ -4590,28 +4620,28 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
   // Line 1:
   ctxFore.save();
   ctxFore.font = `900 ${l1FontSize}px "Montserrat", sans-serif`;
-  ctxFore.textAlign = 'center';
+  ctxFore.textAlign = 'left';
   ctxFore.textBaseline = 'alphabetic';
   ctxFore.letterSpacing = '-0.02em';
   ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
   ctxFore.shadowBlur = 8;
   ctxFore.shadowOffsetY = 4;
   ctxFore.fillStyle = (activeLineIdx === 1) ? '#FFE600' : '#FFFFFF';
-  ctxFore.fillText(line1Text, cx, l1Y);
+  ctxFore.fillText(line1Text, leftX, l1Y);
   ctxFore.restore();
 
   // Line 2:
   if (line2Text) {
     ctxFore.save();
     ctxFore.font = `900 ${l2FontSize}px "Montserrat", sans-serif`;
-    ctxFore.textAlign = 'center';
+    ctxFore.textAlign = 'left';
     ctxFore.textBaseline = 'alphabetic';
     ctxFore.letterSpacing = '-0.02em';
     ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
     ctxFore.shadowBlur = 8;
     ctxFore.shadowOffsetY = 4;
     ctxFore.fillStyle = (activeLineIdx === 2) ? '#FFE600' : (activeLineIdx > 2 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.70)');
-    ctxFore.fillText(line2Text, cx, l2Y);
+    ctxFore.fillText(line2Text, leftX, l2Y);
     ctxFore.restore();
   }
 
@@ -4619,14 +4649,14 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
   if (line3Text) {
     ctxFore.save();
     ctxFore.font = `700 ${l3FontSize}px "Poppins", sans-serif`;
-    ctxFore.textAlign = 'center';
+    ctxFore.textAlign = 'left';
     ctxFore.textBaseline = 'alphabetic';
     ctxFore.letterSpacing = '-0.01em';
     ctxFore.shadowColor = 'rgba(0, 0, 0, 0.80)';
     ctxFore.shadowBlur = 6;
     ctxFore.shadowOffsetY = 3;
     ctxFore.fillStyle = (activeLineIdx === 3) ? '#FFE600' : 'rgba(255, 255, 255, 0.45)';
-    ctxFore.fillText(line3Text, cx, l3Y);
+    ctxFore.fillText(line3Text, leftX, l3Y);
     ctxFore.restore();
   }
 }
