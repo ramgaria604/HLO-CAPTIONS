@@ -3870,6 +3870,21 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
   const capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
   const fullText = words.map(w => w.t || w.word || '').join(' ');
 
+  // Normalized entrance & exit dynamics ("How it comes, How it goes")
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const age = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, t - capStart) : 1.0;
+  const timeRem = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, capEnd - t) : 1.0;
+
+  const enterDur = 0.22;
+  const exitDur = 0.16;
+  const enterP = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, age / enterDur));
+  const exitAlpha = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, timeRem / exitDur));
+  const globalAlpha = Math.min(enterP, exitAlpha);
+  const springScale = isShowcaseSample ? 1.0 : (1.0 + 0.06 * Math.sin(enterP * Math.PI) * (1 - enterP));
+  const exitScale = isShowcaseSample ? 1.0 : (1.0 - 0.04 * (1.0 - exitAlpha));
+  const masterScale = springScale * exitScale;
+
   // Numeric word index
   const numWordIdx = words.findIndex(w => {
     const clean = (w.t || w.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
@@ -3900,13 +3915,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
 
   if (styleMode === 1) {
-    // ========================================================================
     // STYLE 1: Exact 1:1 Match to 20 Lakh (frame_2.50s.jpg)
-    // - Behind Head: 100% Hollow Chromatic Rainbow Gradient Number "20"
-    // - Top Left: "listed at" in tilted italic white
-    // - Right of Head: "lakh" in lowercase bold white
-    // - Waist: "Imagine a home" in Title Case bold white
-    // ========================================================================
     let numIdx = numWordIdx !== -1 ? numWordIdx : 0;
     let metricWord = (words[numIdx]?.t || words[numIdx]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
 
@@ -3945,6 +3954,11 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     const numX = Math.round(W * 0.50);
 
     targetBehind.save();
+    targetBehind.globalAlpha = globalAlpha;
+    targetBehind.translate(numX, numY);
+    targetBehind.scale(masterScale, masterScale);
+    targetBehind.translate(-numX, -numY);
+
     targetBehind.font = `900 ${numFontSize}px "Poppins", "Montserrat", sans-serif`;
     targetBehind.textAlign = 'center';
     targetBehind.textBaseline = 'alphabetic';
@@ -3976,6 +3990,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     if (preText) {
       const preFontSize = Math.round(H * 0.033); // 42px on 1280h
       ctxFore.save();
+      ctxFore.globalAlpha = globalAlpha;
       ctxFore.font = `italic 800 ${preFontSize}px "Poppins", "Montserrat", sans-serif`;
       ctxFore.textAlign = 'left';
       ctxFore.textBaseline = 'alphabetic';
@@ -3991,6 +4006,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     if (unitText) {
       const unitFontSize = Math.round(H * 0.038); // 48px on 1280h
       ctxFore.save();
+      ctxFore.globalAlpha = globalAlpha;
       ctxFore.font = `800 ${unitFontSize}px "Poppins", "Montserrat", sans-serif`;
       ctxFore.textAlign = 'left';
       ctxFore.textBaseline = 'alphabetic';
@@ -4007,6 +4023,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       const subFontSize = Math.round(H * 0.045); // 58px on 1280h
       const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
       ctxFore.save();
+      ctxFore.globalAlpha = globalAlpha;
       ctxFore.font = `700 ${subFontSize}px "Poppins", "Montserrat", sans-serif`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
@@ -4019,11 +4036,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     }
 
   } else if (styleMode === 2) {
-    // ========================================================================
     // STYLE 2: Exact 1:1 Match to 25,000 (frame_4.00s.jpg)
-    // - Behind Head: Slanted Italic Magenta Gradient Number "25,000"
-    // - Waist: "With a tenant paying" in Title Case bold white
-    // ========================================================================
     let numIdx = numWordIdx !== -1 ? numWordIdx : words.length - 1;
     let metricWord = (words[numIdx]?.t || words[numIdx]?.word || '');
     const otherWords = words.filter((_, i) => i !== numIdx);
@@ -4043,6 +4056,11 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     const numX = Math.round(W * 0.50);
 
     targetBehind.save();
+    targetBehind.globalAlpha = globalAlpha;
+    targetBehind.translate(numX, numY);
+    targetBehind.scale(masterScale, masterScale);
+    targetBehind.translate(-numX, -numY);
+
     targetBehind.font = `italic 900 ${numFontSize}px "Poppins", "Montserrat", sans-serif`;
     targetBehind.textAlign = 'center';
     targetBehind.textBaseline = 'alphabetic';
@@ -4068,6 +4086,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       const subFontSize = Math.round(H * 0.045); // 58px on 1280h
       const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
       ctxFore.save();
+      ctxFore.globalAlpha = globalAlpha;
       ctxFore.font = `700 ${subFontSize}px "Poppins", "Montserrat", sans-serif`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
@@ -4080,12 +4099,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     }
 
   } else if (styleMode === 3) {
-    // ========================================================================
     // STYLE 3: Exact 1:1 Match to Attention (frame_6.50s.jpg)
-    // - Waist: Horizontal Anamorphic Magenta Lens Flare Beam
-    // - Above Beam: "Those numbers get your" in clean white
-    // - On Beam: Giant "attention" in pure white lowercase extra-bold
-    // ========================================================================
     let heroIdx = words.findIndex(w => /attention|numbers|viral|secret|money|grow|hook|deal|profit/i.test(w.t || w.word || ''));
     if (heroIdx === -1) heroIdx = words.length - 1;
 
@@ -4102,12 +4116,16 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     }
 
     const beamY = Math.round(H * 0.515);
-    const beamW = Math.round(W * 0.88);
+    const maxBeamW = Math.round(W * 0.88);
     const beamH = Math.round(H * 0.085);
+    // Anamorphic flare blooms horizontally on entrance
+    const flareBloom = isShowcaseSample ? 1.0 : (0.25 + 0.75 * Math.min(1, enterP * 1.3));
+    const currentBeamW = Math.round(maxBeamW * flareBloom);
 
     // 1. Horizontal Anamorphic Magenta Lens Flare Beam onto Layer 4
     ctxFore.save();
-    const beamGrad = ctxFore.createRadialGradient(W * 0.50, beamY, 8, W * 0.50, beamY, beamW * 0.50);
+    ctxFore.globalAlpha = globalAlpha;
+    const beamGrad = ctxFore.createRadialGradient(W * 0.50, beamY, 8, W * 0.50, beamY, currentBeamW * 0.50);
     beamGrad.addColorStop(0.00, 'rgba(235, 0, 255, 0.90)');
     beamGrad.addColorStop(0.30, 'rgba(217, 70, 239, 0.75)');
     beamGrad.addColorStop(0.65, 'rgba(147, 51, 234, 0.35)');
@@ -4115,7 +4133,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
     ctxFore.fillStyle = beamGrad;
     ctxFore.beginPath();
-    ctxFore.ellipse(W * 0.50, beamY, beamW * 0.50, beamH * 0.50, 0, 0, Math.PI * 2);
+    ctxFore.ellipse(W * 0.50, beamY, currentBeamW * 0.50, beamH * 0.50, 0, 0, Math.PI * 2);
     ctxFore.fill();
     ctxFore.restore();
 
@@ -4124,6 +4142,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       const toSentence = (s) => s ? (s.charAt(0).toUpperCase() + s.slice(1)) : '';
       const leadFontSize = Math.round(H * 0.038); // 48px on 1280h
       ctxFore.save();
+      ctxFore.globalAlpha = globalAlpha;
       ctxFore.font = `600 ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
@@ -4135,9 +4154,15 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       ctxFore.restore();
     }
 
-    // 3. Giant White Lowercase Word ("attention") across Beam
+    // 3. Giant White Lowercase Word ("attention") across Beam with punch entrance
     const punchFontSize = Math.round(H * 0.088); // 112px on 1280h
+    const punchY = Math.round(H * 0.545);
     ctxFore.save();
+    ctxFore.globalAlpha = globalAlpha;
+    ctxFore.translate(Math.round(W * 0.50), punchY);
+    ctxFore.scale(masterScale, masterScale);
+    ctxFore.translate(-Math.round(W * 0.50), -punchY);
+
     ctxFore.font = `900 ${punchFontSize}px "Poppins", "Montserrat", sans-serif`;
     ctxFore.textAlign = 'center';
     ctxFore.textBaseline = 'alphabetic';
@@ -4146,16 +4171,11 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     ctxFore.shadowColor = 'rgba(0, 0, 0, 0.80)';
     ctxFore.shadowBlur = 8;
     ctxFore.shadowOffsetY = 3;
-    ctxFore.fillText(punchWord, Math.round(W * 0.50), Math.round(H * 0.545));
+    ctxFore.fillText(punchWord, Math.round(W * 0.50), punchY);
     ctxFore.restore();
 
   } else {
-    // ========================================================================
     // STYLE 4: Exact 1:1 Match to Listing (frame_8.50s.jpg)
-    // - Top Left: "A great" in tilted italic white
-    // - Behind Head: "listing" in Midnight Indigo with sharp horizontal specular horizon reflection line
-    // - Waist: "helps you" and italic "picture"
-    // ========================================================================
     let heroIdx = words.findIndex((w, i) => w.key && i < 3);
     if (heroIdx === -1) heroIdx = Math.min(2, Math.floor(words.length / 2));
     if (heroIdx === 0 && words.length > 1) heroIdx = 1;
@@ -4193,6 +4213,11 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     const heroX = Math.round(W * 0.50);
 
     targetBehind.save();
+    targetBehind.globalAlpha = globalAlpha;
+    targetBehind.translate(heroX, heroY);
+    targetBehind.scale(masterScale, masterScale);
+    targetBehind.translate(-heroX, -heroY);
+
     targetBehind.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
     targetBehind.textAlign = 'center';
     targetBehind.textBaseline = 'alphabetic';
@@ -4220,6 +4245,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
       const topFontSize = Math.round(H * 0.040); // 50px on 1280h
       ctxFore.save();
+      ctxFore.globalAlpha = globalAlpha;
       ctxFore.font = `italic 800 ${topFontSize}px "Poppins", "Montserrat", sans-serif`;
       ctxFore.textAlign = 'left';
       ctxFore.textBaseline = 'alphabetic';
@@ -4235,6 +4261,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     if (botLine1) {
       const l1FontSize = Math.round(H * 0.034); // 44px on 1280h
       ctxFore.save();
+      ctxFore.globalAlpha = globalAlpha;
       ctxFore.font = `700 ${l1FontSize}px "Poppins", "Montserrat", sans-serif`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
@@ -4250,6 +4277,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       const l2FontSize = Math.round(H * 0.065); // 82px on 1280h
       const botY = botLine1 ? Math.round(H * 0.555) : Math.round(H * 0.525);
       ctxFore.save();
+      ctxFore.globalAlpha = globalAlpha;
       ctxFore.font = `italic 900 ${l2FontSize}px "Poppins", "Montserrat", sans-serif`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
@@ -4264,7 +4292,6 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
   }
 }
 
-
 function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
 
@@ -4273,10 +4300,24 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   const rawIdx = typeof capId === 'number' ? capId : parseInt(capId, 10);
   const capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
 
+  // Normalized entrance & exit dynamics ("How it comes, How it goes")
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const age = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, t - capStart) : 1.0;
+  const timeRem = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, capEnd - t) : 1.0;
+
+  const enterDur = 0.20;
+  const exitDur = 0.16;
+  const enterP = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, age / enterDur));
+  const exitAlpha = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, timeRem / exitDur));
+  const globalAlpha = Math.min(enterP, exitAlpha);
+  const springScale = isShowcaseSample ? 1.0 : (1.0 + 0.05 * Math.sin(enterP * Math.PI) * (1 - enterP));
+  const exitScale = isShowcaseSample ? 1.0 : (1.0 - 0.03 * (1.0 - exitAlpha));
+  const masterScale = springScale * exitScale;
+
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
 
   // Exact 7-color luxury jewel palette from the editorial reference video
-  // Each palette has a vibrant left color and a deep dark right color for the horizontal gradient
   const palettes = [
     { name: 'navy', left: '#2563EB', mid: '#1D4ED8', right: '#0F172A' },
     { name: 'emerald', left: '#22C55E', mid: '#16A34A', right: '#052E16' },
@@ -4327,6 +4368,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
     const leadFontSize = Math.round(H * 0.045); // ~58px on 1280h
     ctxFore.save();
+    ctxFore.globalAlpha = globalAlpha;
     ctxFore.font = `700 ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
     ctxFore.textAlign = 'center';
     ctxFore.textBaseline = 'alphabetic';
@@ -4339,7 +4381,6 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   }
 
   // 2. GIANT SLANTED ITALIC LOWERCASE HERO WORD onto targetBehind (Layer 2, behind speaker's head)
-  // Dynamically calculate font size so word stretches across ~84% of width
   let heroFontSize = Math.round(H * 0.165); // ~210px on 1280h
   if (heroText.length > 8) {
     heroFontSize = Math.round(heroFontSize * (8 / heroText.length));
@@ -4350,7 +4391,11 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   const heroX = Math.round(W * 0.50);
 
   targetBehind.save();
-  // EXACT MATCH: Slanted Italic 900 Poppins/Montserrat with tight tracking
+  targetBehind.globalAlpha = globalAlpha;
+  targetBehind.translate(heroX, heroY);
+  targetBehind.scale(masterScale, masterScale);
+  targetBehind.translate(-heroX, -heroY);
+
   targetBehind.font = `italic 900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
   targetBehind.textAlign = 'center';
   targetBehind.textBaseline = 'alphabetic';
@@ -4362,7 +4407,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   targetBehind.shadowOffsetX = 0;
   targetBehind.shadowOffsetY = 4;
 
-  // EXACT MATCH: Horizontal Linear Gradient from Left (Vibrant Jewel) to Right (Deep Dark Midnight)
+  // Horizontal Linear Gradient from Left (Vibrant Jewel) to Right (Deep Dark Midnight)
   const leftX = Math.round(W * 0.08);
   const rightX = Math.round(W * 0.92);
   const horizGrad = targetBehind.createLinearGradient(leftX, 0, rightX, 0);
@@ -4372,6 +4417,22 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
 
   targetBehind.fillStyle = horizGrad;
   targetBehind.fillText(heroText, heroX, heroY);
+
+  // Dynamic Specular Sheen Sweep traveling across gradient during entrance
+  if (!isShowcaseSample && age >= 0 && age <= 0.45) {
+    const sheenProgress = age / 0.45;
+    const sheenX = leftX + (rightX - leftX) * sheenProgress;
+    const sheenGrad = targetBehind.createLinearGradient(sheenX - W * 0.14, 0, sheenX + W * 0.14, 0);
+    sheenGrad.addColorStop(0.00, 'rgba(255, 255, 255, 0.00)');
+    sheenGrad.addColorStop(0.50, 'rgba(255, 255, 255, 0.38)');
+    sheenGrad.addColorStop(1.00, 'rgba(255, 255, 255, 0.00)');
+
+    targetBehind.save();
+    targetBehind.fillStyle = sheenGrad;
+    targetBehind.fillText(heroText, heroX, heroY);
+    targetBehind.restore();
+  }
+
   targetBehind.restore();
 
   // 3. WAIST SUBTITLE / SUPPORTING TEXT onto ctxFore (Layer 4, front of waist)
@@ -4391,6 +4452,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
 
     ctxFore.save();
+    ctxFore.globalAlpha = globalAlpha;
     ctxFore.font = `700 ${waistLeadFontSize}px "Poppins", "Montserrat", sans-serif`;
     ctxFore.textAlign = 'center';
     ctxFore.textBaseline = 'alphabetic';
@@ -4402,7 +4464,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     ctxFore.restore();
 
     if (waistHero) {
-      // 2nd behind keyword at waist level (like "remembered" in reference frame 026)
+      // 2nd behind keyword at waist level
       const pal2 = palettes[(capIdx + 1) % palettes.length];
       let wHeroFontSize = Math.round(H * 0.135); // ~172px on 1280h
       if (waistHero.length > 8) {
@@ -4411,6 +4473,11 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       const wHeroY = Math.round(H * 0.520);
 
       targetBehind.save();
+      targetBehind.globalAlpha = globalAlpha;
+      targetBehind.translate(heroX, wHeroY);
+      targetBehind.scale(masterScale, masterScale);
+      targetBehind.translate(-heroX, -wHeroY);
+
       targetBehind.font = `italic 900 ${wHeroFontSize}px "Poppins", "Montserrat", sans-serif`;
       targetBehind.textAlign = 'center';
       targetBehind.textBaseline = 'alphabetic';
@@ -4430,18 +4497,33 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     }
   }
 }
+
 function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
 
   const isShowcaseSample = Boolean(showAll || isPreview || !words || words.length === 0);
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
 
-  // Exact Match to Reference Video 2 (ref2_frame_024.jpg):
-  // - Top flanking words: "you can" on left of head (X ~ 0.22, Y ~ 0.255)
-  //                       "add" on right of head (X ~ 0.62, Y ~ 0.255)
-  // - Giant Word 1: "Real" BEHIND HEAD on Layer 2 (X ~ 0.50, Y ~ 0.335)
-  // - Giant Word 2: "Captions" BEHIND HIPS/LEGS on Layer 2 (X ~ 0.50, Y ~ 0.635)
-  // - Fill: Metallic Liquid Chrome Fire Gradient with dark crimson 3D bevel extrusion
+  // Normalized entrance & exit dynamics (1:1 with video zoom-in measurement)
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const age = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, t - capStart) : 1.0;
+  const timeRem = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, capEnd - t) : 1.0;
+
+  const enterDur = 0.24;
+  const exitDur = 0.15;
+  const enterP = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, age / enterDur));
+  const exitAlpha = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, timeRem / exitDur));
+  const globalAlpha = Math.min(Math.min(1, age / 0.12), exitAlpha);
+
+  // Explosive zoom-in scale: starts at 0.55 and expands to 1.0 with subtle overshoot
+  const zoomScale = isShowcaseSample ? 1.0 : (0.55 + 0.45 * Math.min(1, enterP * 1.2) + 0.05 * Math.sin(enterP * Math.PI) * (1 - enterP));
+  const exitScale = isShowcaseSample ? 1.0 : (1.0 - 0.04 * (1.0 - exitAlpha));
+  const masterScale = zoomScale * exitScale;
+
+  // Flanking words pop in at age >= 0.08s
+  const flankP = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, (age - 0.08) / 0.16));
+  const flankAlpha = Math.min(flankP, exitAlpha);
 
   let flankLeft = '';
   let flankRight = '';
@@ -4478,6 +4560,7 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
   const flankFontSize = Math.round(H * 0.040); // ~51px on 1280h
   if (flankLeft) {
     ctxFore.save();
+    ctxFore.globalAlpha = flankAlpha;
     ctxFore.font = `700 ${flankFontSize}px "Poppins", "Montserrat", sans-serif`;
     ctxFore.textAlign = flankRight ? 'right' : 'center';
     ctxFore.textBaseline = 'alphabetic';
@@ -4492,6 +4575,7 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
 
   if (flankRight) {
     ctxFore.save();
+    ctxFore.globalAlpha = flankAlpha;
     ctxFore.font = `700 ${flankFontSize}px "Poppins", "Montserrat", sans-serif`;
     ctxFore.textAlign = 'left';
     ctxFore.textBaseline = 'alphabetic';
@@ -4503,9 +4587,14 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     ctxFore.restore();
   }
 
-  // 2. HELPER TO DRAW 3D LIQUID CHROME FIRE ACCENT WORD onto targetBehind
+  // 2. HELPER TO DRAW 3D LIQUID CHROME FIRE ACCENT WORD onto targetBehind with Zoom Entrance
   const drawFieryWord = (text, cx, cy, fontSize) => {
     targetBehind.save();
+    targetBehind.globalAlpha = globalAlpha;
+    targetBehind.translate(cx, cy);
+    targetBehind.scale(masterScale, masterScale);
+    targetBehind.translate(-cx, -cy);
+
     targetBehind.font = `900 ${fontSize}px "Montserrat", "Poppins", sans-serif`;
     targetBehind.textAlign = 'center';
     targetBehind.textBaseline = 'alphabetic';
@@ -4552,17 +4641,17 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     drawFieryWord(hero2, Math.round(W * 0.50), h2Y, h2FontSize);
   }
 }
+
 function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
   if (!words || !words.length) return;
 
   const isShowcaseSample = Boolean(showAll || isPreview || !words || words.length === 0);
-  const capStart = (cap && typeof cap.start === 'number') ? cap.start : 0;
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
 
-  // Exact Match to Reference Video 3 (ref3_frame_016.jpg):
-  // - LEFT-ALIGNED 3-tier vertical stack positioned on chest / lower center (X ~ 0.34 * W)
-  // - Line 1: "BUILD" in uppercase Montserrat 900 Electric Canary Yellow (#FFE600)
-  // - Line 2: "INTENT" in uppercase Montserrat 900 Pure White (#FFFFFF)
-  // - Line 3: "daily" in lowercase Poppins 700 Ghosted Translucent White (opacity 0.45 with vertical motion sheen)
+  const timeRem = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, capEnd - t) : 1.0;
+  const exitAlpha = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.15));
+  const exitDriftY = isShowcaseSample ? 0 : (-10 * (1.0 - exitAlpha));
 
   let line1Text = '';
   let line2Text = '';
@@ -4597,15 +4686,21 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
   }
   if (!line1Text) line1Text = 'BUILD';
 
-  // Determine active line based on current time t
   let activeLineIdx = 1;
+  let activeLineStart = line1Start;
   if (!showAll && !isPreview && typeof t === 'number') {
-    if (line3Text && t >= line3Start) activeLineIdx = 3;
-    else if (line2Text && t >= line2Start) activeLineIdx = 2;
-    else activeLineIdx = 1;
+    if (line3Text && t >= line3Start) { activeLineIdx = 3; activeLineStart = line3Start; }
+    else if (line2Text && t >= line2Start) { activeLineIdx = 2; activeLineStart = line2Start; }
+    else { activeLineIdx = 1; activeLineStart = line1Start; }
   }
 
-  // EXACT MATCH: Left-aligned column on lower-center (X ~ 0.34 * W)
+  // Kinetic snap entrance for the active line: snappy vertical slide-up + scale punch
+  const lineAge = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, t - activeLineStart) : 1.0;
+  const lineP = isShowcaseSample ? 1.0 : Math.min(1, lineAge / 0.18);
+  const activeSlideY = isShowcaseSample ? 0 : Math.round(18 * (1 - lineP) * (1 - lineP));
+  const activePunchScale = isShowcaseSample ? 1.0 : (1.0 + 0.07 * Math.sin(lineP * Math.PI));
+
+  // Left-aligned column on lower-center (X ~ 0.34 * W)
   const leftX = Math.round(W * 0.34);
   const baseY = Math.round(H * 0.74);
 
@@ -4618,7 +4713,15 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
   const l3Y = Math.round(l2Y + l2FontSize * 0.82);
 
   // Line 1:
+  const isL1Active = (activeLineIdx === 1);
+  const l1YPos = isL1Active ? (l1Y - activeSlideY + exitDriftY) : (l1Y + exitDriftY);
   ctxFore.save();
+  ctxFore.globalAlpha = exitAlpha;
+  if (isL1Active && activePunchScale !== 1.0) {
+    ctxFore.translate(leftX, l1YPos);
+    ctxFore.scale(activePunchScale, activePunchScale);
+    ctxFore.translate(-leftX, -l1YPos);
+  }
   ctxFore.font = `900 ${l1FontSize}px "Montserrat", sans-serif`;
   ctxFore.textAlign = 'left';
   ctxFore.textBaseline = 'alphabetic';
@@ -4626,13 +4729,21 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
   ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
   ctxFore.shadowBlur = 8;
   ctxFore.shadowOffsetY = 4;
-  ctxFore.fillStyle = (activeLineIdx === 1) ? '#FFE600' : '#FFFFFF';
-  ctxFore.fillText(line1Text, leftX, l1Y);
+  ctxFore.fillStyle = isL1Active ? '#FFE600' : '#FFFFFF';
+  ctxFore.fillText(line1Text, leftX, l1YPos);
   ctxFore.restore();
 
   // Line 2:
   if (line2Text) {
+    const isL2Active = (activeLineIdx === 2);
+    const l2YPos = isL2Active ? (l2Y - activeSlideY + exitDriftY) : (l2Y + exitDriftY);
     ctxFore.save();
+    ctxFore.globalAlpha = exitAlpha;
+    if (isL2Active && activePunchScale !== 1.0) {
+      ctxFore.translate(leftX, l2YPos);
+      ctxFore.scale(activePunchScale, activePunchScale);
+      ctxFore.translate(-leftX, -l2YPos);
+    }
     ctxFore.font = `900 ${l2FontSize}px "Montserrat", sans-serif`;
     ctxFore.textAlign = 'left';
     ctxFore.textBaseline = 'alphabetic';
@@ -4640,14 +4751,22 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
     ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
     ctxFore.shadowBlur = 8;
     ctxFore.shadowOffsetY = 4;
-    ctxFore.fillStyle = (activeLineIdx === 2) ? '#FFE600' : (activeLineIdx > 2 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.70)');
-    ctxFore.fillText(line2Text, leftX, l2Y);
+    ctxFore.fillStyle = isL2Active ? '#FFE600' : (activeLineIdx > 2 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.70)');
+    ctxFore.fillText(line2Text, leftX, l2YPos);
     ctxFore.restore();
   }
 
   // Line 3:
   if (line3Text) {
+    const isL3Active = (activeLineIdx === 3);
+    const l3YPos = isL3Active ? (l3Y - activeSlideY + exitDriftY) : (l3Y + exitDriftY);
     ctxFore.save();
+    ctxFore.globalAlpha = exitAlpha;
+    if (isL3Active && activePunchScale !== 1.0) {
+      ctxFore.translate(leftX, l3YPos);
+      ctxFore.scale(activePunchScale, activePunchScale);
+      ctxFore.translate(-leftX, -l3YPos);
+    }
     ctxFore.font = `700 ${l3FontSize}px "Poppins", sans-serif`;
     ctxFore.textAlign = 'left';
     ctxFore.textBaseline = 'alphabetic';
@@ -4655,8 +4774,8 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
     ctxFore.shadowColor = 'rgba(0, 0, 0, 0.80)';
     ctxFore.shadowBlur = 6;
     ctxFore.shadowOffsetY = 3;
-    ctxFore.fillStyle = (activeLineIdx === 3) ? '#FFE600' : 'rgba(255, 255, 255, 0.45)';
-    ctxFore.fillText(line3Text, leftX, l3Y);
+    ctxFore.fillStyle = isL3Active ? '#FFE600' : 'rgba(255, 255, 255, 0.45)';
+    ctxFore.fillText(line3Text, leftX, l3YPos);
     ctxFore.restore();
   }
 }
