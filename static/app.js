@@ -3864,364 +3864,151 @@ async function ensureHeroFontsLoaded() {
 function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
 
-  const capId = (cap && (cap.index != null ? cap.index : cap.id)) || 1;
-  const rawIdx = typeof capId === 'number' ? capId : parseInt(capId, 10);
-  const capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
   const fullText = words.map(w => w.t || w.word || '').join(' ');
 
-  // Numeric word index
-  const numWordIdx = words.findIndex(w => {
+  // 1. Detect if any word is a metric/number (e.g. 20, 20L, 25000, 100k, 50m, 10x, etc.)
+  let numIdx = words.findIndex(w => {
     const clean = (w.t || w.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
     return /\b\d+[\d,.]*(?:k|m|b|lakh|cr|x)?\b/i.test(clean);
   });
-
-  // Climax hook word
-  const isPunchBeam = (
-    /attention|numbers|viral|secret|money|grow|hook|deal|profit/i.test(fullText) ||
-    (capIdx % 4 === 2 && numWordIdx === -1)
-  );
-
-  // Determine which of the 4 exact reference styles to render
-  let styleMode = 0;
-  if (numWordIdx !== -1) {
-    if (capIdx % 2 === 0 || /lakh|cr/i.test(fullText)) {
-      styleMode = 1; // Style 1: Hollow Rainbow 20 + Flanking
-    } else {
-      styleMode = 2; // Style 2: Italic Magenta 25,000
-    }
-  } else if (isPunchBeam) {
-    styleMode = 3; // Style 3: Anamorphic Magenta Flare Beam
-  } else {
-    const cycle = capIdx % 4;
-    styleMode = (cycle === 0) ? 1 : ((cycle === 1) ? 2 : ((cycle === 2) ? 3 : 4));
+  if (numIdx === -1) {
+    // If no explicit number, pick the primary keyword marked key or first word
+    const keyIdx = words.findIndex(w => w.key);
+    numIdx = (keyIdx !== -1) ? keyIdx : 0;
   }
+
+  // Hero number/word that sits BEHIND the person
+  let metricWord = (words[numIdx].t || words[numIdx].word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
+  if (!metricWord) metricWord = '20';
+
+  // Words before the metric (e.g. "listed at")
+  let preWords = words.slice(0, numIdx);
+  // Words after the metric:
+  let postWords = words.slice(numIdx + 1);
+
+  let unitWord = '';
+  let subWords = [];
+
+  if (postWords.length > 0) {
+    const firstPost = (postWords[0].t || postWords[0].word || '').toLowerCase();
+    if (['lakh', 'cr', 'k', 'm', 'rupees', 'inr', 'usd', 'dollars', 'only', 'per', 'month'].includes(firstPost) || postWords.length <= 2) {
+      unitWord = postWords[0].t || postWords[0].word || '';
+      subWords = postWords.slice(1);
+    } else {
+      subWords = postWords;
+    }
+  }
+
+  // Top-left label (default to 'listed at' if caption only contains the metric)
+  let preText = preWords.map(w => w.t || w.word || '').join(' ');
+  if (!preText && words.length <= 2) preText = 'listed at';
+
+  // Beside-head unit (default to 'lakh' if caption only has the number)
+  let unitText = unitWord;
+  if (!unitText && words.length <= 2) unitText = 'lakh';
+
+  // Front body subtitle (default to 'Imagine a home' if caption only has the number)
+  let subText = subWords.map(w => w.t || w.word || '').join(' ');
+  if (!subText && words.length <= 2) subText = 'Imagine a home';
+
+  // ==========================================================================
+  // EXACT 1:1 REPLICATION OF REFERENCE VIDEO BEHIND-THE-PERSON MOMENT 1 (20 LAKH)
+  // Reference: frame_2.50s.jpg & crop_20.jpg
+  // ==========================================================================
 
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
 
-  if (styleMode === 1) {
-    // ------------------------------------------------------------------------
-    // STYLE 1: Exact 1:1 Match to 20 Lakh (frame_2.50s.jpg)
-    // - Behind Head: 100% Hollow Chromatic Rainbow Gradient Number "20"
-    // - Top Left: "listed at" in tilted italic white
-    // - Right of Head: "lakh" in lowercase bold white
-    // - Waist: "Imagine a home" in Title Case bold white
-    // ------------------------------------------------------------------------
-    let numIdx = numWordIdx !== -1 ? numWordIdx : 0;
-    const metricWord = (words[numIdx].t || words[numIdx].word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
+  // --------------------------------------------------------------------------
+  // 1. HERO NUMBER BEHIND PERSON (Layer 2 `behindCanvas` / `segExportBehindCanvas`)
+  // - 100% HOLLOW / TRANSPARENT interior (shows background through glyphs)
+  // - Chromatic Rainbow Gradient Stroke: Green -> Cyan -> Royal Blue -> Purple
+  // - Position: Centered behind head/neck/shoulders
+  // --------------------------------------------------------------------------
+  const numFontSize = Math.round(H * 0.35); // Exact reference height (450px on 1280h)
+  const numY = Math.round(H * 0.365); // Baseline placed so bottom curve crosses behind shoulders
+  const numX = Math.round(W * 0.50);
 
-    let preWords = words.slice(0, numIdx);
-    let postWords = words.slice(numIdx + 1);
-    let unitWord = '';
-    let subWords = [];
+  targetBehind.save();
+  targetBehind.font = `900 ${numFontSize}px "Poppins", "Montserrat", sans-serif`;
+  targetBehind.textAlign = 'center';
+  targetBehind.textBaseline = 'alphabetic';
+  targetBehind.letterSpacing = '-0.03em';
 
-    if (postWords.length > 0) {
-      const firstPost = (postWords[0].t || postWords[0].word || '').toLowerCase();
-      if (['lakh', 'cr', 'k', 'm', 'rupees', 'inr', 'usd', 'dollars', 'only'].includes(firstPost) || postWords.length <= 2) {
-        unitWord = postWords[0].t || postWords[0].word || '';
-        subWords = postWords.slice(1);
-      } else {
-        subWords = postWords;
-      }
-    }
+  // Soft ambient drop shadow onto background wall
+  targetBehind.shadowColor = 'rgba(0, 0, 0, 0.40)';
+  targetBehind.shadowBlur = Math.round(H * 0.008);
+  targetBehind.shadowOffsetX = 0;
+  targetBehind.shadowOffsetY = Math.round(H * 0.004);
 
-    const preText = preWords.map(w => w.t || w.word || '').join(' ') || (words.length <= 2 ? 'listed at' : '');
-    const unitText = unitWord || (words.length <= 2 ? 'lakh' : '');
-    const subText = subWords.length > 0 ? subWords.map(w => w.t || w.word || '').join(' ') : (words.length <= 2 ? 'Imagine a home' : '');
+  // Rainbow gradient stroke (Top-Left to Bottom-Right)
+  const strokeW = Math.max(6, Math.round(H * 0.010)); // 12-14px on 1280h
+  targetBehind.lineWidth = strokeW;
+  targetBehind.lineJoin = 'round';
+  targetBehind.lineCap = 'round';
 
-    // 1. Draw "20" (100% HOLLOW Chromatic Rainbow Stroke) onto targetBehind (Layer 2)
-    const numFontSize = Math.round(H * 0.22);
-    const numY = Math.round(H * 0.275);
-    const numX = Math.round(W * 0.50);
+  const rainbowGrad = targetBehind.createLinearGradient(W * 0.15, H * 0.08, W * 0.85, H * 0.38);
+  rainbowGrad.addColorStop(0.00, '#00E676'); // Vibrant emerald green
+  rainbowGrad.addColorStop(0.28, '#00B0FF'); // Bright electric cyan
+  rainbowGrad.addColorStop(0.62, '#2563EB'); // Royal electric blue
+  rainbowGrad.addColorStop(1.00, '#9333EA'); // Deep vivid purple
 
-    targetBehind.save();
-    targetBehind.font = `900 ${numFontSize}px "Poppins", "Montserrat", sans-serif`;
-    targetBehind.textAlign = 'center';
-    targetBehind.textBaseline = 'alphabetic';
-    targetBehind.letterSpacing = '-0.03em';
+  targetBehind.strokeStyle = rainbowGrad;
+  targetBehind.strokeText(metricWord, numX, numY);
+  targetBehind.restore();
 
-    // Soft ambient shadow
-    targetBehind.shadowColor = 'rgba(0, 0, 0, 0.40)';
-    targetBehind.shadowBlur = 8;
-    targetBehind.shadowOffsetY = 4;
-
-    // Rainbow Gradient Stroke: Green -> Cyan -> Blue -> Purple
-    const strokeW = Math.max(5, Math.round(numFontSize * 0.034));
-    targetBehind.lineWidth = strokeW;
-    targetBehind.lineJoin = 'round';
-    targetBehind.lineCap = 'round';
-
-    const grad = targetBehind.createLinearGradient(W * 0.20, H * 0.10, W * 0.80, H * 0.35);
-    grad.addColorStop(0.00, '#00E676'); // Neon Green
-    grad.addColorStop(0.28, '#00B0FF'); // Cyan
-    grad.addColorStop(0.62, '#2563EB'); // Royal Electric Blue
-    grad.addColorStop(1.00, '#9333EA'); // Vivid Purple
-
-    targetBehind.strokeStyle = grad;
-    targetBehind.strokeText(metricWord, numX, numY);
-    targetBehind.restore();
-
-    // 2. Draw "listed at" (Top-Left tilted italic white) onto ctxFore (Layer 4)
-    if (preText) {
-      const preFontSize = Math.round(H * 0.038);
-      ctxFore.save();
-      ctxFore.font = `italic 800 ${preFontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.textAlign = 'left';
-      ctxFore.textBaseline = 'alphabetic';
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.75)';
-      ctxFore.shadowBlur = 6;
-      ctxFore.shadowOffsetY = 2;
-      ctxFore.fillText(preText.toLowerCase(), Math.round(W * 0.06), Math.round(H * 0.12));
-      ctxFore.restore();
-    }
-
-    // 3. Draw "lakh" (Right of head, clean white lowercase bold) onto ctxFore (Layer 4)
-    if (unitText) {
-      const unitFontSize = Math.round(H * 0.050);
-      ctxFore.save();
-      ctxFore.font = `800 ${unitFontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.textAlign = 'left';
-      ctxFore.textBaseline = 'alphabetic';
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      ctxFore.shadowBlur = 8;
-      ctxFore.shadowOffsetY = 3;
-      ctxFore.fillText(unitText.toLowerCase(), Math.round(W * 0.58), Math.round(H * 0.25));
-      ctxFore.restore();
-    }
-
-    // 4. Draw "Imagine a home" (Front Title Case bold at waist) onto ctxFore (Layer 4)
-    if (subText) {
-      const subFontSize = Math.round(H * 0.046);
-      const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
-      ctxFore.save();
-      ctxFore.font = `700 ${subFontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.textAlign = 'center';
-      ctxFore.textBaseline = 'alphabetic';
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      ctxFore.shadowBlur = 8;
-      ctxFore.shadowOffsetY = 3;
-      ctxFore.fillText(toCap(subText), Math.round(W * 0.50), Math.round(H * 0.52));
-      ctxFore.restore();
-    }
-
-  } else if (styleMode === 2) {
-    // ------------------------------------------------------------------------
-    // STYLE 2: Exact 1:1 Match to 25,000 (frame_4.50s.jpg)
-    // - Behind Head: Slanted Italic Magenta Gradient Number "25,000"
-    // - Waist: "With a tenant paying" in Title Case bold white
-    // ------------------------------------------------------------------------
-    let numIdx = numWordIdx !== -1 ? numWordIdx : words.length - 1;
-    const metricWord = (words[numIdx].t || words[numIdx].word || '');
-    const otherWords = words.filter((_, i) => i !== numIdx);
-    const subText = otherWords.length > 0 ? otherWords.map(w => w.t || w.word || '').join(' ') : 'With a tenant paying';
-
-    // 1. Draw "25,000" (Slanted Italic Magenta Gradient) onto targetBehind (Layer 2)
-    const numFontSize = Math.round(H * 0.185);
-    const numY = Math.round(H * 0.22);
-    const numX = Math.round(W * 0.50);
-
-    targetBehind.save();
-    targetBehind.font = `italic 900 ${numFontSize}px "Poppins", "Montserrat", sans-serif`;
-    targetBehind.textAlign = 'center';
-    targetBehind.textBaseline = 'alphabetic';
-    targetBehind.letterSpacing = '-0.02em';
-
-    // Soft ambient shadow
-    targetBehind.shadowColor = 'rgba(0, 0, 0, 0.50)';
-    targetBehind.shadowBlur = 10;
-    targetBehind.shadowOffsetY = 4;
-
-    // Magenta Gradient Fill
-    const grad = targetBehind.createLinearGradient(0, numY - numFontSize, 0, numY);
-    grad.addColorStop(0.00, '#E879F9'); // Light fuchsia
-    grad.addColorStop(0.35, '#D946EF'); // Vivid magenta
-    grad.addColorStop(1.00, '#9333EA'); // Deep rich purple
-
-    targetBehind.fillStyle = grad;
-    targetBehind.fillText(metricWord, numX, numY);
-    targetBehind.restore();
-
-    // 2. Draw "With a tenant paying" (Front Title Case bold at waist) onto ctxFore (Layer 4)
-    if (subText) {
-      const subFontSize = Math.round(H * 0.046);
-      const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
-      ctxFore.save();
-      ctxFore.font = `700 ${subFontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.textAlign = 'center';
-      ctxFore.textBaseline = 'alphabetic';
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      ctxFore.shadowBlur = 8;
-      ctxFore.shadowOffsetY = 3;
-      ctxFore.fillText(toCap(subText), Math.round(W * 0.50), Math.round(H * 0.52));
-      ctxFore.restore();
-    }
-
-  } else if (styleMode === 3) {
-    // ------------------------------------------------------------------------
-    // STYLE 3: Exact 1:1 Match to Attention (frame_6.50s.jpg)
-    // - Waist: Horizontal Anamorphic Magenta Lens Flare Beam
-    // - Above Beam: "Those numbers get your" in clean white
-    // - On Beam: Giant "attention" in pure white lowercase extra-bold
-    // ------------------------------------------------------------------------
-    let heroIdx = words.findIndex(w => /attention|numbers|viral|secret|money|grow|hook|deal|profit/i.test(w.t || w.word || ''));
-    if (heroIdx === -1) heroIdx = words.length - 1;
-
-    const punchWord = (words[heroIdx].t || words[heroIdx].word || '').toLowerCase();
-    const leadWords = words.filter((_, i) => i !== heroIdx);
-    const leadText = leadWords.length > 0 ? leadWords.map(w => w.t || w.word || '').join(' ') : 'Those numbers get your';
-
-    const beamY = Math.round(H * 0.51);
-    const beamW = Math.round(W * 0.88);
-    const beamH = Math.round(H * 0.08);
-
-    // 1. Draw Horizontal Anamorphic Magenta Lens Flare Beam onto ctxFore (Layer 4)
+  // --------------------------------------------------------------------------
+  // 2. TOP-LEFT TILTED ITALIC LABEL (Layer 4 `captionCanvas`)
+  // Reference: "listed at" at x=0.056*W, y=0.122*H
+  // --------------------------------------------------------------------------
+  if (preText) {
+    const preFontSize = Math.round(H * 0.033); // ~42px on 1280h
     ctxFore.save();
-    const beamGrad = ctxFore.createRadialGradient(W * 0.50, beamY, 8, W * 0.50, beamY, beamW * 0.50);
-    beamGrad.addColorStop(0.00, 'rgba(235, 0, 255, 0.90)');
-    beamGrad.addColorStop(0.30, 'rgba(217, 70, 239, 0.75)');
-    beamGrad.addColorStop(0.65, 'rgba(147, 51, 234, 0.35)');
-    beamGrad.addColorStop(1.00, 'rgba(147, 51, 234, 0.00)');
-
-    ctxFore.fillStyle = beamGrad;
-    ctxFore.beginPath();
-    ctxFore.ellipse(W * 0.50, beamY, beamW * 0.50, beamH * 0.50, 0, 0, Math.PI * 2);
-    ctxFore.fill();
-    ctxFore.restore();
-
-    // 2. Draw "Those numbers get your" (Medium-weight clean white text)
-    if (leadText) {
-      const toSentence = (s) => s ? (s.charAt(0).toUpperCase() + s.slice(1)) : '';
-      const leadFontSize = Math.round(H * 0.038);
-      ctxFore.save();
-      ctxFore.font = `600 ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.textAlign = 'center';
-      ctxFore.textBaseline = 'alphabetic';
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.70)';
-      ctxFore.shadowBlur = 6;
-      ctxFore.shadowOffsetY = 2;
-      ctxFore.fillText(toSentence(leadText), Math.round(W * 0.50), Math.round(H * 0.495));
-      ctxFore.restore();
-    }
-
-    // 3. Draw "attention" (Giant crisp white extra-bold lowercase text)
-    const punchFontSize = Math.round(H * 0.088);
-    ctxFore.save();
-    ctxFore.font = `900 ${punchFontSize}px "Poppins", "Montserrat", sans-serif`;
-    ctxFore.textAlign = 'center';
+    ctxFore.font = `italic 800 ${preFontSize}px "Poppins", "Montserrat", sans-serif`;
+    ctxFore.textAlign = 'left';
     ctxFore.textBaseline = 'alphabetic';
-    ctxFore.letterSpacing = '-0.02em';
+    ctxFore.fillStyle = '#FFFFFF';
+    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.70)';
+    ctxFore.shadowBlur = 6;
+    ctxFore.shadowOffsetY = 2;
+    ctxFore.fillText(preText.toLowerCase(), Math.round(W * 0.056), Math.round(H * 0.122));
+    ctxFore.restore();
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. BESIDE-HEAD UNIT (Layer 4 `captionCanvas`)
+  // Reference: "lakh" at x=0.557*W, y=0.255*H (inside right loop of 0)
+  // --------------------------------------------------------------------------
+  if (unitText) {
+    const unitFontSize = Math.round(H * 0.038); // ~48px on 1280h
+    ctxFore.save();
+    ctxFore.font = `800 ${unitFontSize}px "Poppins", "Montserrat", sans-serif`;
+    ctxFore.textAlign = 'left';
+    ctxFore.textBaseline = 'alphabetic';
     ctxFore.fillStyle = '#FFFFFF';
     ctxFore.shadowColor = 'rgba(0, 0, 0, 0.80)';
+    ctxFore.shadowBlur = 6;
+    ctxFore.shadowOffsetY = 2;
+    ctxFore.fillText(unitText.toLowerCase(), Math.round(W * 0.557), Math.round(H * 0.255));
+    ctxFore.restore();
+  }
+
+  // --------------------------------------------------------------------------
+  // 4. FRONT WAIST SUBTITLE (Layer 4 `captionCanvas`)
+  // Reference: "Imagine a home" at x=0.50*W, y=0.525*H
+  // --------------------------------------------------------------------------
+  if (subText) {
+    const subFontSize = Math.round(H * 0.045); // ~58px on 1280h
+    const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
+    ctxFore.save();
+    ctxFore.font = `700 ${subFontSize}px "Poppins", "Montserrat", sans-serif`;
+    ctxFore.textAlign = 'center';
+    ctxFore.textBaseline = 'alphabetic';
+    ctxFore.fillStyle = '#FFFFFF';
+    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
     ctxFore.shadowBlur = 8;
     ctxFore.shadowOffsetY = 3;
-    ctxFore.fillText(punchWord, Math.round(W * 0.50), Math.round(H * 0.545));
+    ctxFore.fillText(toCap(subText), Math.round(W * 0.50), Math.round(H * 0.525));
     ctxFore.restore();
-
-  } else {
-    // ------------------------------------------------------------------------
-    // STYLE 4: Exact 1:1 Match to Listing (frame_8.50s.jpg)
-    // - Top Left: "A great" in tilted italic white
-    // - Behind Head: "listing" in Midnight Indigo with sharp horizontal specular horizon reflection line
-    // - Waist: "helps you" and italic "picture"
-    // ------------------------------------------------------------------------
-    let heroIdx = words.findIndex((w, i) => w.key && i < 3);
-    if (heroIdx === -1) heroIdx = Math.min(2, Math.floor(words.length / 2));
-    if (heroIdx === 0 && words.length > 1) heroIdx = 1;
-
-    const heroWord = (words[heroIdx].t || words[heroIdx].word || '').toLowerCase();
-    const topWords = words.slice(0, heroIdx);
-    const botWords = words.slice(heroIdx + 1);
-
-    const topText = topWords.length > 0 ? topWords.map(w => w.t || w.word || '').join(' ') : 'A great';
-    let botLine1 = 'helps you';
-    let botLine2 = 'picture';
-    if (botWords.length > 0) {
-      if (botWords.length === 1) {
-        botLine1 = '';
-        botLine2 = botWords[0].t || botWords[0].word || '';
-      } else {
-        botLine1 = botWords.slice(0, -1).map(w => w.t || w.word || '').join(' ');
-        botLine2 = botWords[botWords.length - 1].t || botWords[botWords.length - 1].word || '';
-      }
-    }
-
-    // 1. Draw "listing" (Midnight Indigo with sharp horizontal specular reflection line) onto targetBehind (Layer 2)
-    const heroFontSize = Math.round(H * 0.165);
-    const heroY = Math.round(H * 0.23);
-    const heroX = Math.round(W * 0.50);
-
-    targetBehind.save();
-    targetBehind.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
-    targetBehind.textAlign = 'center';
-    targetBehind.textBaseline = 'alphabetic';
-    targetBehind.letterSpacing = '-0.02em';
-
-    // Ambient shadow
-    targetBehind.shadowColor = 'rgba(0, 0, 0, 0.60)';
-    targetBehind.shadowBlur = 12;
-    targetBehind.shadowOffsetY = 4;
-
-    // Split Horizon Specular Gradient
-    const grad = targetBehind.createLinearGradient(0, heroY - heroFontSize, 0, heroY);
-    grad.addColorStop(0.00, '#1E0A45'); // Deep midnight indigo top
-    grad.addColorStop(0.48, '#2E1065');
-    grad.addColorStop(0.50, '#E9D5FF'); // Sharp bright specular horizon reflection line
-    grad.addColorStop(0.52, '#7C3AED'); // Vibrant electric purple horizon glow
-    grad.addColorStop(1.00, '#3B0764'); // Deep purple base
-
-    targetBehind.fillStyle = grad;
-    targetBehind.fillText(heroWord, heroX, heroY);
-    targetBehind.restore();
-
-    // 2. Draw "A great" (Top-left tilted italic white) onto ctxFore (Layer 4)
-    if (topText) {
-      const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
-      const topFontSize = Math.round(H * 0.040);
-      ctxFore.save();
-      ctxFore.font = `italic 800 ${topFontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.textAlign = 'left';
-      ctxFore.textBaseline = 'alphabetic';
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.70)';
-      ctxFore.shadowBlur = 6;
-      ctxFore.shadowOffsetY = 2;
-      ctxFore.fillText(toCap(topText), Math.round(W * 0.18), Math.round(H * 0.17));
-      ctxFore.restore();
-    }
-
-    // 3. Draw Front Bottom Stack onto ctxFore (Layer 4)
-    if (botLine1) {
-      const l1FontSize = Math.round(H * 0.034);
-      ctxFore.save();
-      ctxFore.font = `700 ${l1FontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.textAlign = 'center';
-      ctxFore.textBaseline = 'alphabetic';
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      ctxFore.shadowBlur = 6;
-      ctxFore.shadowOffsetY = 2;
-      ctxFore.fillText(botLine1.toLowerCase(), Math.round(W * 0.50), Math.round(H * 0.50));
-      ctxFore.restore();
-    }
-
-    if (botLine2) {
-      const l2FontSize = Math.round(H * 0.060);
-      ctxFore.save();
-      ctxFore.font = `italic 900 ${l2FontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.textAlign = 'center';
-      ctxFore.textBaseline = 'alphabetic';
-      ctxFore.letterSpacing = '-0.02em';
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      ctxFore.shadowBlur = 8;
-      ctxFore.shadowOffsetY = 3;
-      ctxFore.fillText(botLine2.toLowerCase(), Math.round(W * 0.50), Math.round(H * 0.55));
-      ctxFore.restore();
-    }
   }
 }
 
