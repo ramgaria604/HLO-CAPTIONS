@@ -3864,6 +3864,7 @@ async function ensureHeroFontsLoaded() {
 function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
 
+  const isShowcaseSample = Boolean(showAll || isPreview || !words || words.length === 0);
   const capId = (cap && (cap.index != null ? cap.index : cap.id)) || 1;
   const rawIdx = typeof capId === 'number' ? capId : parseInt(capId, 10);
   const capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
@@ -3907,8 +3908,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     // - Waist: "Imagine a home" in Title Case bold white
     // ========================================================================
     let numIdx = numWordIdx !== -1 ? numWordIdx : 0;
-    let metricWord = (words[numIdx].t || words[numIdx].word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
-    if (!metricWord) metricWord = '20';
+    let metricWord = (words[numIdx]?.t || words[numIdx]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
 
     let preWords = words.slice(0, numIdx);
     let postWords = words.slice(numIdx + 1);
@@ -3917,7 +3917,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
     if (postWords.length > 0) {
       const firstPost = (postWords[0].t || postWords[0].word || '').toLowerCase();
-      if (['lakh', 'cr', 'k', 'm', 'rupees', 'inr', 'usd', 'dollars', 'only', 'per', 'month'].includes(firstPost) || postWords.length <= 2) {
+      if (['lakh', 'cr', 'k', 'm', 'rupees', 'inr', 'usd', 'dollars', 'only', 'per', 'month'].includes(firstPost) || (postWords.length <= 2 && /^[a-z]{1,5}$/i.test(firstPost))) {
         unitWord = postWords[0].t || postWords[0].word || '';
         subWords = postWords.slice(1);
       } else {
@@ -3926,13 +3926,18 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     }
 
     let preText = preWords.map(w => w.t || w.word || '').join(' ');
-    if (!preText && words.length <= 2) preText = 'listed at';
-
     let unitText = unitWord;
-    if (!unitText && words.length <= 2) unitText = 'lakh';
-
     let subText = subWords.map(w => w.t || w.word || '').join(' ');
-    if (!subText && words.length <= 2) subText = 'Imagine a home';
+
+    if (isShowcaseSample) {
+      if (!metricWord) metricWord = '20';
+      if (!preText) preText = 'listed at';
+      if (!unitText) unitText = 'lakh';
+      if (!subText) subText = 'Imagine a home';
+    }
+    if (!metricWord) {
+      metricWord = (words[0]?.t || words[0]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '') || '20';
+    }
 
     // 1. Giant Hollow Chromatic Rainbow Number onto Layer 2 (Behind Head)
     const numFontSize = Math.round(H * 0.35); // 450px on 1280h
@@ -4020,12 +4025,17 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     // - Waist: "With a tenant paying" in Title Case bold white
     // ========================================================================
     let numIdx = numWordIdx !== -1 ? numWordIdx : words.length - 1;
-    let metricWord = (words[numIdx].t || words[numIdx].word || '');
-    if (!metricWord) metricWord = '25,000';
-
+    let metricWord = (words[numIdx]?.t || words[numIdx]?.word || '');
     const otherWords = words.filter((_, i) => i !== numIdx);
     let subText = otherWords.map(w => w.t || w.word || '').join(' ');
-    if (!subText) subText = 'With a tenant paying';
+
+    if (isShowcaseSample) {
+      if (!metricWord) metricWord = '25,000';
+      if (!subText) subText = 'With a tenant paying';
+    }
+    if (!metricWord) {
+      metricWord = (words[0]?.t || words[0]?.word || '') || '25,000';
+    }
 
     // 1. Slanted Italic Magenta Gradient Number onto Layer 2 (Behind Head)
     const numFontSize = Math.round(H * 0.22); // 280px on 1280h
@@ -4079,12 +4089,17 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     let heroIdx = words.findIndex(w => /attention|numbers|viral|secret|money|grow|hook|deal|profit/i.test(w.t || w.word || ''));
     if (heroIdx === -1) heroIdx = words.length - 1;
 
-    let punchWord = (words[heroIdx].t || words[heroIdx].word || '').toLowerCase();
-    if (!punchWord) punchWord = 'attention';
-
+    let punchWord = (words[heroIdx]?.t || words[heroIdx]?.word || '').toLowerCase();
     const leadWords = words.filter((_, i) => i !== heroIdx);
     let leadText = leadWords.map(w => w.t || w.word || '').join(' ');
-    if (!leadText) leadText = 'Those numbers get your';
+
+    if (isShowcaseSample) {
+      if (!punchWord) punchWord = 'attention';
+      if (!leadText) leadText = 'Those numbers get your';
+    }
+    if (!punchWord) {
+      punchWord = (words[0]?.t || words[0]?.word || '').toLowerCase() || 'attention';
+    }
 
     const beamY = Math.round(H * 0.515);
     const beamW = Math.round(W * 0.88);
@@ -4145,25 +4160,31 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     if (heroIdx === -1) heroIdx = Math.min(2, Math.floor(words.length / 2));
     if (heroIdx === 0 && words.length > 1) heroIdx = 1;
 
-    let heroWord = (words[heroIdx].t || words[heroIdx].word || '').toLowerCase();
-    if (!heroWord) heroWord = 'listing';
-
+    let heroWord = (words[heroIdx]?.t || words[heroIdx]?.word || '').toLowerCase();
     const topWords = words.slice(0, heroIdx);
     const botWords = words.slice(heroIdx + 1);
 
     let topText = topWords.map(w => w.t || w.word || '').join(' ');
-    if (!topText) topText = 'A great';
+    let botLine1 = '';
+    let botLine2 = '';
 
-    let botLine1 = 'helps you';
-    let botLine2 = 'picture';
-    if (botWords.length > 0) {
-      if (botWords.length === 1) {
-        botLine1 = '';
-        botLine2 = botWords[0].t || botWords[0].word || '';
-      } else {
-        botLine1 = botWords.slice(0, -1).map(w => w.t || w.word || '').join(' ');
-        botLine2 = botWords[botWords.length - 1].t || botWords[botWords.length - 1].word || '';
+    if (botWords.length === 1) {
+      botLine2 = botWords[0].t || botWords[0].word || '';
+    } else if (botWords.length > 1) {
+      botLine1 = botWords.slice(0, -1).map(w => w.t || w.word || '').join(' ');
+      botLine2 = botWords[botWords.length - 1].t || botWords[botWords.length - 1].word || '';
+    }
+
+    if (isShowcaseSample) {
+      if (!heroWord) heroWord = 'listing';
+      if (!topText) topText = 'A great';
+      if (!botLine1 && !botLine2) {
+        botLine1 = 'helps you';
+        botLine2 = 'picture';
       }
+    }
+    if (!heroWord) {
+      heroWord = (words[0]?.t || words[0]?.word || '').toLowerCase() || 'listing';
     }
 
     // 1. Midnight Indigo Split Horizon Word onto Layer 2 (Behind Head)
@@ -4227,6 +4248,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
     if (botLine2) {
       const l2FontSize = Math.round(H * 0.065); // 82px on 1280h
+      const botY = botLine1 ? Math.round(H * 0.555) : Math.round(H * 0.525);
       ctxFore.save();
       ctxFore.font = `italic 900 ${l2FontSize}px "Poppins", "Montserrat", sans-serif`;
       ctxFore.textAlign = 'center';
@@ -4236,7 +4258,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
       ctxFore.shadowBlur = 8;
       ctxFore.shadowOffsetY = 3;
-      ctxFore.fillText(botLine2.toLowerCase(), Math.round(W * 0.50), Math.round(H * 0.555));
+      ctxFore.fillText(botLine2.toLowerCase(), Math.round(W * 0.50), botY);
       ctxFore.restore();
     }
   }
