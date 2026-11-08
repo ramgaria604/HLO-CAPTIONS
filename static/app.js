@@ -4296,45 +4296,33 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   if (!words || !words.length) return;
 
   const isShowcaseSample = Boolean(showAll || isPreview || !words || words.length === 0);
-  const capId = (cap && (cap.index != null ? cap.index : cap.id)) || 1;
-  const rawIdx = typeof capId === 'number' ? capId : parseInt(capId, 10);
-  const capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
 
-  // Normalized entrance & exit dynamics ("How it comes, How it goes")
+  // Normalized entrance & exit animation ("How it comes, How it goes")
   const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
   const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
   const age = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, t - capStart) : 1.0;
   const timeRem = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, capEnd - t) : 1.0;
 
+  // Entrance over 0.20s with gentle spring overshoot
   const enterDur = 0.20;
   const exitDur = 0.16;
   const enterP = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, age / enterDur));
   const exitAlpha = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, timeRem / exitDur));
   const globalAlpha = Math.min(enterP, exitAlpha);
+
+  // Subtle spring scale for the hero word (0.94 -> 1.03 -> 1.00)
   const springScale = isShowcaseSample ? 1.0 : (1.0 + 0.05 * Math.sin(enterP * Math.PI) * (1 - enterP));
   const exitScale = isShowcaseSample ? 1.0 : (1.0 - 0.03 * (1.0 - exitAlpha));
   const masterScale = springScale * exitScale;
 
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
 
-  // Exact 7-color luxury jewel palette from the editorial reference video
-  const palettes = [
-    { name: 'navy', left: '#2563EB', mid: '#1D4ED8', right: '#0F172A' },
-    { name: 'emerald', left: '#22C55E', mid: '#16A34A', right: '#052E16' },
-    { name: 'sky', left: '#38BDF8', mid: '#0284C7', right: '#0C4A6E' },
-    { name: 'violet', left: '#A855F7', mid: '#7C3AED', right: '#2E1065' },
-    { name: 'cobalt', left: '#3B82F6', mid: '#1E3A8A', right: '#172554' },
-    { name: 'teal', left: '#14B8A6', mid: '#0D9488', right: '#042F2E' },
-    { name: 'orange', left: '#FB923C', mid: '#EA580C', right: '#431407' }
-  ];
-  const pal = palettes[capIdx % palettes.length];
-
-  // Separate words into top lead, hero keyword, and waist supporting words
-  let heroIdx = words.findIndex((w, i) => w.key && i < 3);
+  // Identify hero keyword to place behind the speaker's head
+  let heroIdx = words.findIndex((w, i) => w.key && i < 4);
   if (heroIdx === -1) {
     let maxLen = -1;
     let maxIdx = 0;
-    const searchLimit = Math.min(words.length, 3);
+    const searchLimit = Math.min(words.length, 4);
     for (let i = 0; i < searchLimit; i++) {
       const clean = (words[i].t || words[i].word || '').replace(/[^a-zA-Z]/g, '');
       if (clean.length > maxLen) {
@@ -4344,6 +4332,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     }
     heroIdx = maxIdx;
   }
+  // If first word was picked but we have several words, prefer second word as hero
   if (heroIdx === 0 && words.length > 2) heroIdx = 1;
 
   let leadWords = words.slice(0, heroIdx);
@@ -4354,6 +4343,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   let heroText = (heroWordObj?.t || heroWordObj?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').toLowerCase();
   let waistText = waistWords.map(w => w.t || w.word || '').join(' ');
 
+  // Showcase fallback for sample preview card
   if (isShowcaseSample) {
     if (!leadText) leadText = 'Some homes get';
     if (!heroText) heroText = 'seen';
@@ -4363,10 +4353,10 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     heroText = (words[0]?.t || words[0]?.word || '').toLowerCase() || 'seen';
   }
 
-  // 1. TOP LEAD TEXT onto ctxFore (Layer 4, centered directly above the hero word)
+  // 1. TOP LEAD TEXT onto ctxFore (Layer 4, above the head)
   if (leadText) {
     const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
-    const leadFontSize = Math.round(H * 0.045); // ~58px on 1280h
+    const leadFontSize = Math.round(H * 0.042); // ~54px on 1280h
     ctxFore.save();
     ctxFore.globalAlpha = globalAlpha;
     ctxFore.font = `700 ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
@@ -4376,18 +4366,20 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
     ctxFore.shadowBlur = 6;
     ctxFore.shadowOffsetY = 3;
-    ctxFore.fillText(toCap(leadText), Math.round(W * 0.50), Math.round(H * 0.115));
+    ctxFore.fillText(toCap(leadText), Math.round(W * 0.50), Math.round(H * 0.125));
     ctxFore.restore();
   }
 
-  // 2. GIANT SLANTED ITALIC LOWERCASE HERO WORD onto targetBehind (Layer 2, behind speaker's head)
-  let heroFontSize = Math.round(H * 0.165); // ~210px on 1280h
-  if (heroText.length > 8) {
-    heroFontSize = Math.round(heroFontSize * (8 / heroText.length));
+  // 2. GIANT HERO LOWERCASE KEYWORD onto targetBehind (Layer 2, behind speaker's head)
+  let heroFontSize = Math.round(H * 0.170); // ~218px on 1280h
+  if (heroText.length > 7) {
+    heroFontSize = Math.round(heroFontSize * (7 / heroText.length));
   }
   heroFontSize = Math.max(Math.round(H * 0.10), heroFontSize);
 
-  const heroY = Math.round(H * 0.190);
+  // Exact vertical position: baseline at Y = 0.310 * H (~396px on 1280h)
+  // Perfectly positioned directly behind the presenter's head/neck with breathing room below top lead
+  const heroY = Math.round(H * 0.310);
   const heroX = Math.round(W * 0.50);
 
   targetBehind.save();
@@ -4396,105 +4388,42 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   targetBehind.scale(masterScale, masterScale);
   targetBehind.translate(-heroX, -heroY);
 
-  targetBehind.font = `italic 900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
+  targetBehind.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
   targetBehind.textAlign = 'center';
   targetBehind.textBaseline = 'alphabetic';
   targetBehind.letterSpacing = '-0.03em';
 
-  // Ambient depth shadow
+  // Deep ambient 3D depth shadow
   targetBehind.shadowColor = 'rgba(0, 0, 0, 0.70)';
   targetBehind.shadowBlur = 12;
   targetBehind.shadowOffsetX = 0;
   targetBehind.shadowOffsetY = 4;
 
-  // Horizontal Linear Gradient from Left (Vibrant Jewel) to Right (Deep Dark Midnight)
-  const leftX = Math.round(W * 0.08);
-  const rightX = Math.round(W * 0.92);
-  const horizGrad = targetBehind.createLinearGradient(leftX, 0, rightX, 0);
-  horizGrad.addColorStop(0.00, pal.left);
-  horizGrad.addColorStop(0.40, pal.mid);
-  horizGrad.addColorStop(1.00, pal.right);
+  // Exact Luxury Royal Cobalt Blue Gradient: Vibrant Cobalt Top -> Royal Navy Mid -> Deep Midnight Base
+  const grad = targetBehind.createLinearGradient(0, heroY - heroFontSize, 0, heroY);
+  grad.addColorStop(0.00, '#3858D6'); // Vibrant luxury cobalt blue
+  grad.addColorStop(0.55, '#223896'); // Rich royal navy
+  grad.addColorStop(1.00, '#101B4B'); // Deep midnight navy base
 
-  targetBehind.fillStyle = horizGrad;
+  targetBehind.fillStyle = grad;
   targetBehind.fillText(heroText, heroX, heroY);
-
-  // Dynamic Specular Sheen Sweep traveling across gradient during entrance
-  if (!isShowcaseSample && age >= 0 && age <= 0.45) {
-    const sheenProgress = age / 0.45;
-    const sheenX = leftX + (rightX - leftX) * sheenProgress;
-    const sheenGrad = targetBehind.createLinearGradient(sheenX - W * 0.14, 0, sheenX + W * 0.14, 0);
-    sheenGrad.addColorStop(0.00, 'rgba(255, 255, 255, 0.00)');
-    sheenGrad.addColorStop(0.50, 'rgba(255, 255, 255, 0.38)');
-    sheenGrad.addColorStop(1.00, 'rgba(255, 255, 255, 0.00)');
-
-    targetBehind.save();
-    targetBehind.fillStyle = sheenGrad;
-    targetBehind.fillText(heroText, heroX, heroY);
-    targetBehind.restore();
-  }
-
   targetBehind.restore();
 
-  // 3. WAIST SUBTITLE / SUPPORTING TEXT onto ctxFore (Layer 4, front of waist)
+  // 3. FRONT WAIST SUBTITLE onto ctxFore (Layer 4, in front of speaker's waist)
   if (waistText) {
-    const waistTokens = waistWords.map(w => w.t || w.word || '');
-    let waistLead = '';
-    let waistHero = '';
-
-    if (waistTokens.length >= 3) {
-      waistLead = waistTokens.slice(0, -1).join(' ');
-      waistHero = waistTokens[waistTokens.length - 1].replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').toLowerCase();
-    } else {
-      waistLead = waistText;
-    }
-
-    const waistLeadFontSize = Math.round(H * 0.040); // ~51px on 1280h
     const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
-
+    const waistFontSize = Math.round(H * 0.040); // ~51px on 1280h
     ctxFore.save();
     ctxFore.globalAlpha = globalAlpha;
-    ctxFore.font = `700 ${waistLeadFontSize}px "Poppins", "Montserrat", sans-serif`;
+    ctxFore.font = `700 ${waistFontSize}px "Poppins", "Montserrat", sans-serif`;
     ctxFore.textAlign = 'center';
     ctxFore.textBaseline = 'alphabetic';
     ctxFore.fillStyle = '#FFFFFF';
     ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
     ctxFore.shadowBlur = 6;
     ctxFore.shadowOffsetY = 3;
-    ctxFore.fillText(toCap(waistLead), Math.round(W * 0.50), Math.round(H * 0.465));
+    ctxFore.fillText(toCap(waistText), Math.round(W * 0.50), Math.round(H * 0.520));
     ctxFore.restore();
-
-    if (waistHero) {
-      // 2nd behind keyword at waist level
-      const pal2 = palettes[(capIdx + 1) % palettes.length];
-      let wHeroFontSize = Math.round(H * 0.135); // ~172px on 1280h
-      if (waistHero.length > 8) {
-        wHeroFontSize = Math.round(wHeroFontSize * (8 / waistHero.length));
-      }
-      const wHeroY = Math.round(H * 0.520);
-
-      targetBehind.save();
-      targetBehind.globalAlpha = globalAlpha;
-      targetBehind.translate(heroX, wHeroY);
-      targetBehind.scale(masterScale, masterScale);
-      targetBehind.translate(-heroX, -wHeroY);
-
-      targetBehind.font = `italic 900 ${wHeroFontSize}px "Poppins", "Montserrat", sans-serif`;
-      targetBehind.textAlign = 'center';
-      targetBehind.textBaseline = 'alphabetic';
-      targetBehind.letterSpacing = '-0.025em';
-      targetBehind.shadowColor = 'rgba(0, 0, 0, 0.65)';
-      targetBehind.shadowBlur = 10;
-      targetBehind.shadowOffsetY = 4;
-
-      const horizGrad2 = targetBehind.createLinearGradient(leftX, 0, rightX, 0);
-      horizGrad2.addColorStop(0.00, pal2.left);
-      horizGrad2.addColorStop(0.40, pal2.mid);
-      horizGrad2.addColorStop(1.00, pal2.right);
-
-      targetBehind.fillStyle = horizGrad2;
-      targetBehind.fillText(waistHero, heroX, wHeroY);
-      targetBehind.restore();
-    }
   }
 }
 
