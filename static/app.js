@@ -4995,139 +4995,161 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
 function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
   if (!words || !words.length) return;
 
-  const isShowcaseSample = Boolean(showAll || isPreview || !words || words.length === 0);
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
   const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
   const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
 
-  const timeRem = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, capEnd - t) : 1.0;
-  const exitAlpha = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.15));
-  const exitDriftY = isShowcaseSample ? 0 : (-10 * (1.0 - exitAlpha));
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitAlpha = fullInstant ? 1.0 : Math.min(1, timeRem / 0.06);
+  if (exitAlpha <= 0.005) return;
+
+  const capsList = (typeof S !== 'undefined' && S && Array.isArray(S.captions)) ? S.captions : [];
+  const foundIdx = (cap && capsList.length > 0) ? capsList.indexOf(cap) : -1;
+  const capIdx = foundIdx >= 0
+    ? foundIdx
+    : (cap && typeof cap.index === 'number' && cap.index > 0 ? cap.index - 1 : 0);
+  const isRightAligned = !isSampleCard && (capIdx % 2 === 1);
+
+  const cleanET = (raw) => String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim();
+  const wordStartTime = (w, fallback) => {
+    if (w && typeof w.s === 'number') return w.s;
+    if (w && typeof w.start === 'number') return w.start;
+    return fallback;
+  };
+  const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+
+  const measureEKWidth = (ctx, text, fontSize, trackEm) => {
+    const m = ctx.measureText(text);
+    const w = (m && typeof m.width === 'number') ? m.width : String(text || '').length * fontSize * 0.56;
+    if ('letterSpacing' in ctx) return w;
+    return Math.max(0, w + Math.max(0, String(text || '').length - 1) * fontSize * (trackEm || 0));
+  };
+
+  const fitEKFont = (ctx, text, weight, idealPx, minPx, maxW, trackEm) => {
+    let px = Math.round(idealPx);
+    if (!text) return px;
+    ctx.save();
+    ctx.font = `${weight} ${px}px "Montserrat", "Inter", sans-serif`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
+    const rawW = measureEKWidth(ctx, text, px, trackEm);
+    ctx.restore();
+    if (rawW > maxW && rawW > 0) {
+      px = Math.max(Math.round(minPx), Math.floor(px * (maxW / rawW)));
+    }
+    return px;
+  };
 
   let line1Text = '';
   let line2Text = '';
   let line3Text = '';
-
   let line1Start = capStart;
-  let line2Start = capStart + 0.3;
-  let line3Start = capStart + 0.6;
+  let line2Start = capStart + 0.35;
+  let line3Start = capStart + 0.70;
 
-  if (words.length >= 3) {
-    line1Text = (words[0].t || words[0].word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').toUpperCase();
-    line2Text = (words[1].t || words[1].word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').toUpperCase();
-    line3Text = words.slice(2).map(w => w.t || w.word || '').join(' ').toLowerCase();
-
-    line1Start = typeof words[0].s === 'number' ? words[0].s : (typeof words[0].start === 'number' ? words[0].start : capStart);
-    line2Start = typeof words[1].s === 'number' ? words[1].s : (typeof words[1].start === 'number' ? words[1].start : line1Start + 0.3);
-    line3Start = typeof words[2].s === 'number' ? words[2].s : (typeof words[2].start === 'number' ? words[2].start : line2Start + 0.3);
+  if (isSampleCard) {
+    line1Text = 'BUILD';
+    line2Text = 'INTENT';
+    line3Text = 'daily';
+  } else if (words.length >= 3) {
+    line1Text = cleanET(words[0].t || words[0].word).toUpperCase();
+    line2Text = cleanET(words[1].t || words[1].word).toUpperCase();
+    line3Text = words.slice(2).map(w => cleanET(w.t || w.word)).filter(Boolean).join(' ').toLowerCase();
+    line1Start = wordStartTime(words[0], capStart);
+    line2Start = wordStartTime(words[1], line1Start + 0.35);
+    line3Start = wordStartTime(words[2], line2Start + 0.35);
   } else if (words.length === 2) {
-    line1Text = (words[0].t || words[0].word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').toUpperCase();
-    line2Text = (words[1].t || words[1].word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').toUpperCase();
-    line1Start = typeof words[0].s === 'number' ? words[0].s : capStart;
-    line2Start = typeof words[1].s === 'number' ? words[1].s : line1Start + 0.3;
+    line1Text = cleanET(words[0].t || words[0].word).toUpperCase();
+    line3Text = cleanET(words[1].t || words[1].word).toLowerCase();
+    line1Start = wordStartTime(words[0], capStart);
+    line3Start = wordStartTime(words[1], line1Start + 0.35);
   } else {
-    line1Text = (words[0].t || words[0].word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').toUpperCase();
-    line1Start = typeof words[0].s === 'number' ? words[0].s : capStart;
+    line1Text = cleanET(words[0].t || words[0].word).toUpperCase();
+    line1Start = wordStartTime(words[0], capStart);
   }
 
-  if (isShowcaseSample) {
-    if (!line1Text) line1Text = 'BUILD';
-    if (!line2Text) line2Text = 'INTENT';
-    if (!line3Text) line3Text = 'daily';
-  }
-  if (!line1Text) line1Text = 'BUILD';
+  // Exact proportions from ref 1olwjJXqLkpi2b1aRRs1RyVkpA0ZU5y_O: compact ALL-CAPS L1+L2, heaviest Black L3
+  const l1FontSize = fitEKFont(ctxFore, line1Text, 800, H * 0.050, H * 0.032, W * 0.62, -0.025);
+  const l2FontSize = fitEKFont(ctxFore, line2Text, 800, H * 0.050, H * 0.032, W * 0.68, -0.025);
+  const l3FontSize = fitEKFont(ctxFore, line3Text, 900, H * 0.072, H * 0.042, W * 0.76, -0.040);
 
-  let activeLineIdx = 1;
-  let activeLineStart = line1Start;
-  if (!showAll && !isPreview && typeof t === 'number') {
-    if (line3Text && t >= line3Start) { activeLineIdx = 3; activeLineStart = line3Start; }
-    else if (line2Text && t >= line2Start) { activeLineIdx = 2; activeLineStart = line2Start; }
-    else { activeLineIdx = 1; activeLineStart = line1Start; }
-  }
-
-  // Kinetic snap entrance for the active line: snappy vertical slide-up + scale punch
-  const lineAge = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, t - activeLineStart) : 1.0;
-  const lineP = isShowcaseSample ? 1.0 : Math.min(1, lineAge / 0.18);
-  const activeSlideY = isShowcaseSample ? 0 : Math.round(18 * (1 - lineP) * (1 - lineP));
-  const activePunchScale = isShowcaseSample ? 1.0 : (1.0 + 0.07 * Math.sin(lineP * Math.PI));
-
-  // Left-aligned column on lower-center (X ~ 0.34 * W)
-  const leftX = Math.round(W * 0.34);
-  const baseY = Math.round(H * 0.74);
-
-  const l1FontSize = Math.round(H * 0.086); // ~110px on 1280h
-  const l2FontSize = Math.round(H * 0.080); // ~102px on 1280h
-  const l3FontSize = Math.round(H * 0.055); // ~70px on 1280h
-
-  const l1Y = baseY;
-  const l2Y = Math.round(l1Y + l1FontSize * 0.88);
-  const l3Y = Math.round(l2Y + l2FontSize * 0.82);
-
-  // Line 1:
-  const isL1Active = (activeLineIdx === 1);
-  const l1YPos = isL1Active ? (l1Y - activeSlideY + exitDriftY) : (l1Y + exitDriftY);
-  ctxFore.save();
-  ctxFore.globalAlpha = exitAlpha;
-  if (isL1Active && activePunchScale !== 1.0) {
-    ctxFore.translate(leftX, l1YPos);
-    ctxFore.scale(activePunchScale, activePunchScale);
-    ctxFore.translate(-leftX, -l1YPos);
-  }
-  ctxFore.font = `900 ${l1FontSize}px "Montserrat", sans-serif`;
-  ctxFore.textAlign = 'left';
-  ctxFore.textBaseline = 'alphabetic';
-  ctxFore.letterSpacing = '-0.02em';
-  ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-  ctxFore.shadowBlur = 8;
-  ctxFore.shadowOffsetY = 4;
-  ctxFore.fillStyle = isL1Active ? '#FFE600' : '#FFFFFF';
-  ctxFore.fillText(line1Text, leftX, l1YPos);
-  ctxFore.restore();
-
-  // Line 2:
-  if (line2Text) {
-    const isL2Active = (activeLineIdx === 2);
-    const l2YPos = isL2Active ? (l2Y - activeSlideY + exitDriftY) : (l2Y + exitDriftY);
+  // Measure actual widths for crisp viewport-safe staggering
+  const getW = (txt, wt, px, trk) => {
+    if (!txt) return 0;
     ctxFore.save();
-    ctxFore.globalAlpha = exitAlpha;
-    if (isL2Active && activePunchScale !== 1.0) {
-      ctxFore.translate(leftX, l2YPos);
-      ctxFore.scale(activePunchScale, activePunchScale);
-      ctxFore.translate(-leftX, -l2YPos);
-    }
-    ctxFore.font = `900 ${l2FontSize}px "Montserrat", sans-serif`;
-    ctxFore.textAlign = 'left';
-    ctxFore.textBaseline = 'alphabetic';
-    ctxFore.letterSpacing = '-0.02em';
-    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-    ctxFore.shadowBlur = 8;
-    ctxFore.shadowOffsetY = 4;
-    ctxFore.fillStyle = isL2Active ? '#FFE600' : (activeLineIdx > 2 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.70)');
-    ctxFore.fillText(line2Text, leftX, l2YPos);
+    ctxFore.font = `${wt} ${px}px "Montserrat", "Inter", sans-serif`;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${trk}em`;
+    const w = measureEKWidth(ctxFore, txt, px, trk);
     ctxFore.restore();
+    return w;
+  };
+  const w1 = getW(line1Text, 800, l1FontSize, -0.025);
+  const w2 = getW(line2Text, 800, l2FontSize, -0.025);
+  const w3 = getW(line3Text, 900, l3FontSize, -0.040);
+
+  const l1BaseY = Math.round(H * 0.775);
+  const l2BaseY = Math.round(l1BaseY + l1FontSize * 0.88);
+  const l3BaseY = line2Text
+    ? Math.round(l2BaseY + l3FontSize * 0.68)
+    : Math.round(l1BaseY + l3FontSize * 0.74);
+
+  let x1, x2, x3, alignMode;
+  if (isRightAligned) {
+    // Odd captions: right-aligned cascade (stair-left edge expansion like CLEAN / CHOICES / compound)
+    alignMode = 'right';
+    const minNeededX = Math.round(Math.max(w1, w2, w3) + W * 0.08);
+    const rightAnchor = Math.min(Math.round(W * 0.90), Math.max(Math.round(W * 0.74), minNeededX));
+    x1 = rightAnchor;
+    x2 = rightAnchor;
+    x3 = rightAnchor;
+  } else {
+    // Even captions: staggered left-to-right staircase (like BUILD / INTENT / daily & EVERY / FRAME / matters)
+    alignMode = 'left';
+    x1 = Math.round(W * 0.25);
+    const idealX2 = Math.round(x1 + W * 0.075);
+    x2 = Math.max(Math.round(W * 0.10), Math.min(idealX2, Math.round(W * 0.92 - w2)));
+    const idealX3 = line2Text ? Math.round(x2 + W * 0.045) : Math.round(x1 + W * 0.075);
+    x3 = Math.max(Math.round(W * 0.10), Math.min(idealX3, Math.round(W * 0.92 - w3)));
   }
 
-  // Line 3:
-  if (line3Text) {
-    const isL3Active = (activeLineIdx === 3);
-    const l3YPos = isL3Active ? (l3Y - activeSlideY + exitDriftY) : (l3Y + exitDriftY);
+  const drawKineticLine = (txt, wt, px, trk, xPos, baseY, color, startTime, slideDistPx) => {
+    if (!txt) return;
+    if (!fullInstant && evalT < startTime - 0.02) return;
+    const age = fullInstant ? 1.0 : Math.max(0, evalT - startTime);
+    const p = fullInstant ? 1.0 : Math.min(1.0, age / 0.15);
+    const ep = easeOutCubic(p);
+    const alpha = exitAlpha * ep;
+    if (alpha <= 0.01) return;
+
+    const blurPx = fullInstant ? 0 : Math.round(6.5 * Math.pow(1 - p, 2) * 10) / 10;
+    const dy = fullInstant ? 0 : Math.round(slideDistPx * Math.pow(1 - p, 2));
+
     ctxFore.save();
-    ctxFore.globalAlpha = exitAlpha;
-    if (isL3Active && activePunchScale !== 1.0) {
-      ctxFore.translate(leftX, l3YPos);
-      ctxFore.scale(activePunchScale, activePunchScale);
-      ctxFore.translate(-leftX, -l3YPos);
+    try {
+      ctxFore.globalAlpha = alpha;
+      if (blurPx > 0.2 && 'filter' in ctxFore) ctxFore.filter = `blur(${blurPx.toFixed(1)}px)`;
+      ctxFore.font = `${wt} ${px}px "Montserrat", "Inter", sans-serif`;
+      ctxFore.textAlign = alignMode;
+      ctxFore.textBaseline = 'alphabetic';
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${trk}em`;
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      ctxFore.shadowBlur = Math.max(3, Math.round(H * 0.006));
+      ctxFore.shadowOffsetX = 0;
+      ctxFore.shadowOffsetY = Math.round(H * 0.002);
+      ctxFore.fillStyle = color;
+      ctxFore.fillText(txt, xPos, baseY + dy);
+    } finally {
+      if ('filter' in ctxFore) ctxFore.filter = 'none';
+      ctxFore.restore();
     }
-    ctxFore.font = `700 ${l3FontSize}px "Poppins", sans-serif`;
-    ctxFore.textAlign = 'left';
-    ctxFore.textBaseline = 'alphabetic';
-    ctxFore.letterSpacing = '-0.01em';
-    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.80)';
-    ctxFore.shadowBlur = 6;
-    ctxFore.shadowOffsetY = 3;
-    ctxFore.fillStyle = isL3Active ? '#FFE600' : 'rgba(255, 255, 255, 0.45)';
-    ctxFore.fillText(line3Text, leftX, l3YPos);
-    ctxFore.restore();
-  }
+  };
+
+  // Line 1 remains Electric Gold-Yellow (#F0D314) while L2 and L3 stay Pure White (#FFFFFF)
+  drawKineticLine(line1Text, 800, l1FontSize, -0.025, x1, l1BaseY, '#F0D314', line1Start, 8);
+  if (line2Text) drawKineticLine(line2Text, 800, l2FontSize, -0.025, x2, l2BaseY, '#FFFFFF', line2Start, 10);
+  if (line3Text) drawKineticLine(line3Text, 900, l3FontSize, -0.040, x3, l3BaseY, '#FFFFFF', line3Start, 14);
 }
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
