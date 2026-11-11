@@ -5657,6 +5657,593 @@ function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isP
   drawSubItalicLine(botText, botStart, botBaseY, botSize);
 }
 
+function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
+
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitFade = fullInstant ? 1.0 : Math.min(1, timeRem / 0.12);
+  if (exitFade <= 0.005) return;
+
+  const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
+  const capsList = (typeof S !== 'undefined' && S && Array.isArray(S.captions)) ? S.captions : [];
+  const foundIdx = (cap && capsList.length > 0) ? capsList.indexOf(cap) : -1;
+  const rawIdx = (cap && cap.index != null) ? Number(cap.index) - 1 : parseInt(cap && cap.id, 10) - 1;
+  const capIdx = foundIdx >= 0 ? foundIdx : (!isNaN(rawIdx) && rawIdx >= 0 ? rawIdx : 0);
+
+  const userCase = st && st.textCase;
+  const cleanTok = (raw, keepPunct) => {
+    const s = String(raw || '').replace(/["'’()[\]{}]/g, '').trim();
+    const out = keepPunct ? s.replace(/[:;]+$/g, '') : s.replace(/[.,!?;:]+$/g, '');
+    if (userCase === 'upper') return out.toUpperCase();
+    if (userCase === 'lower') return out.toLowerCase();
+    return out;
+  };
+  const wordStartTime = (w, fallback) => {
+    if (w && typeof w.s === 'number') return w.s;
+    if (w && typeof w.start === 'number') return w.start;
+    return fallback;
+  };
+  const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+
+  const measurePGWidth = (ctx, text, fontSize, trackEm) => {
+    if (!text) return 0;
+    const m = ctx.measureText(text);
+    const w = (m && typeof m.width === 'number') ? m.width : text.length * fontSize * 0.56;
+    if ('letterSpacing' in ctx) return w;
+    return Math.max(0, w + Math.max(0, text.length - 1) * fontSize * (trackEm || 0));
+  };
+  const fitPGFont = (ctx, text, fontStrFn, idealPx, minPx, maxW, trackEm) => {
+    let size = Math.round(idealPx);
+    if (!text) return size;
+    ctx.save();
+    ctx.font = fontStrFn(size);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm || 0}em`;
+    const rawW = measurePGWidth(ctx, text, size, trackEm);
+    ctx.restore();
+    if (rawW > maxW && rawW > 0) {
+      size = Math.max(Math.round(minPx), Math.floor(size * (maxW / rawW)));
+    }
+    return size;
+  };
+  const drawRoundRectPath = (ctx, x, y, w, h, r) => {
+    const rad = Math.min(r, w * 0.5, h * 0.5);
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(x, y, w, h, rad);
+      return;
+    }
+    ctx.moveTo(x + rad, y);
+    ctx.lineTo(x + w - rad, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+    ctx.lineTo(x + w, y + h - rad);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+    ctx.lineTo(x + rad, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+    ctx.lineTo(x, y + rad);
+    ctx.quadraticCurveTo(x, y, x + rad, y);
+    ctx.closePath();
+  };
+  const isMultiplierNum = (raw) => {
+    const cl = String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
+    return /^\$?\d[\d,.]*(?:x|k|m|b|cr|%)?$/i.test(cl);
+  };
+  const pickBestHeroIdx = (arr) => {
+    const stopSet = new Set(['a', 'an', 'the', 'to', 'at', 'in', 'on', 'of', 'for', 'with', 'and', 'or', 'your', 'you', 'this', 'one', 'that', 'they', 'how', 'starts', 'here', 'pure']);
+    let bestI = 0;
+    let bestScore = -999;
+    for (let i = 0; i < arr.length; i++) {
+      if (!arr[i]) continue;
+      const cl = cleanTok(arr[i].t || arr[i].word || '', false);
+      const s = cl.length * 2 + (arr[i].key ? 12 : 0) - (stopSet.has(cl.toLowerCase()) ? 14 : 0);
+      if (s > bestScore) { bestScore = s; bestI = i; }
+    }
+    return bestI;
+  };
+
+  // Dynamic head-crown alignment
+  const detectedTop = (!isSampleCard && typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
+    ? window._editorialHeadTopRatio
+    : null;
+  if (detectedTop !== null && cap && typeof cap._latchedPrismTopRatio !== 'number') {
+    cap._latchedPrismTopRatio = Math.max(0.14, Math.min(0.32, detectedTop));
+  }
+  const headCrown = (cap && typeof cap._latchedPrismTopRatio === 'number') ? cap._latchedPrismTopRatio : 0.215;
+  const heroX = Math.round(W * 0.50);
+  const behindCenterY = Math.round(H * Math.max(0.18, Math.min(0.30, headCrown + 0.026)));
+  const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+
+  const numIdx = words.findIndex(w => isMultiplierNum(w.t || w.word || ''));
+  let styleMode = 1;
+  if (isSampleCard) {
+    styleMode = 1;
+  } else if (numIdx !== -1 && capIdx % 4 !== 1 && capIdx % 4 !== 2) {
+    styleMode = 4;
+  } else {
+    styleMode = (capIdx % 4) + 1;
+  }
+
+  if (styleMode === 1) {
+    // MODE 1: Frosted Ice Glass Word Behind Head ('LUXURY') + Dark Frosted Pill ('THIS ONE') + Champagne Italic Serif ('detail sells')
+    let bIdx = pickBestHeroIdx(words);
+    const heroRaw = isSampleCard ? 'LUXURY' : cleanTok(words[bIdx]?.t || words[bIdx]?.word || '', false);
+    const behindTxt = heroRaw ? (userCase === 'lower' ? heroRaw.toLowerCase() : heroRaw.toUpperCase()) : 'LUXURY';
+    const heroStart = wordStartTime(words[bIdx], capStart + 0.05);
+
+    let remaining = isSampleCard ? [] : words.filter((_, i) => i !== bIdx);
+    let pillWords = [];
+    let serifWords = [];
+    if (isSampleCard) {
+      pillWords = [{ t: 'THIS', s: 0 }, { t: 'ONE', s: 0 }];
+      serifWords = [{ t: 'detail', s: 0 }, { t: 'sells', s: 0 }];
+    } else if (remaining.length >= 3) {
+      const splitAt = Math.min(2, Math.floor(remaining.length / 2));
+      pillWords = remaining.slice(0, splitAt);
+      serifWords = remaining.slice(splitAt);
+    } else if (remaining.length === 2) {
+      pillWords = [remaining[0]];
+      serifWords = [remaining[1]];
+    } else {
+      serifWords = remaining;
+    }
+
+    // 1. Giant Frosted Ice Glass Word on targetBehind
+    const behindFontFn = (sz) => `900 ${sz}px "Montserrat", "Poppins", sans-serif`;
+    const bSize = fitPGFont(targetBehind, behindTxt, behindFontFn, H * 0.165 * fontScale, H * 0.070, W * 0.88, -0.025);
+    const bBaseY = Math.round(behindCenterY + bSize * 0.34);
+    const bP = fullInstant ? 1.0 : (evalT >= heroStart - 0.03 ? Math.min(1, Math.max(0, (evalT - heroStart) / 0.18)) : 0);
+    if (bP > 0.01) {
+      const bep = easeOutCubic(bP);
+      const sc = fullInstant ? 1.0 : (0.94 + 0.06 * bep);
+      targetBehind.save();
+      try {
+        targetBehind.globalAlpha = exitFade * bep;
+        targetBehind.translate(heroX, behindCenterY);
+        targetBehind.scale(sc, sc);
+        targetBehind.translate(-heroX, -behindCenterY);
+        targetBehind.font = behindFontFn(bSize);
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.025em';
+        targetBehind.textAlign = 'center';
+        targetBehind.textBaseline = 'alphabetic';
+
+        const g = targetBehind.createLinearGradient(0, bBaseY - bSize * 0.78, 0, bBaseY + bSize * 0.08);
+        g.addColorStop(0.00, 'rgba(255, 255, 255, 0.36)');
+        g.addColorStop(0.50, 'rgba(220, 236, 255, 0.18)');
+        g.addColorStop(1.00, 'rgba(255, 255, 255, 0.30)');
+        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        targetBehind.shadowBlur = Math.max(4, Math.round(H * 0.008));
+        targetBehind.fillStyle = g;
+        targetBehind.fillText(behindTxt, heroX, bBaseY);
+
+        targetBehind.shadowColor = 'rgba(225, 242, 255, 0.75)';
+        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.012));
+        targetBehind.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+        targetBehind.lineWidth = Math.max(1.5, Math.round(H * 0.0022));
+        targetBehind.lineJoin = 'round';
+        targetBehind.strokeText(behindTxt, heroX, bBaseY);
+      } finally {
+        targetBehind.restore();
+      }
+    }
+
+    // 2. Dark Frosted Glassmorphic Pill ('THIS ONE') at y ~ 0.635H
+    if (pillWords.length > 0) {
+      const pillTxt = pillWords.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean).join(' ').toUpperCase();
+      const pillStart = wordStartTime(pillWords[0], capStart + 0.18);
+      const pillP = fullInstant ? 1.0 : (evalT >= pillStart - 0.02 ? Math.min(1, Math.max(0, (evalT - pillStart) / 0.15)) : 0);
+      if (pillTxt && pillP > 0.01) {
+        const pep = easeOutCubic(pillP);
+        const pillFontFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
+        const pSize = fitPGFont(ctxFore, pillTxt, pillFontFn, H * 0.025 * fontScale, H * 0.016, W * 0.72, 0.06);
+        const pillCy = Math.round(H * 0.635);
+        ctxFore.save();
+        try {
+          ctxFore.globalAlpha = exitFade * pep;
+          ctxFore.font = pillFontFn(pSize);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.06em';
+          const tw = measurePGWidth(ctxFore, pillTxt, pSize, 0.06);
+          const pw = Math.round(tw + pSize * 1.45);
+          const ph = Math.round(pSize * 2.05);
+          const px = Math.round(heroX - pw * 0.5);
+          const py = Math.round(pillCy - ph * 0.5);
+
+          const pg = ctxFore.createLinearGradient(0, py, 0, py + ph);
+          pg.addColorStop(0.0, 'rgba(32, 38, 48, 0.58)');
+          pg.addColorStop(1.0, 'rgba(14, 18, 26, 0.74)');
+          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.35)';
+          ctxFore.shadowBlur = 12;
+          ctxFore.shadowOffsetY = 4;
+          drawRoundRectPath(ctxFore, px, py, pw, ph, ph * 0.5);
+          ctxFore.fillStyle = pg;
+          ctxFore.fill();
+
+          ctxFore.shadowColor = 'transparent';
+          ctxFore.shadowBlur = 0;
+          ctxFore.shadowOffsetY = 0;
+          ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.38)';
+          ctxFore.lineWidth = Math.max(1.0, H * 0.0014);
+          ctxFore.stroke();
+
+          ctxFore.textAlign = 'center';
+          ctxFore.textBaseline = 'middle';
+          ctxFore.fillStyle = 'rgba(248, 250, 252, 0.96)';
+          ctxFore.fillText(pillTxt, heroX, pillCy + Math.round(pSize * 0.05));
+        } finally {
+          ctxFore.restore();
+        }
+      }
+    }
+
+    // 3. Warm Champagne-Gold Italic Editorial Serif ('detail sells')
+    if (serifWords.length > 0) {
+      const serifTxt = serifWords.map(w => cleanTok(w.t || w.word || '', true)).filter(Boolean).join(' ');
+      const serifStart = wordStartTime(serifWords[0], capStart + 0.35);
+      const serifP = fullInstant ? 1.0 : (evalT >= serifStart - 0.02 ? Math.min(1, Math.max(0, (evalT - serifStart) / 0.16)) : 0);
+      if (serifTxt && serifP > 0.01) {
+        const sep = easeOutCubic(serifP);
+        const serifFontFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
+        const sSize = fitPGFont(ctxFore, serifTxt, serifFontFn, H * 0.056 * fontScale, H * 0.028, W * 0.86, -0.015);
+        const sBaseY = pillWords.length > 0 ? Math.round(H * 0.718) : Math.round(H * 0.665);
+        const yOff = fullInstant ? 0 : Math.round((1 - sep) * H * 0.012);
+        ctxFore.save();
+        try {
+          ctxFore.globalAlpha = exitFade * sep;
+          ctxFore.font = serifFontFn(sSize);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+          ctxFore.textAlign = 'center';
+          ctxFore.textBaseline = 'alphabetic';
+          const cg = ctxFore.createLinearGradient(0, sBaseY - sSize * 0.85, 0, sBaseY + sSize * 0.12);
+          cg.addColorStop(0.0, '#FBE9BE');
+          cg.addColorStop(0.5, '#E4B773');
+          cg.addColorStop(1.0, '#C5904C');
+          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.56)';
+          ctxFore.shadowBlur = Math.max(4, Math.round(H * 0.008));
+          ctxFore.shadowOffsetY = Math.round(H * 0.002);
+          ctxFore.fillStyle = cg;
+          ctxFore.fillText(serifTxt, heroX, sBaseY + yOff);
+        } finally {
+          ctxFore.restore();
+        }
+      }
+    }
+
+  } else if (styleMode === 2) {
+    // MODE 2: Clean White Inter + Active Frosted Neon Mint-Cyan Pill Highlight ('Watch how / they [focus]')
+    const n = words.length;
+    const splitAt = n <= 2 ? n : Math.ceil(n / 2);
+    const rows = [words.slice(0, splitAt), words.slice(splitAt)].filter(r => r.length > 0);
+
+    // Determine currently spoken active word index (or keyed/final word in fullInstant)
+    let activeWordRef = null;
+    if (fullInstant) {
+      activeWordRef = words.find(w => w && w.key) || words[n - 1];
+    } else {
+      for (let i = n - 1; i >= 0; i--) {
+        if (evalT >= wordStartTime(words[i], capStart + i * 0.20) - 0.02) {
+          activeWordRef = words[i];
+          break;
+        }
+      }
+      if (!activeWordRef) activeWordRef = words[0];
+    }
+
+    const rowFontFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
+    const baseRowSize = Math.round(H * 0.044 * fontScale);
+    const longestLine = rows.map(r => r.map(w => cleanTok(w.t || w.word || '', true)).join(' ')).sort((a, b) => b.length - a.length)[0] || '';
+    const lineSize = fitPGFont(ctxFore, longestLine, rowFontFn, baseRowSize, Math.round(H * 0.022), W * 0.84, -0.025);
+    const rowGap = Math.round(lineSize * 1.48);
+    const startBaseY = Math.round(H * 0.575 - ((rows.length - 1) * rowGap) * 0.5);
+
+    ctxFore.save();
+    ctxFore.font = rowFontFn(lineSize);
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
+    const spaceW = Math.max(lineSize * 0.28, measurePGWidth(ctxFore, ' ', lineSize, -0.025));
+    const pillPadX = Math.round(lineSize * 0.36);
+
+    for (let r = 0; r < rows.length; r++) {
+      const rWords = rows[r];
+      const baseY = startBaseY + r * rowGap;
+      const tokens = rWords.map((w, idx) => {
+        const txt = cleanTok(w.t || w.word || '', true);
+        const tw = measurePGWidth(ctxFore, txt, lineSize, -0.025);
+        return { w, txt, tw, isActive: w === activeWordRef, s: wordStartTime(w, capStart + (r * splitAt + idx) * 0.16) };
+      }).filter(it => it.txt);
+
+      const totalW = tokens.reduce((acc, it, idx) => acc + it.tw + (it.isActive ? pillPadX * 0.8 : 0) + (idx < tokens.length - 1 ? spaceW : 0), 0);
+      let curX = Math.round(heroX - totalW * 0.5);
+
+      for (let i = 0; i < tokens.length; i++) {
+        const tk = tokens[i];
+        const p = fullInstant ? 1.0 : Math.min(1, Math.max(0, (evalT - tk.s) / 0.14));
+        const ep = easeOutCubic(p);
+        if (ep > 0.01) {
+          ctxFore.save();
+          ctxFore.globalAlpha = exitFade * Math.min(1, ep * 1.3);
+          ctxFore.font = rowFontFn(lineSize);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
+          ctxFore.textAlign = 'left';
+          ctxFore.textBaseline = 'alphabetic';
+
+          if (tk.isActive) {
+            const boxX = Math.round(curX);
+            const boxW = Math.round(tk.tw + pillPadX * 1.8);
+            const boxH = Math.round(lineSize * 1.38);
+            const boxY = Math.round(baseY - lineSize * 0.94);
+
+            ctxFore.save();
+            ctxFore.shadowColor = 'rgba(45, 212, 191, 0.86)';
+            ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.016));
+            drawRoundRectPath(ctxFore, boxX, boxY, boxW, boxH, boxH * 0.5);
+            ctxFore.fillStyle = 'rgba(12, 38, 42, 0.72)';
+            ctxFore.fill();
+            ctxFore.strokeStyle = '#67F3DA';
+            ctxFore.lineWidth = Math.max(1.5, Math.round(H * 0.0020));
+            ctxFore.stroke();
+            ctxFore.restore();
+
+            ctxFore.shadowColor = 'rgba(103, 243, 218, 0.45)';
+            ctxFore.shadowBlur = 4;
+            ctxFore.fillStyle = '#FFFFFF';
+            ctxFore.fillText(tk.txt, Math.round(curX + pillPadX * 0.9), baseY);
+          } else {
+            ctxFore.shadowColor = 'rgba(0, 0, 0, 0.62)';
+            ctxFore.shadowBlur = Math.max(3, Math.round(H * 0.006));
+            ctxFore.shadowOffsetY = Math.round(H * 0.002);
+            ctxFore.fillStyle = '#FFFFFF';
+            ctxFore.fillText(tk.txt, Math.round(curX), baseY);
+          }
+          ctxFore.restore();
+        }
+        curX += tk.tw + (tk.isActive ? pillPadX * 0.8 : 0) + spaceW;
+      }
+    }
+    ctxFore.restore();
+
+  } else if (styleMode === 3) {
+    // MODE 3: Brushed Titanium Chrome Depth Behind Head ('VALUE') + Sans/Serif Foreground Contrast ('starts here.')
+    const bIdx = pickBestHeroIdx(words);
+    const heroRaw = cleanTok(words[bIdx]?.t || words[bIdx]?.word || '', false);
+    const behindTxt = heroRaw ? (userCase === 'lower' ? heroRaw.toLowerCase() : heroRaw.toUpperCase()) : 'VALUE';
+    const heroStart = wordStartTime(words[bIdx], capStart + 0.06);
+
+    const remaining = words.filter((_, i) => i !== bIdx);
+    const leadWords = remaining.length > 1 ? remaining.slice(0, -1) : [];
+    const serifWord = remaining.length >= 1 ? remaining[remaining.length - 1] : null;
+
+    // 1. Brushed Metallic Chrome Word on targetBehind
+    const chromeFontFn = (sz) => `900 ${sz}px "Montserrat", "Poppins", sans-serif`;
+    const cSize = fitPGFont(targetBehind, behindTxt, chromeFontFn, H * 0.165 * fontScale, H * 0.072, W * 0.88, -0.025);
+    const cBaseY = Math.round(behindCenterY + cSize * 0.34);
+    const cP = fullInstant ? 1.0 : (evalT >= heroStart - 0.03 ? Math.min(1, Math.max(0, (evalT - heroStart) / 0.18)) : 0);
+    if (cP > 0.01) {
+      const cep = easeOutCubic(cP);
+      const sc = fullInstant ? 1.0 : (0.94 + 0.06 * cep);
+      targetBehind.save();
+      try {
+        targetBehind.globalAlpha = exitFade * cep;
+        targetBehind.translate(heroX, behindCenterY);
+        targetBehind.scale(sc, sc);
+        targetBehind.translate(-heroX, -behindCenterY);
+        targetBehind.font = chromeFontFn(cSize);
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.025em';
+        targetBehind.textAlign = 'center';
+        targetBehind.textBaseline = 'alphabetic';
+
+        const cg = targetBehind.createLinearGradient(heroX, cBaseY - cSize * 0.80, heroX, cBaseY + cSize * 0.08);
+        cg.addColorStop(0.00, '#96A0AD');
+        cg.addColorStop(0.22, '#FFFFFF');
+        cg.addColorStop(0.46, '#626B7A');
+        cg.addColorStop(0.56, '#DCE3EC');
+        cg.addColorStop(0.80, '#434B57');
+        cg.addColorStop(1.00, '#CBD2DC');
+
+        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.58)';
+        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.010));
+        targetBehind.shadowOffsetY = Math.round(H * 0.004);
+        targetBehind.fillStyle = cg;
+        targetBehind.fillText(behindTxt, heroX, cBaseY);
+
+        targetBehind.shadowColor = 'transparent';
+        targetBehind.shadowBlur = 0;
+        targetBehind.strokeStyle = 'rgba(255, 255, 255, 0.52)';
+        targetBehind.lineWidth = Math.max(1.0, H * 0.0012);
+        targetBehind.strokeText(behindTxt, heroX, cBaseY);
+      } finally {
+        targetBehind.restore();
+      }
+    }
+
+    // 2. Sans + Italic Serif Contrast Line at chest height ('starts' + 'here.')
+    const leadTxt = leadWords.map(w => cleanTok(w.t || w.word || '', true)).filter(Boolean).join(' ');
+    const serifTxt = serifWord ? cleanTok(serifWord.t || serifWord.word || '', true) : '';
+    const leadFontFn = (sz) => `400 ${sz}px "Inter", "Poppins", sans-serif`;
+    const serifFontFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
+    let lSize = Math.round(H * 0.048 * fontScale);
+    let sSize = Math.round(H * 0.056 * fontScale);
+    const waistBaseY = Math.round(H * 0.558);
+
+    if (leadTxt && serifTxt) {
+      const measurePair = (ls, ss) => {
+        ctxFore.save();
+        ctxFore.font = leadFontFn(ls);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+        const lw = measurePGWidth(ctxFore, leadTxt, ls, -0.02);
+        ctxFore.font = serifFontFn(ss);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        const sw = measurePGWidth(ctxFore, serifTxt, ss, -0.015);
+        ctxFore.restore();
+        return { lw, sw };
+      };
+      let gap = Math.round(W * 0.026);
+      let d = measurePair(lSize, sSize);
+      if (d.lw + gap + d.sw > W * 0.86 && d.lw + gap + d.sw > 0) {
+        const sc = (W * 0.86) / (d.lw + gap + d.sw);
+        lSize = Math.max(14, Math.floor(lSize * sc));
+        sSize = Math.max(16, Math.floor(sSize * sc));
+        gap = Math.max(6, Math.floor(gap * sc));
+        d = measurePair(lSize, sSize);
+      }
+      const startX = Math.round(heroX - (d.lw + gap + d.sw) * 0.5);
+      const lP = fullInstant ? 1.0 : Math.min(1, Math.max(0, (evalT - wordStartTime(leadWords[0], capStart + 0.16)) / 0.14));
+      const sP = fullInstant ? 1.0 : Math.min(1, Math.max(0, (evalT - wordStartTime(serifWord, capStart + 0.34)) / 0.16));
+      if (lP > 0.01) {
+        ctxFore.save();
+        ctxFore.globalAlpha = exitFade * easeOutCubic(lP);
+        ctxFore.font = leadFontFn(lSize);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+        ctxFore.textAlign = 'left';
+        ctxFore.textBaseline = 'alphabetic';
+        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.56)';
+        ctxFore.shadowBlur = 6;
+        ctxFore.shadowOffsetY = 2;
+        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.fillText(leadTxt, startX, waistBaseY);
+        ctxFore.restore();
+      }
+      if (sP > 0.01) {
+        ctxFore.save();
+        ctxFore.globalAlpha = exitFade * easeOutCubic(sP);
+        ctxFore.font = serifFontFn(sSize);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        ctxFore.textAlign = 'left';
+        ctxFore.textBaseline = 'alphabetic';
+        ctxFore.shadowColor = 'rgba(255, 250, 235, 0.52)';
+        ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.010));
+        ctxFore.fillStyle = '#FFF9EE';
+        ctxFore.fillText(serifTxt, startX + d.lw + gap, waistBaseY);
+        ctxFore.restore();
+      }
+    } else if (serifTxt) {
+      const soloSize = fitPGFont(ctxFore, serifTxt, serifFontFn, sSize, H * 0.028, W * 0.86, -0.015);
+      ctxFore.save();
+      ctxFore.globalAlpha = exitFade;
+      ctxFore.font = serifFontFn(soloSize);
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'alphabetic';
+      ctxFore.shadowColor = 'rgba(255, 250, 235, 0.50)';
+      ctxFore.shadowBlur = 8;
+      ctxFore.fillStyle = '#FFF9EE';
+      ctxFore.fillText(serifTxt, heroX, waistBaseY);
+      ctxFore.restore();
+    }
+
+  } else {
+    // MODE 4: Fine Hollow Champagne-Gold Outline ('3X') Behind + Clean White Sans ('pure') + Glowing Champagne Serif ('Attention')
+    const bIdx = numIdx !== -1 ? numIdx : pickBestHeroIdx(words);
+    const heroRaw = cleanTok(words[bIdx]?.t || words[bIdx]?.word || '', false);
+    const behindTxt = heroRaw ? (userCase === 'lower' ? heroRaw.toLowerCase() : heroRaw.toUpperCase()) : '3X';
+    const heroStart = wordStartTime(words[bIdx], capStart + 0.05);
+
+    const remaining = words.filter((_, i) => i !== bIdx);
+    const climaxWord = remaining.length ? remaining[remaining.length - 1] : null;
+    const leadWords = remaining.length > 1 ? remaining.slice(0, -1) : [];
+
+    // 1. Hollow Fine Champagne-Gold Hairline on targetBehind
+    const outFontFn = (sz) => `700 ${sz}px "Montserrat", "Poppins", sans-serif`;
+    const isShortNum = behindTxt.length <= 3;
+    const oSize = fitPGFont(targetBehind, behindTxt, outFontFn, H * (isShortNum ? 0.34 : 0.18) * fontScale, H * 0.080, W * 0.84, -0.025);
+    const oBaseY = Math.round(behindCenterY + oSize * 0.36);
+    const oP = fullInstant ? 1.0 : (evalT >= heroStart - 0.03 ? Math.min(1, Math.max(0, (evalT - heroStart) / 0.18)) : 0);
+    if (oP > 0.01) {
+      const oep = easeOutCubic(oP);
+      const sc = fullInstant ? 1.0 : (0.94 + 0.06 * oep);
+      targetBehind.save();
+      try {
+        targetBehind.globalAlpha = exitFade * oep;
+        targetBehind.translate(heroX, behindCenterY);
+        targetBehind.scale(sc, sc);
+        targetBehind.translate(-heroX, -behindCenterY);
+        targetBehind.font = outFontFn(oSize);
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.025em';
+        targetBehind.textAlign = 'center';
+        targetBehind.textBaseline = 'alphabetic';
+
+        const gg = targetBehind.createLinearGradient(0, oBaseY - oSize * 0.78, 0, oBaseY + oSize * 0.06);
+        gg.addColorStop(0.0, '#FBE6B2');
+        gg.addColorStop(0.5, '#D7AC6E');
+        gg.addColorStop(1.0, '#A87D47');
+        targetBehind.shadowColor = 'rgba(240, 198, 130, 0.35)';
+        targetBehind.shadowBlur = Math.max(4, Math.round(H * 0.008));
+        targetBehind.lineWidth = Math.max(2.2, Math.round(H * 0.0028));
+        targetBehind.lineJoin = 'round';
+        targetBehind.strokeStyle = gg;
+        targetBehind.strokeText(behindTxt, heroX, oBaseY);
+      } finally {
+        targetBehind.restore();
+      }
+    }
+
+    // 2. Small Crisp White Sans Lead ('pure') at y ~ 0.65H
+    if (leadWords.length > 0) {
+      const leadTxt = leadWords.map(w => cleanTok(w.t || w.word || '', true)).filter(Boolean).join(' ');
+      const lStart = wordStartTime(leadWords[0], capStart + 0.18);
+      const lP = fullInstant ? 1.0 : (evalT >= lStart - 0.02 ? Math.min(1, Math.max(0, (evalT - lStart) / 0.14)) : 0);
+      if (leadTxt && lP > 0.01) {
+        const lSize = fitPGFont(ctxFore, leadTxt, (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`, H * 0.036 * fontScale, H * 0.020, W * 0.80, -0.015);
+        ctxFore.save();
+        ctxFore.globalAlpha = exitFade * easeOutCubic(lP);
+        ctxFore.font = `600 ${lSize}px "Inter", "Poppins", sans-serif`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        ctxFore.textAlign = 'center';
+        ctxFore.textBaseline = 'alphabetic';
+        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.56)';
+        ctxFore.shadowBlur = 6;
+        ctxFore.shadowOffsetY = 2;
+        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.fillText(leadTxt, heroX, Math.round(H * 0.648));
+        ctxFore.restore();
+      }
+    }
+
+    // 3. Glowing Champagne-Gold Editorial Serif Climax ('Attention') at y ~ 0.72H
+    if (climaxWord) {
+      const cTxt = cleanTok(climaxWord.t || climaxWord.word || '', true);
+      const cStart = wordStartTime(climaxWord, capStart + 0.34);
+      const cP = fullInstant ? 1.0 : (evalT >= cStart - 0.02 ? Math.min(1, Math.max(0, (evalT - cStart) / 0.16)) : 0);
+      if (cTxt && cP > 0.01) {
+        const cep = easeOutCubic(cP);
+        const sFontFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
+        const sSize = fitPGFont(ctxFore, cTxt, sFontFn, H * 0.062 * fontScale, H * 0.030, W * 0.86, -0.015);
+        const cBaseY = leadWords.length > 0 ? Math.round(H * 0.720) : Math.round(H * 0.675);
+        ctxFore.save();
+        try {
+          ctxFore.globalAlpha = exitFade * cep;
+          ctxFore.font = sFontFn(sSize);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+          ctxFore.textAlign = 'center';
+          ctxFore.textBaseline = 'alphabetic';
+
+          const cg = ctxFore.createLinearGradient(0, cBaseY - sSize * 0.85, 0, cBaseY + sSize * 0.12);
+          cg.addColorStop(0.0, '#FFF6E0');
+          cg.addColorStop(0.5, '#EDBF7A');
+          cg.addColorStop(1.0, '#BA803A');
+          // Subtle dark readability backing shadow before golden glow
+          ctxFore.save();
+          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.58)';
+          ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.010));
+          ctxFore.shadowOffsetY = Math.round(H * 0.002);
+          ctxFore.fillStyle = cg;
+          ctxFore.fillText(cTxt, heroX, cBaseY);
+          ctxFore.restore();
+
+          ctxFore.shadowColor = 'rgba(247, 210, 145, 0.62)';
+          ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.016));
+          ctxFore.fillStyle = cg;
+          ctxFore.fillText(cTxt, heroX, cBaseY);
+        } finally {
+          ctxFore.restore();
+        }
+      }
+    }
+  }
+}
+
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   window._capdbg2Keys = window._capdbg2Keys || new Set();
   const capdbg2Key = `${isPreview}|${W}x${H}|${S.style && S.style.lineSpacing}`;
@@ -5714,6 +6301,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.crazySunsetStack || st.id === 'crazy_sunset_stack') {
         drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
+      } else if (st.prismGlassDepth || st.id === 'prism_glass_depth') {
+        drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
         drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.isSpecial && st.depthAccent) {
@@ -6768,7 +7357,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.0.0';
+    const CURRENT_PRESET_VER = 'v7.11.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');

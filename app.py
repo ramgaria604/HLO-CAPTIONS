@@ -341,15 +341,22 @@ def fonts_css():
             names = {f"{family} {style}"}
         for n in names:
             css.append(f"@font-face{{font-family:'{n}';src:url('/fonts/{p.name}');font-display:swap}}")
-        # Direct family alias for Poppins weights and styles
+        # Direct family aliases for Poppins, Playfair Display, and Montserrat weights/styles
         low = p.name.lower()
         if "poppins" in low:
-            if "extrabolditalic" in low:
+            if "extrabolditalic" in low or "800-italic" in low:
                 css.append(f"@font-face{{font-family:'Poppins';font-weight:800;font-style:italic;src:url('/fonts/{p.name}');font-display:swap}}")
-            elif "extrabold" in low:
+            elif "extrabold" in low or "-800." in low:
                 css.append(f"@font-face{{font-family:'Poppins';font-weight:800;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
             elif "semibold" in low:
                 css.append(f"@font-face{{font-family:'Poppins';font-weight:600;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "playfairdisplay" in low:
+            if "600-italic" in low:
+                css.append(f"@font-face{{font-family:'Playfair Display';font-weight:600;font-style:italic;src:url('/fonts/{p.name}');font-display:swap}}")
+            elif "700-italic" in low:
+                css.append(f"@font-face{{font-family:'Playfair Display';font-weight:700;font-style:italic;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "montserrat-900" in low:
+            css.append(f"@font-face{{font-family:'Montserrat';font-weight:900;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
     _FONTS_CSS_CACHE = "\n".join(css)
     return _FONTS_CSS_CACHE, 200, {"Content-Type": "text/css"}
 

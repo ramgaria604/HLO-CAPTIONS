@@ -631,6 +631,10 @@ def load_presets():
                 }
                 if p.get("dubaiLuxuryStack"):
                     duo_item["dubaiLuxuryStack"] = True
+                if p.get("crazySunsetStack"):
+                    duo_item["crazySunsetStack"] = True
+                if p.get("prismGlassDepth"):
+                    duo_item["prismGlassDepth"] = True
                 if p.get("adaptiveEstateFlex"):
                     duo_item["adaptiveEstateFlex"] = True
                 if p.get("inkGap") is not None:
