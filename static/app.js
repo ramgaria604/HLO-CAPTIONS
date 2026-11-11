@@ -4295,136 +4295,323 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
 
-  const isShowcaseSample = Boolean(showAll || isPreview || !words || words.length === 0);
-
-  // Normalized entrance & exit animation ("How it comes, How it goes")
-  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
-  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
-  const age = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, t - capStart) : 1.0;
-  const timeRem = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, capEnd - t) : 1.0;
-
-  // Entrance over 0.20s with gentle spring overshoot
-  const enterDur = 0.20;
-  const exitDur = 0.16;
-  const enterP = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, age / enterDur));
-  const exitAlpha = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, timeRem / exitDur));
-  const globalAlpha = Math.min(enterP, exitAlpha);
-
-  // Subtle spring scale for the hero word (0.94 -> 1.03 -> 1.00)
-  const springScale = isShowcaseSample ? 1.0 : (1.0 + 0.05 * Math.sin(enterP * Math.PI) * (1 - enterP));
-  const exitScale = isShowcaseSample ? 1.0 : (1.0 - 0.03 * (1.0 - exitAlpha));
-  const masterScale = springScale * exitScale;
-
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
 
-  // Identify hero keyword to place behind the speaker's head
-  let heroIdx = words.findIndex((w, i) => w.key && i < 4);
-  if (heroIdx === -1) {
-    let maxLen = -1;
-    let maxIdx = 0;
-    const searchLimit = Math.min(words.length, 4);
-    for (let i = 0; i < searchLimit; i++) {
-      const clean = (words[i].t || words[i].word || '').replace(/[^a-zA-Z]/g, '');
-      if (clean.length > maxLen) {
-        maxLen = clean.length;
-        maxIdx = i;
+  // Resolve real index in S.captions so even captions sit Top and odd captions sit Waist
+  const captionsArr = (typeof S !== 'undefined' && Array.isArray(S.captions)) ? S.captions : null;
+  let capIdx = (captionsArr && cap) ? captionsArr.indexOf(cap) : -1;
+  if (capIdx === -1) {
+    const capId = (cap && (cap.index != null ? cap.index : cap.id)) || 1;
+    const rawIdx = typeof capId === 'number' ? capId : parseInt(capId, 10);
+    capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
+  }
+
+  // Exact 8-palette left-to-right jewel gradients sampled directly from reference video (19u9oQHSraYLhZowNFfRH1qsMad22SovD)
+  const palettes = [
+    { left: '#2E208E', mid: '#191054', right: '#0A062E' }, // 0 Top: Deep Indigo-Navy ("seen")
+    { left: '#1AAAE8', mid: '#0B70B0', right: '#043356' }, // 1 Waist: Glossy Sky-Blue ("remembered")
+    { left: '#2E9F4A', mid: '#156130', right: '#072413' }, // 2 Top: Emerald Green ("difference")
+    { left: '#8230C4', mid: '#5C1D8F', right: '#280946' }, // 3 Waist: Violet Purple ("story")
+    { left: '#2E52CC', mid: '#192F88', right: '#09133C' }, // 4 Top: Royal Cobalt ("detail")
+    { left: '#80B548', mid: '#568432', right: '#294418' }, // 5 Waist: Olive Chartreuse ("meaning")
+    { left: '#1D9885', mid: '#0E5A53', right: '#042422' }, // 6 Top: Deep Teal ("imagining")
+    { left: '#DD6B48', mid: '#9F422C', right: '#541F13' }  // 7 Waist: Warm Terracotta ("home")
+  ];
+
+  const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+  const measureWidth = (c, str, fallbackPx) => {
+    if (c && typeof c.measureText === 'function') {
+      const m = c.measureText(str);
+      if (m && typeof m.width === 'number') return m.width;
+    }
+    return String(str || '').length * fallbackPx * 0.54;
+  };
+  const cleanHeroWord = (txt) => String(txt || '').replace(/^[""'`.,/#!$%^&*;:{}=\-_~()?]+|[""'`.,/#!$%^&*;:{}=\-_~()?]+$/g, '').toLowerCase();
+  const cleanLeadWord = (txt) => String(txt || '').replace(/^[""']+|[,.;:!?""']+$/g, '');
+
+  const normalizeWords = (wordList, fallbackStart, fallbackEnd) => {
+    const arr = (wordList || []).map(w => ({
+      t: w.t || w.word || '',
+      s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : fallbackStart),
+      e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : fallbackEnd),
+      key: Boolean(w.key)
+    })).filter(w => w.t);
+    const step = arr.length > 0 ? Math.max(0.18, (fallbackEnd - fallbackStart) / arr.length) : 0.25;
+    arr.forEach((w, i) => {
+      if (w.s === 0 && w.e === 0 && fallbackEnd > fallbackStart) {
+        w.s = fallbackStart + i * step;
+        w.e = fallbackStart + (i + 1) * step;
+      }
+    });
+    return arr;
+  };
+
+  // Draws one [White Lead + Giant Colored Hero] stack in either 'top' or 'waist' position
+  const drawEditorialPair = (leadList, heroObj, slot, pal, fadeAlpha, evalT, fullInstant) => {
+    const heroRaw = heroObj ? (heroObj.t || heroObj.word || '') : '';
+    const heroText = cleanHeroWord(heroRaw) || 'seen';
+    const heroStart = (heroObj && typeof heroObj.s === 'number') ? heroObj.s : 0;
+
+    // 1. Measure Giant Lowercase Upright Hero Typography (Poppins 900 condensed 0.83x, tight -0.06em)
+    const HERO_CONDENSE_X = 0.83;
+    let heroFontSize = Math.round(H * 0.138); // ~177px tall on 1280h matching bold reference block proportions
+    targetBehind.save();
+    targetBehind.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
+    targetBehind.letterSpacing = '-0.06em';
+    const rawHeroW = measureWidth(targetBehind, heroText, heroFontSize) * HERO_CONDENSE_X;
+    targetBehind.restore();
+
+    const maxHeroW = W * 0.90;
+    if (rawHeroW > maxHeroW && rawHeroW > 0) {
+      heroFontSize = Math.max(Math.round(H * 0.074), Math.floor(heroFontSize * (maxHeroW / rawHeroW)));
+    }
+
+    const heroX = Math.round(W * 0.50);
+    const heroCenterY = slot === 'top' ? Math.round(H * 0.156) : Math.round(H * 0.495);
+    const heroBaselineY = Math.round(heroCenterY + heroFontSize * 0.28);
+
+    // Hero entrance curve ("how it comes"): slides gently rightwards into center while sharpening out of blur
+    const heroAge = fullInstant ? 1.0 : Math.max(0, evalT - heroStart);
+    const heroP = fullInstant ? 1.0 : easeOutCubic(Math.min(1, heroAge / 0.26));
+    const heroVisible = fullInstant || (evalT >= heroStart - 0.02);
+
+    if (heroVisible && fadeAlpha > 0.005) {
+      const heroCtx = slot === 'top' ? targetBehind : ctxFore;
+      const layerOpacity = slot === 'top' ? 0.96 : 0.80; // Top sits crisp behind head; Waist blends glossy translucent over dress/room
+      const heroAlpha = fadeAlpha * Math.min(1, heroP * 1.45) * layerOpacity;
+      const slideX = fullInstant ? 0 : Math.round(-W * 0.095 * (1 - heroP));
+      const heroScale = fullInstant ? 1.0 : (0.96 + 0.04 * heroP);
+      const blurPx = fullInstant ? 0 : Math.round(9 * Math.pow(1 - heroP, 2) * 10) / 10;
+
+      heroCtx.save();
+      try {
+        heroCtx.globalAlpha = heroAlpha;
+        if (blurPx > 0.2 && 'filter' in heroCtx) {
+          heroCtx.filter = `blur(${blurPx.toFixed(1)}px)`;
+        }
+        heroCtx.translate(heroX + slideX, heroBaselineY);
+        heroCtx.scale(heroScale * HERO_CONDENSE_X, heroScale);
+        heroCtx.translate(-heroX, -heroBaselineY);
+
+        heroCtx.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
+        heroCtx.textAlign = 'center';
+        heroCtx.textBaseline = 'alphabetic';
+        heroCtx.letterSpacing = '-0.06em';
+
+        const finalHeroW = Math.max(W * 0.28, measureWidth(heroCtx, heroText, heroFontSize));
+        const gradLeft = heroX - finalHeroW * 0.52;
+        const gradRight = heroX + finalHeroW * 0.52;
+        const horizGrad = heroCtx.createLinearGradient(gradLeft, 0, gradRight, 0);
+        horizGrad.addColorStop(0.00, pal.left);
+        horizGrad.addColorStop(0.52, pal.mid);
+        horizGrad.addColorStop(1.00, pal.right);
+
+        heroCtx.shadowColor = slot === 'top' ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.22)';
+        heroCtx.shadowBlur = slot === 'top' ? 10 : 6;
+        heroCtx.shadowOffsetX = 0;
+        heroCtx.shadowOffsetY = 3;
+
+        heroCtx.fillStyle = horizGrad;
+        heroCtx.fillText(heroText, heroX, heroBaselineY);
+
+        // Subtle upper-diagonal glass sheen for Waist translucent text matching video specular reflection
+        if (slot === 'waist') {
+          const sheen = heroCtx.createLinearGradient(gradLeft, heroBaselineY - heroFontSize * 0.7, gradRight, heroBaselineY);
+          sheen.addColorStop(0.00, 'rgba(255, 255, 255, 0.14)');
+          sheen.addColorStop(0.45, 'rgba(255, 255, 255, 0.03)');
+          sheen.addColorStop(1.00, 'rgba(0, 0, 0, 0.12)');
+          heroCtx.shadowColor = 'transparent';
+          heroCtx.shadowBlur = 0;
+          heroCtx.fillStyle = sheen;
+          heroCtx.fillText(heroText, heroX, heroBaselineY);
+        }
+      } finally {
+        if ('filter' in heroCtx) heroCtx.filter = 'none';
+        heroCtx.restore();
       }
     }
-    heroIdx = maxIdx;
+
+    // 2. Small White Lead Line sitting RIGHT along top rim of Hero word (ctxFore Layer 4)
+    const cleanTokens = (leadList || [])
+      .map(w => ({ txt: cleanLeadWord(w.t || w.word || ''), s: w.s }))
+      .filter(w => w.txt);
+
+    if (cleanTokens.length > 0 && fadeAlpha > 0.005) {
+      const leadWeight = slot === 'top' ? '700' : '500'; // Top lead bold ("Some homes get"), Waist lead cleaner medium ("a place to call")
+      let leadFontSize = Math.round(H * 0.037); // ~47px on 1280h
+      const fullLeadStr = cleanTokens.map(w => w.txt).join(' ');
+
+      ctxFore.save();
+      ctxFore.font = `${leadWeight} ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
+      ctxFore.letterSpacing = '-0.035em';
+      const rawLeadW = measureWidth(ctxFore, fullLeadStr, leadFontSize);
+      ctxFore.restore();
+
+      const maxLeadW = W * 0.88;
+      if (rawLeadW > maxLeadW && rawLeadW > 0) {
+        leadFontSize = Math.max(Math.round(H * 0.022), Math.floor(leadFontSize * (maxLeadW / rawLeadW)));
+      }
+
+      // Baseline kisses top x-height of Hero word so descenders & ascenders overlap organically
+      const leadBaselineY = Math.round(heroBaselineY - heroFontSize * 0.55);
+
+      ctxFore.save();
+      try {
+        ctxFore.font = `${leadWeight} ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
+        ctxFore.letterSpacing = '-0.035em';
+        ctxFore.textAlign = 'left';
+        ctxFore.textBaseline = 'alphabetic';
+        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctxFore.shadowBlur = 8;
+        ctxFore.shadowOffsetX = 0;
+        ctxFore.shadowOffsetY = 2;
+
+        const totalLineW = measureWidth(ctxFore, fullLeadStr, leadFontSize);
+        const startX = Math.round(W * 0.50 - totalLineW * 0.50);
+
+        for (let i = 0; i < cleanTokens.length; i++) {
+          const tok = cleanTokens[i];
+          const prefixStr = i > 0 ? (cleanTokens.slice(0, i).map(x => x.txt).join(' ') + ' ') : '';
+          const wordX = startX + measureWidth(ctxFore, prefixStr, leadFontSize);
+          const wordW = measureWidth(ctxFore, tok.txt, leadFontSize);
+
+          const wAge = fullInstant ? 1.0 : Math.max(0, evalT - (typeof tok.s === 'number' ? tok.s : 0));
+          const wp = fullInstant ? 1.0 : easeOutCubic(Math.min(1, wAge / 0.22));
+          if (!fullInstant && evalT < (typeof tok.s === 'number' ? tok.s : 0) - 0.02) continue;
+
+          // Exact per-word horizontal slide-in behind left edge mask ("Some |omes", "A |ew", "a |lace")
+          const slideShift = fullInstant ? 0 : (-wordW * 0.44 * (1 - wp));
+          const wordAlpha = fadeAlpha * Math.min(1, wp * 1.6);
+
+          ctxFore.save();
+          ctxFore.globalAlpha = wordAlpha;
+          ctxFore.beginPath();
+          ctxFore.rect(wordX - 2, leadBaselineY - leadFontSize * 1.25, wordW + 24, leadFontSize * 1.65);
+          ctxFore.clip();
+          ctxFore.fillText(tok.txt, wordX + slideShift, leadBaselineY);
+          ctxFore.restore();
+        }
+      } finally {
+        ctxFore.restore();
+      }
+    }
+  };
+
+  // Sample Thumbnail / Showcase Fallback Card (matches ref frame 2.60s pairing)
+  if (isSampleCard) {
+    drawEditorialPair(
+      [{ t: 'Some' }, { t: 'homes' }, { t: 'get' }],
+      { t: 'seen' },
+      'top',
+      palettes[0],
+      1.0,
+      999,
+      true
+    );
+    drawEditorialPair(
+      [{ t: 'A' }, { t: 'few' }, { t: 'get' }],
+      { t: 'remembered' },
+      'waist',
+      palettes[1],
+      1.0,
+      999,
+      true
+    );
+    return;
   }
-  // If first word was picked but we have several words, prefer second word as hero
-  if (heroIdx === 0 && words.length > 2) heroIdx = 1;
 
-  let leadWords = words.slice(0, heroIdx);
-  let heroWordObj = words[heroIdx];
-  let waistWords = words.slice(heroIdx + 1);
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const normWords = normalizeWords(words, capStart, capEnd);
 
-  let leadText = leadWords.map(w => w.t || w.word || '').join(' ');
-  let heroText = (heroWordObj?.t || heroWordObj?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').toLowerCase();
-  let waistText = waistWords.map(w => w.t || w.word || '').join(' ');
+  // Determine evaluation time: when paused before caption starts at t=0, show crisp resting frame; otherwise track live time t
+  const evalT = (typeof t === 'number')
+    ? ((showAll && t < capStart) ? capStart + Math.max(0.4, (capEnd - capStart) * 0.65) : t)
+    : capEnd;
+  const fullInstant = typeof t !== 'number';
 
-  // Showcase fallback for sample preview card
-  if (isShowcaseSample) {
-    if (!leadText) leadText = 'Some homes get';
-    if (!heroText) heroText = 'seen';
-    if (!waistText) waistText = 'A few get remembered';
+  // Single long caption (>= 6 words): split naturally into paired Top + Waist scene
+  if (normWords.length >= 6) {
+    let splitAt = Math.ceil(normWords.length / 2);
+    for (let k = Math.max(2, splitAt - 1); k <= Math.min(normWords.length - 2, splitAt + 1); k++) {
+      if (/[,.;!?]$/.test(normWords[k - 1].t)) {
+        splitAt = k;
+        break;
+      }
+    }
+    const topSlice = normWords.slice(0, splitAt);
+    const waistSlice = normWords.slice(splitAt);
+    const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+    const exitFade = fullInstant ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.24));
+
+    drawEditorialPair(
+      topSlice.slice(0, -1),
+      topSlice[topSlice.length - 1],
+      'top',
+      palettes[(capIdx * 2) % palettes.length],
+      exitFade,
+      evalT,
+      fullInstant
+    );
+    drawEditorialPair(
+      waistSlice.slice(0, -1),
+      waistSlice[waistSlice.length - 1],
+      'waist',
+      palettes[(capIdx * 2 + 1) % palettes.length],
+      exitFade,
+      evalT,
+      fullInstant
+    );
+    return;
   }
-  if (!heroText) {
-    heroText = (words[0]?.t || words[0]?.word || '').toLowerCase() || 'seen';
+
+  // Standard <= 5 word caption cadence: Even captions render at Top; Odd captions render at Waist while lingering prev Top smoothly fades out
+  const isOddWaist = (capIdx % 2 === 1);
+  const nextCap = (captionsArr && capIdx >= 0 && capIdx + 1 < captionsArr.length) ? captionsArr[capIdx + 1] : null;
+  const prevCap = (captionsArr && capIdx > 0) ? captionsArr[capIdx - 1] : null;
+
+  if (isOddWaist && prevCap) {
+    const prevGap = capStart - (typeof prevCap.end === 'number' ? prevCap.end : capStart);
+    if (prevGap <= 1.2) {
+      const pStart = typeof prevCap.start === 'number' ? prevCap.start : 0;
+      const pEnd = typeof prevCap.end === 'number' ? prevCap.end : capStart;
+      const prevWords = normalizeWords(prevCap.words || (prevCap.text || '').split(/\s+/).map(tx => ({ t: tx })), pStart, pEnd);
+      if (prevWords.length > 0) {
+        // Hold Top at 100% until 60% into Waist caption so both sit crisp together (like 2.60s), then fade cleanly out
+        const waistDur = Math.max(0.5, capEnd - capStart);
+        const waistProg = fullInstant ? 0.3 : Math.max(0, (evalT - capStart) / waistDur);
+        const topCarryFade = waistProg <= 0.60 ? 1.0 : Math.max(0, 1.0 - (waistProg - 0.60) / 0.28);
+        if (topCarryFade > 0.01) {
+          drawEditorialPair(
+            prevWords.slice(0, -1),
+            prevWords[prevWords.length - 1],
+            'top',
+            palettes[(capIdx - 1) % palettes.length],
+            topCarryFade,
+            evalT,
+            true // prev Top already finished entering; hold sharp while fading out
+          );
+        }
+      }
+    }
   }
 
-  // 1. TOP LEAD TEXT onto ctxFore (Layer 4, above the head)
-  if (leadText) {
-    const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
-    const leadFontSize = Math.round(H * 0.042); // ~54px on 1280h
-    ctxFore.save();
-    ctxFore.globalAlpha = globalAlpha;
-    ctxFore.font = `700 ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
-    ctxFore.textAlign = 'center';
-    ctxFore.textBaseline = 'alphabetic';
-    ctxFore.fillStyle = '#FFFFFF';
-    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-    ctxFore.shadowBlur = 6;
-    ctxFore.shadowOffsetY = 3;
-    ctxFore.fillText(toCap(leadText), Math.round(W * 0.50), Math.round(H * 0.125));
-    ctxFore.restore();
-  }
+  // Exit fade for current caption ("how it goes")
+  const holdIntoWaist = !isOddWaist && nextCap && ((nextCap.start - capEnd) <= 0.85);
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const currExitFade = (fullInstant || holdIntoWaist) ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.22));
 
-  // 2. GIANT HERO LOWERCASE KEYWORD onto targetBehind (Layer 2, behind speaker's head)
-  let heroFontSize = Math.round(H * 0.170); // ~218px on 1280h
-  if (heroText.length > 7) {
-    heroFontSize = Math.round(heroFontSize * (7 / heroText.length));
-  }
-  heroFontSize = Math.max(Math.round(H * 0.10), heroFontSize);
-
-  // Exact vertical position: baseline at Y = 0.310 * H (~396px on 1280h)
-  // Perfectly positioned directly behind the presenter's head/neck with breathing room below top lead
-  const heroY = Math.round(H * 0.310);
-  const heroX = Math.round(W * 0.50);
-
-  targetBehind.save();
-  targetBehind.globalAlpha = globalAlpha;
-  targetBehind.translate(heroX, heroY);
-  targetBehind.scale(masterScale, masterScale);
-  targetBehind.translate(-heroX, -heroY);
-
-  targetBehind.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
-  targetBehind.textAlign = 'center';
-  targetBehind.textBaseline = 'alphabetic';
-  targetBehind.letterSpacing = '-0.03em';
-
-  // Deep ambient 3D depth shadow
-  targetBehind.shadowColor = 'rgba(0, 0, 0, 0.70)';
-  targetBehind.shadowBlur = 12;
-  targetBehind.shadowOffsetX = 0;
-  targetBehind.shadowOffsetY = 4;
-
-  // Exact Luxury Royal Cobalt Blue Gradient: Vibrant Cobalt Top -> Royal Navy Mid -> Deep Midnight Base
-  const grad = targetBehind.createLinearGradient(0, heroY - heroFontSize, 0, heroY);
-  grad.addColorStop(0.00, '#3858D6'); // Vibrant luxury cobalt blue
-  grad.addColorStop(0.55, '#223896'); // Rich royal navy
-  grad.addColorStop(1.00, '#101B4B'); // Deep midnight navy base
-
-  targetBehind.fillStyle = grad;
-  targetBehind.fillText(heroText, heroX, heroY);
-  targetBehind.restore();
-
-  // 3. FRONT WAIST SUBTITLE onto ctxFore (Layer 4, in front of speaker's waist)
-  if (waistText) {
-    const toCap = (s) => s.split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
-    const waistFontSize = Math.round(H * 0.040); // ~51px on 1280h
-    ctxFore.save();
-    ctxFore.globalAlpha = globalAlpha;
-    ctxFore.font = `700 ${waistFontSize}px "Poppins", "Montserrat", sans-serif`;
-    ctxFore.textAlign = 'center';
-    ctxFore.textBaseline = 'alphabetic';
-    ctxFore.fillStyle = '#FFFFFF';
-    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-    ctxFore.shadowBlur = 6;
-    ctxFore.shadowOffsetY = 3;
-    ctxFore.fillText(toCap(waistText), Math.round(W * 0.50), Math.round(H * 0.520));
-    ctxFore.restore();
-  }
+  drawEditorialPair(
+    normWords.slice(0, -1),
+    normWords[normWords.length - 1],
+    isOddWaist ? 'waist' : 'top',
+    palettes[capIdx % palettes.length],
+    currExitFade,
+    evalT,
+    fullInstant
+  );
 }
 
 function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
