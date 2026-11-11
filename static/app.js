@@ -5431,6 +5431,232 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
   if (line3Text) drawKineticLine(line3Text, 900, l3FontSize, -0.040, x3, l3BaseY, '#FFFFFF', line3Start, 14);
 }
 
+function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
+
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitFade = fullInstant ? 1.0 : Math.min(1, timeRem / 0.08);
+  if (exitFade <= 0.005) return;
+
+  const capsList = (typeof S !== 'undefined' && S && Array.isArray(S.captions)) ? S.captions : [];
+  const foundIdx = (cap && capsList.length > 0) ? capsList.indexOf(cap) : -1;
+  const rawIdx = (cap && cap.index != null) ? Number(cap.index) - 1 : parseInt(cap && cap.id, 10) - 1;
+  const capIdx = foundIdx >= 0 ? foundIdx : (!isNaN(rawIdx) && rawIdx >= 0 ? rawIdx : 0);
+
+  const userCase = st && st.textCase;
+  const formatCSToken = (raw) => {
+    const s = String(raw || '').replace(/["'’()[\]{}]/g, '').trim();
+    if (!s) return '';
+    if (userCase === 'upper') return s.toUpperCase();
+    if (userCase === 'lower') return s.toLowerCase();
+    return s.replace(/^([a-zA-Z])/, (c) => c.toUpperCase());
+  };
+  const wordStartTime = (w, fallback) => {
+    if (w && typeof w.s === 'number') return w.s;
+    if (w && typeof w.start === 'number') return w.start;
+    return fallback;
+  };
+  const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+
+  const measureCSWidth = (ctx, text, fontSize, trackEm) => {
+    if (!text) return 0;
+    const m = ctx.measureText(text);
+    const w = (m && typeof m.width === 'number') ? m.width : text.length * fontSize * 0.56;
+    if ('letterSpacing' in ctx) return w;
+    return Math.max(0, w + Math.max(0, text.length - 1) * fontSize * (trackEm || 0));
+  };
+  const fitCSFont = (ctx, text, fontFamily, weight, italic, idealPx, minPx, maxW, trackEm) => {
+    let size = Math.round(idealPx);
+    if (!text) return size;
+    ctx.save();
+    ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${fontFamily}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm || 0}em`;
+    const rawW = measureCSWidth(ctx, text, size, trackEm);
+    ctx.restore();
+    if (rawW > maxW && rawW > 0) {
+      size = Math.max(Math.round(minPx), Math.floor(size * (maxW / rawW)));
+    }
+    return size;
+  };
+
+  // Determine hero range ([heroStartIdx..heroEndIdx]): honors contiguous .key flags (1-2 words) or scores best content word
+  let keyStart = -1;
+  let keyEnd = -1;
+  for (let i = 0; i < words.length; i++) {
+    if (words[i] && words[i].key) {
+      if (keyStart === -1) keyStart = i;
+      if (i - keyStart <= 1) keyEnd = i;
+    } else if (keyStart !== -1) {
+      break;
+    }
+  }
+  if (keyStart === -1) {
+    const stopSet = new Set(['a', 'an', 'the', 'to', 'in', 'on', 'at', 'of', 'for', 'with', 'and', 'or', 'are', 'you', 'our', 'we', 'your', 'is', 'be', 'it', 'see', 'this', 'that']);
+    let bestScore = -999;
+    let bestIdx = Math.min(words.length - 1, Math.floor(words.length / 2));
+    for (let i = 0; i < words.length; i++) {
+      const raw = String(words[i].t || words[i].word || '').trim();
+      const alpha = raw.replace(/[^a-zA-Z0-9]/g, '');
+      const low = alpha.toLowerCase();
+      const midBonus = (words.length >= 3 && i === 1) ? 0.45 : 0;
+      const punctBonus = /[?!]$/.test(raw) ? 3 : 0;
+      const score = alpha.length * 2 - (stopSet.has(low) ? 10 : 0) + punctBonus + midBonus;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+    keyStart = bestIdx;
+    keyEnd = bestIdx;
+  }
+
+  const topWords = isSampleCard ? [{ t: 'Are', s: 0 }, { t: 'You', s: 0 }] : words.slice(0, keyStart);
+  const heroWords = isSampleCard ? [{ t: 'Ready', s: 0, key: true }] : words.slice(keyStart, keyEnd + 1);
+  const botWords = isSampleCard ? [] : words.slice(keyEnd + 1);
+
+  const heroText = heroWords.map(w => formatCSToken(w.t || w.word || '')).filter(Boolean).join(' ');
+  const topText = topWords.map(w => formatCSToken(w.t || w.word || '')).filter(Boolean).join(' ');
+  const botText = botWords.map(w => formatCSToken(w.t || w.word || '')).filter(Boolean).join(' ');
+
+  const heroStart = wordStartTime(heroWords[0], topWords.length ? capStart + 0.42 : capStart);
+  const topStart = topWords.length ? wordStartTime(topWords[0], capStart) : capStart;
+  const botStart = botWords.length ? wordStartTime(botWords[0], heroStart + 0.48) : (heroStart + 0.48);
+
+  const posYRatio = (typeof st?.posY === 'number') ? st.posY : ((typeof st?.position === 'number') ? st.position : 0.702);
+  const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const centerX = Math.round(W * 0.50);
+  const heroFontFam = '"Montserrat", "Poppins", sans-serif';
+  const subFontFam = '"Poppins", "Montserrat", sans-serif';
+
+  const heroSize = fitCSFont(ctxFore, heroText, heroFontFam, 900, false, H * 0.128 * fontScale, H * 0.044, W * 0.88, -0.025);
+  const idealSub = Math.max(H * 0.035, Math.min(H * 0.055, heroSize * 0.47));
+  const topSize = topText ? fitCSFont(ctxFore, topText, subFontFam, 800, true, idealSub, H * 0.024, W * 0.84, -0.015) : 0;
+  const botSize = botText ? fitCSFont(ctxFore, botText, subFontFam, 800, true, idealSub, H * 0.024, W * 0.84, -0.015) : 0;
+
+  ctxFore.save();
+  ctxFore.font = `900 ${heroSize}px ${heroFontFam}`;
+  if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
+  const heroW = measureCSWidth(ctxFore, heroText, heroSize, -0.025);
+  ctxFore.restore();
+
+  // Compute balanced center anchor for 1/2/3-tier stack around posYRatio
+  const heroCapH = Math.round(heroSize * 0.73);
+  let heroCenterOffsetY = 0;
+  if (topText && !botText) heroCenterOffsetY = Math.round(topSize * 0.34);
+  else if (!topText && botText) heroCenterOffsetY = -Math.round(botSize * 0.28);
+  const heroBaseY = Math.round(H * posYRatio + heroCapH * 0.48 + heroCenterOffsetY);
+  const heroTopY = heroBaseY - heroCapH;
+
+  // Tight interlocking offsets: top italic kisses top rim of hero, bottom italic tucks right under hero baseline
+  const perchedTopBaseY = Math.round(heroTopY + heroSize * 0.055);
+  const preHeroCenterY = Math.round(H * posYRatio + topSize * 0.24);
+  const glideUpP = fullInstant ? 1.0 : (evalT >= heroStart - 0.04 ? easeOutCubic(Math.min(1, (evalT - (heroStart - 0.04)) / 0.16)) : 0);
+  const topBaseY = Math.round(preHeroCenterY + (perchedTopBaseY - preHeroCenterY) * glideUpP);
+  const botBaseY = Math.round(heroBaseY + botSize * 0.70);
+
+  // Helper to paint crisp white italic accent line with soft optical unblur & drop shadow
+  const drawSubItalicLine = (text, startTime, targetBaseY, size) => {
+    if (!text) return;
+    if (!fullInstant && evalT < startTime - 0.02) return;
+    const p = fullInstant ? 1.0 : Math.min(1, Math.max(0, (evalT - startTime) / 0.16));
+    const ep = easeOutCubic(p);
+    const alpha = exitFade * Math.min(1, p * 1.35);
+    if (alpha <= 0.01) return;
+
+    const blurPx = fullInstant ? 0 : Math.round(4.0 * Math.pow(1 - p, 2) * 10) / 10;
+    const scale = fullInstant ? 1.0 : (1.06 - 0.06 * ep);
+
+    ctxFore.save();
+    try {
+      ctxFore.globalAlpha = alpha;
+      if (blurPx > 0.2 && 'filter' in ctxFore) ctxFore.filter = `blur(${blurPx.toFixed(1)}px)`;
+      ctxFore.font = `italic 800 ${size}px ${subFontFam}`;
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'alphabetic';
+
+      const midY = targetBaseY - size * 0.30;
+      ctxFore.translate(centerX, midY);
+      ctxFore.scale(scale, scale);
+      ctxFore.translate(-centerX, -midY);
+
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
+      ctxFore.shadowBlur = Math.max(4, Math.round(H * 0.008));
+      ctxFore.shadowOffsetX = 0;
+      ctxFore.shadowOffsetY = Math.max(2, Math.round(H * 0.002));
+      ctxFore.fillStyle = '#FFFFFF';
+      ctxFore.fillText(text, centerX, targetBaseY);
+    } finally {
+      if ('filter' in ctxFore) ctxFore.filter = 'none';
+      ctxFore.restore();
+    }
+  };
+
+  // 1. Paint Giant Sunset Diagonal Wave Hero FIRST so small white italic lines lock cleanly in front
+  if (heroText && (fullInstant || evalT >= heroStart - 0.03)) {
+    const p = fullInstant ? 1.0 : Math.min(1, Math.max(0, (evalT - (heroStart - 0.02)) / 0.16));
+    const ep = easeOutCubic(p);
+    const alpha = exitFade * ep;
+    if (alpha > 0.01) {
+      const blurPx = fullInstant ? 0 : Math.round(5.0 * Math.pow(1 - p, 2) * 10) / 10;
+      const scale = fullInstant ? 1.0 : (0.91 + 0.09 * ep);
+      const midY = heroBaseY - heroSize * 0.34;
+      const boxW = Math.max(W * 0.28, heroW);
+      const phase = fullInstant ? 0 : Math.sin(evalT * 2.1 + capIdx * 1.3) * 0.04;
+
+      ctxFore.save();
+      try {
+        ctxFore.globalAlpha = alpha;
+        if (blurPx > 0.2 && 'filter' in ctxFore) ctxFore.filter = `blur(${blurPx.toFixed(1)}px)`;
+        ctxFore.font = `900 ${heroSize}px ${heroFontFam}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
+        ctxFore.textAlign = 'center';
+        ctxFore.textBaseline = 'alphabetic';
+
+        ctxFore.translate(centerX, midY);
+        ctxFore.scale(scale, scale);
+        ctxFore.translate(-centerX, -midY);
+
+        const grad = ctxFore.createLinearGradient(
+          centerX - boxW * 0.56,
+          heroBaseY - heroSize * 0.84,
+          centerX + boxW * 0.56,
+          heroBaseY + heroSize * 0.22
+        );
+        const clampS = (v) => Math.max(0.02, Math.min(0.98, v));
+        grad.addColorStop(0.00, '#FF5800');
+        grad.addColorStop(clampS(0.18 + phase), '#FFCC42');
+        grad.addColorStop(clampS(0.35 - phase * 0.5), '#FFE86E');
+        grad.addColorStop(clampS(0.54 + phase), '#FF6A02');
+        grad.addColorStop(clampS(0.73 - phase * 0.5), '#FFE262');
+        grad.addColorStop(clampS(0.89 + phase * 0.4), '#FF7D0C');
+        grad.addColorStop(1.00, '#EC4A00');
+
+        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.46)';
+        ctxFore.shadowBlur = Math.max(4, Math.round(H * 0.007));
+        ctxFore.shadowOffsetX = 0;
+        ctxFore.shadowOffsetY = Math.max(2, Math.round(H * 0.003));
+        ctxFore.fillStyle = grad;
+        ctxFore.fillText(heroText, centerX, heroBaseY);
+      } finally {
+        if ('filter' in ctxFore) ctxFore.filter = 'none';
+        ctxFore.restore();
+      }
+    }
+  }
+
+  // 2. Paint Small White Italic Lines OVER Sunset Hero Edges
+  drawSubItalicLine(topText, topStart, topBaseY, topSize);
+  drawSubItalicLine(botText, botStart, botBaseY, botSize);
+}
+
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   window._capdbg2Keys = window._capdbg2Keys || new Set();
   const capdbg2Key = `${isPreview}|${W}x${H}|${S.style && S.style.lineSpacing}`;
@@ -5486,6 +5712,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.id === 'electric_kinetic_stack') {
         drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
+      } else if (st.crazySunsetStack || st.id === 'crazy_sunset_stack') {
+        drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
         drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.isSpecial && st.depthAccent) {

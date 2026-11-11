@@ -152,12 +152,13 @@
     "position": 0.69,
     "posY": 0.69,
     "posX": 0.5,
-    "inkGap": 0.012,
-    "leading": 0.86,
-    "fontScale": 1.0,
     "wordsPerPage": 3,
     "wordsPerCaption": 3,
     "maxKeys": 1,
+    "textCase": "title",
+    "inkGap": -0.04,
+    "leading": 0.86,
+    "fontScale": 1.0,
     "animation": "pop",
     "outlineMode": "none",
     "glowEnabled": true,
@@ -165,13 +166,13 @@
     "baseColor": "#FFFFFF",
     "key": {
       "font": "Montserrat",
-      "size": 0.098,
+      "size": 0.118,
       "weight": 900,
       "bold": true,
       "italic": false,
       "upper": false,
       "color": "#FF7A00",
-      "keyGradient": "linear-gradient(180deg, #FFE033, #FFB800, #FF6200)",
+      "keyGradient": "linear-gradient(135deg, #FF6804, #FFC83E, #FFE468, #FF7D0A, #F55A04)",
       "outline": 0,
       "shadow": 6,
       "shadowColor": "rgba(0, 0, 0, 0.50)",
@@ -240,13 +241,15 @@
         "fill": {
           "type": "sunset-gradient",
           "colors": [
-            "#FFE033",
-            "#FFB800",
-            "#FF6200"
+            "#FF6804",
+            "#FFC83E",
+            "#FFE468",
+            "#FF7D0A",
+            "#F55A04"
           ],
-          "angle": 180
+          "angle": 135
         },
-        "keyGradient": "linear-gradient(180deg, #FFE033, #FFB800, #FF6200)",
+        "keyGradient": "linear-gradient(135deg, #FF6804, #FFC83E, #FFE468, #FF7D0A, #F55A04)",
         "glowColor": "rgba(255, 110, 0, 0.40)"
       },
       "accent2": {
