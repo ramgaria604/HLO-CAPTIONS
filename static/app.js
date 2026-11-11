@@ -4353,22 +4353,22 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     const heroText = cleanHeroWord(heroRaw) || 'seen';
     const heroStart = (heroObj && typeof heroObj.s === 'number') ? heroObj.s : 0;
 
-    // 1. Measure Giant Lowercase Upright Hero Typography (Poppins 900 condensed 0.83x, tight -0.06em)
-    const HERO_CONDENSE_X = 0.83;
-    let heroFontSize = Math.round(H * 0.138); // ~177px tall on 1280h matching bold reference block proportions
+    // 1. Measure Giant Lowercase Upright Hero Typography (Poppins 900 un-squished round geometric, tight -0.068em)
+    let heroFontSize = Math.round(H * 0.128); // ~164px on 1280h
     targetBehind.save();
     targetBehind.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
-    targetBehind.letterSpacing = '-0.06em';
-    const rawHeroW = measureWidth(targetBehind, heroText, heroFontSize) * HERO_CONDENSE_X;
+    targetBehind.letterSpacing = '-0.068em';
+    const rawHeroW = measureWidth(targetBehind, heroText, heroFontSize);
     targetBehind.restore();
 
     const maxHeroW = W * 0.90;
     if (rawHeroW > maxHeroW && rawHeroW > 0) {
-      heroFontSize = Math.max(Math.round(H * 0.074), Math.floor(heroFontSize * (maxHeroW / rawHeroW)));
+      heroFontSize = Math.max(Math.round(H * 0.070), Math.floor(heroFontSize * (maxHeroW / rawHeroW)));
     }
 
     const heroX = Math.round(W * 0.50);
-    const heroCenterY = slot === 'top' ? Math.round(H * 0.156) : Math.round(H * 0.495);
+    // Safe positions clear of speaker's face: Top behind crown/upper background (0.145), Waist in lower third below chin (0.620)
+    const heroCenterY = slot === 'top' ? Math.round(H * 0.145) : Math.round(H * 0.620);
     const heroBaselineY = Math.round(heroCenterY + heroFontSize * 0.28);
 
     // Hero entrance curve ("how it comes"): slides gently rightwards into center while sharpening out of blur
@@ -4377,8 +4377,10 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     const heroVisible = fullInstant || (evalT >= heroStart - 0.02);
 
     if (heroVisible && fadeAlpha > 0.005) {
-      const heroCtx = slot === 'top' ? targetBehind : ctxFore;
-      const layerOpacity = slot === 'top' ? 0.96 : 0.80; // Top sits crisp behind head; Waist blends glossy translucent over dress/room
+      // Both Top and Waist big keywords draw on targetBehind (Layer 2, behind person cutout) so they NEVER cover the face
+      const heroCtx = targetBehind;
+      const hasBehindLayer = Boolean(isBehind && ctxBehind);
+      const layerOpacity = isSampleCard ? 0.92 : (hasBehindLayer ? 0.96 : 0.72);
       const heroAlpha = fadeAlpha * Math.min(1, heroP * 1.45) * layerOpacity;
       const slideX = fullInstant ? 0 : Math.round(-W * 0.095 * (1 - heroP));
       const heroScale = fullInstant ? 1.0 : (0.96 + 0.04 * heroP);
@@ -4391,15 +4393,15 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
           heroCtx.filter = `blur(${blurPx.toFixed(1)}px)`;
         }
         heroCtx.translate(heroX + slideX, heroBaselineY);
-        heroCtx.scale(heroScale * HERO_CONDENSE_X, heroScale);
+        heroCtx.scale(heroScale, heroScale);
         heroCtx.translate(-heroX, -heroBaselineY);
 
         heroCtx.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
         heroCtx.textAlign = 'center';
         heroCtx.textBaseline = 'alphabetic';
-        heroCtx.letterSpacing = '-0.06em';
+        heroCtx.letterSpacing = '-0.068em';
 
-        const finalHeroW = Math.max(W * 0.28, measureWidth(heroCtx, heroText, heroFontSize));
+        const finalHeroW = Math.max(W * 0.26, measureWidth(heroCtx, heroText, heroFontSize));
         const gradLeft = heroX - finalHeroW * 0.52;
         const gradRight = heroX + finalHeroW * 0.52;
         const horizGrad = heroCtx.createLinearGradient(gradLeft, 0, gradRight, 0);
@@ -4407,25 +4409,13 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         horizGrad.addColorStop(0.52, pal.mid);
         horizGrad.addColorStop(1.00, pal.right);
 
-        heroCtx.shadowColor = slot === 'top' ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.22)';
-        heroCtx.shadowBlur = slot === 'top' ? 10 : 6;
+        heroCtx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+        heroCtx.shadowBlur = 8;
         heroCtx.shadowOffsetX = 0;
-        heroCtx.shadowOffsetY = 3;
+        heroCtx.shadowOffsetY = 2;
 
         heroCtx.fillStyle = horizGrad;
         heroCtx.fillText(heroText, heroX, heroBaselineY);
-
-        // Subtle upper-diagonal glass sheen for Waist translucent text matching video specular reflection
-        if (slot === 'waist') {
-          const sheen = heroCtx.createLinearGradient(gradLeft, heroBaselineY - heroFontSize * 0.7, gradRight, heroBaselineY);
-          sheen.addColorStop(0.00, 'rgba(255, 255, 255, 0.14)');
-          sheen.addColorStop(0.45, 'rgba(255, 255, 255, 0.03)');
-          sheen.addColorStop(1.00, 'rgba(0, 0, 0, 0.12)');
-          heroCtx.shadowColor = 'transparent';
-          heroCtx.shadowBlur = 0;
-          heroCtx.fillStyle = sheen;
-          heroCtx.fillText(heroText, heroX, heroBaselineY);
-        }
       } finally {
         if ('filter' in heroCtx) heroCtx.filter = 'none';
         heroCtx.restore();
@@ -4438,13 +4428,13 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       .filter(w => w.txt);
 
     if (cleanTokens.length > 0 && fadeAlpha > 0.005) {
-      const leadWeight = slot === 'top' ? '700' : '500'; // Top lead bold ("Some homes get"), Waist lead cleaner medium ("a place to call")
-      let leadFontSize = Math.round(H * 0.037); // ~47px on 1280h
+      const leadWeight = slot === 'top' ? '700' : '500'; // Top lead bold ("Some homes get"), Waist lead cleaner medium ("A few get")
+      let leadFontSize = Math.round(H * 0.038); // ~49px on 1280h
       const fullLeadStr = cleanTokens.map(w => w.txt).join(' ');
 
       ctxFore.save();
       ctxFore.font = `${leadWeight} ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.letterSpacing = '-0.035em';
+      ctxFore.letterSpacing = '-0.03em';
       const rawLeadW = measureWidth(ctxFore, fullLeadStr, leadFontSize);
       ctxFore.restore();
 
@@ -4453,13 +4443,13 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         leadFontSize = Math.max(Math.round(H * 0.022), Math.floor(leadFontSize * (maxLeadW / rawLeadW)));
       }
 
-      // Baseline kisses top x-height of Hero word so descenders & ascenders overlap organically
-      const leadBaselineY = Math.round(heroBaselineY - heroFontSize * 0.55);
+      // Baseline kisses top x-height of Hero word cleanly
+      const leadBaselineY = Math.round(heroBaselineY - heroFontSize * 0.54);
 
       ctxFore.save();
       try {
         ctxFore.font = `${leadWeight} ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
-        ctxFore.letterSpacing = '-0.035em';
+        ctxFore.letterSpacing = '-0.03em';
         ctxFore.textAlign = 'left';
         ctxFore.textBaseline = 'alphabetic';
         ctxFore.fillStyle = '#FFFFFF';
@@ -11007,6 +10997,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       ctx.clearRect(0, 0, captionCanvas.width, captionCanvas.height);
       ctx.scale(dpr, dpr);
 
+      if (behindCanvas) {
+        const isEditorialBlend = Boolean(S.style && S.style.id === 'editorial_depth_stack');
+        behindCanvas.style.mixBlendMode = isEditorialBlend ? 'multiply' : '';
+        behindCanvas.style.opacity = isEditorialBlend ? '0.92' : '';
+      }
       if (behindCtx) {
         behindCtx.setTransform(1, 0, 0, 1, 0, 0);
         behindCtx.clearRect(0, 0, behindCanvas.width, behindCanvas.height);
@@ -13011,7 +13006,15 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
             if (!maskOk) {
               // Person not detected in this frame: safely draw captions in front without aborting export
-              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              if (S.style && S.style.id === 'editorial_depth_stack') {
+                ctx.save();
+                ctx.globalCompositeOperation = 'multiply';
+                ctx.globalAlpha = 0.92;
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+                ctx.restore();
+              } else {
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              }
               ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
               drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
             } else {
@@ -13020,7 +13023,15 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
               // PROBLEM A Point 3: Per-frame order:
               // a) video frame (already drawn to ctx)
               // b) behind captions/graphics
-              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              if (S.style && S.style.id === 'editorial_depth_stack') {
+                ctx.save();
+                ctx.globalCompositeOperation = 'multiply';
+                ctx.globalAlpha = 0.92;
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+                ctx.restore();
+              } else {
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              }
 
               // Special Real Estate: Person Glow behind person cutout
               if (((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) && maskCanvas) {
