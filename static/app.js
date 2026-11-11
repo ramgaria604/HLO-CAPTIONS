@@ -4367,8 +4367,21 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     }
 
     const heroX = Math.round(W * 0.50);
-    // Safe positions clear of speaker's face: Top behind crown/upper background (0.145), Waist in lower third below chin (0.620)
-    const heroCenterY = slot === 'top' ? Math.round(H * 0.145) : Math.round(H * 0.620);
+    // Align Top Hero behind the detected person's hair crown so the head cuts cleanly in front (fallback 0.182)
+    let topCenterRatio = 0.182;
+    if (!isSampleCard && slot === 'top') {
+      const detectedTop = (typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
+        ? window._editorialHeadTopRatio
+        : null;
+      if (detectedTop !== null) {
+        const targetRatio = Math.max(0.160, Math.min(0.34, detectedTop + 0.010));
+        if (cap && typeof cap._latchedEditorialTopRatio !== 'number') {
+          cap._latchedEditorialTopRatio = targetRatio;
+        }
+        topCenterRatio = (cap && typeof cap._latchedEditorialTopRatio === 'number') ? cap._latchedEditorialTopRatio : targetRatio;
+      }
+    }
+    const heroCenterY = slot === 'top' ? Math.round(H * topCenterRatio) : Math.round(H * 0.620);
     const heroBaselineY = Math.round(heroCenterY + heroFontSize * 0.28);
 
     // Hero entrance curve ("how it comes"): slides gently rightwards into center while sharpening out of blur
@@ -6280,6 +6293,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (confirm('Start a new video project? Current unsaved edits will be cleared.')) {
       vid.pause();
       vid.src = '';
+      if (typeof window !== 'undefined') window._editorialHeadTopRatio = null;
       S.file = null;
       S.filename = '';
       S.voiceoverFilename = '';
@@ -6476,6 +6490,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   function stageSelectedFile(file) {
     S.file = file;
+    if (typeof window !== 'undefined') window._editorialHeadTopRatio = null;
     headerFileName.textContent = file.name;
     selectedMediaName.textContent = 'Ready: ' + file.name;
     selectedMediaName.classList.remove('hidden');
@@ -10673,6 +10688,7 @@ async function ensureSegmenterLoaded() {
       }
 
       showToast('✨ AI Behind-Person model ready');
+      try { if (typeof renderCanvas === 'function') renderCanvas(true); } catch (_) {}
       return segmenterInstance;
     } catch (err) {
       console.warn('Behind-person segmentation model failed to load:', err);
@@ -10735,6 +10751,29 @@ async function createExportSegmenter() {
         return await tryInitSegmenter(cdnModelPath, 'GPU');
       } catch (e3) {
         return await tryInitSegmenter(cdnModelPath, 'CPU');
+      }
+    }
+  }
+}
+
+// Shared helper to detect top of speaker's head from segmentation mask floats for Editorial Depth Stack
+function updateEditorialHeadTopRatio(floats, mW, mH) {
+  if (!floats || !mW || !mH || typeof window === 'undefined') return;
+  const xMin = Math.floor(mW * 0.15);
+  const xMax = Math.ceil(mW * 0.85);
+  for (let y = 0; y < mH; y++) {
+    let hits = 0;
+    const rowOff = y * mW;
+    for (let x = xMin; x < xMax; x++) {
+      if (floats[rowOff + x] > 0.55) {
+        hits++;
+        if (hits >= 4) {
+          const ratio = y / mH;
+          window._editorialHeadTopRatio = (typeof window._editorialHeadTopRatio === 'number')
+            ? (window._editorialHeadTopRatio * 0.70 + ratio * 0.30)
+            : ratio;
+          return;
+        }
       }
     }
   }
@@ -10826,6 +10865,7 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
 
         if (nonZero === 0) return;
 
+        updateEditorialHeadTopRatio(prevLiveMaskFloats, mW, mH);
         liveMaskRawCtx.putImageData(liveImageData, 0, 0);
 
         if (!liveFinalCanvas) {
@@ -10941,6 +10981,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         // PROBLEM A Point 3: Verify mask is actually populated
         if (nonZeroCount === 0) return;
 
+        updateEditorialHeadTopRatio(exportPrevMaskFloats, mW, mH);
         exportSegMaskRawCtx.putImageData(exportSegImageData, 0, 0);
 
         if (!exportSegFinalCanvas) {
@@ -11110,10 +11151,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       const isShowAll = Boolean(vid.paused || !vid.duration);
       // Requirement 8: Stacked canvases - hero text (behindCanvas) -> personCutout (personCanvas) -> front text (captionCanvas)
       if (isBehind && activeCap && segmenterInstance && vid.readyState >= 2) {
-        // Draw typography: front lines to ctx, behind words to behindCtx
-        drawCanvasTypography(ctx, behindCtx || ctx, activeCap, words, t, S.style || {}, w, h, true, isShowAll, isPreview);
-
-        // Throttled segmentation
+        // Compute segmentation mask before typography so dynamic head-crown tracking applies on frame 0
         if (!vid.paused) {
           const minInterval = cfg.minMaskInterval;
           const now = performance.now();
@@ -11135,6 +11173,9 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             if (mask) lastLiveMaskCanvas = mask;
           }
         }
+
+        // Draw typography: front lines to ctx, behind words to behindCtx
+        drawCanvasTypography(ctx, behindCtx || ctx, activeCap, words, t, S.style || {}, w, h, true, isShowAll, isPreview);
 
         if (lastLiveMaskCanvas && personCtx) {
           // Person glow (only if level enables glow)
@@ -12969,15 +13010,10 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             }
             segExportForeCtx.clearRect(0, 0, W, H);
 
-            // Separate lines into behind and front contexts
-            const _tCapBehind0 = performance.now();
-            drawCanvasTypography(segExportForeCtx, segExportBehindCtx, activeCap, words, t, S.style || {}, W, H, true, false);
-            dbgCaptionMs += (performance.now() - _tCapBehind0);
-
             exportMaskFrameIdx++;
             let maskCanvas = null;
 
-            // Run person mask only on every 2nd frame, and reuse previous mask in between
+            // Compute mask before typography so frame 0 latches the detected head crown cleanly
             if (exportMaskFrameIdx % 3 === 1 || !lastExportMaskCanvas) {
               const _tSeg0 = performance.now();
               const newMask = getExportPersonMask(exportSegmenter, exportCleanFrameCanvas, frameMs, W, H);
@@ -12997,6 +13033,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
               }
             }
             maskCanvas = lastExportMaskCanvas;
+
+            // Separate lines into behind and front contexts
+            const _tCapBehind0 = performance.now();
+            drawCanvasTypography(segExportForeCtx, segExportBehindCtx, activeCap, words, t, S.style || {}, W, H, true, false);
+            dbgCaptionMs += (performance.now() - _tCapBehind0);
 
             // PROBLEM A Point 3 & 4: Check mask validity and log
             const maskOk = Boolean(maskCanvas && maskCanvas.width === W && maskCanvas.height === H);
