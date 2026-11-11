@@ -635,6 +635,10 @@ def load_presets():
                     duo_item["crazySunsetStack"] = True
                 if p.get("prismGlassDepth"):
                     duo_item["prismGlassDepth"] = True
+                if p.get("kineticCollage"):
+                    duo_item["kineticCollage"] = True
+                if p.get("obsidianGoldCouture"):
+                    duo_item["obsidianGoldCouture"] = True
                 if p.get("adaptiveEstateFlex"):
                     duo_item["adaptiveEstateFlex"] = True
                 if p.get("inkGap") is not None:

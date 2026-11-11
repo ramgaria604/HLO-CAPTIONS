@@ -357,6 +357,14 @@ def fonts_css():
                 css.append(f"@font-face{{font-family:'Playfair Display';font-weight:700;font-style:italic;src:url('/fonts/{p.name}');font-display:swap}}")
         elif "montserrat-900" in low:
             css.append(f"@font-face{{font-family:'Montserrat';font-weight:900;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "cinzel-700" in low:
+            css.append(f"@font-face{{font-family:'Cinzel';font-weight:700;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "anton" in low:
+            css.append(f"@font-face{{font-family:'Anton';font-weight:700;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "yellowtail" in low:
+            css.append(f"@font-face{{font-family:'Yellowtail';font-weight:400;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "greatvibes" in low:
+            css.append(f"@font-face{{font-family:'Great Vibes';font-weight:400;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
     _FONTS_CSS_CACHE = "\n".join(css)
     return _FONTS_CSS_CACHE, 200, {"Content-Type": "text/css"}
 
