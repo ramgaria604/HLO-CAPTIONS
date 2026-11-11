@@ -639,6 +639,8 @@ def load_presets():
                     duo_item["kineticCollage"] = True
                 if p.get("obsidianGoldCouture"):
                     duo_item["obsidianGoldCouture"] = True
+                if p.get("auroraSpatialDepth"):
+                    duo_item["auroraSpatialDepth"] = True
                 if p.get("adaptiveEstateFlex"):
                     duo_item["adaptiveEstateFlex"] = True
                 if p.get("inkGap") is not None:
