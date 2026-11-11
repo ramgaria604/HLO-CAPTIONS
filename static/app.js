@@ -4620,144 +4620,375 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
 function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
 
-  const isShowcaseSample = Boolean(showAll || isPreview || !words || words.length === 0);
-  const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
-
-  // Normalized entrance & exit dynamics (1:1 with video zoom-in measurement)
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
   const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
   const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
-  const age = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, t - capStart) : 1.0;
-  const timeRem = (!isShowcaseSample && typeof t === 'number') ? Math.max(0, capEnd - t) : 1.0;
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
 
-  const enterDur = 0.24;
-  const exitDur = 0.15;
-  const enterP = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, age / enterDur));
-  const exitAlpha = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, timeRem / exitDur));
-  const globalAlpha = Math.min(Math.min(1, age / 0.12), exitAlpha);
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitFade = fullInstant ? 1.0 : Math.min(1, timeRem / 0.08);
+  if (exitFade <= 0.005) return;
 
-  // Explosive zoom-in scale: starts at 0.55 and expands to 1.0 with subtle overshoot
-  const zoomScale = isShowcaseSample ? 1.0 : (0.55 + 0.45 * Math.min(1, enterP * 1.2) + 0.05 * Math.sin(enterP * Math.PI) * (1 - enterP));
-  const exitScale = isShowcaseSample ? 1.0 : (1.0 - 0.04 * (1.0 - exitAlpha));
-  const masterScale = zoomScale * exitScale;
+  const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
+  const capsList = (typeof S !== 'undefined' && S && Array.isArray(S.captions)) ? S.captions : [];
+  const foundCapIdx = (cap && capsList.length > 0) ? capsList.indexOf(cap) : -1;
+  const rawIdx = foundCapIdx >= 0
+    ? foundCapIdx
+    : (cap && typeof cap.index === 'number' && cap.index > 0 ? cap.index - 1 : 0);
+  const modeIdx = isSampleCard ? 0 : (rawIdx % 4);
 
-  // Flanking words pop in at age >= 0.08s
-  const flankP = isShowcaseSample ? 1.0 : Math.min(1, Math.max(0, (age - 0.08) / 0.16));
-  const flankAlpha = Math.min(flankP, exitAlpha);
-
-  let flankLeft = '';
-  let flankRight = '';
-  let hero1 = '';
-  let hero2 = '';
-
-  if (words.length >= 4) {
-    const leadCount = words.length - 2;
-    const half = Math.ceil(leadCount / 2);
-    flankLeft = words.slice(0, half).map(w => w.t || w.word || '').join(' ');
-    flankRight = words.slice(half, leadCount).map(w => w.t || w.word || '').join(' ');
-    hero1 = (words[words.length - 2]?.t || words[words.length - 2]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
-    hero2 = (words[words.length - 1]?.t || words[words.length - 1]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
-  } else if (words.length === 3) {
-    flankLeft = words[0]?.t || words[0]?.word || '';
-    hero1 = (words[1]?.t || words[1]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
-    hero2 = (words[2]?.t || words[2]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
-  } else if (words.length === 2) {
-    hero1 = (words[0]?.t || words[0]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
-    hero2 = (words[1]?.t || words[1]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
-  } else {
-    hero1 = (words[0]?.t || words[0]?.word || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '');
-  }
-
-  if (isShowcaseSample) {
-    if (!flankLeft) flankLeft = 'you can';
-    if (!flankRight) flankRight = 'add';
-    if (!hero1) hero1 = 'Real';
-    if (!hero2) hero2 = 'Captions';
-  }
-  if (!hero1) hero1 = 'Real';
-
-  // 1. TOP FLANKING WHITE WORDS onto ctxFore (Layer 4)
-  const flankFontSize = Math.round(H * 0.040); // ~51px on 1280h
-  if (flankLeft) {
-    ctxFore.save();
-    ctxFore.globalAlpha = flankAlpha;
-    ctxFore.font = `700 ${flankFontSize}px "Poppins", "Montserrat", sans-serif`;
-    ctxFore.textAlign = flankRight ? 'right' : 'center';
-    ctxFore.textBaseline = 'alphabetic';
-    ctxFore.fillStyle = '#FFFFFF';
-    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-    ctxFore.shadowBlur = 6;
-    ctxFore.shadowOffsetY = 3;
-    const xPos = flankRight ? Math.round(W * 0.36) : Math.round(W * 0.50);
-    ctxFore.fillText(flankLeft.toLowerCase(), xPos, Math.round(H * 0.255));
-    ctxFore.restore();
-  }
-
-  if (flankRight) {
-    ctxFore.save();
-    ctxFore.globalAlpha = flankAlpha;
-    ctxFore.font = `700 ${flankFontSize}px "Poppins", "Montserrat", sans-serif`;
-    ctxFore.textAlign = 'left';
-    ctxFore.textBaseline = 'alphabetic';
-    ctxFore.fillStyle = '#FFFFFF';
-    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
-    ctxFore.shadowBlur = 6;
-    ctxFore.shadowOffsetY = 3;
-    ctxFore.fillText(flankRight.toLowerCase(), Math.round(W * 0.64), Math.round(H * 0.255));
-    ctxFore.restore();
-  }
-
-  // 2. HELPER TO DRAW 3D LIQUID CHROME FIRE ACCENT WORD onto targetBehind with Zoom Entrance
-  const drawFieryWord = (text, cx, cy, fontSize) => {
-    targetBehind.save();
-    targetBehind.globalAlpha = globalAlpha;
-    targetBehind.translate(cx, cy);
-    targetBehind.scale(masterScale, masterScale);
-    targetBehind.translate(-cx, -cy);
-
-    targetBehind.font = `900 ${fontSize}px "Montserrat", "Poppins", sans-serif`;
-    targetBehind.textAlign = 'center';
-    targetBehind.textBaseline = 'alphabetic';
-    targetBehind.letterSpacing = '-0.02em';
-
-    // 3D Extrusion Shadow (deep dark crimson offset bevel)
-    targetBehind.shadowColor = 'rgba(90, 0, 0, 0.95)';
-    targetBehind.shadowBlur = 0;
-    targetBehind.shadowOffsetX = 3;
-    targetBehind.shadowOffsetY = 5;
-
-    // Metallic Liquid Chrome Fire Gradient: Top Gold Specular -> Flame Orange -> Vivid Red -> Deep Crimson
-    const grad = targetBehind.createLinearGradient(0, cy - fontSize, 0, cy);
-    grad.addColorStop(0.00, '#FFA726'); // Gold specular highlight
-    grad.addColorStop(0.25, '#FF6B00'); // Saturated fire orange
-    grad.addColorStop(0.55, '#FF3D00'); // Vivid flame red
-    grad.addColorStop(0.85, '#D81B15'); // Rich ruby crimson
-    grad.addColorStop(1.00, '#8A0000'); // Dark crimson base
-
-    targetBehind.fillStyle = grad;
-    targetBehind.fillText(text, cx, cy);
-
-    // Second ambient soft shadow pass
-    targetBehind.shadowColor = 'rgba(0, 0, 0, 0.50)';
-    targetBehind.shadowBlur = 10;
-    targetBehind.shadowOffsetX = 0;
-    targetBehind.shadowOffsetY = 4;
-    targetBehind.fillText(text, cx, cy);
-
-    targetBehind.restore();
+  const userCase = st && st.textCase;
+  const applyRECase = (s) => {
+    if (!s) return '';
+    if (userCase === 'upper') return s.toUpperCase();
+    if (userCase === 'lower') return s.toLowerCase();
+    return s;
+  };
+  const cleanREToken = (raw, keepEndPunct) => {
+    const cleaned = String(raw || '').replace(/["'’()[\]{}]/g, '').trim();
+    const stripped = keepEndPunct ? cleaned.replace(/[?!;]+$/g, '') : cleaned.replace(/[.,!?;:]+$/g, '');
+    return applyRECase(stripped);
+  };
+  const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+  const wordStartTime = (w, fallback) => {
+    if (w && typeof w.s === 'number') return w.s;
+    if (w && typeof w.start === 'number') return w.start;
+    return fallback;
   };
 
-  // Draw Hero 1 (Behind Head)
-  if (hero1) {
-    const h1FontSize = Math.round(H * 0.165); // ~210px on 1280h
-    const h1Y = Math.round(H * 0.335);
-    drawFieryWord(hero1, Math.round(W * 0.50), h1Y, h1FontSize);
-  }
+  const measureREWidth = (ctx, text, fontSize, trackEm) => {
+    const m = ctx.measureText(text);
+    const w = (m && typeof m.width === 'number') ? m.width : String(text || '').length * fontSize * 0.56;
+    if ('letterSpacing' in ctx) return w;
+    return Math.max(0, w + Math.max(0, String(text || '').length - 1) * fontSize * (trackEm || 0));
+  };
 
-  // Draw Hero 2 (Behind Lower Body)
-  if (hero2) {
-    const h2FontSize = Math.round(H * 0.180); // ~230px on 1280h
-    const h2Y = Math.round(H * 0.635);
-    drawFieryWord(hero2, Math.round(W * 0.50), h2Y, h2FontSize);
+  const fitREFont = (ctx, text, weight, idealPx, minPx, maxW, trackEm) => {
+    let size = Math.round(idealPx);
+    if (!text) return size;
+    ctx.save();
+    ctx.font = `${weight} ${size}px "Inter", "Montserrat", sans-serif`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
+    const rawW = measureREWidth(ctx, text, size, trackEm);
+    ctx.restore();
+    if (rawW > maxW && rawW > 0) {
+      size = Math.max(Math.round(minPx), Math.floor(size * (maxW / rawW)));
+    }
+    return size;
+  };
+
+  // Renders molten glossy crimson-orange glass hero word matching ref 10LAPPaIBR5ikZAt6tLiaGmijB-kWujdc
+  const drawMoltenHero = (ctx, text, x, baselineY, fontSize, startTime, fadeMult, opacityScale, outFadeP) => {
+    if (!text) return;
+    if (!fullInstant && evalT < startTime - 0.02) return;
+    const p = fullInstant ? 1.0 : Math.min(1.0, Math.max(0, (evalT - startTime) / 0.12));
+    const ep = easeOutCubic(p);
+    const outAlpha = (typeof outFadeP === 'number') ? Math.max(0, 1 - outFadeP) : 1.0;
+    const alpha = exitFade * fadeMult * ep * opacityScale * outAlpha;
+    if (alpha <= 0.01) return;
+
+    const blurIn = fullInstant ? 0 : 4.5 * Math.pow(1 - p, 2);
+    const blurOut = (typeof outFadeP === 'number' && outFadeP > 0) ? 4.0 * outFadeP : 0;
+    const blurPx = Math.round((blurIn + blurOut) * 10) / 10;
+    const scaleIn = fullInstant ? 1.0 : (0.94 + 0.06 * ep);
+    const scaleOut = (typeof outFadeP === 'number' && outFadeP > 0) ? (1.0 - 0.05 * outFadeP) : 1.0;
+    const scale = scaleIn * scaleOut;
+
+    ctx.save();
+    try {
+      ctx.globalAlpha = alpha;
+      if (blurPx > 0.2 && 'filter' in ctx) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+      ctx.font = `900 ${fontSize}px "Inter", "Montserrat", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      const trackEm = -0.035;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
+
+      const boxW = Math.max(W * 0.22, measureREWidth(ctx, text, fontSize, trackEm));
+      const midY = baselineY - fontSize * 0.36;
+      ctx.translate(x, midY);
+      ctx.scale(scale, scale);
+      ctx.translate(-x, -midY);
+
+      const phase = fullInstant ? 0 : Math.sin(evalT * 1.6) * 0.03;
+      const g = ctx.createLinearGradient(
+        x - boxW * 0.52,
+        baselineY - fontSize * 0.88,
+        x + boxW * 0.52,
+        baselineY + fontSize * 0.16
+      );
+      g.addColorStop(0.00, '#FF6A08');
+      g.addColorStop(Math.max(0.06, Math.min(0.24, 0.16 + phase)), '#F24B04');
+      g.addColorStop(Math.max(0.22, Math.min(0.42, 0.34 - phase * 0.5)), '#920B04');
+      g.addColorStop(Math.max(0.40, Math.min(0.56, 0.49 + phase * 0.5)), '#7E0602');
+      g.addColorStop(Math.max(0.54, Math.min(0.70, 0.62 - phase * 0.5)), '#FA5405');
+      g.addColorStop(Math.max(0.68, Math.min(0.84, 0.76 + phase * 0.4)), '#9B0D05');
+      g.addColorStop(Math.max(0.82, Math.min(0.95, 0.89 - phase * 0.4)), '#FF5D07');
+      g.addColorStop(1.00, '#D83804');
+
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.40)';
+      ctx.shadowBlur = Math.max(4, Math.round(H * 0.006));
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = Math.round(H * 0.002);
+      ctx.fillStyle = g;
+      ctx.fillText(text, x, baselineY);
+    } finally {
+      if ('filter' in ctx) ctx.filter = 'none';
+      ctx.restore();
+    }
+  };
+
+  // Renders clean Inter white supporting words (400 light / 700-800 bold) with soft optical entrance
+  const drawCleanWhite = (ctx, text, x, baselineY, fontSize, weight, align, startTime, fadeMult, trackEm, outFadeP) => {
+    if (!text) return;
+    if (!fullInstant && evalT < startTime - 0.02) return;
+    const p = fullInstant ? 1.0 : Math.min(1.0, Math.max(0, (evalT - startTime) / 0.11));
+    const ep = easeOutCubic(p);
+    const outAlpha = (typeof outFadeP === 'number') ? Math.max(0, 1 - outFadeP) : 1.0;
+    const alpha = exitFade * fadeMult * ep * outAlpha;
+    if (alpha <= 0.01) return;
+
+    const blurIn = fullInstant ? 0 : 3.8 * Math.pow(1 - p, 2);
+    const blurOut = (typeof outFadeP === 'number' && outFadeP > 0) ? 3.5 * outFadeP : 0;
+    const blurPx = Math.round((blurIn + blurOut) * 10) / 10;
+    const scale = fullInstant ? 1.0 : (0.96 + 0.04 * ep);
+
+    ctx.save();
+    try {
+      ctx.globalAlpha = alpha;
+      if (blurPx > 0.2 && 'filter' in ctx) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+      ctx.font = `${weight} ${fontSize}px "Inter", "Montserrat", sans-serif`;
+      ctx.textAlign = align;
+      ctx.textBaseline = 'alphabetic';
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
+
+      ctx.translate(x, baselineY);
+      ctx.scale(scale, scale);
+      ctx.translate(-x, -baselineY);
+
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.44)';
+      ctx.shadowBlur = Math.max(3, Math.round(H * 0.006));
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = Math.round(H * 0.002);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(text, x, baselineY);
+    } finally {
+      if ('filter' in ctx) ctx.filter = 'none';
+      ctx.restore();
+    }
+  };
+
+  // Helper to resolve swapped-word pair visibility & fade progression cleanly
+  const resolveSwap = (aObj, bObj, fallbackSwapDelay) => {
+    const aTxt = aObj ? cleanREToken(aObj.t || aObj.word || '', true) : '';
+    const bTxt = bObj ? cleanREToken(bObj.t || bObj.word || '', true) : '';
+    const aStart = aObj ? wordStartTime(aObj, capStart) : capStart;
+    const bStart = bObj ? wordStartTime(bObj, aStart + fallbackSwapDelay) : (aStart + 999);
+    if (!aTxt || !bTxt || fullInstant) {
+      return { showA: Boolean(aTxt), aTxt, aStart, aOutP: 0, showB: Boolean(!aTxt && bTxt), bTxt, bStart };
+    }
+    const swapOutStart = bStart - 0.08;
+    const aOutP = evalT >= swapOutStart ? Math.min(1, Math.max(0, (evalT - swapOutStart) / 0.08)) : 0;
+    const showA = aOutP < 0.99;
+    const showB = evalT >= bStart - 0.02;
+    return { showA, aTxt, aStart, aOutP, showB, bTxt, bStart };
+  };
+
+  const n = words.length;
+  const heroX = Math.round(W * 0.50);
+
+  if (modeIdx === 0) {
+    // MODE 1: Split Behind-Head Depth Hero + Top Pair + Waist Hero w/ Small Centered Accent
+    let lightText = '', lightStart = capStart;
+    let boldText = '', boldStart = capStart + 0.14;
+    let topHeroObj = null, waistSmallA = null, waistSmallB = null, waistHeroObj = null;
+
+    if (isSampleCard) {
+      lightText = 'you can';
+      boldText = 'add';
+      topHeroObj = { t: 'Real', s: 0 };
+      waistSmallA = { t: 'estate', s: 0 };
+      waistHeroObj = { t: 'Captions', s: 0 };
+    } else if (n >= 6) {
+      lightText = words.slice(0, 2).map(w => cleanREToken(w.t || w.word, true)).filter(Boolean).join(' ');
+      lightStart = wordStartTime(words[0], capStart);
+      boldText = cleanREToken(words[2].t || words[2].word, false);
+      boldStart = wordStartTime(words[2], lightStart + 0.16);
+      topHeroObj = words[3];
+      waistSmallA = words[4];
+      waistHeroObj = words[5];
+      if (n >= 7) waistSmallB = words[6];
+    } else if (n === 5) {
+      lightText = cleanREToken(words[0].t || words[0].word, true);
+      lightStart = wordStartTime(words[0], capStart);
+      boldText = cleanREToken(words[1].t || words[1].word, false);
+      boldStart = wordStartTime(words[1], lightStart + 0.14);
+      topHeroObj = words[2];
+      waistSmallA = words[3];
+      waistHeroObj = words[4];
+    } else if (n === 4) {
+      lightText = cleanREToken(words[0].t || words[0].word, true);
+      lightStart = wordStartTime(words[0], capStart);
+      boldText = cleanREToken(words[1].t || words[1].word, false);
+      boldStart = wordStartTime(words[1], lightStart + 0.14);
+      topHeroObj = words[2];
+      waistHeroObj = words[3];
+    } else if (n === 3) {
+      lightText = cleanREToken(words[0].t || words[0].word, true);
+      lightStart = wordStartTime(words[0], capStart);
+      topHeroObj = words[1];
+      waistHeroObj = words[2];
+    } else if (n === 2) {
+      topHeroObj = words[0];
+      waistHeroObj = words[1];
+    } else {
+      topHeroObj = words[0];
+    }
+
+    // Dynamic head-crown tracking for Top Behind-Head Hero
+    let topHeroCenterRatio = 0.322;
+    if (!isSampleCard) {
+      const detectedTop = (typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
+        ? window._editorialHeadTopRatio
+        : null;
+      if (detectedTop !== null) {
+        const targetRatio = Math.max(0.20, Math.min(0.37, detectedTop + 0.068));
+        if (cap && typeof cap._latchedRETopRatio !== 'number') {
+          cap._latchedRETopRatio = targetRatio;
+        }
+        topHeroCenterRatio = (cap && typeof cap._latchedRETopRatio === 'number') ? cap._latchedRETopRatio : targetRatio;
+      }
+    }
+
+    const topHeroText = topHeroObj ? cleanREToken(topHeroObj.t || topHeroObj.word, false) : '';
+    const topHeroFontSize = fitREFont(targetBehind, topHeroText, 900, H * 0.133, H * 0.072, W * 0.86, -0.035);
+    const topHeroBaseY = Math.round(H * topHeroCenterRatio + topHeroFontSize * 0.36);
+
+    // Draw Top Hero on targetBehind (Layer 2 behind #personCanvas so speaker head/hair cleanly occludes it)
+    const behindOpacity = isSampleCard ? 0.96 : (isBehind && ctxBehind ? 0.98 : 0.90);
+    if (topHeroText) {
+      drawMoltenHero(targetBehind, topHeroText, heroX, topHeroBaseY, topHeroFontSize, wordStartTime(topHeroObj, capStart + 0.26), 1.0, behindOpacity);
+    }
+
+    // Top flanking pair directly along upper edge of Top Hero
+    const lightFontSize = Math.round(H * 0.039);
+    const boldFontSize = Math.round(H * 0.060);
+    const topLeadBaseY = Math.round(topHeroBaseY - topHeroFontSize * 0.71);
+    if (lightText && boldText) {
+      ctxFore.save();
+      ctxFore.font = `400 ${lightFontSize}px "Inter", "Montserrat", sans-serif`;
+      const lw = measureREWidth(ctxFore, lightText, lightFontSize, -0.02);
+      ctxFore.font = `800 ${boldFontSize}px "Inter", "Montserrat", sans-serif`;
+      const bw = measureREWidth(ctxFore, boldText, boldFontSize, -0.03);
+      ctxFore.restore();
+      const gap = Math.round(W * 0.034);
+      const startX = Math.round(heroX - (lw + gap + bw) * 0.5);
+      drawCleanWhite(ctxFore, lightText, startX, topLeadBaseY, lightFontSize, 400, 'left', lightStart, 1.0, -0.02);
+      drawCleanWhite(ctxFore, boldText, startX + lw + gap, topLeadBaseY, boldFontSize, 800, 'left', boldStart, 1.0, -0.03);
+    } else if (lightText || boldText) {
+      const txt = boldText || lightText;
+      const fs = boldText ? boldFontSize : lightFontSize;
+      const wt = boldText ? 800 : 400;
+      const ts = boldText ? boldStart : lightStart;
+      drawCleanWhite(ctxFore, txt, heroX, topLeadBaseY, fs, wt, 'center', ts, 1.0, -0.025);
+    }
+
+    // Lower Waist Molten Hero + Small White Swapping Accent inside center
+    if (waistHeroObj) {
+      const wHeroText = cleanREToken(waistHeroObj.t || waistHeroObj.word, true);
+      const wHeroSize = fitREFont(ctxFore, wHeroText, 900, H * 0.120, H * 0.062, W * 0.76, -0.038);
+      const wHeroBaseY = Math.round(H * 0.614 + wHeroSize * 0.35);
+      drawMoltenHero(ctxFore, wHeroText, heroX, wHeroBaseY, wHeroSize, wordStartTime(waistHeroObj, capStart + 0.55), 1.0, 0.90);
+
+      const smallSwap = resolveSwap(waistSmallA, waistSmallB, 0.45);
+      const smallSize = Math.round(H * 0.044);
+      const smallBaseY = Math.round(H * 0.606 + smallSize * 0.32);
+      if (smallSwap.showA) drawCleanWhite(ctxFore, smallSwap.aTxt, heroX, smallBaseY, smallSize, 700, 'center', smallSwap.aStart, 1.0, -0.02, smallSwap.aOutP);
+      if (smallSwap.showB) drawCleanWhite(ctxFore, smallSwap.bTxt, heroX, smallBaseY, smallSize, 700, 'center', smallSwap.bStart, 1.0, -0.02);
+    }
+  } else if (modeIdx === 1) {
+    // MODE 2: Mid-Torso Stack + Molten Word Swap ("this in One Click.")
+    const topObj = words[0];
+    const leadObjs = n >= 4 ? words.slice(1, n - 2) : (n === 3 ? [words[1]] : []);
+    const swapAObj = n >= 4 ? words[n - 2] : null;
+    const swapBObj = n >= 2 ? words[n - 1] : null;
+
+    if (topObj) {
+      const topTxt = cleanREToken(topObj.t || topObj.word, false);
+      const topSize = fitREFont(ctxFore, topTxt, 800, H * 0.092, H * 0.052, W * 0.58, -0.03);
+      drawCleanWhite(ctxFore, topTxt, Math.round(W * 0.415), Math.round(H * 0.556), topSize, 800, 'center', wordStartTime(topObj, capStart), 1.0, -0.03);
+    }
+
+    const botLeadTxt = leadObjs.map(w => cleanREToken(w.t || w.word, true)).filter(Boolean).join(' ');
+    const botLeadStart = leadObjs.length ? wordStartTime(leadObjs[0], capStart + 0.25) : capStart;
+    const swap = resolveSwap(swapAObj, swapBObj, 0.35);
+    const activeHeroTxt = swap.showB ? swap.bTxt : swap.aTxt;
+
+    const leadSize = Math.round(H * 0.033);
+    const fierySize = fitREFont(ctxFore, activeHeroTxt || 'Click.', 900, H * 0.064, H * 0.042, W * 0.58, -0.035);
+    const rowBaseY = Math.round(H * 0.610);
+
+    let leadX = Math.round(W * 0.34);
+    let fieryX = heroX;
+    if (botLeadTxt && (swap.showA || swap.showB)) {
+      ctxFore.save();
+      ctxFore.font = `400 ${leadSize}px "Inter", "Montserrat", sans-serif`;
+      const lw = measureREWidth(ctxFore, botLeadTxt, leadSize, -0.02);
+      ctxFore.font = `900 ${fierySize}px "Inter", "Montserrat", sans-serif`;
+      const fw = measureREWidth(ctxFore, activeHeroTxt, fierySize, -0.035);
+      ctxFore.restore();
+      const gap = Math.round(W * 0.026);
+      const leftEdge = Math.round(heroX - (lw + gap + fw) * 0.5);
+      leadX = leftEdge;
+      fieryX = Math.round(leftEdge + lw + gap + fw * 0.5);
+    }
+
+    if (botLeadTxt) drawCleanWhite(ctxFore, botLeadTxt, leadX, rowBaseY, leadSize, 400, 'left', botLeadStart, 1.0, -0.02);
+    if (swap.showA) drawMoltenHero(ctxFore, swap.aTxt, fieryX, rowBaseY, fierySize, swap.aStart, 1.0, 0.90, swap.aOutP);
+    if (swap.showB) drawMoltenHero(ctxFore, swap.bTxt, fieryX, rowBaseY, fierySize, swap.bStart, 1.0, 0.90);
+  } else {
+    // MODE 3: Flanking Edge Frame + Full-Width Molten Centerpiece ("first, go to Whitestair.com" / "and see your Sales Skyrocket.")
+    let leftObj = null, rightObj = null, tailObj = null, centerWords = [];
+    if (n >= 4) {
+      leftObj = words[0];
+      rightObj = words[1];
+      tailObj = words[2];
+      centerWords = words.slice(3);
+    } else if (n === 3) {
+      leftObj = words[0];
+      rightObj = words[1];
+      centerWords = [words[2]];
+    } else if (n === 2) {
+      leftObj = words[0];
+      centerWords = [words[1]];
+    } else {
+      centerWords = [words[0]];
+    }
+
+    const leftEdgeX = Math.round(W * 0.068);
+    const rightEdgeX = Math.round(W * 0.932);
+    const flankSize = Math.round(H * 0.032);
+    const topFlankBaseY = Math.round(H * 0.468);
+
+    if (leftObj) {
+      drawCleanWhite(ctxFore, cleanREToken(leftObj.t || leftObj.word, true), leftEdgeX, topFlankBaseY, flankSize, 400, 'left', wordStartTime(leftObj, capStart), 1.0, -0.02);
+    }
+    if (rightObj) {
+      drawCleanWhite(ctxFore, cleanREToken(rightObj.t || rightObj.word, true), rightEdgeX, topFlankBaseY, flankSize, 400, 'right', wordStartTime(rightObj, capStart + 0.08), 1.0, -0.02);
+    }
+    if (tailObj) {
+      const tailSize = Math.round(H * 0.045);
+      drawCleanWhite(ctxFore, cleanREToken(tailObj.t || tailObj.word, true), rightEdgeX, Math.round(H * 0.568), tailSize, 800, 'right', wordStartTime(tailObj, capStart + 0.16), 1.0, -0.025);
+    }
+
+    const centerText = centerWords.map(w => cleanREToken(w.t || w.word, true)).filter(Boolean).join(' ');
+    if (centerText) {
+      const centerStart = wordStartTime(centerWords[0], capStart + 0.24);
+      const centerSize = fitREFont(ctxFore, centerText, 900, H * 0.076, H * 0.044, W * 0.85, -0.035);
+      drawMoltenHero(ctxFore, centerText, heroX, Math.round(H * 0.526), centerSize, centerStart, 1.0, 0.90);
+    }
   }
 }
 
