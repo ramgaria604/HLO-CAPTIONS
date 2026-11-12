@@ -18,8 +18,8 @@
 
   /* SHEET SNAP HEIGHTS (STEP 2) */
   --sheet-closed: 0dvh;
-  --sheet-half: clamp(320px, 52dvh, 520px);
-  --sheet-full: clamp(520px, 90dvh, 900px);
+  --sheet-half: clamp(260px, 50dvh, 520px);
+  --sheet-full: 100%;
   --sheet-h: var(--sheet-closed);
 }
 
@@ -283,6 +283,7 @@ html, body {
 
 /* When drawer/sheet is open, bottom padding makes room so stage shrinks smoothly without overlap */
 .editor-body.drawer-open {
+  --sheet-h: var(--sheet-half);
   padding-bottom: var(--sheet-h, var(--sheet-half)) !important;
 }
 .editor-body:not(.drawer-open) {
@@ -610,11 +611,12 @@ html, body {
   touch-action: manipulation !important;
 }
 
-/* Sheet Scrollable Body */
+/* Sheet Scrollable Body — single unambiguous scroll container for ALL drawer tabs */
 .drawer-content {
   flex: 1 1 0 !important;
   min-height: 0 !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   overscroll-behavior: contain !important;
   touch-action: pan-y !important;
@@ -624,15 +626,32 @@ html, body {
   box-sizing: border-box !important;
 }
 
-.tab-pane {
-  flex: 1 0 auto !important;
+.tab-pane,
+#tabTemplates,
+#tabCaptions,
+#tabStyle,
+#tabBroll,
+#tabAudio {
+  flex: 0 0 auto !important;
+  height: auto !important;
   min-height: 0 !important;
+  overflow: visible !important;
+  overflow-y: visible !important;
+  overscroll-behavior: auto !important;
+  touch-action: pan-y !important;
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
   position: relative !important;
+  padding-bottom: 24px !important;
 }
-.tab-pane.hidden {
+.tab-pane.hidden,
+.tab-pane[hidden],
+#tabTemplates.hidden,
+#tabCaptions.hidden,
+#tabStyle.hidden,
+#tabBroll.hidden,
+#tabAudio.hidden {
   display: none !important;
 }
 
@@ -701,7 +720,7 @@ html, body {
   box-sizing: border-box !important;
   overflow: hidden !important;
   cursor: pointer !important;
-  touch-action: manipulation !important;
+  touch-action: pan-y !important;
 }
 
 /* Sticky Generate bar (STEP 4) */
@@ -868,6 +887,14 @@ html, body {
     flex: none !important;
     overflow: hidden !important;
     padding: 10px 16px 8px 16px !important;
+  }
+
+  .stage-wrapper,
+  .editor-body.drawer-open .stage-wrapper,
+  .editor-body:not(.drawer-open) .stage-wrapper {
+    max-height: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
   }
 
   .editor-body.drawer-open .timeline-section,

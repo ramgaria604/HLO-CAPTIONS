@@ -11575,7 +11575,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const targetId = btn.getAttribute('data-tab');
-        if (S.drawerOpen && S.activeTab === targetId) {
+        const isDesktop = window.innerWidth >= 900;
+        const isVisiblyOpen = S.drawerOpen && !drawerPanel.classList.contains('collapsed') && !drawerPanel.hasAttribute('hidden');
+        if (!isDesktop && isVisiblyOpen && S.activeTab === targetId) {
           closeDrawer();
         } else {
           openDrawerTab(targetId);
@@ -11690,17 +11692,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       syncTimelinePlayhead();
       return;
     }
+    const prevTab = S.activeTab;
     const iconChevron = $('iconDrawerChevron');
     if (iconChevron) iconChevron.style.transform = 'rotate(0deg)';
     S.activeTab = targetId;
     S.drawerOpen = true;
     drawerPanel.classList.remove('collapsed');
     drawerPanel.removeAttribute('hidden');
-    drawerPanel.style.setProperty('--sheet-h', 'var(--sheet-half)');
+    const targetSheetH = S.drawerFullscreen ? 'var(--sheet-full)' : 'var(--sheet-half)';
+    drawerPanel.style.setProperty('--sheet-h', targetSheetH);
     const eb = $('editorBody') || $('.editor-body');
     if (eb) {
       eb.classList.add('drawer-open');
-      eb.style.setProperty('--sheet-h', 'var(--sheet-half)');
+      eb.style.setProperty('--sheet-h', targetSheetH);
     }
 
     $$('.bottom-nav-btn').forEach(btn => {
@@ -11721,6 +11725,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
     });
 
+    const dc = drawerPanel.querySelector('.drawer-content');
+    if (dc && prevTab !== targetId) {
+      dc.scrollTop = 0;
+    }
+
     const titles = {
       tabTemplates: '🎨 Templates',
       tabCaptions: '📝 Captions',
@@ -11732,6 +11741,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     if (targetId === 'tabCaptions') {
       renderCaptionsList();
+      if (typeof syncTypographyUI === 'function') syncTypographyUI();
     } else if (targetId === 'tabBroll') {
       renderBrollTab();
     } else if (targetId === 'tabStyle') {
@@ -11741,8 +11751,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (chkProgressLine) {
         chkProgressLine.checked = Boolean(S.progressBar && S.progressBar.enabled === true);
       }
-    } else if (targetId === 'tabCaptions') {
-      if (typeof syncTypographyUI === 'function') syncTypographyUI();
     }
     requestAnimationFrame(() => {
       fitCanvas();
@@ -11751,6 +11759,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function closeDrawer() {
+    // On desktop side-by-side layout, inspector panel stays docked on the right
+    if (window.innerWidth >= 900) return;
     const iconChevron = $('iconDrawerChevron');
     if (iconChevron) iconChevron.style.transform = 'rotate(180deg)';
     S.drawerOpen = false;
@@ -12627,7 +12637,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             const matches = (group === 'all') || (card.getAttribute('data-style-group') === group);
             card.classList.toggle('style-filter-hidden', !matches);
           });
-          const sc = $('#drawerPanel .drawer-content');
+          const sc = document.querySelector('#drawerPanel .drawer-content');
           if (sc) sc.scrollTop = 0;
         });
       });
