@@ -16755,17 +16755,27 @@ function updateEditorialHeadTopRatio(floats, mW, mH) {
       : detectedRatio;
   }
 
-  // Copy a compact 48x64 mask grid so live preview & export share frame-safe anti-occlusion stats
+  // Copy a compact 48x64 mask grid so live preview & export share frame-safe anti-occlusion & face-avoiding stats
   const gW = 48;
   const gH = 64;
   const grid = new Float32Array(gW * gH);
+  const headRatio = (typeof window._editorialHeadTopRatio === 'number') ? window._editorialHeadTopRatio : 0.24;
+  const faceGyStart = Math.max(0, Math.floor(headRatio * gH));
+  const faceGyEnd = Math.min(gH - 1, Math.ceil(Math.min(0.66, headRatio + 0.30) * gH));
+  const torsoGyEnd = Math.min(gH - 1, Math.ceil(Math.min(0.82, headRatio + 0.56) * gH));
   let centerFg = 0;
   let centerTotal = 0;
+  let headXSum = 0, headXCount = 0;
+  let headMinX = gW, headMaxX = -1;
+  let personMinX = gW, personMaxX = -1;
+
   for (let gy = 0; gy < gH; gy++) {
     const sy = Math.min(mH - 1, Math.floor(((gy + 0.5) / gH) * mH));
     const sOff = sy * mW;
     const dOff = gy * gW;
     const inCenterY = gy >= Math.floor(gH * 0.15) && gy <= Math.ceil(gH * 0.65);
+    const inFaceY = gy >= faceGyStart && gy <= faceGyEnd;
+    const inBodyY = gy >= faceGyStart && gy <= torsoGyEnd;
     for (let gx = 0; gx < gW; gx++) {
       const sx = Math.min(mW - 1, Math.floor(((gx + 0.5) / gW) * mW));
       const v = floats[sOff + sx] || 0;
@@ -16774,14 +16784,43 @@ function updateEditorialHeadTopRatio(floats, mW, mH) {
         if (v > 0.5) centerFg++;
         centerTotal++;
       }
+      if (v > 0.52) {
+        if (inFaceY) {
+          headXSum += gx;
+          headXCount++;
+          if (gx < headMinX) headMinX = gx;
+          if (gx > headMaxX) headMaxX = gx;
+        }
+        if (inBodyY) {
+          if (gx < personMinX) personMinX = gx;
+          if (gx > personMaxX) personMaxX = gx;
+        }
+      }
     }
   }
+
+  const rawHeadLeft = headMaxX >= headMinX ? (headMinX / gW) : 0.30;
+  const rawHeadRight = headMaxX >= headMinX ? ((headMaxX + 1) / gW) : 0.70;
+  const rawHeadCenter = headXCount > 0 ? ((headXSum / headXCount + 0.5) / gW) : 0.50;
+  const rawPersonLeft = personMaxX >= personMinX ? (personMinX / gW) : rawHeadLeft;
+  const rawPersonRight = personMaxX >= personMinX ? ((personMaxX + 1) / gW) : rawHeadRight;
+
+  const prev = window._subjectMaskStats;
+  const smooth = (nextVal, prevKey) => (prev && typeof prev[prevKey] === 'number')
+    ? (prev[prevKey] * 0.65 + nextVal * 0.35)
+    : nextVal;
+
   window._subjectMaskStats = {
     floats: grid,
     w: gW,
     h: gH,
-    headTopRatio: (typeof window._editorialHeadTopRatio === 'number') ? window._editorialHeadTopRatio : 0.28,
-    centerCoverage: centerTotal > 0 ? (centerFg / centerTotal) : 0
+    headTopRatio: headRatio,
+    centerCoverage: centerTotal > 0 ? (centerFg / centerTotal) : 0,
+    headLeft: smooth(rawHeadLeft, 'headLeft'),
+    headRight: smooth(rawHeadRight, 'headRight'),
+    headCenterX: smooth(rawHeadCenter, 'headCenterX'),
+    personLeft: smooth(rawPersonLeft, 'personLeft'),
+    personRight: smooth(rawPersonRight, 'personRight')
   };
 }
 
@@ -17128,6 +17167,20 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       const activeVideoTpl = (S.style && S.style.videoTemplate) || '';
       if (activeVideoTpl === 'chronoVault' || activeVideoTpl === 'atelierZine') {
         if (vid && vid.style.opacity !== '1') vid.style.opacity = '1';
+        if (segmenterInstance && vid && vid.readyState >= 2) {
+          if (!vid.paused) {
+            const now = performance.now();
+            if (now - lastLiveSegTime >= cfg.minMaskInterval) {
+              lastLiveSegTime = now;
+              getLivePersonMask(vid, Math.round(t * 1000), w, h, false, cfg.maskDownscaleTarget, false);
+            }
+          } else if (Math.abs(t - lastPausedSegTime) > 0.02 || !window._subjectMaskStats) {
+            lastPausedSegTime = t;
+            getLivePersonMask(vid, Math.round(t * 1000), w, h, true, 160, false);
+          }
+        } else if (!segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
+          ensureSegmenterLoaded().catch(() => {});
+        }
         drawCustomVideoTemplateFrame(activeVideoTpl, ctx, behindCtx || ctx, t, w, h, isPreview, null);
         drawWatermark(ctx, w, h);
 
@@ -18556,6 +18609,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
     const { Input, Output, Mp4OutputFormat, BufferTarget, ALL_FORMATS, BlobSource, BufferSource, UrlSource } = window.Mediabunny;
 
+    const isCustomVideoTplExport = Boolean(S.style && (S.style.videoTemplate === 'chronoVault' || S.style.videoTemplate === 'atelierZine'));
     const isBehindExport = Boolean(
                   (S.style && (
         S.style.behindPerson ||
@@ -18567,11 +18621,14 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
     // PROBLEM A Point 2: Create a SEPARATE ImageSegmenter instance just for export
     let exportSegmenter = null;
-    if (isBehindExport && S.captions && S.captions.length > 0) {
+    if ((isBehindExport && S.captions && S.captions.length > 0) || isCustomVideoTplExport) {
       try {
         exportSegmenter = await createExportSegmenter();
       } catch (segLoadErr) {
-        throw new Error('Behind-person export segmenter initialization failed: ' + (segLoadErr.message || segLoadErr));
+        if (isBehindExport) {
+          throw new Error('Behind-person export segmenter initialization failed: ' + (segLoadErr.message || segLoadErr));
+        }
+        console.warn('[CUSTOM TPL SEGMENTER FALLBACK]', segLoadErr);
       }
     }
 
@@ -18850,8 +18907,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         const hasProgressBar = Boolean(S.progressBar && S.progressBar.enabled === true);
         const hasWatermark = Boolean(S.watermark && S.watermark.text && S.watermark.text.trim());
 
-        // Skip all extra drawing work on frames with no active caption or overlay
-        if (!isZoomed && !activeBroll && !hasProgressBar && !activeCap && !hasWatermark) {
+        // Skip all extra drawing work on frames with no active caption or overlay (except full-frame custom templates)
+        if (!isCustomVideoTplExport && !isZoomed && !activeBroll && !hasProgressBar && !activeCap && !hasWatermark) {
           sample.draw(ctx, 0, 0, W, H);
           lastExportMaskCanvas = null;
           exportMaskFrameIdx = 0;
@@ -18887,6 +18944,22 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         // Multi-Frame Custom Video Template Export Hook
         const exportVideoTpl = (S.style && S.style.videoTemplate) || '';
         if (exportVideoTpl === 'chronoVault' || exportVideoTpl === 'atelierZine') {
+          if (exportSegmenter) {
+            exportMaskFrameIdx++;
+            if (exportMaskFrameIdx % 3 === 1 || !window._subjectMaskStats) {
+              if (!segExportCleanCanvas) {
+                segExportCleanCanvas = document.createElement('canvas');
+                segExportCleanCtx = segExportCleanCanvas.getContext('2d');
+              }
+              if (segExportCleanCanvas.width !== W || segExportCleanCanvas.height !== H) {
+                segExportCleanCanvas.width = W;
+                segExportCleanCanvas.height = H;
+              }
+              segExportCleanCtx.clearRect(0, 0, W, H);
+              sample.draw(segExportCleanCtx, 0, 0, W, H);
+              getExportPersonMask(exportSegmenter, segExportCleanCanvas, frameMs, W, H);
+            }
+          }
           ctx.clearRect(0, 0, W, H);
           drawCustomVideoTemplateFrame(exportVideoTpl, ctx, segExportBehindCtx || ctx, t, W, H, false, sample);
           drawWatermark(ctx, W, H);
@@ -22836,20 +22909,29 @@ function initHeroLookUI() {
   }
 
   function vtGetActiveCaptionTokens(cap, t) {
-    const raw = (cap && cap.text ? cap.text : 'MAKE EVERY FRAME COUNT').trim();
     const caseMode = (S && (S.textCase || S.style?.textCase)) || 'upper';
+    const rawWords = (cap && Array.isArray(cap.words) && cap.words.length > 0) ? cap.words : null;
+    const raw = (cap && cap.text ? cap.text : (rawWords ? rawWords.map(w => w.t || w.word || '').join(' ') : 'MAKE EVERY FRAME COUNT')).trim();
     const cased = typeof applyTextCase === 'function' ? applyTextCase(raw, caseMode) : raw.toUpperCase();
-    const parts = cased.split(/\s+/).filter(Boolean);
+    const parts = rawWords
+      ? rawWords.map(w => {
+          const tok = String(w.t || w.word || '').trim();
+          return typeof applyTextCase === 'function' ? applyTextCase(tok, caseMode) : tok.toUpperCase();
+        }).filter(Boolean)
+      : cased.split(/\s+/).filter(Boolean);
+
     const cStart = Number(cap && cap.start) || 0;
     const cEnd = Number(cap && cap.end) || (cStart + 2.5);
     const dur = Math.max(0.3, cEnd - cStart);
     const prog = vtClamp((t - cStart) / dur, 0, 0.999);
     let activeWordIdx = Math.floor(prog * parts.length);
 
-    if (cap && Array.isArray(cap.words) && cap.words.length === parts.length) {
-      for (let i = 0; i < cap.words.length; i++) {
-        if (t >= (cap.words[i].start || 0) && t <= (cap.words[i].end || cEnd)) {
-          activeWordIdx = i;
+    if (rawWords && rawWords.length > 0) {
+      for (let i = 0; i < rawWords.length; i++) {
+        const ws = (typeof rawWords[i].s === 'number') ? rawWords[i].s : (Number(rawWords[i].start) || cStart);
+        const we = (typeof rawWords[i].e === 'number') ? rawWords[i].e : (Number(rawWords[i].end) || cEnd);
+        if (t >= ws && t <= we) {
+          activeWordIdx = Math.min(parts.length - 1, i);
           break;
         }
       }
@@ -22865,34 +22947,55 @@ function initHeroLookUI() {
     } = opts;
     if (!words || !words.length) return;
 
-    const animScale = 0.90 + 0.10 * vtEaseOutBack(vtClamp(enterT / 0.24, 0, 1));
+    const animScale = 0.94 + 0.06 * vtEaseOutBack(vtClamp(enterT / 0.22, 0, 1));
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(animScale, animScale);
-    ctx.font = `900 ${fontPx}px ${fontFam}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
 
-    const gap = Math.round(fontPx * 0.28 + (trackPx || 0));
-    const lines = [];
-    let curLine = [];
-    let curW = 0;
-
-    words.forEach((w, idx) => {
-      const m = Math.ceil(ctx.measureText(w).width);
-      const nextW = curLine.length === 0 ? m : (curW + gap + m);
-      if (curLine.length > 0 && (nextW > maxW || curLine.length >= 3)) {
-        lines.push({ items: curLine, width: curW });
-        curLine = [{ text: w, width: m, idx }];
-        curW = m;
-      } else {
-        curLine.push({ text: w, width: m, idx });
-        curW = nextW;
-      }
+    let effFontPx = fontPx;
+    ctx.font = `900 ${effFontPx}px ${fontFam}`;
+    let maxTokenW = 0;
+    words.forEach(w => {
+      const wW = Math.ceil(ctx.measureText(w).width);
+      if (wW > maxTokenW) maxTokenW = wW;
     });
-    if (curLine.length) lines.push({ items: curLine, width: curW });
+    if (maxTokenW > maxW * 0.92 && maxTokenW > 0) {
+      effFontPx = Math.max(16, Math.floor(effFontPx * ((maxW * 0.92) / maxTokenW)));
+      ctx.font = `900 ${effFontPx}px ${fontFam}`;
+    }
 
-    const lineStep = Math.round(fontPx * 1.18 * (lineMult || 1));
+    const gap = Math.round(effFontPx * 0.28 + (trackPx || 0));
+    const buildLines = (fPx, gPx) => {
+      ctx.font = `900 ${fPx}px ${fontFam}`;
+      const out = [];
+      let curLine = [];
+      let curW = 0;
+      words.forEach((w, idx) => {
+        const m = Math.ceil(ctx.measureText(w).width);
+        const nextW = curLine.length === 0 ? m : (curW + gPx + m);
+        if (curLine.length > 0 && (nextW > maxW || curLine.length >= 4)) {
+          out.push({ items: curLine, width: curW });
+          curLine = [{ text: w, width: m, idx }];
+          curW = m;
+        } else {
+          curLine.push({ text: w, width: m, idx });
+          curW = nextW;
+        }
+      });
+      if (curLine.length) out.push({ items: curLine, width: curW });
+      return out;
+    };
+
+    let lines = buildLines(effFontPx, gap);
+    if (lines.length > 2) {
+      effFontPx = Math.max(16, Math.floor(effFontPx * 0.84));
+      lines = buildLines(effFontPx, Math.round(effFontPx * 0.26 + (trackPx || 0)));
+    }
+
+    const effGap = Math.round(effFontPx * 0.26 + (trackPx || 0));
+    const lineStep = Math.round(effFontPx * 1.18 * (lineMult || 1));
     const totalH = (lines.length - 1) * lineStep;
 
     lines.forEach((ln, lIdx) => {
@@ -22901,45 +23004,134 @@ function initHeroLookUI() {
 
       ln.items.forEach((item) => {
         const isAct = item.idx === activeIdx;
-        const padX = Math.round(fontPx * 0.22);
-        const padY = Math.round(fontPx * 0.12);
+        const padX = Math.round(effFontPx * 0.22);
+        const padY = Math.round(effFontPx * 0.11);
 
         if (isAct && pillFill) {
           ctx.save();
           ctx.fillStyle = pillFill;
           if (glowCol && glowBlur > 0) {
             ctx.shadowColor = glowCol;
-            ctx.shadowBlur = glowBlur * 0.65;
+            ctx.shadowBlur = glowBlur * 0.45;
+          } else {
+            ctx.shadowColor = 'rgba(0,0,0,0.45)';
+            ctx.shadowBlur = Math.round(effFontPx * 0.22);
           }
-          vtRoundRect(ctx, lx - padX * 0.55, ly - fontPx * 0.58 - padY * 0.4, item.width + padX * 1.1, fontPx * 1.14 + padY * 0.8, Math.round(fontPx * 0.18));
+          vtRoundRect(ctx, lx - padX * 0.55, ly - effFontPx * 0.54 - padY * 0.35, item.width + padX * 1.1, effFontPx * 1.08 + padY * 0.7, Math.round(effFontPx * 0.20));
           ctx.fill();
           ctx.restore();
         }
 
         ctx.save();
-        if (glowCol && glowBlur > 0) {
+        if (glowCol && glowBlur > 0 && isAct && !pillFill) {
           ctx.shadowColor = glowCol;
-          ctx.shadowBlur = isAct ? glowBlur : Math.round(glowBlur * 0.35);
+          ctx.shadowBlur = glowBlur;
         } else {
-          ctx.shadowColor = 'rgba(0,0,0,0.65)';
-          ctx.shadowBlur = Math.round(fontPx * 0.18);
-          ctx.shadowOffsetY = Math.round(fontPx * 0.06);
+          ctx.shadowColor = 'rgba(0,0,0,0.72)';
+          ctx.shadowBlur = Math.round(effFontPx * 0.22);
+          ctx.shadowOffsetY = Math.round(effFontPx * 0.06);
         }
-        if (strokeCol) {
-          ctx.lineWidth = Math.max(2, Math.round(fontPx * 0.10));
+        if (strokeCol && !(isAct && pillFill)) {
+          ctx.lineWidth = Math.max(1.5, Math.round(effFontPx * 0.065));
           ctx.lineJoin = 'round';
           ctx.strokeStyle = strokeCol;
           ctx.strokeText(item.text, lx, ly);
         }
-        ctx.fillStyle = isAct ? (pillFill ? (pillText || '#090D16') : hiColor) : baseColor;
+        ctx.fillStyle = isAct ? (pillFill ? (pillText || '#070B14') : hiColor) : baseColor;
         ctx.fillText(item.text, lx, ly);
         ctx.restore();
 
-        lx += item.width + gap;
+        lx += item.width + effGap;
       });
     });
 
     ctx.restore();
+    return { totalHeight: totalH + effFontPx * 1.25, lineCount: lines.length, fontPx: effFontPx };
+  }
+
+  // Computes face & body bounding boxes from live/export MediaPipe mask stats so multi-frame
+  // template HUD cards, stickers & stamps automatically place themselves in clean non-face zones.
+  function getTemplatePersonLayoutZone(W, H, winX = 0, winY = 0, winW = W, winH = H) {
+    const s = (typeof getSubjectMaskStats === 'function') ? getSubjectMaskStats() : null;
+    const headTop = (s && typeof s.headTopRatio === 'number') ? s.headTopRatio : 0.14;
+    const headLeft = (s && typeof s.headLeft === 'number') ? s.headLeft : 0.26;
+    const headRight = (s && typeof s.headRight === 'number') ? s.headRight : 0.74;
+    const headCenterX = (s && typeof s.headCenterX === 'number') ? s.headCenterX : 0.50;
+    const personLeft = (s && typeof s.personLeft === 'number') ? s.personLeft : headLeft;
+    const personRight = (s && typeof s.personRight === 'number') ? s.personRight : headRight;
+    const centerCov = (s && typeof s.centerCoverage === 'number') ? s.centerCoverage : 0.50;
+
+    // Protect the entire head + face zone (forehead, eyes, nose, mouth, chin) with 4% breathing room
+    const facePadX = 0.045;
+    const faceRect = {
+      x0: winX + Math.max(0.06, headLeft - facePadX) * winW,
+      x1: winX + Math.min(0.94, headRight + facePadX) * winW,
+      y0: winY + Math.max(0.01, headTop - 0.02) * winH,
+      y1: winY + Math.min(0.63, headTop + 0.37) * winH
+    };
+
+    const leftFreeFrac = Math.max(0, headLeft - 0.04);
+    const rightFreeFrac = Math.max(0, 0.96 - headRight);
+    const openSide = (leftFreeFrac >= rightFreeFrac && leftFreeFrac >= 0.25)
+      ? 'left'
+      : (rightFreeFrac >= 0.25 ? 'right' : 'none');
+
+    const rectsOverlap = (a, b) => (a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
+    const clampRect = (r, w, h, padX, topMin, botMax) => {
+      const cx0 = Math.max(winX + padX, Math.min(winX + winW - padX - w, r.x0));
+      const cy0 = Math.max(topMin, Math.min(botMax - h, r.y0));
+      return { x0: Math.round(cx0), y0: Math.round(cy0), w: Math.round(w), h: Math.round(h), x1: Math.round(cx0 + w), y1: Math.round(cy0 + h) };
+    };
+
+    // Finds the highest-priority slot inside [topMin .. botMax] that never overlaps faceRect
+    const placeAvoidFace = (boxW, boxH, {
+      padX = Math.round(winW * 0.045),
+      topMin = winY + Math.round(winH * 0.085),
+      botMax = winY + Math.round(winH * 0.72),
+      preferred = ['top_center', 'open_side', 'lower_chest', 'bottom_corner']
+    } = {}) => {
+      const candidates = [];
+      preferred.forEach(kind => {
+        if (kind === 'top_center') {
+          candidates.push(clampRect({ x0: winX + (winW - boxW) * 0.5, y0: faceRect.y0 - boxH - Math.round(winH * 0.018) }, boxW, boxH, padX, topMin, botMax));
+        } else if (kind === 'open_side') {
+          if (openSide === 'left') {
+            candidates.push(clampRect({ x0: winX + padX, y0: winY + Math.round(winH * 0.16) }, boxW, boxH, padX, topMin, botMax));
+          } else if (openSide === 'right') {
+            candidates.push(clampRect({ x0: winX + winW - padX - boxW, y0: winY + Math.round(winH * 0.16) }, boxW, boxH, padX, topMin, botMax));
+          }
+          // Try whichever side corner is clear at upper corners if box is narrow
+          candidates.push(clampRect({ x0: winX + winW - padX - boxW, y0: topMin }, boxW, boxH, padX, topMin, botMax));
+          candidates.push(clampRect({ x0: winX + padX, y0: topMin }, boxW, boxH, padX, topMin, botMax));
+        } else if (kind === 'lower_chest') {
+          const chestY = Math.max(faceRect.y1 + Math.round(winH * 0.015), botMax - boxH);
+          const xPos = openSide === 'left'
+            ? (winX + padX)
+            : (openSide === 'right' ? (winX + winW - padX - boxW) : (winX + (winW - boxW) * 0.5));
+          candidates.push(clampRect({ x0: xPos, y0: chestY }, boxW, boxH, padX, topMin, botMax));
+        } else if (kind === 'bottom_corner') {
+          const sideX = (headCenterX >= 0.5) ? (winX + padX) : (winX + winW - padX - boxW);
+          candidates.push(clampRect({ x0: sideX, y0: botMax - boxH }, boxW, boxH, padX, topMin, botMax));
+        }
+      });
+
+      for (let i = 0; i < candidates.length; i++) {
+        if (!rectsOverlap(candidates[i], faceRect)) {
+          return candidates[i];
+        }
+      }
+      // Hard guarantee below face/chin zone directly above captions
+      const safeChestY = Math.min(botMax - boxH, Math.max(faceRect.y1 + 6, botMax - boxH));
+      return clampRect({ x0: winX + (winW - boxW) * 0.5, y0: safeChestY }, boxW, boxH, padX, topMin, botMax);
+    };
+
+    return {
+      headTop, headLeft, headRight, headCenterX, personLeft, personRight, centerCov,
+      faceRect, openSide,
+      hasTopHeadroom: headTop >= 0.22,
+      isTightCloseUp: (headTop < 0.17 || centerCov > 0.48),
+      placeAvoidFace
+    };
   }
 
   function drawChronoVaultTemplate(ctx, t, W, H, isPreview, videoSource, cfg, beatInfo) {
@@ -22952,50 +23144,46 @@ function initHeroLookUI() {
     const posDeltaY = ov ? ov.posDeltaY : 0;
     const lineMult = ov ? ov.lineSpacingMult : 1.0;
 
-    const { sceneIdx, tau, uBeat, duration, activeCap, beats } = beatInfo;
-    const enterT = vtEaseOutCubic(vtClamp(tau / 0.38, 0, 1));
-    const slideBack = vtEaseOutBack(vtClamp(tau / 0.42, 0, 1));
+    const { sceneIdx, tau, uBeat, duration, activeCap } = beatInfo;
+    const enterT = vtEaseOutCubic(vtClamp(tau / 0.34, 0, 1));
+    const slideBack = vtEaseOutBack(vtClamp(tau / 0.40, 0, 1));
+    const zone = getTemplatePersonLayoutZone(W, H, 0, 0, W, H);
 
-    // 1. Background video frame in export + subtle top/bottom dark vignette for crisp HUD contrast
-    const camZoom = (sceneIdx === 0 || sceneIdx === 3) ? (1.0 + 0.035 * Math.sin(uBeat * Math.PI * 0.85)) : 1.015;
+    // 1. Subtle motion camera zoom (export) + light studio edge vignette keeping speaker bright
+    const camZoom = (sceneIdx === 0 || sceneIdx === 3) ? (1.0 + 0.024 * Math.sin(uBeat * Math.PI * 0.85)) : 1.01;
     if (videoSource) {
       const zW = W * camZoom;
       const zH = H * camZoom;
       drawCoverVideo(ctx, videoSource, (W - zW) / 2, (H - zH) / 2, zW, zH);
     }
 
-    const topGrad = ctx.createLinearGradient(0, 0, 0, H * 0.24);
-    topGrad.addColorStop(0, 'rgba(7, 11, 20, 0.72)');
-    topGrad.addColorStop(1, 'rgba(7, 11, 20, 0)');
+    const topGrad = ctx.createLinearGradient(0, 0, 0, H * 0.14);
+    topGrad.addColorStop(0, 'rgba(6, 10, 18, 0.62)');
+    topGrad.addColorStop(1, 'rgba(6, 10, 18, 0)');
     ctx.fillStyle = topGrad;
-    ctx.fillRect(0, 0, W, H * 0.24);
+    ctx.fillRect(0, 0, W, H * 0.14);
 
-    const botGrad = ctx.createLinearGradient(0, H * 0.62, 0, H);
-    botGrad.addColorStop(0, 'rgba(7, 11, 20, 0)');
-    botGrad.addColorStop(1, 'rgba(7, 11, 20, 0.82)');
+    const botGrad = ctx.createLinearGradient(0, H * 0.66, 0, H);
+    botGrad.addColorStop(0, 'rgba(6, 10, 18, 0)');
+    botGrad.addColorStop(1, 'rgba(6, 10, 18, 0.80)');
     ctx.fillStyle = botGrad;
-    ctx.fillRect(0, H * 0.62, W, H * 0.38);
+    ctx.fillRect(0, H * 0.66, W, H * 0.34);
 
-    // 2. Corner Viewfinder L-Brackets
-    const padX = Math.round(W * 0.052);
-    const padTop = Math.round(H * 0.038);
-    const padBot = Math.round(H * 0.042);
-    const arm = Math.round(W * 0.068 * (sceneIdx === 0 ? (0.95 + 0.08 * Math.sin(t * 5)) : 1));
+    // 2. Refined Hairline Corner Viewfinder Marks
+    const padX = Math.round(W * 0.042);
+    const padTop = Math.round(H * 0.026);
+    const padBot = Math.round(H * 0.036);
+    const arm = Math.round(W * 0.046);
     ctx.save();
-    ctx.strokeStyle = sceneIdx === 0 ? accent : 'rgba(226, 232, 240, 0.58)';
-    ctx.lineWidth = Math.max(2, Math.round(W * 0.004));
-    ctx.lineCap = 'square';
-    if (sceneIdx === 0) {
-      ctx.shadowColor = neonGlow;
-      ctx.shadowBlur = Math.round(W * 0.018);
-    }
-    const corners = [
+    ctx.strokeStyle = sceneIdx === 0 ? accent : 'rgba(226, 232, 240, 0.44)';
+    ctx.lineWidth = Math.max(1.5, Math.round(W * 0.0028));
+    ctx.lineCap = 'round';
+    [
       [padX, padTop, 1, 1],
       [W - padX, padTop, -1, 1],
       [padX, H - padBot, 1, -1],
       [W - padX, H - padBot, -1, -1]
-    ];
-    corners.forEach(([cx0, cy0, dx, dy]) => {
+    ].forEach(([cx0, cy0, dx, dy]) => {
       ctx.beginPath();
       ctx.moveTo(cx0, cy0 + dy * arm);
       ctx.lineTo(cx0, cy0);
@@ -23004,186 +23192,165 @@ function initHeroLookUI() {
     });
     ctx.restore();
 
-    // 3. Top Glass Telemetry Pill (Header HUD)
+    // 3. Sleek Top Micro HUD Bar (tucked inside safe top edge, never drooping over forehead)
     if (cfg.showHeader !== false) {
-      const pillH = Math.round(H * 0.042);
-      const pillFontPx = Math.max(11, Math.round(W * 0.025));
+      const pillH = Math.round(H * 0.034);
+      const pillFontPx = Math.max(10, Math.round(W * 0.022));
       const hudText = (cfg.header || 'EP. 04 • VIRAL SYSTEM').toUpperCase();
       ctx.save();
       ctx.font = `700 ${pillFontPx}px ${fontFam}`;
       const txtW = ctx.measureText(hudText).width;
-      const eqW = Math.round(W * 0.062);
-      const pillW = Math.min(W * 0.78, Math.round(txtW + eqW + W * 0.11));
-      const px = Math.round(padX + W * 0.02);
-      const py = Math.round(padTop + H * 0.022 + (1 - enterT) * -Math.round(H * 0.02));
+      const eqW = Math.round(W * 0.044);
+      const pillW = Math.min(W * 0.64, Math.round(txtW + eqW + W * 0.09));
+      const px = padX + Math.round(W * 0.015);
+      const py = padTop + Math.round(H * 0.010);
 
-      ctx.globalAlpha = 0.25 + 0.75 * enterT;
-      ctx.fillStyle = 'rgba(11, 18, 34, 0.78)';
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
-      ctx.lineWidth = Math.max(1.5, Math.round(W * 0.0025));
+      ctx.globalAlpha = 0.35 + 0.65 * enterT;
+      ctx.fillStyle = 'rgba(10, 16, 30, 0.72)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.lineWidth = 1.25;
       vtRoundRect(ctx, px, py, pillW, pillH, pillH / 2);
       ctx.fill();
       ctx.stroke();
 
-      // Green pulsing live dot
-      const dotR = Math.round(pillH * 0.14);
-      const dotX = px + Math.round(pillH * 0.45);
+      const dotR = Math.max(3, Math.round(pillH * 0.12));
+      const dotX = px + Math.round(pillH * 0.42);
       const dotY = py + pillH / 2;
-      const pulse = 0.65 + 0.35 * Math.sin(t * 6.5);
+      const pulse = 0.65 + 0.35 * Math.sin(t * 6.0);
       ctx.beginPath();
-      ctx.arc(dotX, dotY, dotR * (0.9 + 0.2 * pulse), 0, Math.PI * 2);
+      ctx.arc(dotX, dotY, dotR * (0.9 + 0.18 * pulse), 0, Math.PI * 2);
       ctx.fillStyle = '#10B981';
-      ctx.shadowColor = '#10B981';
-      ctx.shadowBlur = Math.round(W * 0.015 * pulse);
       ctx.fill();
-      ctx.shadowBlur = 0;
 
-      // Header text
       ctx.fillStyle = '#F8FAFC';
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
-      ctx.fillText(hudText, dotX + dotR + Math.round(W * 0.022), dotY + 1, pillW - eqW - Math.round(W * 0.08));
+      ctx.fillText(hudText, dotX + dotR + Math.round(W * 0.018), dotY + 0.5, pillW - eqW - Math.round(W * 0.065));
 
-      // Animated audio equalizer bars on right of HUD pill
-      const barBaseX = px + pillW - eqW - Math.round(W * 0.02);
-      const barW = Math.max(2, Math.round(W * 0.006));
-      for (let b = 0; b < 4; b++) {
-        const amp = 0.35 + 0.65 * Math.abs(Math.sin(t * 8.2 + b * 1.15));
-        const bh = Math.round(pillH * 0.52 * amp);
+      const barBaseX = px + pillW - eqW - Math.round(W * 0.016);
+      const barW = Math.max(2, Math.round(W * 0.005));
+      for (let b = 0; b < 3; b++) {
+        const amp = 0.35 + 0.65 * Math.abs(Math.sin(t * 8.0 + b * 1.2));
+        const bh = Math.round(pillH * 0.48 * amp);
         ctx.fillStyle = accent;
-        vtRoundRect(ctx, barBaseX + b * (barW * 1.9), dotY - bh / 2, barW, bh, barW / 2);
+        vtRoundRect(ctx, barBaseX + b * (barW * 2.0), dotY - bh / 2, barW, bh, barW / 2);
         ctx.fill();
+      }
+
+      // Top-right micro timecode badge matching timeline cleanly without cluttering side frame
+      if (cfg.showTimeline !== false) {
+        const tsStr = `${vtFormatTime(t)} / ${vtFormatTime(duration)}`;
+        const tsFont = Math.max(9, Math.round(W * 0.020));
+        ctx.font = `700 ${tsFont}px "Space Grotesk", monospace, sans-serif`;
+        const tsW = Math.round(ctx.measureText(tsStr).width + W * 0.042);
+        const tx = W - padX - Math.round(W * 0.015) - tsW;
+        ctx.fillStyle = 'rgba(10, 16, 30, 0.72)';
+        ctx.strokeStyle = 'rgba(226, 232, 240, 0.25)';
+        vtRoundRect(ctx, tx, py, tsW, pillH, pillH / 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = accent;
+        ctx.textAlign = 'center';
+        ctx.fillText(tsStr, tx + tsW / 2, dotY + 0.5);
       }
       ctx.restore();
     }
 
-    // 4. Right-Edge Vertical Timeline Rail
+    // 4. Clean Bottom Edge Timeline Bar
     if (cfg.showTimeline !== false) {
-      const railX = W - Math.round(W * 0.042);
-      const railTop = Math.round(H * 0.22);
-      const railH = Math.round(H * 0.48);
       const prog = vtClamp(t / duration, 0, 1);
-      const fillH = Math.round(railH * prog);
-
+      const barX = padX + Math.round(W * 0.04);
+      const barW = W - barX * 2;
+      const barY = H - padBot - Math.round(H * 0.010);
+      const barH = Math.max(3, Math.round(H * 0.0032));
       ctx.save();
       ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
-      vtRoundRect(ctx, railX - 2, railTop, 4, railH, 2);
+      vtRoundRect(ctx, barX, barY, barW, barH, barH / 2);
       ctx.fill();
-
-      const rGrad = ctx.createLinearGradient(0, railTop, 0, railTop + Math.max(8, fillH));
-      rGrad.addColorStop(0, '#38BDF8');
-      rGrad.addColorStop(1, accent);
-      ctx.fillStyle = rGrad;
-      ctx.shadowColor = neonGlow;
-      ctx.shadowBlur = Math.round(W * 0.02);
-      vtRoundRect(ctx, railX - 2.5, railTop, 5, Math.max(5, fillH), 2.5);
-      ctx.fill();
-
-      // Active thumb + timestamp badge
-      const thumbY = railTop + fillH;
-      ctx.beginPath();
-      ctx.arc(railX, thumbY, Math.round(W * 0.012), 0, Math.PI * 2);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      const tsFont = Math.max(10, Math.round(W * 0.021));
-      ctx.font = `700 ${tsFont}px "Space Grotesk", monospace, sans-serif`;
-      const tsStr = vtFormatTime(t);
-      const tsW = Math.round(ctx.measureText(tsStr).width + W * 0.03);
-      const tsH = Math.round(tsFont * 1.65);
-      ctx.fillStyle = 'rgba(11, 18, 34, 0.85)';
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
-      ctx.lineWidth = 1;
-      vtRoundRect(ctx, railX - tsW - Math.round(W * 0.02), thumbY - tsH / 2, tsW, tsH, 6);
-      ctx.fill();
-      ctx.stroke();
       ctx.fillStyle = accent;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(tsStr, railX - tsW / 2 - Math.round(W * 0.02), thumbY + 0.5);
+      ctx.shadowColor = neonGlow;
+      ctx.shadowBlur = Math.round(W * 0.012);
+      vtRoundRect(ctx, barX, barY, Math.max(barH, Math.round(barW * prog)), barH, barH / 2);
+      ctx.fill();
       ctx.restore();
     }
 
-    // 5. Scene-Specific Hero Choreography (F0..F3)
-    if (sceneIdx === 0 && cfg.showCard !== false) {
-      // F0 HOOK: Sliding top-center glass Hook Banner + subtle reticle scan line
-      const bannerW = Math.round(W * 0.62);
-      const bannerH = Math.round(H * 0.056);
-      const bx = (W - bannerW) / 2;
-      const by = Math.round(H * 0.145 - (1 - slideBack) * H * 0.04);
-      const hookTxt = (cfg.tag || 'HOOK // 01').toUpperCase();
+    // Caption center Y positioned in clean lower third
+    const capCy = Math.round(H * 0.815 + posDeltaY);
+    const cardBotLimit = Math.round(capCy - H * 0.115 * fScale);
 
+    // 5. Face-Safe Adaptive Scene Element (automatically avoids detected person face)
+    if (sceneIdx === 0 && cfg.showCard !== false) {
+      // F0 HOOK TAG: Sleek compact pill positioned in clear crown/side/lower-chest slot
+      const hookTxt = `⚡ ${(cfg.tag || 'STEP 02').toUpperCase()}`;
+      const fPx = Math.max(11, Math.round(W * 0.025));
       ctx.save();
+      ctx.font = `800 ${fPx}px ${fontFam}`;
+      const pillW = Math.min(Math.round(W * 0.58), Math.round(ctx.measureText(hookTxt).width + W * 0.09));
+      const pillH = Math.round(H * 0.040);
+      const box = zone.placeAvoidFace(pillW, pillH, {
+        padX: Math.round(W * 0.05),
+        topMin: Math.round(H * 0.078),
+        botMax: cardBotLimit,
+        preferred: zone.hasTopHeadroom ? ['top_center', 'lower_chest'] : ['lower_chest', 'open_side']
+      });
       ctx.globalAlpha = enterT;
-      ctx.fillStyle = 'rgba(11, 18, 34, 0.84)';
+      ctx.fillStyle = 'rgba(10, 16, 30, 0.82)';
       ctx.strokeStyle = accent;
-      ctx.lineWidth = Math.max(1.5, Math.round(W * 0.003));
-      ctx.shadowColor = neonGlow;
-      ctx.shadowBlur = Math.round(W * 0.025);
-      vtRoundRect(ctx, bx, by, bannerW, bannerH, Math.round(bannerH * 0.28));
+      ctx.lineWidth = 1.5;
+      vtRoundRect(ctx, box.x0, box.y0, box.w, box.h, box.h / 2);
       ctx.fill();
       ctx.stroke();
-      ctx.shadowBlur = 0;
 
-      const fPx = Math.max(12, Math.round(W * 0.03));
-      ctx.font = `800 ${fPx}px ${fontFam}`;
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`⚡ ${hookTxt}`, W / 2, by + bannerH / 2 + 1, bannerW * 0.88);
+      ctx.fillText(hookTxt, box.x0 + box.w / 2, box.y0 + box.h / 2 + 0.5, box.w * 0.88);
       ctx.restore();
     } else if (sceneIdx === 1 && cfg.showCard !== false) {
-      // F1 DATA PROOF CARD: Obsidian glass stat + animated neon sparkline
-      const cardW = Math.round(W * 0.44);
-      const cardH = Math.round(H * 0.175);
-      const cx0 = W - padX - cardW - Math.round(W * 0.055);
-      const cy0 = Math.round(H * 0.165);
-      const popS = 0.82 + 0.18 * slideBack;
+      // F1 COMPACT KPI GLASS CARD: Slim horizontal metric pill + mini sparkline outside face zone
+      const cardW = Math.round(W * (zone.openSide !== 'none' ? 0.36 : 0.62));
+      const cardH = Math.round(H * 0.088);
+      const box = zone.placeAvoidFace(cardW, cardH, {
+        padX: Math.round(W * 0.05),
+        topMin: Math.round(H * 0.082),
+        botMax: cardBotLimit,
+        preferred: zone.hasTopHeadroom ? ['top_center', 'open_side', 'lower_chest'] : ['open_side', 'lower_chest']
+      });
 
       ctx.save();
       ctx.globalAlpha = enterT;
-      ctx.translate(cx0 + cardW / 2, cy0 + cardH / 2);
-      ctx.scale(popS, popS);
-      ctx.translate(-cardW / 2, -cardH / 2);
-
-      ctx.fillStyle = 'rgba(11, 18, 34, 0.86)';
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.68)';
-      ctx.lineWidth = Math.max(1.5, Math.round(W * 0.003));
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-      ctx.shadowBlur = Math.round(W * 0.04);
-      vtRoundRect(ctx, 0, 0, cardW, cardH, Math.round(W * 0.032));
+      ctx.fillStyle = 'rgba(10, 16, 30, 0.84)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.58)';
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      ctx.shadowBlur = Math.round(W * 0.025);
+      vtRoundRect(ctx, box.x0, box.y0, box.w, box.h, Math.round(box.h * 0.22));
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.stroke();
 
-      // Metric value
+      const innerPadX = Math.round(box.w * 0.08);
       const statVal = cfg.stat || '+340%';
-      const statPx = Math.max(18, Math.round(W * 0.068));
+      const statPx = Math.max(15, Math.round(W * 0.048));
       ctx.font = `900 ${statPx}px ${fontFam}`;
       ctx.fillStyle = accent;
-      ctx.shadowColor = neonGlow;
-      ctx.shadowBlur = Math.round(W * 0.022);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(statVal, Math.round(cardW * 0.1), Math.round(cardH * 0.11), cardW * 0.8);
-      ctx.shadowBlur = 0;
+      ctx.fillText(statVal, box.x0 + innerPadX, box.y0 + Math.round(box.h * 0.14), box.w * 0.46);
 
-      // Label
-      const lblPx = Math.max(10, Math.round(W * 0.024));
+      const lblPx = Math.max(9, Math.round(W * 0.020));
       ctx.font = `700 ${lblPx}px ${fontFam}`;
-      ctx.fillStyle = 'rgba(226, 232, 240, 0.88)';
-      ctx.fillText((cfg.statLabel || 'RETENTION BOOST').toUpperCase(), Math.round(cardW * 0.1), Math.round(cardH * 0.44), cardW * 0.8);
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.86)';
+      ctx.fillText((cfg.statLabel || 'RETENTION BOOST').toUpperCase(), box.x0 + innerPadX, box.y0 + Math.round(box.h * 0.62), box.w * 0.52);
 
-      // Animated cyan sparkline inside card bottom
-      const gx0 = Math.round(cardW * 0.1);
-      const gw = Math.round(cardW * 0.8);
-      const gyBase = Math.round(cardH * 0.86);
-      const gh = Math.round(cardH * 0.24);
-      const pts = [0.15, 0.42, 0.28, 0.65, 0.52, 0.96];
-      const drawProg = vtEaseOutCubic(vtClamp(tau / 0.75, 0, 1));
-      const visPts = 1 + drawProg * (pts.length - 1);
-
+      // Clean right-side mini sparkline
+      const gx0 = box.x0 + Math.round(box.w * 0.58);
+      const gw = Math.round(box.w * 0.34);
+      const gyBase = box.y0 + Math.round(box.h * 0.76);
+      const gh = Math.round(box.h * 0.46);
+      const pts = [0.18, 0.44, 0.30, 0.68, 0.54, 0.96];
+      const visPts = 1 + vtEaseOutCubic(vtClamp(tau / 0.70, 0, 1)) * (pts.length - 1);
       ctx.beginPath();
       for (let i = 0; i <= Math.floor(visPts); i++) {
         const idx = Math.min(pts.length - 1, i);
@@ -23193,144 +23360,96 @@ function initHeroLookUI() {
         else ctx.lineTo(px, py);
       }
       ctx.strokeStyle = accent;
-      ctx.lineWidth = Math.max(2, Math.round(W * 0.005));
+      ctx.lineWidth = Math.max(2, Math.round(W * 0.004));
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.shadowColor = neonGlow;
-      ctx.shadowBlur = Math.round(W * 0.018);
       ctx.stroke();
-
-      const lastIdx = Math.min(pts.length - 1, Math.floor(visPts));
-      ctx.beginPath();
-      ctx.arc(gx0 + (lastIdx / (pts.length - 1)) * gw, gyBase - pts[lastIdx] * gh, Math.round(W * 0.009), 0, Math.PI * 2);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fill();
       ctx.restore();
     } else if (sceneIdx === 2 && cfg.showCard !== false) {
-      // F2 FOCUS CHECKLIST DECK: 3 stacked sequential pills on left
+      // F2 COMPACT HORIZONTAL 3-STEP STRIP: Docks in open zone outside face
       const steps = [
-        (cfg.tag || 'STEP 01').toUpperCase(),
-        (cfg.statLabel || 'SYSTEM CORE').toUpperCase(),
-        (cfg.quote || 'EXECUTE FAST').toUpperCase().slice(0, 22)
+        (cfg.tag || 'STEP 01').toUpperCase().slice(0, 11),
+        (cfg.statLabel || 'SYSTEM').toUpperCase().slice(0, 11),
+        (cfg.stat || '+340%').toUpperCase().slice(0, 11)
       ];
-      const deckW = Math.round(W * 0.52);
-      const itemH = Math.round(H * 0.048);
-      const gapY = Math.round(H * 0.012);
-      const sx = padX + Math.round(W * 0.02);
-      const sy = Math.round(H * 0.16);
+      const stripW = Math.round(W * 0.86);
+      const stripH = Math.round(H * 0.042);
+      const box = zone.placeAvoidFace(stripW, stripH, {
+        padX: Math.round(W * 0.07),
+        topMin: Math.round(H * 0.082),
+        botMax: cardBotLimit,
+        preferred: zone.hasTopHeadroom ? ['top_center', 'lower_chest'] : ['lower_chest']
+      });
+      const gap = Math.round(W * 0.018);
+      const chipW = Math.floor((box.w - gap * 2) / 3);
       const activeRow = Math.floor(uBeat * 3) % 3;
 
       steps.forEach((lbl, idx) => {
-        const delay = idx * 0.09;
-        const rowT = vtEaseOutBack(vtClamp((tau - delay) / 0.34, 0, 1));
-        const rx = sx - (1 - rowT) * Math.round(W * 0.09);
-        const ry = sy + idx * (itemH + gapY);
+        const rowT = vtEaseOutBack(vtClamp((tau - idx * 0.08) / 0.30, 0, 1));
+        const cx0 = box.x0 + idx * (chipW + gap);
         const isOn = idx <= activeRow;
-
         ctx.save();
         ctx.globalAlpha = rowT;
-        ctx.fillStyle = isOn ? 'rgba(14, 165, 233, 0.24)' : 'rgba(11, 18, 34, 0.76)';
-        ctx.strokeStyle = isOn ? accent : 'rgba(148, 163, 184, 0.38)';
-        ctx.lineWidth = Math.max(1.5, Math.round(W * 0.0025));
-        vtRoundRect(ctx, rx, ry, deckW, itemH, Math.round(itemH * 0.28));
+        ctx.fillStyle = isOn ? 'rgba(14, 165, 233, 0.28)' : 'rgba(10, 16, 30, 0.78)';
+        ctx.strokeStyle = isOn ? accent : 'rgba(148, 163, 184, 0.34)';
+        ctx.lineWidth = 1.25;
+        vtRoundRect(ctx, cx0, box.y0, chipW, box.h, Math.round(box.h * 0.28));
         ctx.fill();
         ctx.stroke();
 
-        // Index badge
-        const badgeW = Math.round(itemH * 0.72);
-        const bPad = Math.round(itemH * 0.14);
-        ctx.fillStyle = isOn ? accent : 'rgba(255,255,255,0.12)';
-        vtRoundRect(ctx, rx + bPad, ry + bPad, badgeW, badgeW, Math.round(badgeW * 0.25));
-        ctx.fill();
-
-        ctx.font = `800 ${Math.max(10, Math.round(W * 0.022))}px ${fontFam}`;
-        ctx.fillStyle = isOn ? '#090D16' : '#CBD5E1';
+        ctx.font = `800 ${Math.max(9, Math.round(W * 0.020))}px ${fontFam}`;
+        ctx.fillStyle = isOn ? accent : '#CBD5E1';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`0${idx + 1}`, rx + bPad + badgeW / 2, ry + itemH / 2 + 0.5);
-
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#F8FAFC';
-        ctx.fillText(lbl, rx + bPad * 2 + badgeW + 2, ry + itemH / 2 + 0.5, deckW - badgeW - bPad * 4);
+        ctx.fillText(`0${idx + 1} ${lbl}`, cx0 + chipW / 2, box.y0 + box.h / 2 + 0.5, chipW * 0.88);
         ctx.restore();
       });
     } else if (sceneIdx === 3 && cfg.showCard !== false) {
-      // F3 CLIMAX SPOTLIGHT BANNER: Wide chest-height translucent sweep band + verified tag
-      const bandY = Math.round(H * 0.65 + posDeltaY * 0.45);
-      const bandH = Math.round(H * 0.21);
+      // F3 VERDICT GLOW RULE: Crisp glowing hairline separator directly framing lower-third captions
+      const ruleW = Math.round(W * 0.72 * slideBack);
+      const ruleY = Math.round(cardBotLimit + H * 0.016);
       ctx.save();
-      ctx.globalAlpha = 0.85 * enterT;
-      const bGrad = ctx.createLinearGradient(0, bandY, W, bandY);
-      bGrad.addColorStop(0, 'rgba(11, 18, 34, 0.15)');
-      bGrad.addColorStop(0.5, 'rgba(14, 165, 233, 0.28)');
-      bGrad.addColorStop(1, 'rgba(11, 18, 34, 0.15)');
-      ctx.fillStyle = bGrad;
-      ctx.fillRect(0, bandY, W, bandH);
-
-      // Top & bottom neon laser hairlines
+      ctx.globalAlpha = 0.88 * enterT;
       ctx.fillStyle = accent;
       ctx.shadowColor = neonGlow;
-      ctx.shadowBlur = Math.round(W * 0.02);
-      ctx.fillRect(W * 0.08, bandY, W * 0.84 * enterT, Math.max(2, Math.round(H * 0.0028)));
-      ctx.fillRect(W * 0.08, bandY + bandH, W * 0.84 * enterT, Math.max(2, Math.round(H * 0.0028)));
+      ctx.shadowBlur = Math.round(W * 0.018);
+      vtRoundRect(ctx, (W - ruleW) / 2, ruleY, ruleW, Math.max(2, Math.round(H * 0.0028)), 2);
+      ctx.fill();
       ctx.restore();
     }
 
-    // 6. Step Context Pill + Kinetic Caption Headline at lower zone
+    // 6. Sharp Kinetic Caption Headline + Compact Context Chip
     if (cfg.showCaptions !== false) {
       const { words, activeWordIdx } = vtGetActiveCaptionTokens(activeCap, t);
-      const capCy = Math.round(H * 0.77 + posDeltaY);
-      const stepLabels = ['01 // HOOK', (cfg.tag || 'STEP 02').toUpperCase(), '03 // BREAKDOWN', '04 // VERDICT'];
-      const chipText = stepLabels[sceneIdx] || '01 // HOOK';
-
-      // Context chip above caption
-      const chipFont = Math.max(10, Math.round(W * 0.024));
-      ctx.save();
-      ctx.font = `800 ${chipFont}px ${fontFam}`;
-      const chipW = Math.round(ctx.measureText(chipText).width + W * 0.055);
-      const chipH = Math.round(chipFont * 1.75);
-      const chipY = capCy - Math.round(H * 0.092 * fScale);
-      ctx.fillStyle = 'rgba(11, 18, 34, 0.85)';
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = Math.max(1.5, Math.round(W * 0.0025));
-      vtRoundRect(ctx, (W - chipW) / 2, chipY, chipW, chipH, Math.round(chipH * 0.35));
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = accent;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(chipText, W / 2, chipY + chipH / 2 + 0.5);
-      ctx.restore();
-
-      const capFontPx = Math.max(24, Math.round(W * 0.072 * fScale));
-      vtDrawKineticWords(ctx, {
+      const capFontPx = Math.max(22, Math.round(W * 0.068 * fScale));
+      const metrics = vtDrawKineticWords(ctx, {
         words,
         activeIdx: activeWordIdx,
         cx: W / 2,
         cy: capCy,
-        maxW: W * 0.80,
+        maxW: W * 0.84,
         fontPx: capFontPx,
         fontFam,
         baseColor: baseText,
         hiColor: accent,
         pillFill: accent,
         pillText: '#070B14',
-        strokeCol: 'rgba(7, 11, 20, 0.9)',
+        strokeCol: 'rgba(7, 11, 20, 0.85)',
         glowCol: (ov && ov.customGlowEnabled === false) ? null : neonGlow,
-        glowBlur: (ov && ov.customGlowBlur !== null) ? ov.customGlowBlur : Math.round(W * 0.022),
+        glowBlur: (ov && ov.customGlowBlur !== null) ? ov.customGlowBlur : Math.round(W * 0.018),
         lineMult,
         trackPx: ov ? Math.round(ov.letterTrackDelta * 2) : 0,
         enterT: tau
       });
 
-      // Glowing cyber beam underline beneath headline
-      const beamW = Math.round(W * (sceneIdx === 3 ? 0.56 : 0.42) * enterT);
-      const beamY = capCy + Math.round(H * 0.078 * fScale);
+      const beamW = Math.round(W * (sceneIdx === 3 ? 0.50 : 0.36) * enterT);
+      const halfBlock = metrics ? (metrics.totalHeight * 0.5) : Math.round(H * 0.068 * fScale);
+      const beamY = Math.min(H - padBot - Math.round(H * 0.026), Math.round(capCy + halfBlock + H * 0.012));
       ctx.save();
       ctx.fillStyle = accent;
       ctx.shadowColor = neonGlow;
-      ctx.shadowBlur = Math.round(W * 0.026);
-      vtRoundRect(ctx, (W - beamW) / 2, beamY, beamW, Math.max(3, Math.round(H * 0.0045)), 3);
+      ctx.shadowBlur = Math.round(W * 0.016);
+      vtRoundRect(ctx, (W - beamW) / 2, beamY, beamW, Math.max(2.5, Math.round(H * 0.0036)), 2);
       ctx.fill();
       ctx.restore();
     }
@@ -23347,20 +23466,20 @@ function initHeroLookUI() {
     const lineMult = ov ? ov.lineSpacingMult : 1.0;
 
     const { sceneIdx, tau, duration, activeCap } = beatInfo;
-    const enterT = vtEaseOutCubic(vtClamp(tau / 0.36, 0, 1));
-    const slideBack = vtEaseOutBack(vtClamp(tau / 0.44, 0, 1));
+    const enterT = vtEaseOutCubic(vtClamp(tau / 0.34, 0, 1));
+    const slideBack = vtEaseOutBack(vtClamp(tau / 0.42, 0, 1));
 
-    // Inset rounded video window geometry
-    const winX = Math.round(W * 0.078);
-    const winY = Math.round(H * 0.088);
+    // Expanded studio matte frame (~93% width, generous vertical height so subject & face never feel cramped)
+    const winX = Math.round(W * 0.036);
+    const winY = Math.round(H * 0.068);
     const winW = W - winX * 2;
-    const winH = H - Math.round(H * 0.195);
-    const winR = Math.round(W * 0.036);
+    const winH = H - Math.round(H * 0.165);
+    const winR = Math.round(W * 0.024);
+    const zone = getTemplatePersonLayoutZone(W, H, winX, winY, winW, winH);
 
-    // 1. Dark Editorial Dot-Grid Studio Matte + Inset Video Window
+    // 1. Dark Editorial Studio Matte + Rounded Inset Video Window
     ctx.save();
     if (!videoSource) {
-      // Live preview: inverse evenodd clip preserves crisp native <video> element inside window
       ctx.beginPath();
       ctx.rect(0, 0, W, H);
       ctx.moveTo(winX + winR, winY);
@@ -23376,15 +23495,6 @@ function initHeroLookUI() {
       ctx.fillStyle = ink;
       ctx.fillRect(0, 0, W, H);
     }
-
-    // Subtle paper dot-grid pattern across outer matte
-    const dotStep = Math.max(16, Math.round(W * 0.036));
-    ctx.fillStyle = 'rgba(255, 253, 247, 0.13)';
-    for (let gx = Math.round(dotStep / 2); gx < W; gx += dotStep) {
-      for (let gy = Math.round(dotStep / 2); gy < H; gy += dotStep) {
-        ctx.fillRect(gx, gy, 1.8, 1.8);
-      }
-    }
     ctx.restore();
 
     if (videoSource) {
@@ -23395,293 +23505,241 @@ function initHeroLookUI() {
       ctx.restore();
     }
 
-    // Readability dark gradient inside lower half of video window + crisp cream pinstripe border
+    // Readability gradient along bottom third of video window + crisp cream pinstripe border
     ctx.save();
     vtRoundRect(ctx, winX, winY, winW, winH, winR);
     ctx.clip();
-    const legGrad = ctx.createLinearGradient(0, winY + winH * 0.58, 0, winY + winH);
+    const legGrad = ctx.createLinearGradient(0, winY + winH * 0.64, 0, winY + winH);
     legGrad.addColorStop(0, 'rgba(20, 21, 25, 0)');
     legGrad.addColorStop(1, 'rgba(20, 21, 25, 0.78)');
     ctx.fillStyle = legGrad;
-    ctx.fillRect(winX, winY + winH * 0.58, winW, winH * 0.42);
+    ctx.fillRect(winX, winY + winH * 0.64, winW, winH * 0.36);
     ctx.restore();
 
     ctx.save();
-    ctx.strokeStyle = cream;
-    ctx.lineWidth = Math.max(2, Math.round(W * 0.0042));
+    ctx.strokeStyle = 'rgba(255, 253, 247, 0.85)';
+    ctx.lineWidth = Math.max(1.5, Math.round(W * 0.0032));
     vtRoundRect(ctx, winX, winY, winW, winH, winR);
     ctx.stroke();
     ctx.restore();
 
-    // 2. Top Editorial Ticker Strip + REC Tag
+    // 2. Clean Top Editorial Masthead Strip (strictly inside top matte band above video)
     if (cfg.showHeader !== false) {
-      const barH = Math.round(H * 0.044);
+      const barH = Math.round(H * 0.038);
       const barY = Math.round((winY - barH) / 2);
-      const barFont = Math.max(11, Math.round(W * 0.024));
+      const barFont = Math.max(10, Math.round(W * 0.022));
 
       ctx.save();
       ctx.fillStyle = cream;
-      vtRoundRect(ctx, winX, barY, winW, barH, Math.round(barH * 0.25));
+      vtRoundRect(ctx, winX, barY, winW, barH, Math.round(barH * 0.24));
       ctx.fill();
 
       const chapterTags = ['01 // COVER', '02 // INSIGHT', '03 // ARCHIVE', '04 // FINALE'];
       const chStr = chapterTags[sceneIdx] || '01 // COVER';
       ctx.font = `800 ${barFont}px ${sansFam}`;
-      const chW = Math.round(ctx.measureText(chStr).width + W * 0.045);
+      const chW = Math.round(ctx.measureText(chStr).width + W * 0.042);
 
       ctx.fillStyle = vermilion;
-      vtRoundRect(ctx, winX + winW - chW - 4, barY + 4, chW, barH - 8, Math.round(barH * 0.18));
+      vtRoundRect(ctx, winX + winW - chW - 3, barY + 3, chW, barH - 6, Math.round(barH * 0.18));
       ctx.fill();
 
       ctx.fillStyle = cream;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(chStr, winX + winW - chW / 2 - 4, barY + barH / 2 + 0.5);
+      ctx.fillText(chStr, winX + winW - chW / 2 - 3, barY + barH / 2 + 0.5);
 
       ctx.fillStyle = ink;
       ctx.textAlign = 'left';
       const headStr = (cfg.header || 'ISSUE 08 • CREATIVE DIRECTION').toUpperCase();
-      ctx.fillText(headStr, winX + Math.round(W * 0.025), barY + barH / 2 + 0.5, winW - chW - Math.round(W * 0.07));
-
-      // REC • 24FPS pill inside top-left corner of video window
-      const recFont = Math.max(10, Math.round(W * 0.021));
-      ctx.font = `700 ${recFont}px monospace, sans-serif`;
-      const recStr = 'REC • 24FPS';
-      const recW = Math.round(ctx.measureText(recStr).width + W * 0.06);
-      const recH = Math.round(recFont * 1.75);
-      const recX = winX + Math.round(W * 0.028);
-      const recY = winY + Math.round(H * 0.022);
-      ctx.fillStyle = 'rgba(20, 21, 25, 0.78)';
-      vtRoundRect(ctx, recX, recY, recW, recH, 6);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(recX + Math.round(W * 0.02), recY + recH / 2, Math.max(3, Math.round(W * 0.006)), 0, Math.PI * 2);
-      ctx.fillStyle = (Math.sin(t * 5) > -0.3) ? vermilion : 'rgba(232,93,63,0.35)';
-      ctx.fill();
-      ctx.fillStyle = cream;
-      ctx.fillText(recStr, recX + Math.round(W * 0.036), recY + recH / 2 + 0.5);
+      ctx.fillText(headStr, winX + Math.round(W * 0.024), barY + barH / 2 + 0.5, winW - chW - Math.round(W * 0.06));
       ctx.restore();
     }
 
-    // 3. Bottom Film-Perforation Scrubber Bar
+    // 3. Minimal Editorial Footer Bar (strictly inside bottom matte band below video)
     if (cfg.showTimeline !== false) {
-      const botTop = winY + winH + Math.round(H * 0.018);
+      const botTop = winY + winH + Math.round(H * 0.022);
       const prog = vtClamp(t / duration, 0, 1);
+      const trackY = botTop + Math.round(H * 0.020);
+      const tsFont = Math.max(10, Math.round(W * 0.021));
 
-      // Sprocket film notches
       ctx.save();
-      const holeW = Math.round(W * 0.028);
-      const holeH = Math.round(H * 0.011);
-      const stepX = Math.round(W * 0.056);
-      ctx.fillStyle = 'rgba(255, 253, 247, 0.24)';
-      for (let hx = winX; hx <= winX + winW - holeW; hx += stepX) {
-        vtRoundRect(ctx, hx, botTop, holeW, holeH, 2);
-        ctx.fill();
-      }
-
-      const trackY = botTop + holeH + Math.round(H * 0.024);
-      const tsFont = Math.max(10, Math.round(W * 0.022));
       ctx.font = `700 ${tsFont}px monospace, sans-serif`;
-      const sLeft = vtFormatTime(t);
-      const sRight = vtFormatTime(duration);
       ctx.fillStyle = cream;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
-      ctx.fillText(sLeft, winX, trackY);
+      ctx.fillText(vtFormatTime(t), winX, trackY);
       ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(255, 253, 247, 0.65)';
-      ctx.fillText(sRight, winX + winW, trackY);
+      ctx.fillStyle = 'rgba(255, 253, 247, 0.60)';
+      ctx.fillText(vtFormatTime(duration), winX + winW, trackY);
 
       const lineX0 = winX + Math.round(W * 0.13);
       const lineX1 = winX + winW - Math.round(W * 0.13);
       const lineW = Math.max(40, lineX1 - lineX0);
-      ctx.fillStyle = 'rgba(255, 253, 247, 0.25)';
-      ctx.fillRect(lineX0, trackY - 1.5, lineW, 3);
+      ctx.fillStyle = 'rgba(255, 253, 247, 0.22)';
+      vtRoundRect(ctx, lineX0, trackY - 1.5, lineW, 3, 1.5);
+      ctx.fill();
       ctx.fillStyle = vermilion;
-      ctx.fillRect(lineX0, trackY - 1.5, Math.round(lineW * prog), 3);
+      vtRoundRect(ctx, lineX0, trackY - 1.5, Math.max(3, Math.round(lineW * prog)), 3, 1.5);
+      ctx.fill();
 
       ctx.beginPath();
-      ctx.arc(lineX0 + lineW * prog, trackY, Math.round(W * 0.012), 0, Math.PI * 2);
+      ctx.arc(lineX0 + lineW * prog, trackY, Math.round(W * 0.009), 0, Math.PI * 2);
       ctx.fillStyle = cream;
       ctx.fill();
       ctx.strokeStyle = vermilion;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.8;
       ctx.stroke();
       ctx.restore();
     }
 
-    // 4. Scene-Specific Zine Collage Choreography (F0..F3)
+    // Caption anchor cleanly inside lower band of video window
+    const capCy = Math.round(winY + winH * 0.84 + posDeltaY * 0.65);
+    const cardBotLimit = Math.round(capCy - winH * 0.115 * fScale);
+
+    // 4. Face-Safe Editorial Scene Elements (F0..F3, guaranteed outside faceRect!)
     if (sceneIdx === 0 && cfg.showCard !== false) {
-      // F0 MAGAZINE COVER: Tilted burnt-vermilion issue stamp ribbon top-right of window
-      const lbl = (cfg.stat || 'ISSUE 08').toUpperCase();
-      const fPx = Math.max(12, Math.round(W * 0.032));
+      // F0 ISSUE BADGE: Sleek compact vermilion tab tucked strictly clear of the face
+      const lbl = (cfg.stat || 'FIG. 03').toUpperCase();
+      const fPx = Math.max(11, Math.round(W * 0.028));
       ctx.save();
       ctx.font = `900 ${fPx}px ${sansFam}`;
-      const rw = Math.round(ctx.measureText(lbl).width + W * 0.08);
-      const rh = Math.round(fPx * 1.85);
-      const rx = winX + winW - rw * 0.58 - Math.round(W * 0.03);
-      const ry = winY + Math.round(H * 0.065);
-      ctx.translate(rx, ry);
-      ctx.rotate(-0.07 * slideBack);
-      ctx.scale(slideBack, slideBack);
+      const rw = Math.min(Math.round(winW * 0.42), Math.round(ctx.measureText(lbl).width + W * 0.08));
+      const rh = Math.round(fPx * 1.72);
+      const box = zone.placeAvoidFace(rw, rh, {
+        padX: Math.round(W * 0.032),
+        topMin: winY + Math.round(winH * 0.025),
+        botMax: cardBotLimit,
+        preferred: zone.hasTopHeadroom ? ['top_center', 'open_side', 'lower_chest'] : ['open_side', 'lower_chest']
+      });
+      ctx.globalAlpha = enterT;
+      ctx.translate(box.x0 + box.w / 2, box.y0 + box.h / 2);
+      ctx.rotate(-0.04 * slideBack);
       ctx.fillStyle = ink;
-      vtRoundRect(ctx, -rw / 2 + 4, -rh / 2 + 4, rw, rh, 6);
+      vtRoundRect(ctx, -box.w / 2 + 3, -box.h / 2 + 3, box.w, box.h, 6);
       ctx.fill();
       ctx.fillStyle = vermilion;
-      vtRoundRect(ctx, -rw / 2, -rh / 2, rw, rh, 6);
+      vtRoundRect(ctx, -box.w / 2, -box.h / 2, box.w, box.h, 6);
       ctx.fill();
       ctx.fillStyle = cream;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(lbl, 0, 1);
+      ctx.fillText(lbl, 0, 0.5, box.w * 0.88);
       ctx.restore();
     } else if (sceneIdx === 1 && cfg.showCard !== false) {
-      // F1 PULL-QUOTE + TILTED KEY RULE STICKER
+      // F1 SLIM EDITORIAL PULL-QUOTE CARD: Placed below chin/on open side/above head, never over eyes
+      const qW = Math.round(winW * (zone.openSide !== 'none' ? 0.42 : 0.78));
+      const qH = Math.round(winH * 0.088);
+      const box = zone.placeAvoidFace(qW, qH, {
+        padX: Math.round(W * 0.036),
+        topMin: winY + Math.round(winH * 0.04),
+        botMax: cardBotLimit,
+        preferred: zone.hasTopHeadroom ? ['top_center', 'open_side', 'lower_chest'] : ['lower_chest', 'open_side']
+      });
+
       ctx.save();
       ctx.globalAlpha = enterT;
-
-      // Tilted cream sticker badge on left
-      const stW = Math.round(W * 0.34);
-      const stH = Math.round(H * 0.044);
-      const stX = winX + Math.round(W * 0.05) + stW / 2;
-      const stY = winY + Math.round(H * 0.14);
-      ctx.save();
-      ctx.translate(stX, stY);
-      ctx.rotate(-0.075);
-      ctx.scale(slideBack, slideBack);
       ctx.fillStyle = ink;
-      vtRoundRect(ctx, -stW / 2 + 3, -stH / 2 + 3, stW, stH, 6);
+      vtRoundRect(ctx, box.x0 + 4, box.y0 + 4, box.w, box.h, 8);
       ctx.fill();
       ctx.fillStyle = cream;
       ctx.strokeStyle = ink;
-      ctx.lineWidth = 2;
-      vtRoundRect(ctx, -stW / 2, -stH / 2, stW, stH, 6);
-      ctx.fill();
-      ctx.stroke();
-      ctx.font = `900 ${Math.max(11, Math.round(W * 0.025))}px ${sansFam}`;
-      ctx.fillStyle = ink;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('★ KEY RULE', 0, 1);
-      ctx.restore();
-
-      // Pull-quote ivory card right-below sticker
-      const qW = Math.round(winW * 0.72);
-      const qH = Math.round(H * 0.11);
-      const qX = winX + Math.round(winW * 0.06);
-      const qY = winY + Math.round(H * 0.21 + (1 - enterT) * H * 0.025);
-      ctx.fillStyle = ink;
-      vtRoundRect(ctx, qX + 5, qY + 5, qW, qH, 10);
-      ctx.fill();
-      ctx.fillStyle = cream;
-      ctx.strokeStyle = ink;
-      ctx.lineWidth = 2;
-      vtRoundRect(ctx, qX, qY, qW, qH, 10);
+      ctx.lineWidth = 1.8;
+      vtRoundRect(ctx, box.x0, box.y0, box.w, box.h, 8);
       ctx.fill();
       ctx.stroke();
 
+      const tagChip = (cfg.statLabel || 'NOTES').toUpperCase().slice(0, 12);
       const qTxt = `"${(cfg.quote || 'Contrast drives attention.').trim()}"`;
-      const qFontPx = Math.max(14, Math.round(W * 0.036));
+      const qFontPx = Math.max(12, Math.round(W * 0.030));
       ctx.font = `italic 800 ${qFontPx}px Georgia, "Times New Roman", serif`;
-      // Sweeping vermilion marker stripe inside quote card
-      const sweepW = Math.round((qW - W * 0.1) * vtEaseOutCubic(vtClamp(tau / 0.55, 0, 1)));
-      ctx.fillStyle = 'rgba(232, 93, 63, 0.28)';
-      ctx.fillRect(qX + Math.round(W * 0.045), qY + qH * 0.55, sweepW, Math.round(qH * 0.22));
+
+      const sweepW = Math.round((box.w - W * 0.08) * vtEaseOutCubic(vtClamp(tau / 0.55, 0, 1)));
+      ctx.fillStyle = 'rgba(232, 93, 63, 0.24)';
+      ctx.fillRect(box.x0 + Math.round(W * 0.036), box.y0 + box.h * 0.56, sweepW, Math.round(box.h * 0.22));
+
+      ctx.fillStyle = vermilion;
+      ctx.font = `900 ${Math.max(8, Math.round(W * 0.017))}px ${sansFam}`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`★ ${tagChip}`, box.x0 + Math.round(W * 0.036), box.y0 + Math.round(box.h * 0.14));
 
       ctx.fillStyle = ink;
-      ctx.textAlign = 'left';
+      ctx.font = `italic 800 ${qFontPx}px Georgia, "Times New Roman", serif`;
       ctx.textBaseline = 'middle';
-      ctx.fillText(qTxt, qX + Math.round(W * 0.045), qY + qH * 0.50, qW - Math.round(W * 0.09));
+      ctx.fillText(qTxt, box.x0 + Math.round(W * 0.036), box.y0 + box.h * 0.64, box.w - Math.round(W * 0.072));
       ctx.restore();
     } else if (sceneIdx === 2 && cfg.showCard !== false) {
-      // F2 ARCHIVE SPLIT SIDEBAR: Vertical cream margin index tab + registration mark
-      const tabW = Math.round(W * 0.072);
-      const tabH = Math.round(winH * 0.52);
-      const tabX = winX + winW - tabW + Math.round(W * 0.015);
-      const tabY = winY + Math.round(winH * 0.14);
+      // F2 ARCHITECTURAL ARCHIVE RAIL: Narrow edge index tab hugging the non-face border
+      const tabW = Math.round(W * 0.052);
+      const tabH = Math.round(winH * 0.34);
+      const sideX = (zone.openSide === 'left') ? (winX + 6) : (winX + winW - tabW - 6);
+      const sideY = Math.round(winY + (zone.isTightCloseUp ? winH * 0.34 : winH * 0.14));
 
       ctx.save();
       ctx.globalAlpha = enterT;
       ctx.fillStyle = cream;
       ctx.strokeStyle = ink;
-      ctx.lineWidth = 2;
-      vtRoundRect(ctx, tabX, tabY, tabW, tabH, 6);
+      ctx.lineWidth = 1.5;
+      vtRoundRect(ctx, sideX, sideY, tabW, tabH, 6);
       ctx.fill();
       ctx.stroke();
 
-      const tabText = `${(cfg.stat || 'FIG. 03').toUpperCase()}  //  ${(cfg.statLabel || 'NOTES & METRICS').toUpperCase()}`;
-      ctx.save();
-      ctx.translate(tabX + tabW / 2, tabY + tabH / 2);
+      const tabText = `${(cfg.stat || 'FIG. 03').toUpperCase()} // ${(cfg.statLabel || 'NOTES & METRICS').toUpperCase()}`;
+      ctx.translate(sideX + tabW / 2, sideY + tabH / 2);
       ctx.rotate(-Math.PI / 2);
-      ctx.font = `800 ${Math.max(10, Math.round(W * 0.023))}px monospace, sans-serif`;
+      ctx.font = `800 ${Math.max(9, Math.round(W * 0.020))}px monospace, sans-serif`;
       ctx.fillStyle = ink;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(tabText, 0, 0, tabH * 0.88);
-      ctx.restore();
-
-      // Crosshair mark bottom-left of video window
-      const chX = winX + Math.round(W * 0.08);
-      const chY = winY + Math.round(H * 0.18);
-      const chR = Math.round(W * 0.024);
-      ctx.strokeStyle = cream;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(chX, chY, chR, 0, Math.PI * 2);
-      ctx.moveTo(chX - chR * 1.4, chY);
-      ctx.lineTo(chX + chR * 1.4, chY);
-      ctx.moveTo(chX, chY - chR * 1.4);
-      ctx.lineTo(chX, chY + chR * 1.4);
-      ctx.stroke();
+      ctx.fillText(tabText, 0, 0, tabH * 0.86);
       ctx.restore();
     } else if (sceneIdx === 3 && cfg.showCard !== false) {
-      // F3 CLOSING STAMP: Brutalist stamped double-border rectangle
+      // F3 CLOSING STAMP: Compact editorial double-border pill cleanly outside face zone
       const stampTxt = (cfg.tag || 'VERIFIED').toUpperCase();
-      const fPx = Math.max(15, Math.round(W * 0.038));
+      const fPx = Math.max(12, Math.round(W * 0.030));
       ctx.save();
       ctx.font = `900 ${fPx}px ${sansFam}`;
-      const sw = Math.round(ctx.measureText(stampTxt).width + W * 0.1);
-      const sh = Math.round(fPx * 1.85);
-      const sx = winX + winW * 0.72;
-      const sy = winY + Math.round(H * 0.16);
-      const slamScale = 1.45 - 0.45 * slideBack;
+      const sw = Math.min(Math.round(winW * 0.44), Math.round(ctx.measureText(stampTxt).width + W * 0.08));
+      const sh = Math.round(fPx * 1.65);
+      const box = zone.placeAvoidFace(sw, sh, {
+        padX: Math.round(W * 0.036),
+        topMin: winY + Math.round(winH * 0.03),
+        botMax: cardBotLimit,
+        preferred: zone.hasTopHeadroom ? ['top_center', 'open_side', 'lower_chest'] : ['open_side', 'lower_chest']
+      });
+      const slamScale = 1.24 - 0.24 * slideBack;
 
       ctx.globalAlpha = enterT;
-      ctx.translate(sx, sy);
-      ctx.rotate(-0.14);
+      ctx.translate(box.x0 + box.w / 2, box.y0 + box.h / 2);
+      ctx.rotate(-0.08);
       ctx.scale(slamScale, slamScale);
 
-      ctx.fillStyle = 'rgba(20, 21, 25, 0.72)';
-      vtRoundRect(ctx, -sw / 2, -sh / 2, sw, sh, 6);
+      ctx.fillStyle = 'rgba(20, 21, 25, 0.80)';
+      vtRoundRect(ctx, -box.w / 2, -box.h / 2, box.w, box.h, 6);
       ctx.fill();
 
       ctx.strokeStyle = vermilion;
-      ctx.lineWidth = Math.max(3, Math.round(W * 0.006));
-      vtRoundRect(ctx, -sw / 2, -sh / 2, sw, sh, 6);
-      ctx.stroke();
-
-      ctx.lineWidth = 1.5;
-      vtRoundRect(ctx, -sw / 2 + 5, -sh / 2 + 5, sw - 10, sh - 10, 3);
+      ctx.lineWidth = Math.max(2, Math.round(W * 0.0045));
+      vtRoundRect(ctx, -box.w / 2, -box.h / 2, box.w, box.h, 6);
       ctx.stroke();
 
       ctx.fillStyle = vermilion;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(stampTxt, 0, 1);
+      ctx.fillText(stampTxt, 0, 0.5, box.w * 0.86);
       ctx.restore();
     }
 
     // 5. Cutout Editorial Captions inside lower video window
     if (cfg.showCaptions !== false) {
       const { words, activeWordIdx } = vtGetActiveCaptionTokens(activeCap, t);
-      const capCy = Math.round(winY + winH * 0.80 + posDeltaY * 0.7);
-      const capFontPx = Math.max(22, Math.round(W * 0.068 * fScale));
+      const capFontPx = Math.max(21, Math.round(W * 0.064 * fScale));
       vtDrawKineticWords(ctx, {
         words,
         activeIdx: activeWordIdx,
         cx: W / 2,
         cy: capCy,
-        maxW: winW * 0.86,
+        maxW: winW * 0.88,
         fontPx: capFontPx,
         fontFam: sansFam,
         baseColor: cream,
