@@ -1449,7 +1449,11 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   const alt = (st.accent2 || roles.accent2) && (capIdx % 2 === 1);
   const accentRole = (alt && (roles.accent2 || st.accent2)) || roles.accent || st.key || {};
   const caseMode = S.style?.textCase || S.textCase || st.textCase || (st.uppercase === false || accentRole.upper === false ? (accentRole.lower ? 'lower' : 'asIs') : 'upper');
-  const inkGap = typeof st.inkGap === 'number' ? st.inkGap : 0.03;
+  const stackLsRaw = (typeof S.style?.lineSpacing === 'number' && S.style.lineSpacing > 0) ? S.style.lineSpacing : 1.2;
+  const stackLineSpacingMult = Math.max(0.65, Math.min(1.8, stackLsRaw / 1.2));
+  const stackLetterDelta = (typeof S.style?.letterSpacing === 'number' && !isNaN(S.style.letterSpacing)) ? S.style.letterSpacing : 0;
+  const baseInkGap = typeof st.inkGap === 'number' ? st.inkGap : 0.03;
+  const inkGap = baseInkGap + (stackLineSpacingMult - 1.0) * 0.58;
   const posX = typeof st.posX === 'number' ? st.posX : 0.5;
   let posY = typeof S.style?.posY === 'number'
     ? S.style.posY
@@ -1723,8 +1727,8 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const basePx = getRolePx(baseRole, 60);
     const fontSpan = (accentPx + basePx) * 0.5 / H + 0.008;
     const defaultTop = Math.max(0.02, Number((heroY - fontSpan).toFixed(3)));
-    const topY = typeof st.topY === 'number' ? st.topY : defaultTop;
-    const subY = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.72;
+    const topY = (typeof st.topY === 'number' ? st.topY : defaultTop) - (stackLineSpacingMult - 1.0) * 0.035;
+    const subY = (typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.72) + (stackLineSpacingMult - 1.0) * 0.045;
 
     let topWords = [];
     let heroWords = [];
@@ -1805,13 +1809,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
   } else if (st.dubaiLuxuryStack || st.id === 'dubai_luxury_stack') {
     const accent2Role = roles.accent2 || st.accent2 || accentRole;
     const heroColor = S.style?.highlightColor || accentRole.color || '#FFC72C';
+    const userBaseCol = (S.style?._customBaseColorActive && S.style.baseColor) ? S.style.baseColor : '#FFFFFF';
     const hasWhiteSplash = (S.style?.whiteSplash !== false && st.whiteSplash !== false);
     const hasWhiteBloom = (S.style?.whiteBloom !== false && st.whiteBloom !== false);
-    const lineSpacingMult = (typeof S.style?.lineSpacing === 'number' && S.style.lineSpacing > 0)
-      ? (S.style.lineSpacing / 1.2)
-      : 1.0;
-    const lineGap3 = 0.054 * fontScale * lineSpacingMult;
-    const lineGap2 = 0.044 * fontScale * lineSpacingMult;
+    const lineSpacingMult = stackLineSpacingMult;
 
     const goldRole = Object.assign({}, accentRole, {
       color: heroColor,
@@ -1828,7 +1829,36 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       keyGradient: hasWhiteSplash ? `linear-gradient(180deg, #FFFFFF, #FFF2A8, ${heroColor}, #D99000)` : undefined
     });
 
-    lay = [];
+    const stackSequentialLines = (entries) => {
+      const measured = entries.map(({ desc, xAlign }) => {
+        const res = layoutFn([desc], { W, H, posX: xAlign, posY, inkGap: 0, maxWidth: 0.92 });
+        return res && res[0] ? res[0] : null;
+      }).filter(Boolean);
+      if (!measured.length) return [];
+      const lineHeights = measured.map((o) => Math.max(o.size * 0.85, (o.asc || o.size * 0.72) + (o.desc || o.size * 0.14)));
+      const gaps = [];
+      for (let i = 1; i < measured.length; i++) {
+        const maxAdj = Math.max(measured[i - 1].size, measured[i].size);
+        const rawGap = Math.round(maxAdj * (0.28 * lineSpacingMult + (lineSpacingMult - 1.0) * 0.40));
+        gaps.push(Math.max(Math.round(maxAdj * 0.14), rawGap));
+      }
+      const totalH = lineHeights.reduce((a, b) => a + b, 0) + gaps.reduce((a, b) => a + b, 0);
+      let curY = Math.max(H * 0.08, Math.min(H * 0.92 - totalH, posY * H - totalH * 0.5));
+      measured.forEach((o, i) => {
+        if (i > 0) curY += gaps[i - 1];
+        const asc = o.asc || o.size * 0.72;
+        const h = lineHeights[i];
+        const halfW = (o.width || o.size * 2) * 0.5;
+        o.x = Math.max(W * 0.04 + halfW, Math.min(W * 0.96 - halfW, o.x));
+        o.inkTop = Math.round(curY);
+        o.baseline = Math.round(curY + asc);
+        o.inkBottom = Math.round(curY + h);
+        o.y = Math.round((o.inkTop + o.inkBottom) * 0.5);
+        curY += h;
+      });
+      return measured;
+    };
+
     if (words.length >= 3) {
       let keyIdx = -1;
       for (let i = words.length - 1; i >= 0; i--) {
@@ -1837,103 +1867,107 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       if (keyIdx === -1) keyIdx = words.length - 1;
 
       const slots = splitThreeLinesChronological(words, keyIdx);
-      const makeSlotDesc = (seg, xAlign, yPos) => {
-        if (!seg || !seg.words.length) return;
+      const buildSlotEntry = (seg, xAlign) => {
+        if (!seg || !seg.words.length) return null;
         const desc = seg.isGold ? {
           text: seg.words.map(w => w.t.toUpperCase()).join(' '),
-          font: accentRole.font || 'Montserrat',
+          font: chosenFont || accentRole.font || 'Montserrat',
           size: Math.max(4, getRolePx(accentRole, 95)),
           weight: accentRole.weight || 900,
           italic: Boolean(accentRole.italic),
-          track: Number(accentRole.track) || -0.02,
+          track: (Number(accentRole.track) || -0.02) + stackLetterDelta,
           isHero: true,
           role: goldRole,
           words: seg.words
         } : (seg === slots.top ? {
           text: seg.words.map(w => w.t.toLowerCase()).join(' '),
-          font: accent2Role.font || 'Poppins',
+          font: chosenFont || accent2Role.font || 'Poppins',
           size: Math.max(4, getRolePx(accent2Role, 104)),
           weight: accent2Role.weight || 800,
           italic: Boolean(accent2Role.italic),
-          track: Number(accent2Role.track) || -0.03,
+          track: (Number(accent2Role.track) || -0.03) + stackLetterDelta,
           isHero: false,
-          role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
+          role: Object.assign({}, accent2Role, { color: userBaseCol, whiteBloom: hasWhiteBloom, lower: true, upper: false }),
           words: seg.words
         } : {
           text: seg.words.map(w => w.t).join(' '),
-          font: baseRole.font || 'Poppins',
+          font: chosenFont || baseRole.font || 'Poppins',
           size: Math.max(4, getRolePx(baseRole, 80)),
           weight: baseRole.weight || 700,
           italic: Boolean(baseRole.italic),
-          track: Number(baseRole.track) || -0.01,
+          track: (Number(baseRole.track) || -0.01) + stackLetterDelta,
           isHero: false,
-          role: Object.assign({}, baseRole, { color: '#FFFFFF', whiteBloom: hasWhiteBloom }),
+          role: Object.assign({}, baseRole, { color: userBaseCol, whiteBloom: hasWhiteBloom }),
           words: seg.words
         });
-        lay = lay.concat(layoutFn([desc], { W, H, posX: xAlign, posY, inkGap, maxWidth: 0.96 }));
+        return { desc, xAlign };
       };
-      makeSlotDesc(slots.top, 0.42, posY - lineGap3 * 1.0);
-      makeSlotDesc(slots.mid, 0.50, posY);
-      makeSlotDesc(slots.bot, 0.57, posY + lineGap3 * 1.0);
+      lay = stackSequentialLines([
+        buildSlotEntry(slots.top, 0.42),
+        buildSlotEntry(slots.mid, 0.50),
+        buildSlotEntry(slots.bot, 0.57)
+      ].filter(Boolean));
     } else if (words.length === 2) {
       const keyIsFirst = Boolean(words[0].key);
       const topDesc = keyIsFirst ? {
         text: words[0].t.toUpperCase(),
-        font: accentRole.font || 'Montserrat',
+        font: chosenFont || accentRole.font || 'Montserrat',
         size: Math.max(4, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
         italic: Boolean(accentRole.italic),
-        track: Number(accentRole.track) || -0.02,
+        track: (Number(accentRole.track) || -0.02) + stackLetterDelta,
         isHero: true,
         role: goldRole,
         words: [words[0]]
       } : {
         text: words[0].t.toLowerCase(),
-        font: accent2Role.font || 'Poppins',
+        font: chosenFont || accent2Role.font || 'Poppins',
         size: Math.max(4, getRolePx(accent2Role, 104)),
         weight: accent2Role.weight || 800,
         italic: Boolean(accent2Role.italic),
-        track: Number(accent2Role.track) || -0.03,
+        track: (Number(accent2Role.track) || -0.03) + stackLetterDelta,
         isHero: false,
-        role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
+        role: Object.assign({}, accent2Role, { color: userBaseCol, whiteBloom: hasWhiteBloom, lower: true, upper: false }),
         words: [words[0]]
       };
-      lay = lay.concat(layoutFn([topDesc], { W, H, posX: 0.42, posY: posY - lineGap2, inkGap, maxWidth: 0.96 }));
       const botDesc = keyIsFirst ? {
         text: words[1].t.toLowerCase(),
-        font: accent2Role.font || 'Poppins',
+        font: chosenFont || accent2Role.font || 'Poppins',
         size: Math.max(4, getRolePx(accent2Role, 104)),
         weight: accent2Role.weight || 800,
         italic: Boolean(accent2Role.italic),
-        track: Number(accent2Role.track) || -0.03,
+        track: (Number(accent2Role.track) || -0.03) + stackLetterDelta,
         isHero: false,
-        role: Object.assign({}, accent2Role, { color: '#FFFFFF', whiteBloom: hasWhiteBloom, lower: true, upper: false }),
+        role: Object.assign({}, accent2Role, { color: userBaseCol, whiteBloom: hasWhiteBloom, lower: true, upper: false }),
         words: [words[1]]
       } : {
         text: words[1].t.toUpperCase(),
-        font: accentRole.font || 'Montserrat',
+        font: chosenFont || accentRole.font || 'Montserrat',
         size: Math.max(4, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
         italic: Boolean(accentRole.italic),
-        track: Number(accentRole.track) || -0.02,
+        track: (Number(accentRole.track) || -0.02) + stackLetterDelta,
         isHero: true,
         role: goldRole,
         words: [words[1]]
       };
-      lay = lay.concat(layoutFn([botDesc], { W, H, posX: 0.57, posY: posY + lineGap2, inkGap, maxWidth: 0.96 }));
+      lay = stackSequentialLines([
+        { desc: topDesc, xAlign: 0.42 },
+        { desc: botDesc, xAlign: 0.57 }
+      ]);
     } else {
       const midDesc = {
         text: words[0].t.toUpperCase(),
-        font: accentRole.font || 'Montserrat',
+        font: chosenFont || accentRole.font || 'Montserrat',
         size: Math.max(4, getRolePx(accentRole, 95)),
         weight: accentRole.weight || 900,
         italic: Boolean(accentRole.italic),
-        track: Number(accentRole.track) || -0.02,
+        track: (Number(accentRole.track) || -0.02) + stackLetterDelta,
         isHero: true,
         role: goldRole,
         words: words
       };
-      lay = layoutFn([midDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.96 });
+      lay = layoutFn([midDesc], { W, H, posX: 0.50, posY, inkGap, maxWidth: 0.92 });
     }
   } else if (st.crazySunsetStack || st.id === 'crazy_sunset_stack') {
     const toCapTitle = (s) => (s || '').split(' ').map(w => w ? (w.charAt(0).toUpperCase() + w.slice(1)) : '').join(' ');
@@ -2088,11 +2122,11 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (smallWords.length > 0) {
       lineDescriptors.push({
         text: smallText,
-        font: baseRole.font || 'Poppins',
+        font: chosenFont || baseRole.font || 'Poppins',
         size: Math.max(4, getRolePx(baseRole, 62)),
         weight: baseRole.weight || (baseRole.bold ? 700 : 500),
         italic: Boolean(baseRole.italic),
-        track: Number(baseRole.track) || 0,
+        track: (Number(baseRole.track) || 0) + stackLetterDelta,
         isHero: false,
         role: baseRole,
         words: smallWords
@@ -2101,11 +2135,11 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (bigWords.length > 0) {
       lineDescriptors.push({
         text: bigText,
-        font: accentRole.font || 'Montserrat',
+        font: chosenFont || accentRole.font || 'Montserrat',
         size: Math.max(4, getRolePx(accentRole, 190)),
         weight: accentRole.weight || (accentRole.bold ? 900 : 800),
         italic: Boolean(accentRole.italic),
-        track: Number(accentRole.track) || 0,
+        track: (Number(accentRole.track) || 0) + stackLetterDelta,
         isHero: true,
         role: accentRole,
         words: bigWords
@@ -2136,7 +2170,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         ((typeof o.inkTop === 'number' ? o.inkTop : (o.baseline || H * 0.5) - o.size * 0.72) < origInkTop &&
           (typeof o.inkBottom === 'number' ? o.inkBottom : (o.baseline || H * 0.5)) <= origInkTop + Math.round(H * 0.06))
       ));
-      const lineGapPx = Math.round(H * 0.014);
+      const lineGapPx = Math.round(H * 0.014 * stackLineSpacingMult);
       const extraAbovePx = aboveLines.reduce((acc, l) => acc + Math.max(12, Math.round((l.asc || l.size * 0.72) + (l.desc || l.size * 0.08))) + lineGapPx, 0);
       const heroFontFn = (sz) => `${behindHero.italic ? 'italic ' : ''}${behindHero.weight || 900} ${sz}px "${behindHero.font || 'Montserrat'}", sans-serif`;
       const place = computeBehindCrownPlacement(ctxBehind || ctxFore, heroTextForPlace, {
@@ -2801,9 +2835,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (!ctx || !words || words.length === 0) return;
 
     const normScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0) ? S.style.fontScale : 1.0;
+    const normLsMult = (typeof S.style?.lineSpacing === 'number' && S.style.lineSpacing > 0) ? (S.style.lineSpacing / 1.2) : 1.0;
     const fontSize = Math.round(W * 0.056 * normScale);
     const font = `800 ${fontSize}px 'Montserrat', 'Poppins', sans-serif`;
-    const lineSpacing = fontSize * 1.34;
+    const lineSpacing = fontSize * 1.34 * normLsMult;
 
     const lines = [];
     const chunkSize = words.length >= 6 ? 4 : (words.length >= 4 ? 3 : words.length);
@@ -2945,14 +2980,15 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     // ========================================================================
     // VERTICAL PLACEMENT: BELOW (LOWER-THIRD / BOTTOM AREA OF VIDEO)
     // ========================================================================
+    const reLsMult = (typeof S.style?.lineSpacing === 'number' && S.style.lineSpacing > 0) ? (S.style.lineSpacing / 1.2) : 1.0;
     const numTopLines = data.topLines ? data.topLines.length : 0;
     const topFontSize = Math.round(W * 0.046);
-    const topLineSpacing = topFontSize * 1.30;
+    const topLineSpacing = topFontSize * 1.30 * reLsMult;
     const totalTopH = numTopLines > 0 ? (numTopLines * topLineSpacing + 6) : 0;
 
     const numBottomLines = data.bottomLines ? data.bottomLines.length : 0;
     const bottomFontSize = Math.round(W * 0.052);
-    const bottomLineSpacing = bottomFontSize * 1.30;
+    const bottomLineSpacing = bottomFontSize * 1.30 * reLsMult;
     const totalBottomH = numBottomLines > 0 ? (numBottomLines * bottomLineSpacing + 8) : 0;
 
     // Total block height
@@ -2987,7 +3023,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (numTopLines > 0) {
       if (useBigType) {
         const smallFontSize = Math.max(16, Math.round(heroFontSize * 0.32));
-        const topLineSpacing = smallFontSize + 14;
+        const topLineSpacing = (smallFontSize + 14) * reLsMult;
         data.topLines.forEach((lineChunk, lineIdx) => {
           const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toLowerCase();
           const curY = startTopY + lineIdx * topLineSpacing;
@@ -3172,7 +3208,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     if (numBottomLines > 0) {
       if (useBigType) {
         const smallFontSize = Math.max(16, Math.round(heroFontSize * 0.32));
-        const bottomLineSpacing = smallFontSize + 14;
+        const bottomLineSpacing = (smallFontSize + 14) * reLsMult;
         data.bottomLines.forEach((lineChunk, lineIdx) => {
           const lineText = lineChunk.map(w => w.t || w.word || '').join(' ').toLowerCase();
           const curLineY = startBottomY + lineIdx * bottomLineSpacing;
@@ -11477,7 +11513,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.23.0';
+    const CURRENT_PRESET_VER = 'v7.23.1';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -14265,7 +14301,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (btnStepLineSpacingDown) {
       btnStepLineSpacingDown.addEventListener('click', () => {
         if (!S.style) S.style = {};
-        S.style.lineSpacing = Math.max(0.9, Math.round(((S.style.lineSpacing || 1.2) - 0.05) * 100) / 100);
+        S.style.lineSpacing = Math.max(0.8, Math.round(((S.style.lineSpacing || 1.2) - 0.10) * 100) / 100);
         updateLineSpacingUI();
         renderCanvas();
       });
@@ -14273,7 +14309,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (btnStepLineSpacingUp) {
       btnStepLineSpacingUp.addEventListener('click', () => {
         if (!S.style) S.style = {};
-        S.style.lineSpacing = Math.min(1.8, Math.round(((S.style.lineSpacing || 1.2) + 0.05) * 100) / 100);
+        S.style.lineSpacing = Math.min(2.2, Math.round(((S.style.lineSpacing || 1.2) + 0.10) * 100) / 100);
         updateLineSpacingUI();
         renderCanvas();
       });
