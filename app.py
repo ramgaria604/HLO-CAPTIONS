@@ -1076,7 +1076,19 @@ def project_delete(pid):
 
 # ------------------------------------------------------------------ Instagram VIP Coupon & Credits
 COUPONS_FILE = WORK / "coupons.json"
-DEFAULT_COUPONS = {}
+DEFAULT_COUPONS = {
+    # 10 Exclusive Single-Use Codes (max 1 use total each, 2 free credits each)
+    "VAULT4A": {"credits": 2, "max_uses": 1},
+    "ZINE9K": {"credits": 2, "max_uses": 1},
+    "HUD3M8": {"credits": 2, "max_uses": 1},
+    "MINT6P": {"credits": 2, "max_uses": 1},
+    "APEX2R": {"credits": 2, "max_uses": 1},
+    "CLIP7W": {"credits": 2, "max_uses": 1},
+    "NEON5D": {"credits": 2, "max_uses": 1},
+    "GOLD8N": {"credits": 2, "max_uses": 1},
+    "FRAME3T": {"credits": 2, "max_uses": 1},
+    "SPARK9J": {"credits": 2, "max_uses": 1},
+}
 
 
 def load_coupons():
@@ -1408,7 +1420,8 @@ def redeem_coupon():
     # Count how many times this specific code has been redeemed globally
     code_global_uses = sum(1 for k in redeemed.keys() if k.endswith(f":{code}"))
     if not is_unlimited and max_allowed is not None and code_global_uses >= max_allowed:
-        return err("This coupon code has reached its maximum limit (used 2 times already).", 400)
+        times_word = "time" if max_allowed == 1 else "times"
+        return err(f"This coupon code has reached its maximum limit (used {max_allowed} {times_word} already).", 400)
 
     # For limited codes, also prevent the same user from redeeming twice
     user_key = f"{user_id}:{code}"
