@@ -1076,31 +1076,7 @@ def project_delete(pid):
 
 # ------------------------------------------------------------------ Instagram VIP Coupon & Credits
 COUPONS_FILE = WORK / "coupons.json"
-DEFAULT_COUPONS = {
-    # 1 Unlimited VIP Code
-    "NIKHILNOTTA1": {"credits": 100, "max_uses": None, "unlimited": True},
-
-    # 15 Secret Exclusive Codes (max 2 uses total each, 2 free credits each)
-    "HLO7X2": {"credits": 2, "max_uses": 2},
-    "VIP8K4": {"credits": 2, "max_uses": 2},
-    "REEL9M": {"credits": 2, "max_uses": 2},
-    "CAP4T1": {"credits": 2, "max_uses": 2},
-    "STAR5V": {"credits": 2, "max_uses": 2},
-    "GLOW3B": {"credits": 2, "max_uses": 2},
-    "CRE8W9": {"credits": 2, "max_uses": 2},
-    "PRO2K7": {"credits": 2, "max_uses": 2},
-    "VIRAL6": {"credits": 2, "max_uses": 2},
-    "BOOST8": {"credits": 2, "max_uses": 2},
-    "FLOW4X": {"credits": 2, "max_uses": 2},
-    "PEAK7Z": {"credits": 2, "max_uses": 2},
-    "ZOOM1Q": {"credits": 2, "max_uses": 2},
-    "SNAP9R": {"credits": 2, "max_uses": 2},
-    "FIRE2H": {"credits": 2, "max_uses": 2},
-
-    # System payment packs
-    "PACK50": {"credits": 7, "days": 7, "price": 50},
-    "PASS10": {"credits": 1, "price": 10}
-}
+DEFAULT_COUPONS = {}
 
 
 def load_coupons():
@@ -1427,7 +1403,7 @@ def redeem_coupon():
 
     # Check code usage count
     max_allowed = c_info.get("max_uses")
-    is_unlimited = c_info.get("unlimited") or (code == "NIKHILNOTTA1")
+    is_unlimited = bool(c_info.get("unlimited"))
 
     # Count how many times this specific code has been redeemed globally
     code_global_uses = sum(1 for k in redeemed.keys() if k.endswith(f":{code}"))
