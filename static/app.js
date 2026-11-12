@@ -464,6 +464,83 @@ function getLineLayer(lineObj, st, frameH) {
   return (y / (frameH || 1)) <= BEHIND_LINE_MAX_Y_RATIO ? 'behind' : 'front';
 }
 
+const BEHIND_HEAD_OVERLAP_RATIO = 0.10;
+
+/**
+ * Places a behind-person word so only `overlapRatio` (~10%) of its visible ink height
+ * sits behind the speaker's detected head crown while ~90% stays cleanly above it.
+ * Auto-shrinks down toward `minSize` if needed so high heads never clip the top edge.
+ */
+function computeBehindCrownPlacement(ctx, text, {
+  W = 720,
+  H = 1280,
+  fontFn,
+  preferredSize = 160,
+  minSize = 64,
+  trackEm = 0,
+  isSampleCard = false,
+  fallbackCrownRatio = 0.225,
+  overlapRatio = BEHIND_HEAD_OVERLAP_RATIO,
+  safeTopRatio = 0.030,
+  extraAbovePx = 0
+} = {}) {
+  const txt = String(text || '');
+  const detectedTop = (!isSampleCard && typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
+    ? window._editorialHeadTopRatio
+    : null;
+  const crownRatio = Math.max(0.11, Math.min(0.46, detectedTop !== null ? detectedTop : fallbackCrownRatio));
+  const headCrownY = Math.round(H * crownRatio);
+  const safeTopY = Math.round(H * safeTopRatio) + Math.max(0, Math.round(extraAbovePx || 0));
+
+  const measureGlyphs = (sz) => {
+    let asc = 0;
+    let desc = 0;
+    if (ctx && typeof fontFn === 'function') {
+      ctx.save();
+      try {
+        ctx.font = fontFn(sz);
+        if (trackEm && 'letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
+        const m = ctx.measureText(txt || 'H');
+        if (m && typeof m.actualBoundingBoxAscent === 'number' && m.actualBoundingBoxAscent > 0) {
+          asc = m.actualBoundingBoxAscent;
+          desc = Math.max(0, Number(m.actualBoundingBoxDescent) || 0);
+        }
+      } finally {
+        ctx.restore();
+      }
+    }
+    if (!(asc > 0)) {
+      const hasTall = /[A-Z0-9%bdfhklt!?]/.test(txt);
+      const hasDesc = /[gjpqy,]/.test(txt);
+      asc = sz * (hasTall ? 0.73 : 0.56);
+      desc = sz * (hasDesc ? 0.16 : 0.02);
+    }
+    return { asc, desc, inkH: Math.max(1, asc + desc) };
+  };
+
+  const floorMin = Math.min(minSize, preferredSize);
+  let size = Math.max(floorMin, preferredSize);
+  let glyphs = measureGlyphs(size);
+  const availAbove = Math.max(24, headCrownY - safeTopY);
+  const visibleFrac = Math.max(0.10, 1 - overlapRatio);
+  if (glyphs.inkH * visibleFrac > availAbove) {
+    const maxInkH = availAbove / visibleFrac;
+    const shrunk = Math.floor(size * (maxInkH / glyphs.inkH));
+    size = Math.max(floorMin, Math.min(size, shrunk));
+    glyphs = measureGlyphs(size);
+  }
+
+  let baseY = Math.round(headCrownY + glyphs.inkH * overlapRatio - glyphs.desc);
+  const hardTopY = Math.round(H * 0.022) + Math.max(0, Math.round(extraAbovePx || 0));
+  if (baseY - glyphs.asc < hardTopY) {
+    baseY = Math.round(hardTopY + glyphs.asc);
+  }
+  const inkTopY = Math.round(baseY - glyphs.asc);
+  const inkBotY = Math.round(baseY + glyphs.desc);
+  const centerY = Math.round((inkTopY + inkBotY) * 0.5);
+  return { size, baseY, centerY, inkTopY, inkBotY, headCrownY, asc: glyphs.asc, desc: glyphs.desc, inkH: glyphs.inkH };
+}
+
 function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll) {
   const kRole = st.key || {}, fRole = st.filler || {};
   const kSize = Math.max(24, Math.round(base * (kRole.size || 0.165)));
@@ -1041,13 +1118,28 @@ function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showA
     const hero = words[words.length - 1];
     const subtitle = words.length > 1 ? words.slice(0, -1) : [];
 
-    const fs = Math.round(base * (st.depthAccentSize || 0.22));
-    const heroY = H * (st.depthAccentY || 0.38);
-    const heroBox = { x: W / 2, y: heroY, w: W * 0.70, h: fs, fontSize: fs };
+    const targetCtx = ctxBehind || ctxFore;
+    const rawFs = Math.round(base * (st.depthAccentSize || 0.22));
+    const kStyle = st.key || {};
+    const heroFontFn = (sz) => `${kStyle.italic ? 'italic ' : ''}${kStyle.bold !== false ? 800 : 600} ${sz}px "${kStyle.font || 'Poppins'}", sans-serif`;
+    const isBehindDepth = Boolean(ctxBehind || st.behindPerson || st.depthAccent);
+    const crownPlace = isBehindDepth
+      ? computeBehindCrownPlacement(targetCtx, hero.t, {
+          W, H,
+          fontFn: heroFontFn,
+          preferredSize: rawFs,
+          minSize: Math.round(H * 0.068),
+          trackEm: Number(kStyle.track) || -0.02,
+          isSampleCard: capId === 'preview_sample',
+          fallbackCrownRatio: st.depthAccentY || 0.225
+        })
+      : null;
+    const fs = crownPlace ? crownPlace.size : rawFs;
+    const heroY = crownPlace ? Math.round(crownPlace.baseY - fs * 0.88) : H * (st.depthAccentY || 0.38);
+    const heroBox = { x: W / 2, y: heroY, w: W * 0.70, h: crownPlace ? crownPlace.inkH : fs, fontSize: fs };
     const heroStart = (hero && typeof hero.s === 'number') ? hero.s : 0;
     const capDur = Math.max(0.2, (hero.e || 1) - heroStart);
 
-    const targetCtx = ctxBehind || ctxFore;
     renderUnifiedHeroWord(targetCtx, hero.t, capIdx, heroBox, st, W, H, t, heroStart, capDur, 1.0, false, typeof vid !== 'undefined' ? vid : null, false);
 
     if (subtitle.length > 0 && ctxFore) {
@@ -1118,9 +1210,21 @@ function drawEstateDepthPass(ctxFore, ctxBehind, words, t, st, W, H, base, showA
   if (ctxHero) {
     const ctx = ctxHero;
     const heroText = hero.t.toUpperCase();
-    const fs = Math.round(base * (st.depthAccentSize || 0.22));
+    const rawFs = Math.round(base * (st.depthAccentSize || 0.22));
+    const crownPlace = ctxBehind
+      ? computeBehindCrownPlacement(ctx, heroText, {
+          W, H,
+          fontFn: (sz) => (kRole.italic ? 'italic ' : '') + (kRole.bold ? 900 : 800) + ' ' + sz + 'px ' + heroFont,
+          preferredSize: rawFs,
+          minSize: Math.round(H * 0.068),
+          isSampleCard: capId === 'preview_sample',
+          fallbackCrownRatio: st.depthAccentY || 0.225
+        })
+      : null;
+    const fs = crownPlace ? crownPlace.size : rawFs;
+    const heroYPos = crownPlace ? crownPlace.centerY : (H * (st.depthAccentY || 0.41));
     ctx.save();
-    ctx.translate(W / 2 + (heroAnim.dx || 0), H * (st.depthAccentY || 0.41) + (heroAnim.dy || 0));
+    ctx.translate(W / 2 + (heroAnim.dx || 0), heroYPos + (heroAnim.dy || 0));
     ctx.scale(heroAnim.scale || 1, heroAnim.scale || 1);
     if (typeof heroAnim.opacity === 'number') ctx.globalAlpha = heroAnim.opacity;
     ctx.font = (kRole.italic ? 'italic ' : '') + (kRole.bold ? 900 : 800) + ' ' + fs + 'px ' + heroFont;
@@ -1988,6 +2092,70 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     lay = layoutFn(lineDescriptors, { W, H, posX, posY, inkGap, maxWidth: 0.96 });
   }
 
+  // Align behind-person hero line so ~10% overlaps behind the speaker's hair crown and ~90% stays visible above it
+  const hasBehindLayerPreset = Boolean(
+    isBehind ||
+    isBehindPreset ||
+    st.behindPerson ||
+    st.depthAccent ||
+    (accentRole && accentRole.layer === 'behind')
+  );
+  if (hasBehindLayerPreset && Array.isArray(lay) && lay.length > 0) {
+    const _isInkSampleCard = Boolean(cap && cap.id === 'preview_sample');
+    const behindHero = lay.find(o => o && o.isHero && getLineLayer(o, st, H) === 'behind')
+      || lay.find(o => o && getLineLayer(o, st, H) === 'behind');
+    if (behindHero) {
+      const heroTextForPlace = behindHero.text || (behindHero.words ? behindHero.words.map(w => w.t || w.word || '').join(' ') : '');
+      const origInkTop = typeof behindHero.inkTop === 'number'
+        ? behindHero.inkTop
+        : ((behindHero.baseline || H * 0.22) - behindHero.size * 0.72);
+      const aboveLines = lay.filter(o => o && o !== behindHero && !o.isHero && (
+        o.lineType === 'top' ||
+        ((typeof o.inkTop === 'number' ? o.inkTop : (o.baseline || H * 0.5) - o.size * 0.72) < origInkTop &&
+          (typeof o.inkBottom === 'number' ? o.inkBottom : (o.baseline || H * 0.5)) <= origInkTop + Math.round(H * 0.06))
+      ));
+      const lineGapPx = Math.round(H * 0.014);
+      const extraAbovePx = aboveLines.reduce((acc, l) => acc + Math.max(12, Math.round((l.asc || l.size * 0.72) + (l.desc || l.size * 0.08))) + lineGapPx, 0);
+      const heroFontFn = (sz) => `${behindHero.italic ? 'italic ' : ''}${behindHero.weight || 900} ${sz}px "${behindHero.font || 'Montserrat'}", sans-serif`;
+      const place = computeBehindCrownPlacement(ctxBehind || ctxFore, heroTextForPlace, {
+        W,
+        H,
+        fontFn: heroFontFn,
+        preferredSize: behindHero.size || Math.round(H * 0.16),
+        minSize: Math.round(H * 0.068),
+        trackEm: Number(behindHero.track) || 0,
+        isSampleCard: _isInkSampleCard,
+        fallbackCrownRatio: typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.225,
+        extraAbovePx
+      });
+      if (place.size !== behindHero.size && behindHero.size > 0 && typeof behindHero.width === 'number') {
+        behindHero.width *= (place.size / behindHero.size);
+      }
+      behindHero.size = place.size;
+      behindHero.asc = place.asc;
+      behindHero.desc = place.desc;
+      behindHero.inkTop = place.inkTopY;
+      behindHero.baseline = place.baseY;
+      behindHero.inkBottom = place.inkBotY;
+      behindHero.y = place.centerY;
+
+      // Keep top-rim/above-hero lines cleanly above the adjusted behind word without colliding
+      let cursorBot = behindHero.inkTop - Math.round(H * 0.016);
+      for (let idxA = aboveLines.length - 1; idxA >= 0; idxA--) {
+        const topLine = aboveLines[idxA];
+        const lAsc = topLine.asc || topLine.size * 0.72;
+        const lDesc = topLine.desc || topLine.size * 0.08;
+        const nextBot = Math.max(Math.round(H * 0.022 + lAsc + lDesc), cursorBot);
+        const shiftY = nextBot - (typeof topLine.inkBottom === 'number' ? topLine.inkBottom : (topLine.baseline + lDesc));
+        topLine.inkBottom = Math.round(nextBot);
+        topLine.baseline = Math.round(nextBot - lDesc);
+        topLine.inkTop = Math.round(topLine.baseline - lAsc);
+        if (typeof topLine.y === 'number') topLine.y += shiftY;
+        cursorBot = topLine.inkTop - lineGapPx;
+      }
+    }
+  }
+
   window._capdbgKeys = window._capdbgKeys || new Set();
   const capDbgKey = `${W}x${H}|${S.style && S.style.lineSpacing}`;
   if (!window._capdbgKeys.has(capDbgKey)) {
@@ -2030,7 +2198,9 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         const heroStart = (heroWordObj && typeof heroWordObj.s === 'number') ? heroWordObj.s : cap.start;
         const heroBox = {
           x: Math.round(o.x - (o.width || o.size * 2) / 2),
-          y: Math.round(o.inkTop || (o.baseline - o.size * 0.86)),
+          y: Math.round((isBehindPerson && typeof o.baseline === 'number')
+            ? (o.baseline - o.size * 0.88)
+            : (o.inkTop || (o.baseline - o.size * 0.86))),
           w: Math.round(o.width || (o.size * (heroText.length * 0.56))),
           h: Math.round(o.asc + o.desc || o.size * 0.90),
           fontSize: Math.round(o.size),
@@ -4618,22 +4788,29 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     }
 
     const heroX = Math.round(W * 0.50);
-    // Align Top Hero behind the detected person's hair crown so the head cuts cleanly in front (fallback 0.182)
-    let topCenterRatio = 0.182;
-    if (!isSampleCard && slot === 'top') {
-      const detectedTop = (typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
-        ? window._editorialHeadTopRatio
-        : null;
-      if (detectedTop !== null) {
-        const targetRatio = Math.max(0.160, Math.min(0.34, detectedTop + 0.010));
-        if (cap && typeof cap._latchedEditorialTopRatio !== 'number') {
-          cap._latchedEditorialTopRatio = targetRatio;
-        }
-        topCenterRatio = (cap && typeof cap._latchedEditorialTopRatio === 'number') ? cap._latchedEditorialTopRatio : targetRatio;
-      }
+    // For Top Hero: place ~10% of the word height behind the detected hair crown (~90% visible above); Waist stays lower-third
+    let heroBaselineY;
+    let heroInkTopY;
+    if (slot === 'top') {
+      const crownPlace = computeBehindCrownPlacement(targetBehind, heroText, {
+        W,
+        H,
+        fontFn: (sz) => `900 ${sz}px "Poppins", "Montserrat", sans-serif`,
+        preferredSize: heroFontSize,
+        minSize: Math.round(H * 0.068),
+        trackEm: -0.068,
+        isSampleCard,
+        fallbackCrownRatio: 0.225,
+        extraAbovePx: (leadList && leadList.length > 0) ? Math.round(H * 0.048) : 0
+      });
+      heroFontSize = crownPlace.size;
+      heroBaselineY = crownPlace.baseY;
+      heroInkTopY = crownPlace.inkTopY;
+    } else {
+      const heroCenterY = Math.round(H * 0.620);
+      heroBaselineY = Math.round(heroCenterY + heroFontSize * 0.28);
+      heroInkTopY = Math.round(heroBaselineY - heroFontSize * 0.58);
     }
-    const heroCenterY = slot === 'top' ? Math.round(H * topCenterRatio) : Math.round(H * 0.620);
-    const heroBaselineY = Math.round(heroCenterY + heroFontSize * 0.28);
 
     // Hero entrance curve ("how it comes"): slides gently rightwards into center while sharpening out of blur
     const heroAge = fullInstant ? 1.0 : Math.max(0, evalT - heroStart);
@@ -4707,8 +4884,11 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         leadFontSize = Math.max(Math.round(H * 0.022), Math.floor(leadFontSize * (maxLeadW / rawLeadW)));
       }
 
-      // Baseline kisses top x-height of Hero word cleanly
-      const leadBaselineY = Math.round(heroBaselineY - heroFontSize * 0.54);
+      // Baseline hugs top rim of Hero word while keeping safe clearance from top frame edge
+      const leadBaselineY = Math.max(
+        Math.round(H * 0.025 + leadFontSize * 0.80),
+        Math.round(Math.min(heroBaselineY - heroFontSize * 0.54, heroInkTopY - Math.round(H * 0.004)))
+      );
 
       ctxFore.save();
       try {
@@ -5747,16 +5927,8 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     return bestI;
   };
 
-  // Dynamic head-crown alignment
-  const detectedTop = (!isSampleCard && typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
-    ? window._editorialHeadTopRatio
-    : null;
-  if (detectedTop !== null && cap && typeof cap._latchedPrismTopRatio !== 'number') {
-    cap._latchedPrismTopRatio = Math.max(0.14, Math.min(0.32, detectedTop));
-  }
-  const headCrown = (cap && typeof cap._latchedPrismTopRatio === 'number') ? cap._latchedPrismTopRatio : 0.215;
+  // Dynamic head-crown alignment (places behind word via computeBehindCrownPlacement with ~10% overlap)
   const heroX = Math.round(W * 0.50);
-  const behindCenterY = Math.round(H * Math.max(0.18, Math.min(0.30, headCrown + 0.026)));
   const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
 
   const numIdx = words.findIndex(w => isMultiplierNum(w.t || w.word || ''));
@@ -5795,8 +5967,14 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 
     // 1. Giant Frosted Ice Glass Word on targetBehind
     const behindFontFn = (sz) => `900 ${sz}px "Montserrat", "Poppins", sans-serif`;
-    const bSize = fitPGFont(targetBehind, behindTxt, behindFontFn, H * 0.165 * fontScale, H * 0.070, W * 0.88, -0.025);
-    const bBaseY = Math.round(behindCenterY + bSize * 0.34);
+    const rawBSize = fitPGFont(targetBehind, behindTxt, behindFontFn, H * 0.165 * fontScale, H * 0.070, W * 0.88, -0.025);
+    const bPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: behindFontFn, preferredSize: rawBSize, minSize: Math.round(H * 0.068),
+      trackEm: -0.025, isSampleCard, fallbackCrownRatio: 0.225
+    });
+    const bSize = bPlace.size;
+    const bBaseY = bPlace.baseY;
+    const behindCenterY = bPlace.centerY;
     const bP = fullInstant ? 1.0 : (evalT >= heroStart - 0.03 ? Math.min(1, Math.max(0, (evalT - heroStart) / 0.18)) : 0);
     if (bP > 0.01) {
       const bep = easeOutCubic(bP);
@@ -6018,8 +6196,14 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 
     // 1. Brushed Metallic Chrome Word on targetBehind
     const chromeFontFn = (sz) => `900 ${sz}px "Montserrat", "Poppins", sans-serif`;
-    const cSize = fitPGFont(targetBehind, behindTxt, chromeFontFn, H * 0.165 * fontScale, H * 0.072, W * 0.88, -0.025);
-    const cBaseY = Math.round(behindCenterY + cSize * 0.34);
+    const rawCSize = fitPGFont(targetBehind, behindTxt, chromeFontFn, H * 0.165 * fontScale, H * 0.072, W * 0.88, -0.025);
+    const cPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: chromeFontFn, preferredSize: rawCSize, minSize: Math.round(H * 0.068),
+      trackEm: -0.025, isSampleCard, fallbackCrownRatio: 0.225
+    });
+    const cSize = cPlace.size;
+    const cBaseY = cPlace.baseY;
+    const behindCenterY = cPlace.centerY;
     const cP = fullInstant ? 1.0 : (evalT >= heroStart - 0.03 ? Math.min(1, Math.max(0, (evalT - heroStart) / 0.18)) : 0);
     if (cP > 0.01) {
       const cep = easeOutCubic(cP);
@@ -6147,8 +6331,14 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     // 1. Hollow Fine Champagne-Gold Hairline on targetBehind
     const outFontFn = (sz) => `700 ${sz}px "Montserrat", "Poppins", sans-serif`;
     const isShortNum = behindTxt.length <= 3;
-    const oSize = fitPGFont(targetBehind, behindTxt, outFontFn, H * (isShortNum ? 0.34 : 0.18) * fontScale, H * 0.080, W * 0.84, -0.025);
-    const oBaseY = Math.round(behindCenterY + oSize * 0.36);
+    const rawOSize = fitPGFont(targetBehind, behindTxt, outFontFn, H * (isShortNum ? 0.34 : 0.18) * fontScale, H * 0.080, W * 0.84, -0.025);
+    const oPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: outFontFn, preferredSize: rawOSize, minSize: Math.round(H * 0.075),
+      trackEm: -0.025, isSampleCard, fallbackCrownRatio: 0.24
+    });
+    const oSize = oPlace.size;
+    const oBaseY = oPlace.baseY;
+    const behindCenterY = oPlace.centerY;
     const oP = fullInstant ? 1.0 : (evalT >= heroStart - 0.03 ? Math.min(1, Math.max(0, (evalT - heroStart) / 0.18)) : 0);
     if (oP > 0.01) {
       const oep = easeOutCubic(oP);
@@ -6320,15 +6510,7 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
     return bestI;
   };
 
-  const detectedTop = (!isSampleCard && typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
-    ? window._editorialHeadTopRatio
-    : null;
-  if (detectedTop !== null && cap && typeof cap._latchedCollageTopRatio !== 'number') {
-    cap._latchedCollageTopRatio = Math.max(0.13, Math.min(0.30, detectedTop));
-  }
-  const headCrown = (cap && typeof cap._latchedCollageTopRatio === 'number') ? cap._latchedCollageTopRatio : 0.21;
   const heroX = Math.round(W * 0.50);
-  const behindCenterY = Math.round(H * Math.max(0.17, Math.min(0.285, headCrown + 0.022)));
   const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
   const styleMode = isSampleCard ? 1 : ((capIdx % 4) + 1);
 
@@ -6418,8 +6600,14 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
 
     // 1. Matte Crimson Condensed Behind Head
     const crimFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const cSize = fitKCFont(targetBehind, behindTxt, crimFontFn, H * 0.255 * fontScale, H * 0.11, W * 0.88, -0.01);
-    const cBaseY = Math.round(behindCenterY + cSize * 0.36);
+    const rawCSize = fitKCFont(targetBehind, behindTxt, crimFontFn, H * 0.255 * fontScale, H * 0.11, W * 0.88, -0.01);
+    const cPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: crimFontFn, preferredSize: rawCSize, minSize: Math.round(H * 0.085),
+      trackEm: -0.01, isSampleCard, fallbackCrownRatio: 0.225
+    });
+    const cSize = cPlace.size;
+    const cBaseY = cPlace.baseY;
+    const behindCenterY = cPlace.centerY;
     const bP = fullInstant ? 1.0 : (evalT >= bStart - 0.03 ? Math.min(1, Math.max(0, (evalT - bStart) / 0.18)) : 0);
     if (bP > 0.01) {
       const bep = easeOutCubic(bP);
@@ -6556,8 +6744,13 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
 
     // 1. Hollow Ivory Serif Behind Head
     const serifFontFn = (sz) => `700 ${sz}px "Cinzel", "Playfair Display", Georgia, serif`;
-    const oSize = fitKCFont(targetBehind, behindTxt, serifFontFn, H * (behindTxt.length <= 4 ? 0.21 : 0.16) * fontScale, H * 0.075, W * 0.88, 0.03);
-    const oBaseY = Math.round(behindCenterY + oSize * 0.34);
+    const rawOSize = fitKCFont(targetBehind, behindTxt, serifFontFn, H * (behindTxt.length <= 4 ? 0.21 : 0.16) * fontScale, H * 0.075, W * 0.88, 0.03);
+    const oPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: serifFontFn, preferredSize: rawOSize, minSize: Math.round(H * 0.070),
+      trackEm: 0.03, isSampleCard, fallbackCrownRatio: 0.225
+    });
+    const oSize = oPlace.size;
+    const oBaseY = oPlace.baseY;
     const oP = fullInstant ? 1.0 : (evalT >= bStart - 0.03 ? Math.min(1, Math.max(0, (evalT - bStart) / 0.18)) : 0);
     if (oP > 0.01) {
       const oep = easeOutCubic(oP);
@@ -6718,15 +6911,7 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
   };
   const isPctOrMetric = (raw) => /^\$?\d[\d,.]*(?:%|x|k|m|b|cr)?$/i.test(String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '') + (String(raw || '').includes('%') ? '%' : ''));
 
-  const detectedTop = (!isSampleCard && typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
-    ? window._editorialHeadTopRatio
-    : null;
-  if (detectedTop !== null && cap && typeof cap._latchedCoutureTopRatio !== 'number') {
-    cap._latchedCoutureTopRatio = Math.max(0.13, Math.min(0.30, detectedTop));
-  }
-  const headCrown = (cap && typeof cap._latchedCoutureTopRatio === 'number') ? cap._latchedCoutureTopRatio : 0.21;
   const heroX = Math.round(W * 0.50);
-  const behindCenterY = Math.round(H * Math.max(0.17, Math.min(0.285, headCrown + 0.022)));
   const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
 
   const pctIdx = words.findIndex(w => isPctOrMetric(w.t || w.word || ''));
@@ -6752,8 +6937,14 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 
     // 1. Metallic Deep Emerald Serif on targetBehind
     const emFontFn = (sz) => `700 ${sz}px "Cinzel", "Playfair Display", Georgia, serif`;
-    const eSize = fitOCFont(targetBehind, behindTxt, emFontFn, H * 0.175 * fontScale, H * 0.075, W * 0.88, 0.015);
-    const eBaseY = Math.round(behindCenterY + eSize * 0.34);
+    const rawESize = fitOCFont(targetBehind, behindTxt, emFontFn, H * 0.175 * fontScale, H * 0.075, W * 0.88, 0.015);
+    const ePlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: emFontFn, preferredSize: rawESize, minSize: Math.round(H * 0.070),
+      trackEm: 0.015, isSampleCard, fallbackCrownRatio: 0.225
+    });
+    const eSize = ePlace.size;
+    const eBaseY = ePlace.baseY;
+    const behindCenterY = ePlace.centerY;
     const bP = fullInstant ? 1.0 : (evalT >= bStart - 0.03 ? Math.min(1, Math.max(0, (evalT - bStart) / 0.18)) : 0);
     if (bP > 0.01) {
       const bep = easeOutCubic(bP);
@@ -6939,8 +7130,14 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 
     // 1. Brushed Metallic Rose-Bronze Word on targetBehind
     const rbFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const rSize = fitOCFont(targetBehind, behindTxt, rbFontFn, H * (behindTxt.length <= 5 ? 0.23 : 0.17) * fontScale, H * 0.085, W * 0.88, -0.01);
-    const rBaseY = Math.round(behindCenterY + rSize * 0.36);
+    const rawRSize = fitOCFont(targetBehind, behindTxt, rbFontFn, H * (behindTxt.length <= 5 ? 0.23 : 0.17) * fontScale, H * 0.085, W * 0.88, -0.01);
+    const rPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: rbFontFn, preferredSize: rawRSize, minSize: Math.round(H * 0.080),
+      trackEm: -0.01, isSampleCard, fallbackCrownRatio: 0.23
+    });
+    const rSize = rPlace.size;
+    const rBaseY = rPlace.baseY;
+    const behindCenterY = rPlace.centerY;
     const bP = fullInstant ? 1.0 : (evalT >= bStart - 0.03 ? Math.min(1, Math.max(0, (evalT - bStart) / 0.18)) : 0);
     if (bP > 0.01) {
       const bep = easeOutCubic(bP);
@@ -7182,15 +7379,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
   };
   const isMultiplierMetric = (raw) => /^\$?\d[\d,.]*(?:x|%|k|m|b|cr)?$/i.test(String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, ''));
 
-  const detectedTop = (!isSampleCard && typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
-    ? window._editorialHeadTopRatio
-    : null;
-  if (detectedTop !== null && cap && typeof cap._latchedAuroraTopRatio !== 'number') {
-    cap._latchedAuroraTopRatio = Math.max(0.13, Math.min(0.30, detectedTop));
-  }
-  const headCrown = (cap && typeof cap._latchedAuroraTopRatio === 'number') ? cap._latchedAuroraTopRatio : 0.21;
   const heroX = Math.round(W * 0.50);
-  const behindCenterY = Math.round(H * Math.max(0.17, Math.min(0.285, headCrown + 0.022)));
   const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
 
   const metricIdx = words.findIndex(w => isMultiplierMetric(w.t || w.word || ''));
@@ -7225,8 +7414,14 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
     // 1. Holographic Iridescent Metallic Chrome behind speaker crown
     const holoFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const hSize = fitASFont(targetBehind, behindTxt, holoFontFn, H * 0.215 * fontScale, H * 0.090, W * 0.88, 0.01);
-    const hBaseY = Math.round(behindCenterY + hSize * 0.36);
+    const rawHSize = fitASFont(targetBehind, behindTxt, holoFontFn, H * 0.215 * fontScale, H * 0.090, W * 0.88, 0.01);
+    const hPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: holoFontFn, preferredSize: rawHSize, minSize: Math.round(H * 0.080),
+      trackEm: 0.01, isSampleCard, fallbackCrownRatio: 0.23
+    });
+    const hSize = hPlace.size;
+    const hBaseY = hPlace.baseY;
+    const behindCenterY = hPlace.centerY;
     const bP = fullInstant ? 1.0 : (evalT >= bStart - 0.03 ? Math.min(1, Math.max(0, (evalT - bStart) / 0.18)) : 0);
     if (bP > 0.01) {
       const bep = easeOutCubic(bP);
@@ -7438,8 +7633,13 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
     // 1. Aurora Gradient Neon Wireframe on targetBehind
     const wireFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const wSize = fitASFont(targetBehind, behindTxt, wireFontFn, H * 0.225 * fontScale, H * 0.095, W * 0.88, 0.015);
-    const wBaseY = Math.round(behindCenterY + wSize * 0.36);
+    const rawWSize = fitASFont(targetBehind, behindTxt, wireFontFn, H * 0.225 * fontScale, H * 0.095, W * 0.88, 0.015);
+    const wPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: wireFontFn, preferredSize: rawWSize, minSize: Math.round(H * 0.080),
+      trackEm: 0.015, isSampleCard, fallbackCrownRatio: 0.23
+    });
+    const wSize = wPlace.size;
+    const wBaseY = wPlace.baseY;
     const bP = fullInstant ? 1.0 : (evalT >= bStart - 0.03 ? Math.min(1, Math.max(0, (evalT - bStart) / 0.18)) : 0);
     if (bP > 0.01) {
       const bep = easeOutCubic(bP);
@@ -7534,8 +7734,14 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
     // 1. 3D Extruded Obsidian Face + Liquid Gold Side Bevel Depth on targetBehind
     const gFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const gSize = fitASFont(targetBehind, behindTxt, gFontFn, H * (behindTxt.length <= 4 ? 0.255 : 0.19) * fontScale, H * 0.095, W * 0.88, -0.01);
-    const gBaseY = Math.round(behindCenterY + gSize * 0.36);
+    const rawGSize = fitASFont(targetBehind, behindTxt, gFontFn, H * (behindTxt.length <= 4 ? 0.255 : 0.19) * fontScale, H * 0.095, W * 0.88, -0.01);
+    const gPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+      W, H, fontFn: gFontFn, preferredSize: rawGSize, minSize: Math.round(H * 0.085),
+      trackEm: -0.01, isSampleCard, fallbackCrownRatio: 0.235
+    });
+    const gSize = gPlace.size;
+    const gBaseY = gPlace.baseY;
+    const behindCenterY = gPlace.centerY;
     const bP = fullInstant ? 1.0 : (evalT >= bStart - 0.03 ? Math.min(1, Math.max(0, (evalT - bStart) / 0.18)) : 0);
     if (bP > 0.01) {
       const bep = easeOutCubic(bP);
@@ -8791,7 +8997,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.13.0';
+    const CURRENT_PRESET_VER = 'v7.14.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
