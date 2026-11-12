@@ -629,24 +629,17 @@ def load_presets():
                     "big": {"font": accent.get("font", "Montserrat"), "weight": accent.get("weight", 900), "size": round(accent.get("size", 160) / 1080.0, 3) if float(accent.get("size", 160)) > 1.0 else round(float(accent.get("size", 0.088)), 3), "fill": fill},
                     "small": {"font": base.get("font", "Poppins"), "weight": base.get("weight", 700), "size": round(base.get("size", 62) / 1080.0, 3) if float(base.get("size", 62)) > 1.0 else round(float(base.get("size", 0.044)), 3), "fill": {"colors": [base_color]}}
                 }
-                if p.get("dubaiLuxuryStack"):
-                    duo_item["dubaiLuxuryStack"] = True
-                if p.get("crazySunsetStack"):
-                    duo_item["crazySunsetStack"] = True
-                if p.get("prismGlassDepth"):
-                    duo_item["prismGlassDepth"] = True
-                if p.get("kineticCollage"):
-                    duo_item["kineticCollage"] = True
-                if p.get("obsidianGoldCouture"):
-                    duo_item["obsidianGoldCouture"] = True
-                if p.get("auroraSpatialDepth"):
-                    duo_item["auroraSpatialDepth"] = True
-                if p.get("cobaltArchive"):
-                    duo_item["cobaltArchive"] = True
-                if p.get("celestialMonolith"):
-                    duo_item["celestialMonolith"] = True
-                if p.get("adaptiveEstateFlex"):
-                    duo_item["adaptiveEstateFlex"] = True
+                for _flag in (
+                    "dubaiLuxuryStack", "crazySunsetStack", "prismGlassDepth",
+                    "kineticCollage", "obsidianGoldCouture", "auroraSpatialDepth",
+                    "cobaltArchive", "celestialMonolith", "adaptiveEstateFlex",
+                    "chromeLiquid", "tornZine", "acidVoltTicker",
+                    "porcelainRibbon", "holoAuraPill", "analogFilmStrip",
+                ):
+                    if p.get(_flag):
+                        duo_item[_flag] = True
+                if p.get("pill") is not None:
+                    duo_item["pill"] = p["pill"]
                 if p.get("inkGap") is not None:
                     duo_item["inkGap"] = float(p["inkGap"])
                 if p.get("leading") is not None:

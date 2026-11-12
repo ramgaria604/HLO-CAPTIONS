@@ -8862,6 +8862,580 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
   }
 }
 
+/**
+ * Shared foreground renderer for the 6 signature in-front-of-person presets:
+ * - 'chrome'    : Chrome Liquid Mercury (smoked glass + brushed 3D chrome hero + cyan beam)
+ * - 'zine'      : Tactile Torn Zine (deckled cream tape + vermilion stamp + highlighter swipe)
+ * - 'volt'      : Acid Volt Ticker (telemetry tag + italic white + skewed acid-lime pill)
+ * - 'porcelain' : Porcelain Editorial Ribbon (ivory silk card + espresso italic serif + diamond)
+ * - 'holo'      : Holo Iridescent Aura Pill (dark quartz bar + opal holographic pill + sparkles)
+ * - 'film'      : Espresso Analog Film Strip (24fps amber timestamp + cream serif + amber badge)
+ */
+function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, presetKey) {
+  if (!ctxFore || !words || !words.length) return;
+  const capArg = (showAll && cap) ? Object.assign({}, cap, { _forceInstant: typeof t !== 'number' || isNaN(t) || t <= (cap.start || 0) + 0.04 }) : cap;
+  const rt = initEditorialSceneRuntime(ctxFore, null, capArg, words, t, st, W, H, false, []);
+  if (rt.exitFade <= 0.005) return;
+
+  const { isSampleCard, capStart, evalT, fullInstant, exitFade, capIdx, userCase, heroX, fontScale, cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont, roundRectPath, pickHeroIdx } = rt;
+
+  // Prefer user-selected gold word chip (w.key), otherwise auto-score hero word
+  let heroIdx = words.findIndex(w => Boolean(w && w.key));
+  if (heroIdx < 0) heroIdx = pickHeroIdx(words);
+  const rawHero = cleanTok(words[heroIdx]?.t || words[heroIdx]?.word || '', false);
+  const otherWords = words.filter((_, i) => i !== heroIdx);
+  const setupRaw = otherWords.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean).join(' ');
+
+  const heroEnterStart = wordStart(words[heroIdx], capStart + 0.08);
+  const baseP = progFactor(capStart, 0.16);
+  const heroP = progFactor(heroEnterStart, 0.18);
+  if (baseP <= 0.01 && heroP <= 0.01) return;
+
+  const anchorRatio = Math.max(0.20, Math.min(0.86, Number(st && (st.posY ?? st.position)) || 0.72));
+  const cy = Math.round(H * anchorRatio);
+
+  const drawSparkle = (ctx, x, y, r, color) => {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y - r);
+    ctx.quadraticCurveTo(x + r * 0.18, y - r * 0.18, x + r, y);
+    ctx.quadraticCurveTo(x + r * 0.18, y + r * 0.18, x, y + r);
+    ctx.quadraticCurveTo(x - r * 0.18, y + r * 0.18, x - r, y);
+    ctx.quadraticCurveTo(x - r * 0.18, y - r * 0.18, x, y - r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+
+  if (presetKey === 'chrome') {
+    const setupTxt = (isSampleCard ? 'STOP SCROLLING TO' : setupRaw).toUpperCase();
+    const heroTxt = (isSampleCard ? 'UPGRADE' : rawHero || 'UPGRADE').toUpperCase();
+    const sFn = (sz) => `700 ${sz}px "Inter", "Poppins", sans-serif`;
+    const hFn = (sz) => `900 ${sz}px "Montserrat", "Outfit", sans-serif`;
+    const sSz = setupTxt ? fitFont(ctxFore, setupTxt, sFn, H * 0.025 * fontScale, H * 0.014, W * 0.80, 0.09) : 0;
+    const hSz = fitFont(ctxFore, heroTxt, hFn, H * 0.068 * fontScale, H * 0.032, W * 0.84, -0.02);
+
+    ctxFore.save();
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.09em';
+    ctxFore.font = sFn(sSz || 12);
+    const sw = setupTxt ? measureW(ctxFore, setupTxt, sSz, 0.09) : 0;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+    ctxFore.font = hFn(hSz);
+    const hw = measureW(ctxFore, heroTxt, hSz, -0.02);
+    ctxFore.restore();
+
+    const boxW = Math.min(Math.round(W * 0.90), Math.round(Math.max(sw, hw) + H * 0.065));
+    const boxH = Math.round((sSz ? sSz * 1.45 : 0) + hSz * 1.32 + H * 0.036);
+    const bx = Math.round(heroX - boxW * 0.5);
+    const by = Math.round(cy - boxH * 0.5);
+    const ep = easeOutCubic(Math.max(baseP, heroP));
+
+    ctxFore.save();
+    try {
+      ctxFore.globalAlpha = exitFade * ep;
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
+      ctxFore.shadowBlur = Math.max(12, Math.round(H * 0.020));
+      ctxFore.shadowOffsetY = 6;
+      const bgG = ctxFore.createLinearGradient(bx, by, bx, by + boxH);
+      bgG.addColorStop(0.0, 'rgba(15, 20, 32, 0.82)');
+      bgG.addColorStop(1.0, 'rgba(8, 11, 20, 0.88)');
+      roundRectPath(ctxFore, bx, by, boxW, boxH, Math.round(H * 0.016));
+      ctxFore.fillStyle = bgG;
+      ctxFore.fill();
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(186, 230, 253, 0.28)';
+      ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
+      ctxFore.stroke();
+
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'alphabetic';
+      let cursorY = by + Math.round(H * 0.016);
+      if (setupTxt && baseP > 0.01) {
+        cursorY += Math.round(sSz * 1.05);
+        ctxFore.font = sFn(sSz);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.09em';
+        ctxFore.fillStyle = '#F8FAFC';
+        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctxFore.shadowBlur = 4;
+        ctxFore.fillText(setupTxt, heroX, cursorY);
+        cursorY += Math.round(sSz * 0.35);
+      }
+
+      const heroBaseY = cursorY + Math.round(hSz * 0.96);
+      const hep = heroP > 0.01 ? easeOutCubic(heroP) : 1;
+      const sc = fullInstant ? 1.0 : (0.93 + 0.07 * hep);
+      ctxFore.save();
+      ctxFore.translate(heroX, heroBaseY - hSz * 0.38);
+      ctxFore.scale(sc, sc);
+      ctxFore.translate(-heroX, -(heroBaseY - hSz * 0.38));
+      ctxFore.font = hFn(hSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+
+      const cg = ctxFore.createLinearGradient(0, heroBaseY - hSz * 0.85, 0, heroBaseY + hSz * 0.12);
+      cg.addColorStop(0.00, '#FFFFFF');
+      cg.addColorStop(0.28, '#E2E8F0');
+      cg.addColorStop(0.52, '#64748B');
+      cg.addColorStop(0.76, '#F8FAFC');
+      cg.addColorStop(1.00, '#94A3B8');
+
+      ctxFore.shadowColor = 'rgba(56, 189, 248, 0.62)';
+      ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.014));
+      ctxFore.fillStyle = cg;
+      ctxFore.fillText(heroTxt, heroX, heroBaseY);
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.72)';
+      ctxFore.lineWidth = Math.max(1.0, H * 0.0012);
+      ctxFore.strokeText(heroTxt, heroX, heroBaseY);
+      ctxFore.restore();
+
+      const barW = Math.round(Math.min(boxW - H * 0.04, Math.max(hw * 1.02, boxW * 0.56)) * hep);
+      const barY = Math.round(by + boxH - H * 0.012);
+      const bgBar = ctxFore.createLinearGradient(heroX - barW * 0.5, 0, heroX + barW * 0.5, 0);
+      bgBar.addColorStop(0.0, 'rgba(56, 189, 248, 0.15)');
+      bgBar.addColorStop(0.5, '#67E8F9');
+      bgBar.addColorStop(1.0, 'rgba(56, 189, 248, 0.15)');
+      ctxFore.shadowColor = 'rgba(56, 189, 248, 0.85)';
+      ctxFore.shadowBlur = 8;
+      ctxFore.fillStyle = bgBar;
+      roundRectPath(ctxFore, Math.round(heroX - barW * 0.5), barY, barW, Math.max(2.5, Math.round(H * 0.003)), 2);
+      ctxFore.fill();
+    } finally {
+      ctxFore.restore();
+    }
+    return;
+  }
+
+  if (presetKey === 'zine') {
+    const topStr = (isSampleCard ? 'REAL CREATORS' : (setupRaw || rawHero || 'REAL ONES')).toUpperCase();
+    const botStr = (isSampleCard ? 'NEVER BLEND IN' : (setupRaw ? rawHero : '')).toUpperCase();
+    const zFn = (sz) => `700 ${sz}px "Anton", "Impact", sans-serif`;
+    const topSz = fitFont(ctxFore, topStr, zFn, H * 0.046 * fontScale, H * 0.022, W * 0.76, 0.02);
+    const botSz = botStr ? fitFont(ctxFore, botStr, zFn, H * 0.048 * fontScale, H * 0.022, W * 0.76, 0.015) : 0;
+
+    const drawTornStrip = (txt, sz, stripCy, tiltRad, isBottom, pFactor) => {
+      if (!txt || pFactor <= 0.01) return;
+      const ep = easeOutCubic(pFactor);
+      const sc = fullInstant ? 1.0 : (0.90 + 0.10 * ep);
+      ctxFore.save();
+      try {
+        ctxFore.font = zFn(sz);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.02em';
+        const tw = measureW(ctxFore, txt, sz, 0.02);
+        const padX = Math.round(sz * 0.65);
+        const pw = Math.min(Math.round(W * 0.88), Math.round(tw + padX * 2));
+        const ph = Math.round(sz * 1.48);
+
+        ctxFore.globalAlpha = exitFade * ep;
+        ctxFore.translate(heroX, stripCy);
+        ctxFore.rotate(tiltRad);
+        ctxFore.scale(sc, sc);
+        const x0 = Math.round(-pw * 0.5);
+        const y0 = Math.round(-ph * 0.5);
+
+        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.012));
+        ctxFore.shadowOffsetY = 4;
+
+        ctxFore.beginPath();
+        if (!isBottom) {
+          // Deckled jagged torn tape ends on left and right edges
+          ctxFore.moveTo(x0, y0);
+          ctxFore.lineTo(x0 + pw, y0);
+          for (let s = 1; s <= 5; s++) {
+            const jx = (s % 2 === 1 ? -4 : 3);
+            ctxFore.lineTo(x0 + pw + jx, y0 + (ph * s) / 5);
+          }
+          ctxFore.lineTo(x0, y0 + ph);
+          for (let s = 4; s >= 1; s--) {
+            const jx = (s % 2 === 1 ? 4 : -3);
+            ctxFore.lineTo(x0 + jx, y0 + (ph * s) / 5);
+          }
+          ctxFore.closePath();
+          ctxFore.fillStyle = '#F7F2E2';
+          ctxFore.fill();
+        } else {
+          roundRectPath(ctxFore, x0, y0, pw, ph, Math.round(H * 0.004));
+          ctxFore.fillStyle = '#F9F5EB';
+          ctxFore.fill();
+          ctxFore.shadowColor = 'transparent';
+          ctxFore.strokeStyle = '#EA4C1D';
+          ctxFore.lineWidth = Math.max(1.8, H * 0.0022);
+          roundRectPath(ctxFore, x0 + 4, y0 + 4, pw - 8, ph - 8, Math.round(H * 0.003));
+          ctxFore.stroke();
+
+          // Bright yellow highlighter swipe behind text
+          const hlW = Math.round(tw * 0.62);
+          const hlX = Math.round(-hlW * 0.35);
+          const hlH = Math.round(sz * 0.92);
+          ctxFore.fillStyle = 'rgba(250, 232, 20, 0.85)';
+          ctxFore.fillRect(hlX, Math.round(-hlH * 0.48), hlW, hlH);
+        }
+
+        ctxFore.shadowColor = 'transparent';
+        ctxFore.fillStyle = isBottom ? '#EA4C1D' : '#111827';
+        ctxFore.textAlign = 'center';
+        ctxFore.textBaseline = 'middle';
+        ctxFore.fillText(txt, 0, Math.round(sz * 0.04));
+      } finally {
+        ctxFore.restore();
+      }
+    };
+
+    const y1 = botStr ? Math.round(cy - topSz * 0.78) : cy;
+    const y2 = Math.round(cy + botSz * 0.84);
+    drawTornStrip(topStr, topSz, y1, -0.024, false, baseP);
+    if (botStr) drawTornStrip(botStr, botSz, y2, 0.017, true, heroP);
+    return;
+  }
+
+  if (presetKey === 'volt') {
+    const leftTxt = (isSampleCard ? 'BUILT' : (setupRaw || '')).toUpperCase();
+    const pillTxt = (isSampleCard ? 'DIFFERENT' : (rawHero || 'DIFFERENT')).toUpperCase();
+    const tagTxt = `[FOCUS // ${String(capIdx + 1).padStart(2, '0')}]`;
+    const mFn = (sz) => `700 ${sz}px "Space Mono", monospace`;
+    const wFn = (sz) => `italic 900 ${sz}px "Montserrat", "Inter", sans-serif`;
+
+    const tagSz = Math.round(H * 0.017 * fontScale);
+    const maxComboW = W * 0.82;
+    const fullStr = leftTxt ? `${leftTxt}  ${pillTxt}` : pillTxt;
+    const rowSz = fitFont(ctxFore, fullStr, wFn, H * 0.044 * fontScale, H * 0.022, maxComboW * 0.88, -0.02);
+
+    ctxFore.save();
+    ctxFore.font = wFn(rowSz);
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+    const lw = leftTxt ? measureW(ctxFore, leftTxt, rowSz, -0.02) : 0;
+    const pwTxt = measureW(ctxFore, pillTxt, rowSz, -0.02);
+    ctxFore.restore();
+
+    const pillPadX = Math.round(rowSz * 0.56);
+    const pillW = Math.round(pwTxt + pillPadX * 2);
+    const pillH = Math.round(rowSz * 1.48);
+    const gap = leftTxt ? Math.round(rowSz * 0.36) : 0;
+    const contentW = lw + gap + pillW;
+    const frameW = Math.min(Math.round(W * 0.90), Math.round(contentW + H * 0.05));
+    const frameH = Math.round(pillH + tagSz * 2.0 + H * 0.018);
+    const fx0 = Math.round(heroX - frameW * 0.5);
+    const fy0 = Math.round(cy - frameH * 0.5);
+    const ep = easeOutCubic(Math.max(baseP, heroP));
+
+    ctxFore.save();
+    try {
+      ctxFore.globalAlpha = exitFade * ep;
+      roundRectPath(ctxFore, fx0, fy0, frameW, frameH, Math.round(H * 0.010));
+      ctxFore.fillStyle = 'rgba(8, 12, 18, 0.72)';
+      ctxFore.fill();
+
+      // Corner acid-lime reticles
+      const bLen = Math.round(Math.min(frameW, frameH) * 0.16);
+      ctxFore.strokeStyle = '#D4FF00';
+      ctxFore.lineWidth = Math.max(2.0, H * 0.0022);
+      const corner = (x, y, dx, dy) => {
+        ctxFore.beginPath();
+        ctxFore.moveTo(x + dx * bLen, y);
+        ctxFore.lineTo(x, y);
+        ctxFore.lineTo(x, y + dy * bLen);
+        ctxFore.stroke();
+      };
+      corner(fx0, fy0, 1, 1);
+      corner(fx0 + frameW, fy0, -1, 1);
+      corner(fx0, fy0 + frameH, 1, -1);
+      corner(fx0 + frameW, fy0 + frameH, -1, -1);
+
+      const startX = Math.round(heroX - contentW * 0.5);
+      const tagY = Math.round(fy0 + H * 0.012 + tagSz * 0.5);
+      ctxFore.font = mFn(tagSz);
+      ctxFore.textAlign = 'left';
+      ctxFore.textBaseline = 'middle';
+      ctxFore.fillStyle = '#CBD5E1';
+      ctxFore.fillText(tagTxt, Math.round(fx0 + H * 0.018), tagY);
+
+      const rowCy = Math.round(fy0 + frameH - pillH * 0.5 - H * 0.012);
+      if (leftTxt) {
+        ctxFore.font = wFn(rowSz);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+        ctxFore.textAlign = 'left';
+        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctxFore.shadowBlur = 6;
+        ctxFore.fillText(leftTxt, startX, rowCy);
+      }
+
+      const px = Math.round(startX + lw + gap);
+      const py = Math.round(rowCy - pillH * 0.5);
+      ctxFore.save();
+      ctxFore.translate(px + pillW * 0.5, rowCy);
+      ctxFore.transform(1, 0, -0.10, 1, 0, 0);
+      ctxFore.shadowColor = 'rgba(212, 255, 0, 0.55)';
+      ctxFore.shadowBlur = 10;
+      roundRectPath(ctxFore, -pillW * 0.5, -pillH * 0.5, pillW, pillH, Math.round(pillH * 0.24));
+      ctxFore.fillStyle = '#D4FF00';
+      ctxFore.fill();
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.font = wFn(rowSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      ctxFore.fillStyle = '#0A0D14';
+      ctxFore.fillText(pillTxt, 0, Math.round(rowSz * 0.04));
+      ctxFore.restore();
+    } finally {
+      ctxFore.restore();
+    }
+    return;
+  }
+
+  if (presetKey === 'porcelain') {
+    const heroWord = isSampleCard ? 'effortless' : (rawHero ? rawHero.toLowerCase() : 'effortless');
+    const tailTxt = (isSampleCard ? 'LUXURY HABITS' : setupRaw).toUpperCase();
+    const hFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
+    const tFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
+
+    const hSz = fitFont(ctxFore, heroWord, hFn, H * 0.036 * fontScale, H * 0.020, W * 0.44, -0.015);
+    const tSz = tailTxt ? fitFont(ctxFore, tailTxt, tFn, H * 0.024 * fontScale, H * 0.013, W * 0.42, 0.10) : 0;
+
+    ctxFore.save();
+    ctxFore.font = hFn(hSz);
+    const hw = measureW(ctxFore, heroWord, hSz, -0.015);
+    ctxFore.font = tFn(tSz || 12);
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.10em';
+    const tw = tailTxt ? measureW(ctxFore, tailTxt, tSz, 0.10) : 0;
+    ctxFore.restore();
+
+    const sepW = tailTxt ? Math.round(hSz * 0.9) : 0;
+    const totalTxtW = hw + sepW + tw;
+    const cardW = Math.min(Math.round(W * 0.90), Math.round(totalTxtW + H * 0.056));
+    const cardH = Math.round(Math.max(hSz, tSz) * 2.1);
+    const cx0 = Math.round(heroX - cardW * 0.5);
+    const cy0 = Math.round(cy - cardH * 0.5);
+    const ep = easeOutCubic(Math.max(baseP, heroP));
+
+    ctxFore.save();
+    try {
+      ctxFore.globalAlpha = exitFade * ep;
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.38)';
+      ctxFore.shadowBlur = Math.max(10, Math.round(H * 0.016));
+      ctxFore.shadowOffsetY = 4;
+      const rg = ctxFore.createLinearGradient(cx0, cy0, cx0 + cardW, cy0 + cardH);
+      rg.addColorStop(0.0, 'rgba(249, 246, 240, 0.95)');
+      rg.addColorStop(1.0, 'rgba(232, 224, 211, 0.93)');
+      roundRectPath(ctxFore, cx0, cy0, cardW, cardH, Math.round(cardH * 0.34));
+      ctxFore.fillStyle = rg;
+      ctxFore.fill();
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(197, 155, 95, 0.72)';
+      ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
+      ctxFore.stroke();
+
+      let curX = Math.round(heroX - totalTxtW * 0.5);
+      ctxFore.textAlign = 'left';
+      ctxFore.textBaseline = 'middle';
+      ctxFore.font = hFn(hSz);
+      ctxFore.fillStyle = '#1C1917';
+      ctxFore.fillText(heroWord, curX, cy);
+      curX += hw;
+
+      if (tailTxt) {
+        const diaX = Math.round(curX + sepW * 0.5);
+        const dr = Math.max(3, Math.round(hSz * 0.14));
+        ctxFore.fillStyle = '#C59B5F';
+        ctxFore.beginPath();
+        ctxFore.moveTo(diaX, cy - dr);
+        ctxFore.lineTo(diaX + dr, cy);
+        ctxFore.lineTo(diaX, cy + dr);
+        ctxFore.lineTo(diaX - dr, cy);
+        ctxFore.closePath();
+        ctxFore.fill();
+        curX += sepW;
+
+        ctxFore.font = tFn(tSz);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.10em';
+        ctxFore.fillStyle = '#292524';
+        ctxFore.fillText(tailTxt, Math.round(curX), cy + Math.round(tSz * 0.04));
+      }
+    } finally {
+      ctxFore.restore();
+    }
+    return;
+  }
+
+  if (presetKey === 'holo') {
+    const leftStr = (isSampleCard ? 'ONE IDEA' : setupRaw).toUpperCase();
+    const pillStr = (isSampleCard ? 'CHANGES ALL' : (rawHero || 'CHANGES')).toUpperCase();
+    const oFn = (sz) => `800 ${sz}px "Outfit", "Poppins", sans-serif`;
+    const tSz = fitFont(ctxFore, leftStr ? `${leftStr}  ${pillStr}` : pillStr, oFn, H * 0.032 * fontScale, H * 0.017, W * 0.76, -0.015);
+
+    ctxFore.save();
+    ctxFore.font = oFn(tSz);
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+    const lw = leftStr ? measureW(ctxFore, leftStr, tSz, -0.015) : 0;
+    const pwTxt = measureW(ctxFore, pillStr, tSz, -0.015);
+    ctxFore.restore();
+
+    const pPadX = Math.round(tSz * 0.72);
+    const pillW = Math.round(pwTxt + pPadX * 2);
+    const pillH = Math.round(tSz * 1.85);
+    const gap = leftStr ? Math.round(tSz * 0.45) : 0;
+    const innerW = lw + gap + pillW;
+    const barW = Math.min(Math.round(W * 0.92), Math.round(innerW + H * 0.046));
+    const barH = Math.round(pillH + H * 0.022);
+    const bx = Math.round(heroX - barW * 0.5);
+    const by = Math.round(cy - barH * 0.5);
+    const ep = easeOutCubic(Math.max(baseP, heroP));
+
+    ctxFore.save();
+    try {
+      ctxFore.globalAlpha = exitFade * ep;
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.55)';
+      ctxFore.shadowBlur = Math.max(12, Math.round(H * 0.018));
+      ctxFore.shadowOffsetY = 5;
+      roundRectPath(ctxFore, bx, by, barW, barH, Math.round(barH * 0.34));
+      ctxFore.fillStyle = 'rgba(18, 22, 36, 0.84)';
+      ctxFore.fill();
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.24)';
+      ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
+      ctxFore.stroke();
+
+      const startX = Math.round(heroX - innerW * 0.5);
+      if (leftStr) {
+        ctxFore.font = oFn(tSz);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        ctxFore.textAlign = 'left';
+        ctxFore.textBaseline = 'middle';
+        ctxFore.fillStyle = '#F8FAFC';
+        ctxFore.fillText(leftStr, startX, cy);
+      }
+
+      const px = Math.round(startX + lw + gap);
+      const py = Math.round(cy - pillH * 0.5);
+      const hg = ctxFore.createLinearGradient(px, py, px + pillW, py + pillH);
+      hg.addColorStop(0.00, '#CFFAFE');
+      hg.addColorStop(0.45, '#F5D0FE');
+      hg.addColorStop(0.80, '#DDD6FE');
+      hg.addColorStop(1.00, '#BAE6FD');
+      ctxFore.shadowColor = 'rgba(165, 243, 252, 0.55)';
+      ctxFore.shadowBlur = 10;
+      roundRectPath(ctxFore, px, py, pillW, pillH, Math.round(pillH * 0.5));
+      ctxFore.fillStyle = hg;
+      ctxFore.fill();
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
+      ctxFore.stroke();
+
+      ctxFore.font = oFn(tSz);
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      ctxFore.fillStyle = '#0F172A';
+      ctxFore.fillText(pillStr, Math.round(px + pillW * 0.5), cy);
+
+      drawSparkle(ctxFore, px + Math.round(pillH * 0.16), py + Math.round(pillH * 0.14), Math.max(5, Math.round(tSz * 0.34)), '#FFFFFF');
+      drawSparkle(ctxFore, px + pillW - Math.round(pillH * 0.16), py + pillH - Math.round(pillH * 0.14), Math.max(4, Math.round(tSz * 0.28)), '#FFFFFF');
+    } finally {
+      ctxFore.restore();
+    }
+    return;
+  }
+
+  // 'film' — Espresso Analog Film Strip
+  const stampTxt = `24FPS • ${isSampleCard ? 'GOLDEN HOUR' : `REEL ${String(capIdx + 1).padStart(2, '0')}`}`;
+  const serifStr = (isSampleCard ? 'CHASING LIGHT' : (setupRaw || rawHero || 'GOLDEN')).toUpperCase();
+  const badgeStr = (isSampleCard ? 'EVERY DAY' : (setupRaw ? rawHero : '')).toUpperCase();
+  const mFn = (sz) => `700 ${sz}px "Space Mono", monospace`;
+  const sFn = (sz) => `700 ${sz}px "Playfair Display", Georgia, serif`;
+  const bFn = (sz) => `700 ${sz}px "Inter", "Poppins", sans-serif`;
+
+  const stampSz = Math.round(H * 0.016 * fontScale);
+  const sSz = fitFont(ctxFore, serifStr, sFn, H * 0.042 * fontScale, H * 0.020, W * 0.56, -0.01);
+  const bSz = badgeStr ? fitFont(ctxFore, badgeStr, bFn, H * 0.022 * fontScale, H * 0.013, W * 0.32, 0.06) : 0;
+
+  ctxFore.save();
+  ctxFore.font = sFn(sSz);
+  const sw = measureW(ctxFore, serifStr, sSz, -0.01);
+  ctxFore.font = bFn(bSz || 12);
+  if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.06em';
+  const bwTxt = badgeStr ? measureW(ctxFore, badgeStr, bSz, 0.06) : 0;
+  ctxFore.restore();
+
+  const bPillW = badgeStr ? Math.round(bwTxt + bSz * 1.4) : 0;
+  const bPillH = badgeStr ? Math.round(bSz * 1.95) : 0;
+  const gap = badgeStr ? Math.round(sSz * 0.32) : 0;
+  const rowW = sw + gap + bPillW;
+  const cardW = Math.min(Math.round(W * 0.90), Math.round(rowW + H * 0.054));
+  const cardH = Math.round(stampSz * 1.8 + Math.max(sSz, bPillH) * 1.42 + H * 0.026);
+  const fx0 = Math.round(heroX - cardW * 0.5);
+  const fy0 = Math.round(cy - cardH * 0.5);
+  const ep = easeOutCubic(Math.max(baseP, heroP));
+
+  ctxFore.save();
+  try {
+    ctxFore.globalAlpha = exitFade * ep;
+    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    ctxFore.shadowBlur = Math.max(12, Math.round(H * 0.018));
+    ctxFore.shadowOffsetY = 5;
+    roundRectPath(ctxFore, fx0, fy0, cardW, cardH, Math.round(H * 0.014));
+    ctxFore.fillStyle = 'rgba(22, 16, 12, 0.84)';
+    ctxFore.fill();
+
+    ctxFore.shadowColor = 'transparent';
+    ctxFore.strokeStyle = 'rgba(217, 119, 6, 0.36)';
+    ctxFore.lineWidth = Math.max(1.1, H * 0.0013);
+    ctxFore.stroke();
+
+    const stampY = Math.round(fy0 + H * 0.014 + stampSz * 0.5);
+    ctxFore.font = mFn(stampSz);
+    ctxFore.textAlign = 'center';
+    ctxFore.textBaseline = 'middle';
+    ctxFore.fillStyle = '#F59E0B';
+    ctxFore.shadowColor = 'rgba(245, 158, 11, 0.45)';
+    ctxFore.shadowBlur = 5;
+    ctxFore.fillText(stampTxt, heroX, stampY);
+
+    const rowCy = Math.round(fy0 + cardH - Math.max(sSz, bPillH) * 0.68 - H * 0.010);
+    const startX = Math.round(heroX - rowW * 0.5);
+
+    ctxFore.font = sFn(sSz);
+    ctxFore.textAlign = 'left';
+    ctxFore.textBaseline = 'middle';
+    ctxFore.shadowColor = 'rgba(253, 230, 138, 0.45)';
+    ctxFore.shadowBlur = 8;
+    ctxFore.fillStyle = '#FFF7E6';
+    ctxFore.fillText(serifStr, startX, rowCy);
+
+    if (badgeStr) {
+      const bx = Math.round(startX + sw + gap);
+      const by = Math.round(rowCy - bPillH * 0.5);
+      const ag = ctxFore.createLinearGradient(bx, by, bx + bPillW, by + bPillH);
+      ag.addColorStop(0.0, '#B45309');
+      ag.addColorStop(1.0, '#78350F');
+      ctxFore.shadowColor = 'rgba(245, 158, 11, 0.40)';
+      ctxFore.shadowBlur = 8;
+      roundRectPath(ctxFore, bx, by, bPillW, bPillH, Math.round(bPillH * 0.5));
+      ctxFore.fillStyle = ag;
+      ctxFore.fill();
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(251, 191, 36, 0.55)';
+      ctxFore.lineWidth = Math.max(1.0, H * 0.0012);
+      ctxFore.stroke();
+
+      ctxFore.font = bFn(bSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.06em';
+      ctxFore.textAlign = 'center';
+      ctxFore.fillStyle = '#FFF7E6';
+      ctxFore.fillText(badgeStr, Math.round(bx + bPillW * 0.5), rowCy + Math.round(bSz * 0.03));
+    }
+  } finally {
+    ctxFore.restore();
+  }
+}
+
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
   window._capdbg2Keys = window._capdbg2Keys || new Set();
   const capdbg2Key = `${isPreview}|${W}x${H}|${S.style && S.style.lineSpacing}`;
@@ -8909,7 +9483,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const offsetX = (Number(st.offsetX) || 0) * W;
       ctxFore.save(); ctxFore.translate(offsetX, 0);
       if (ctxBehind && ctxBehind !== ctxFore) { ctxBehind.save(); ctxBehind.translate(offsetX, 0); }
-      if (st.adaptiveEstateFlex || st.id === 'adaptive_estate_flex') {
+      const frontSignatureKey =
+        (st.chromeLiquid || presetId === 'chrome_liquid_mercury') ? 'chrome' :
+        (st.tornZine || presetId === 'torn_zine_cutout') ? 'zine' :
+        (st.acidVoltTicker || presetId === 'acid_volt_ticker') ? 'volt' :
+        (st.porcelainRibbon || presetId === 'porcelain_editorial_ribbon') ? 'porcelain' :
+        (st.holoAuraPill || presetId === 'holo_aura_pill') ? 'holo' :
+        (st.analogFilmStrip || presetId === 'espresso_analog_film') ? 'film' : '';
+
+      if (frontSignatureKey) {
+        drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, frontSignatureKey);
+      } else if (st.adaptiveEstateFlex || st.id === 'adaptive_estate_flex') {
         drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.id === 'editorial_depth_stack') {
         drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
@@ -9857,7 +10441,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       big.style.background = preset.pill;
       big.style.padding = '3px 8px';
       big.style.borderRadius = '5px';
-      big.style.color = '#000';
+      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine)) ? kRole.color : '#000';
     } else if (paint && paint.startsWith('linear-gradient(')) {
       big.style.backgroundImage = paint;
       big.style.webkitBackgroundClip = 'text';
@@ -9997,7 +10581,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.15.0';
+    const CURRENT_PRESET_VER = 'v7.19.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -12215,7 +12799,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       big.style.background = preset.pill;
       big.style.padding = '3px 8px';
       big.style.borderRadius = '5px';
-      big.style.color = '#000';
+      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine)) ? kRole.color : '#000';
     } else if (paint && paint.startsWith('linear-gradient(')) {
       big.style.backgroundImage = paint;
       big.style.webkitBackgroundClip = 'text';
