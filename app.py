@@ -1229,7 +1229,9 @@ def check_device_credits():
         except Exception:
             pass
 
-    return jsonify(credits=final_credits, used=used_count, expires_at=expires_at)
+    resp = jsonify(credits=final_credits, used=used_count, expires_at=expires_at)
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return resp
 
 
 @app.post("/api/credits/consume")

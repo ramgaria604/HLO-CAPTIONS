@@ -5001,8 +5001,8 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     const heroVisible = fullInstant || (evalT >= heroStart - 0.02);
 
     if (heroVisible && fadeAlpha > 0.005) {
-      // Both Top and Waist big keywords draw on targetBehind (Layer 2, behind person cutout) so they NEVER cover the face
-      const heroCtx = targetBehind;
+      // Top keyword draws on targetBehind (behind person cutout); lower waist keyword draws in front (ctxFore) so it stays visible
+      const heroCtx = (slot === 'waist') ? ctxFore : targetBehind;
       const hasBehindLayer = Boolean(isBehind && ctxBehind);
       const layerOpacity = isSampleCard ? 0.92 : (hasBehindLayer ? 0.96 : 0.72);
       const heroAlpha = fadeAlpha * Math.min(1, heroP * 1.45) * layerOpacity;
@@ -10791,7 +10791,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               name,
               email,
               client_credits: S.credits,
-              free_used: S.credits === 0 && localStorage.getItem('cs_free_used') === 'true'
+              free_used: S.credits === 0 && safeLSGet('cs_free_used') === 'true'
             })
           });
           const data = await res.json();
@@ -10800,13 +10800,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           }
           if (data.ok && data.user) {
             S.user = data.user;
-            try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
+            safeLSSet('cs_user', JSON.stringify(S.user));
             // Sync exact server credits for this user across any device
             if (typeof data.credits === 'number') {
               saveUserCredits(data.credits);
             }
             syncUserUI();
             updateCreditsUI();
+            if (window.__syncCreditsFromServer) window.__syncCreditsFromServer(true);
             closeLogin();
             showToast('🎉 Welcome, ' + S.user.name + '!');
             if (S.pendingExportAfterLogin) {
@@ -10885,18 +10886,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           name: payload.name,
           picture: payload.picture,
           client_credits: S.credits,
-          free_used: S.credits === 0 && localStorage.getItem('cs_free_used') === 'true'
+          free_used: S.credits === 0 && safeLSGet('cs_free_used') === 'true'
         })
       }).then(r => r.json()).then(data => {
         if (data.ok && data.user) {
           S.user = data.user;
-          try { localStorage.setItem('cs_user', JSON.stringify(S.user)); } catch (_) {}
+          safeLSSet('cs_user', JSON.stringify(S.user));
           // Sync exact server credits for this Gmail account across any device
           if (typeof data.credits === 'number') {
             saveUserCredits(data.credits);
           }
           syncUserUI();
           updateCreditsUI();
+          if (window.__syncCreditsFromServer) window.__syncCreditsFromServer(true);
           const modalLogin = $('modalLogin');
           if (modalLogin) modalLogin.classList.add('hidden');
           showToast('🎉 Signed in as ' + S.user.name);
@@ -11069,26 +11071,56 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   // INSTAGRAM VIP COUPON & EXPORT CREDITS SYSTEM
   // ==========================================================================
+  // Safe storage + 1st-party cookie helpers (resilient in Instagram / TikTok in-app WebViews)
+  function safeLSGet(key) {
+    try { return localStorage.getItem(key); } catch (_) { return null; }
+  }
+  function safeLSSet(key, val) {
+    try { localStorage.setItem(key, String(val)); return true; } catch (_) { return false; }
+  }
+  function safeLSRemove(key) {
+    try { localStorage.removeItem(key); return true; } catch (_) { return false; }
+  }
+  function getCookieVal(name) {
+    try {
+      const m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+      return m ? decodeURIComponent(m[1]) : null;
+    } catch (_) { return null; }
+  }
+  function setCookieVal(name, val, days) {
+    try {
+      const maxAge = Math.max(60, Math.round((days || 365) * 86400));
+      document.cookie = name + '=' + encodeURIComponent(String(val)) + '; path=/; max-age=' + maxAge + '; SameSite=Lax';
+    } catch (_) {}
+  }
+  function getPersistentDeviceId() {
+    let devId = safeLSGet('cs_device_id') || getCookieVal('cs_device_id');
+    if (!devId) {
+      devId = 'dev_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
+    }
+    safeLSSet('cs_device_id', devId);
+    setCookieVal('cs_device_id', devId, 365);
+    return devId;
+  }
+
   function saveUserCredits(val) {
     const num = Math.max(0, parseInt(val, 10) || 0);
     S.credits = num;
-    localStorage.setItem('cs_credits', String(num));
+    safeLSSet('cs_credits', String(num));
     const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
     if (userEmail) {
-      try {
-        localStorage.setItem('cs_credits_' + userEmail, String(num));
-      } catch (_) {}
+      safeLSSet('cs_credits_' + userEmail, String(num));
     }
     if (num === 0) {
-      localStorage.setItem('cs_free_used', 'true');
+      safeLSSet('cs_free_used', 'true');
       if (userEmail) {
-        try { localStorage.setItem('cs_free_used_' + userEmail, 'true'); } catch (_) {}
+        safeLSSet('cs_free_used_' + userEmail, 'true');
       }
     } else {
       // User has positive credits! Clear free_used flags so refresh never wipes valid credits
-      localStorage.removeItem('cs_free_used');
+      safeLSRemove('cs_free_used');
       if (userEmail) {
-        try { localStorage.removeItem('cs_free_used_' + userEmail); } catch (_) {}
+        safeLSRemove('cs_free_used_' + userEmail);
       }
     }
   }
@@ -11097,7 +11129,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     saveUserCredits(Math.max(0, S.credits - 1));
     updateCreditsUI();
 
-    const devId = localStorage.getItem('cs_device_id');
+    const devId = getPersistentDeviceId();
     const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
     const userName = S.user ? (S.user.name || '') : '';
     if (devId || userEmail) {
@@ -11153,20 +11185,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function setupCouponHandlers() {
-    // Persistent Device Fingerprint (cannot be bypassed by simple page refresh)
-    let deviceId = localStorage.getItem('cs_device_id');
-    if (!deviceId) {
-      deviceId = 'dev_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
-      localStorage.setItem('cs_device_id', deviceId);
-    }
+    // Persistent Device Fingerprint (backed by both localStorage & cookie for in-app WebViews)
+    const deviceId = getPersistentDeviceId();
 
     // Load credits strictly linked to Gmail/Account if logged in
     const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
     const userCreditKey = userEmail ? ('cs_credits_' + userEmail) : 'cs_credits';
     const freeUsedKey = userEmail ? ('cs_free_used_' + userEmail) : 'cs_free_used';
 
-    const savedUserVal = userEmail ? localStorage.getItem(userCreditKey) : null;
-    const savedGlobalVal = localStorage.getItem('cs_credits');
+    const savedUserVal = userEmail ? safeLSGet(userCreditKey) : null;
+    const savedGlobalVal = safeLSGet('cs_credits');
 
     let savedCredits = null;
     if (savedUserVal !== null && !isNaN(parseInt(savedUserVal, 10))) {
@@ -11179,14 +11207,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     // One-time cleanup of legacy free 1-export: ensure no unearned free credit persists
     try {
-      if (localStorage.getItem('cs_no_free_v2') !== 'true') {
-        const hasRealPayment = localStorage.getItem('cs_has_paid') === 'true' || localStorage.getItem('cs_coupon_used') === 'true';
+      if (safeLSGet('cs_no_free_v2') !== 'true') {
+        const hasRealPayment = safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true';
         if (!hasRealPayment) {
-          localStorage.removeItem('cs_credits');
-          if (userEmail) localStorage.removeItem(userCreditKey);
+          safeLSRemove('cs_credits');
+          if (userEmail) safeLSRemove(userCreditKey);
           savedCredits = 0;
         }
-        localStorage.setItem('cs_no_free_v2', 'true');
+        safeLSSet('cs_no_free_v2', 'true');
       }
     } catch (_) {}
 
@@ -11198,36 +11226,91 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
     updateCreditsUI();
 
-    // Check device / user credits with authoritative server sync (No free export given)
-    const checkPayload = {
-      device_id: deviceId,
-      email: userEmail,
-      user_id: S.user ? S.user.id : null,
-      client_credits: S.credits
-    };
+    // Authoritative server credit sync with retry backoff, timeout, and no-store cache
+    // (fixes blank/0 credits inside Instagram WebView & bfcache restores)
+    let _creditSyncInFlight = false;
+    let _lastCreditSyncAt = 0;
+    let _creditRetryTimer = null;
 
-    fetch('/api/credits/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(checkPayload)
-    }).then(r => r.json()).then(data => {
-      if (typeof data.credits === 'number') {
-        const serverCredits = Math.max(0, data.credits);
-        const hasVerifiedProof = localStorage.getItem('cs_has_paid') === 'true' || localStorage.getItem('cs_coupon_used') === 'true';
-        if (S.credits > serverCredits && hasVerifiedProof) {
-          saveUserCredits(S.credits);
-          fetch('/api/credits/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device_id: deviceId, email: userEmail, credits: S.credits })
-          }).catch(() => {});
-        } else {
-          S.credits = serverCredits;
-          saveUserCredits(serverCredits);
+    function syncCreditsFromServer(force, attempt) {
+      const retryAttempt = attempt || 0;
+      const now = Date.now();
+      if (_creditSyncInFlight && retryAttempt === 0) return;
+      if (!force && retryAttempt === 0 && (now - _lastCreditSyncAt) < 3500) return;
+
+      _creditSyncInFlight = true;
+      const curDevId = getPersistentDeviceId();
+      const curEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
+      const checkPayload = {
+        device_id: curDevId,
+        email: curEmail,
+        user_id: S.user ? S.user.id : null,
+        client_credits: S.credits
+      };
+
+      const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => { try { controller.abort(); } catch (_) {} }, 8000) : null;
+
+      return fetch('/api/credits/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal: controller ? controller.signal : undefined,
+        body: JSON.stringify(checkPayload)
+      }).then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(data => {
+        if (timeoutId) clearTimeout(timeoutId);
+        _creditSyncInFlight = false;
+        _lastCreditSyncAt = Date.now();
+        if (data && typeof data.credits === 'number') {
+          const serverCredits = Math.max(0, data.credits);
+          const hasVerifiedProof = safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true';
+          if (S.credits > serverCredits && hasVerifiedProof) {
+            saveUserCredits(S.credits);
+            fetch('/api/credits/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              cache: 'no-store',
+              credentials: 'same-origin',
+              body: JSON.stringify({ device_id: curDevId, email: curEmail, credits: S.credits })
+            }).catch(() => {});
+          } else {
+            S.credits = serverCredits;
+            saveUserCredits(serverCredits);
+          }
+          updateCreditsUI();
         }
-        updateCreditsUI();
+      }).catch(e => {
+        if (timeoutId) clearTimeout(timeoutId);
+        _creditSyncInFlight = false;
+        console.warn('Credit check notice (attempt ' + (retryAttempt + 1) + '):', e);
+        const retryDelays = [900, 2200, 4500];
+        if (retryAttempt < retryDelays.length) {
+          if (_creditRetryTimer) clearTimeout(_creditRetryTimer);
+          _creditRetryTimer = setTimeout(() => {
+            syncCreditsFromServer(true, retryAttempt + 1);
+          }, retryDelays[retryAttempt]);
+        }
+      });
+    }
+
+    window.__syncCreditsFromServer = syncCreditsFromServer;
+    syncCreditsFromServer(true, 0);
+
+    window.addEventListener('pageshow', (ev) => {
+      syncCreditsFromServer(Boolean(ev && ev.persisted), 0);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        syncCreditsFromServer(false, 0);
       }
-    }).catch(e => console.warn('Credit check notice:', e));
+    });
+    window.addEventListener('focus', () => {
+      syncCreditsFromServer(false, 0);
+    });
 
     const pill = $('creditPill');
     const modalCoupon = $('modalCoupon');
