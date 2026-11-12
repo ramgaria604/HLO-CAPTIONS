@@ -365,6 +365,8 @@ def fonts_css():
             css.append(f"@font-face{{font-family:'Yellowtail';font-weight:400;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
         elif "greatvibes" in low:
             css.append(f"@font-face{{font-family:'Great Vibes';font-weight:400;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "spacemono" in low:
+            css.append(f"@font-face{{font-family:'Space Mono';font-weight:700;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
     _FONTS_CSS_CACHE = "\n".join(css)
     return _FONTS_CSS_CACHE, 200, {"Content-Type": "text/css"}
 

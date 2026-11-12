@@ -641,6 +641,10 @@ def load_presets():
                     duo_item["obsidianGoldCouture"] = True
                 if p.get("auroraSpatialDepth"):
                     duo_item["auroraSpatialDepth"] = True
+                if p.get("cobaltArchive"):
+                    duo_item["cobaltArchive"] = True
+                if p.get("celestialMonolith"):
+                    duo_item["celestialMonolith"] = True
                 if p.get("adaptiveEstateFlex"):
                     duo_item["adaptiveEstateFlex"] = True
                 if p.get("inkGap") is not None:
