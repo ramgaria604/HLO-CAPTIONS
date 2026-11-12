@@ -10271,3 +10271,134 @@ button {
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* Multi-Frame Video Template Customizer */
+.vtemplate-customizer {
+  margin: 0 0 12px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(10, 14, 26, 0.96));
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+.vt-custom-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.vt-custom-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.vt-custom-title-wrap strong {
+  font-size: 13px;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vt-custom-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.16);
+  color: #67e8f9;
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  flex-shrink: 0;
+}
+.vt-reset-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+.vt-scene-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.vt-row-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.vt-scene-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.vt-scene-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+.vt-scene-btn.active {
+  background: #0ea5e9;
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+.vt-inputs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.vt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.vt-field-wide {
+  grid-column: 1 / -1;
+}
+.vt-field span {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.vt-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(2, 6, 23, 0.65);
+  color: #f8fafc;
+  font-size: 12px;
+}
+.vt-toggles-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.vt-chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+.vt-chk input {
+  accent-color: #22d3ee;
+}

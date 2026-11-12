@@ -10368,7 +10368,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
   if (!ctxFore) return;
   _captionsDrawnCount++;
-  if (st && st.videoTemplate === 'popStudio') {
+  if (st && (st.videoTemplate === 'popStudio' || st.videoTemplate === 'chronoVault' || st.videoTemplate === 'atelierZine')) {
     return;
   }
 
@@ -11373,7 +11373,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       big.style.background = preset.pill;
       big.style.padding = '3px 8px';
       big.style.borderRadius = '5px';
-      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic)) ? kRole.color : '#000';
+      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
     } else if (paint && paint.startsWith('linear-gradient(')) {
       big.style.backgroundImage = paint;
       big.style.webkitBackgroundClip = 'text';
@@ -11513,7 +11513,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.23.1';
+    const CURRENT_PRESET_VER = 'v7.24.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -11720,6 +11720,54 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         });
       }
       S.presets.sort((a, b) => Number(Boolean(b.isDuo)) - Number(Boolean(a.isDuo)));
+
+      // Register 2 Multi-Frame Video Templates (Chrono Vault HUD + Atelier Zine Studio)
+      const videoTemplatePresets = [
+        {
+          id: 'chrono_vault_hud',
+          name: 'Chrono Vault HUD',
+          category: 'editorial',
+          badge: '🎬 4-FRAME HUD',
+          previewWord: 'CHRONO HUD',
+          videoTemplate: 'chronoVault',
+          chronoVault: true,
+          isSpecial: true,
+          behindPerson: false,
+          highlightColor: '#38BDF8',
+          baseColor: '#FFFFFF',
+          fontFamily: 'Montserrat',
+          glow: '#00F0FF',
+          fontScale: 1.0,
+          position: 0.78,
+          key: { font: 'Montserrat', color: '#38BDF8', keyGradient: 'linear-gradient(180deg, #FFFFFF 0%, #38BDF8 100%)', glow: '#00F0FF', bold: true },
+          filler: { font: 'Montserrat', color: '#E2E8F0' }
+        },
+        {
+          id: 'atelier_zine_studio',
+          name: 'Atelier Zine Studio',
+          category: 'editorial',
+          badge: '🎬 4-FRAME ZINE',
+          previewWord: 'ZINE CUT',
+          videoTemplate: 'atelierZine',
+          atelierZine: true,
+          isSpecial: true,
+          behindPerson: false,
+          highlightColor: '#E85D3F',
+          baseColor: '#FFFDF7',
+          fontFamily: 'Oswald',
+          pill: '#E85D3F',
+          fontScale: 1.0,
+          position: 0.78,
+          key: { font: 'Oswald', color: '#FFFDF7', bold: true },
+          filler: { font: 'Instrument Serif', color: '#FFFDF7' }
+        }
+      ];
+      for (let i = videoTemplatePresets.length - 1; i >= 0; i--) {
+        const vp = videoTemplatePresets[i];
+        if (!S.presets.some(p => p.id === vp.id || p.videoTemplate === vp.videoTemplate)) {
+          S.presets.unshift(vp);
+        }
+      }
       renderFrontShowcasePresets('all');
       setupFrontCategoryPills();
       if (S.presets.length > 0) {
@@ -13733,7 +13781,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       big.style.background = preset.pill;
       big.style.padding = '3px 8px';
       big.style.borderRadius = '5px';
-      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic)) ? kRole.color : '#000';
+      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
     } else if (paint && paint.startsWith('linear-gradient(')) {
       big.style.backgroundImage = paint;
       big.style.webkitBackgroundClip = 'text';
@@ -13911,6 +13959,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
     if (typeof updateFontScaleUI === 'function') {
       updateFontScaleUI();
+    }
+    if (typeof syncVideoTplCustomizerUI === 'function') {
+      syncVideoTplCustomizerUI();
     }
     if (chkWhiteSplash) {
       chkWhiteSplash.checked = (preset.whiteSplash !== false);
@@ -16826,6 +16877,21 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         }));
       }
 
+      // Check for Multi-Frame Custom Video Templates (Chrono Vault HUD / Atelier Zine Studio)
+      const activeVideoTpl = (S.style && S.style.videoTemplate) || '';
+      if (activeVideoTpl === 'chronoVault' || activeVideoTpl === 'atelierZine') {
+        if (vid && vid.style.opacity !== '1') vid.style.opacity = '1';
+        drawCustomVideoTemplateFrame(activeVideoTpl, ctx, behindCtx || ctx, t, w, h, isPreview, null);
+        drawWatermark(ctx, w, h);
+
+        if (isPreview) {
+          const elp = performance.now() - drawStart;
+          recordPreviewDrawTime(elp);
+          updateDebugBadge(elp, effQuality);
+        }
+        return;
+      }
+
       // Check for Pop Studio Scene-Based Video Template
       const isPopStudio = Boolean(
         (S.style && S.style.videoTemplate === 'popStudio') ||
@@ -17929,6 +17995,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   initSpecialRealEstateUI();
   initPopStudioUI();
   initVideoTemplatesCompactUI();
+  initVideoTplCustomizerUI();
   initHeroLookUI();
   ensureHeroFontsLoaded();
   setupQualityPills();
@@ -18568,6 +18635,16 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
             sample.draw(segExportCleanCtx, 0, 0, W, H);
           }
           exportCleanFrameCanvas = segExportCleanCanvas;
+        }
+
+        // Multi-Frame Custom Video Template Export Hook
+        const exportVideoTpl = (S.style && S.style.videoTemplate) || '';
+        if (exportVideoTpl === 'chronoVault' || exportVideoTpl === 'atelierZine') {
+          ctx.clearRect(0, 0, W, H);
+          drawCustomVideoTemplateFrame(exportVideoTpl, ctx, segExportBehindCtx || ctx, t, W, H, false, sample);
+          drawWatermark(ctx, W, H);
+          try { if (sample && typeof sample.close === 'function') sample.close(); } catch (_) {}
+          return canvas;
         }
 
         // Pop Studio Scene Export Hook
@@ -22241,6 +22318,1153 @@ function initHeroLookUI() {
   }
 
 
+
+  // =========================================================================
+  // MULTI-FRAME CUSTOMIZABLE VIDEO TEMPLATES (Chrono Vault HUD & Atelier Zine)
+  // =========================================================================
+  const VIDEO_TPL_DEFAULTS = {
+    chronoVault: {
+      name: 'Chrono Vault HUD',
+      sceneLock: 'auto',
+      header: 'EP. 04 • VIRAL SYSTEM',
+      tag: 'STEP 02',
+      stat: '+340%',
+      statLabel: 'RETENTION BOOST',
+      quote: 'Make it unforgettable.',
+      showHeader: true,
+      showCard: true,
+      showTimeline: true,
+      showCaptions: true
+    },
+    atelierZine: {
+      name: 'Atelier Zine Studio',
+      sceneLock: 'auto',
+      header: 'ISSUE 08 • CREATIVE DIRECTION',
+      tag: 'VERIFIED',
+      stat: 'FIG. 03',
+      statLabel: 'NOTES & METRICS',
+      quote: 'Contrast drives attention.',
+      showHeader: true,
+      showCard: true,
+      showTimeline: true,
+      showCaptions: true
+    }
+  };
+
+  function getVideoTplConfig(tplId) {
+    if (!S.videoTplConfig) S.videoTplConfig = {};
+    const def = VIDEO_TPL_DEFAULTS[tplId] || VIDEO_TPL_DEFAULTS.chronoVault;
+    if (!S.videoTplConfig[tplId]) {
+      S.videoTplConfig[tplId] = Object.assign({}, def);
+    }
+    return S.videoTplConfig[tplId];
+  }
+
+  function syncVideoTplCustomizerUI() {
+    const panel = $('videoTemplateCustomizer');
+    if (!panel) return;
+    const tplId = S.style && S.style.videoTemplate;
+    const isCustomTpl = (tplId === 'chronoVault' || tplId === 'atelierZine');
+    panel.classList.toggle('hidden', !isCustomTpl);
+    if (!isCustomTpl) return;
+
+    const cfg = getVideoTplConfig(tplId);
+    const def = VIDEO_TPL_DEFAULTS[tplId] || cfg;
+    const nameEl = $('vtCustomName');
+    if (nameEl) nameEl.textContent = def.name || tplId;
+
+    const sceneGroup = $('vtSceneModeGroup');
+    if (sceneGroup) {
+      sceneGroup.querySelectorAll('.vt-scene-btn').forEach(btn => {
+        btn.classList.toggle('active', String(btn.getAttribute('data-scene')) === String(cfg.sceneLock));
+      });
+    }
+    const setVal = (id, v, ph) => {
+      const el = $(id);
+      if (el) {
+        if (document.activeElement !== el) el.value = v || '';
+        if (ph !== undefined) el.placeholder = ph;
+      }
+    };
+    setVal('vtInputHeader', cfg.header, def.header);
+    setVal('vtInputTag', cfg.tag, def.tag);
+    setVal('vtInputStat', cfg.stat, def.stat);
+    setVal('vtInputStatLabel', cfg.statLabel, def.statLabel);
+    setVal('vtInputQuote', cfg.quote, def.quote);
+
+    const setChk = (id, val) => {
+      const el = $(id);
+      if (el) el.checked = val !== false;
+    };
+    setChk('vtToggleHeader', cfg.showHeader);
+    setChk('vtToggleCard', cfg.showCard);
+    setChk('vtToggleTimeline', cfg.showTimeline);
+    setChk('vtToggleCaptions', cfg.showCaptions);
+  }
+
+  function initVideoTplCustomizerUI() {
+    const panel = $('videoTemplateCustomizer');
+    if (!panel || panel.dataset.bound === '1') {
+      syncVideoTplCustomizerUI();
+      return;
+    }
+    panel.dataset.bound = '1';
+
+    const getActiveTplId = () => {
+      const id = S.style && S.style.videoTemplate;
+      return (id === 'chronoVault' || id === 'atelierZine') ? id : null;
+    };
+
+    const sceneGroup = $('vtSceneModeGroup');
+    if (sceneGroup) {
+      sceneGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.vt-scene-btn');
+        if (!btn) return;
+        const tplId = getActiveTplId();
+        if (!tplId) return;
+        getVideoTplConfig(tplId).sceneLock = btn.getAttribute('data-scene') || 'auto';
+        syncVideoTplCustomizerUI();
+        renderCanvas();
+      });
+    }
+
+    const bindInput = (id, field) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        const tplId = getActiveTplId();
+        if (!tplId) return;
+        getVideoTplConfig(tplId)[field] = el.value;
+        renderCanvas();
+      });
+    };
+    bindInput('vtInputHeader', 'header');
+    bindInput('vtInputTag', 'tag');
+    bindInput('vtInputStat', 'stat');
+    bindInput('vtInputStatLabel', 'statLabel');
+    bindInput('vtInputQuote', 'quote');
+
+    const bindChk = (id, field) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        const tplId = getActiveTplId();
+        if (!tplId) return;
+        getVideoTplConfig(tplId)[field] = Boolean(el.checked);
+        renderCanvas();
+      });
+    };
+    bindChk('vtToggleHeader', 'showHeader');
+    bindChk('vtToggleCard', 'showCard');
+    bindChk('vtToggleTimeline', 'showTimeline');
+    bindChk('vtToggleCaptions', 'showCaptions');
+
+    const resetBtn = $('btnResetVideoTplConfig');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        const tplId = getActiveTplId();
+        if (!tplId) return;
+        S.videoTplConfig[tplId] = Object.assign({}, VIDEO_TPL_DEFAULTS[tplId]);
+        syncVideoTplCustomizerUI();
+        renderCanvas();
+        if (typeof showToast === 'function') showToast('Template settings reset to default', 1800);
+      });
+    }
+
+    syncVideoTplCustomizerUI();
+  }
+
+  function vtClamp(v, lo, hi) {
+    return Math.max(lo, Math.min(hi, v));
+  }
+
+  function vtEaseOutCubic(x) {
+    const t = vtClamp(x, 0, 1);
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function vtEaseOutBack(x) {
+    const t = vtClamp(x, 0, 1);
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  }
+
+  function vtRoundRect(ctx, x, y, w, h, r) {
+    const rr = Math.min(r || 0, Math.abs(w) / 2, Math.abs(h) / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  function vtFormatTime(sec) {
+    const s = Math.max(0, Math.floor(sec || 0));
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+  }
+
+  function resolveTemplateBeats(t, cfg) {
+    const caps = (S && Array.isArray(S.captions)) ? S.captions : [];
+    const duration = Math.max(
+      (vid && vid.duration && Number.isFinite(vid.duration)) ? vid.duration : 0,
+      caps.length ? (caps[caps.length - 1].end || 12) : 12,
+      8
+    );
+
+    const beats = [];
+    if (caps.length > 0) {
+      let group = [];
+      let gStart = caps[0].start || 0;
+      for (let i = 0; i < caps.length; i++) {
+        const cap = caps[i];
+        group.push(cap);
+        const span = (cap.end || (gStart + 2)) - gStart;
+        const punct = /[.!?]$/.test((cap.text || '').trim());
+        const last = (i === caps.length - 1);
+        if (last || (span >= 2.1 && (punct || span >= 3.6))) {
+          beats.push({ start: gStart, end: Math.max(cap.end || gStart + 2.5, gStart + 1.2), caps: group });
+          group = [];
+          if (!last) gStart = caps[i + 1].start || cap.end || (gStart + 2.5);
+        }
+      }
+      if (beats.length > 1) {
+        const tail = beats[beats.length - 1];
+        if ((tail.end - tail.start) < 1.5) {
+          const prev = beats[beats.length - 2];
+          prev.end = tail.end;
+          prev.caps = prev.caps.concat(tail.caps);
+          beats.pop();
+        }
+      }
+    } else {
+      const sliceLen = Math.max(2.4, duration / 4);
+      const demoLines = [
+        ['STOP SCROLLING', 'RIGHT NOW'],
+        ['BUILD YOUR', 'VISUAL SYSTEM'],
+        ['EVERY FRAME', 'WORKS TOGETHER'],
+        ['MAKE IT', 'UNFORGETTABLE']
+      ];
+      for (let i = 0; i < 4; i++) {
+        const s = i * sliceLen;
+        const e = Math.min(duration, (i + 1) * sliceLen);
+        beats.push({
+          start: s,
+          end: Math.max(e, s + 2.0),
+          caps: [{ start: s, end: Math.max(e, s + 2.0), text: demoLines[i].join(' '), isDemo: true }]
+        });
+      }
+    }
+
+    let beatIdx = 0;
+    for (let i = 0; i < beats.length; i++) {
+      if (t >= beats[i].start && (t <= beats[i].end || i === beats.length - 1)) {
+        beatIdx = i;
+        break;
+      }
+    }
+    const activeBeat = beats[beatIdx] || beats[0];
+    let activeCap = activeBeat.caps[0] || null;
+    for (let i = 0; i < activeBeat.caps.length; i++) {
+      const c = activeBeat.caps[i];
+      if (t >= c.start && t <= c.end) {
+        activeCap = c;
+        break;
+      }
+    }
+    const beatDur = Math.max(0.8, activeBeat.end - activeBeat.start);
+    const tau = Math.max(0, t - activeBeat.start);
+    const uBeat = vtClamp(tau / beatDur, 0, 1);
+
+    const lockVal = cfg ? String(cfg.sceneLock) : 'auto';
+    const sceneIdx = (lockVal !== 'auto' && ['0', '1', '2', '3'].includes(lockVal))
+      ? Number(lockVal)
+      : (beatIdx % 4);
+
+    return { beats, beatIdx, activeBeat, activeCap, duration, tau, beatDur, uBeat, sceneIdx };
+  }
+
+  function vtGetActiveCaptionTokens(cap, t) {
+    const raw = (cap && cap.text ? cap.text : 'MAKE EVERY FRAME COUNT').trim();
+    const caseMode = (S && (S.textCase || S.style?.textCase)) || 'upper';
+    const cased = typeof applyTextCase === 'function' ? applyTextCase(raw, caseMode) : raw.toUpperCase();
+    const parts = cased.split(/\s+/).filter(Boolean);
+    const cStart = Number(cap && cap.start) || 0;
+    const cEnd = Number(cap && cap.end) || (cStart + 2.5);
+    const dur = Math.max(0.3, cEnd - cStart);
+    const prog = vtClamp((t - cStart) / dur, 0, 0.999);
+    let activeWordIdx = Math.floor(prog * parts.length);
+
+    if (cap && Array.isArray(cap.words) && cap.words.length === parts.length) {
+      for (let i = 0; i < cap.words.length; i++) {
+        if (t >= (cap.words[i].start || 0) && t <= (cap.words[i].end || cEnd)) {
+          activeWordIdx = i;
+          break;
+        }
+      }
+    }
+    return { words: parts, activeWordIdx: vtClamp(activeWordIdx, 0, Math.max(0, parts.length - 1)) };
+  }
+
+  function vtDrawKineticWords(ctx, opts) {
+    const {
+      words, activeIdx, cx, cy, maxW, fontPx, fontFam,
+      baseColor, hiColor, pillFill, pillText, strokeCol, glowCol,
+      glowBlur, lineMult, trackPx, enterT
+    } = opts;
+    if (!words || !words.length) return;
+
+    const animScale = 0.90 + 0.10 * vtEaseOutBack(vtClamp(enterT / 0.24, 0, 1));
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(animScale, animScale);
+    ctx.font = `900 ${fontPx}px ${fontFam}`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
+    const gap = Math.round(fontPx * 0.28 + (trackPx || 0));
+    const lines = [];
+    let curLine = [];
+    let curW = 0;
+
+    words.forEach((w, idx) => {
+      const m = Math.ceil(ctx.measureText(w).width);
+      const nextW = curLine.length === 0 ? m : (curW + gap + m);
+      if (curLine.length > 0 && (nextW > maxW || curLine.length >= 3)) {
+        lines.push({ items: curLine, width: curW });
+        curLine = [{ text: w, width: m, idx }];
+        curW = m;
+      } else {
+        curLine.push({ text: w, width: m, idx });
+        curW = nextW;
+      }
+    });
+    if (curLine.length) lines.push({ items: curLine, width: curW });
+
+    const lineStep = Math.round(fontPx * 1.18 * (lineMult || 1));
+    const totalH = (lines.length - 1) * lineStep;
+
+    lines.forEach((ln, lIdx) => {
+      const ly = -totalH / 2 + lIdx * lineStep;
+      let lx = -ln.width / 2;
+
+      ln.items.forEach((item) => {
+        const isAct = item.idx === activeIdx;
+        const padX = Math.round(fontPx * 0.22);
+        const padY = Math.round(fontPx * 0.12);
+
+        if (isAct && pillFill) {
+          ctx.save();
+          ctx.fillStyle = pillFill;
+          if (glowCol && glowBlur > 0) {
+            ctx.shadowColor = glowCol;
+            ctx.shadowBlur = glowBlur * 0.65;
+          }
+          vtRoundRect(ctx, lx - padX * 0.55, ly - fontPx * 0.58 - padY * 0.4, item.width + padX * 1.1, fontPx * 1.14 + padY * 0.8, Math.round(fontPx * 0.18));
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.save();
+        if (glowCol && glowBlur > 0) {
+          ctx.shadowColor = glowCol;
+          ctx.shadowBlur = isAct ? glowBlur : Math.round(glowBlur * 0.35);
+        } else {
+          ctx.shadowColor = 'rgba(0,0,0,0.65)';
+          ctx.shadowBlur = Math.round(fontPx * 0.18);
+          ctx.shadowOffsetY = Math.round(fontPx * 0.06);
+        }
+        if (strokeCol) {
+          ctx.lineWidth = Math.max(2, Math.round(fontPx * 0.10));
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = strokeCol;
+          ctx.strokeText(item.text, lx, ly);
+        }
+        ctx.fillStyle = isAct ? (pillFill ? (pillText || '#090D16') : hiColor) : baseColor;
+        ctx.fillText(item.text, lx, ly);
+        ctx.restore();
+
+        lx += item.width + gap;
+      });
+    });
+
+    ctx.restore();
+  }
+
+  function drawChronoVaultTemplate(ctx, t, W, H, isPreview, videoSource, cfg, beatInfo) {
+    const ov = typeof resolveSceneStyleOverrides === 'function' ? resolveSceneStyleOverrides(S.style, H) : null;
+    const accent = ov ? ov.pickHi('#38BDF8') : '#38BDF8';
+    const neonGlow = (ov && ov.customGlow) ? ov.customGlow : '#00F0FF';
+    const baseText = ov ? ov.pickBase('#FFFFFF') : '#FFFFFF';
+    const fontFam = ov ? ov.pickFontFam('"Montserrat", "Poppins", sans-serif') : '"Montserrat", "Poppins", sans-serif';
+    const fScale = Number((S.style && S.style.fontScale) || 1.0);
+    const posDeltaY = ov ? ov.posDeltaY : 0;
+    const lineMult = ov ? ov.lineSpacingMult : 1.0;
+
+    const { sceneIdx, tau, uBeat, duration, activeCap, beats } = beatInfo;
+    const enterT = vtEaseOutCubic(vtClamp(tau / 0.38, 0, 1));
+    const slideBack = vtEaseOutBack(vtClamp(tau / 0.42, 0, 1));
+
+    // 1. Background video frame in export + subtle top/bottom dark vignette for crisp HUD contrast
+    const camZoom = (sceneIdx === 0 || sceneIdx === 3) ? (1.0 + 0.035 * Math.sin(uBeat * Math.PI * 0.85)) : 1.015;
+    if (videoSource) {
+      const zW = W * camZoom;
+      const zH = H * camZoom;
+      drawCoverVideo(ctx, videoSource, (W - zW) / 2, (H - zH) / 2, zW, zH);
+    }
+
+    const topGrad = ctx.createLinearGradient(0, 0, 0, H * 0.24);
+    topGrad.addColorStop(0, 'rgba(7, 11, 20, 0.72)');
+    topGrad.addColorStop(1, 'rgba(7, 11, 20, 0)');
+    ctx.fillStyle = topGrad;
+    ctx.fillRect(0, 0, W, H * 0.24);
+
+    const botGrad = ctx.createLinearGradient(0, H * 0.62, 0, H);
+    botGrad.addColorStop(0, 'rgba(7, 11, 20, 0)');
+    botGrad.addColorStop(1, 'rgba(7, 11, 20, 0.82)');
+    ctx.fillStyle = botGrad;
+    ctx.fillRect(0, H * 0.62, W, H * 0.38);
+
+    // 2. Corner Viewfinder L-Brackets
+    const padX = Math.round(W * 0.052);
+    const padTop = Math.round(H * 0.038);
+    const padBot = Math.round(H * 0.042);
+    const arm = Math.round(W * 0.068 * (sceneIdx === 0 ? (0.95 + 0.08 * Math.sin(t * 5)) : 1));
+    ctx.save();
+    ctx.strokeStyle = sceneIdx === 0 ? accent : 'rgba(226, 232, 240, 0.58)';
+    ctx.lineWidth = Math.max(2, Math.round(W * 0.004));
+    ctx.lineCap = 'square';
+    if (sceneIdx === 0) {
+      ctx.shadowColor = neonGlow;
+      ctx.shadowBlur = Math.round(W * 0.018);
+    }
+    const corners = [
+      [padX, padTop, 1, 1],
+      [W - padX, padTop, -1, 1],
+      [padX, H - padBot, 1, -1],
+      [W - padX, H - padBot, -1, -1]
+    ];
+    corners.forEach(([cx0, cy0, dx, dy]) => {
+      ctx.beginPath();
+      ctx.moveTo(cx0, cy0 + dy * arm);
+      ctx.lineTo(cx0, cy0);
+      ctx.lineTo(cx0 + dx * arm, cy0);
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    // 3. Top Glass Telemetry Pill (Header HUD)
+    if (cfg.showHeader !== false) {
+      const pillH = Math.round(H * 0.042);
+      const pillFontPx = Math.max(11, Math.round(W * 0.025));
+      const hudText = (cfg.header || 'EP. 04 • VIRAL SYSTEM').toUpperCase();
+      ctx.save();
+      ctx.font = `700 ${pillFontPx}px ${fontFam}`;
+      const txtW = ctx.measureText(hudText).width;
+      const eqW = Math.round(W * 0.062);
+      const pillW = Math.min(W * 0.78, Math.round(txtW + eqW + W * 0.11));
+      const px = Math.round(padX + W * 0.02);
+      const py = Math.round(padTop + H * 0.022 + (1 - enterT) * -Math.round(H * 0.02));
+
+      ctx.globalAlpha = 0.25 + 0.75 * enterT;
+      ctx.fillStyle = 'rgba(11, 18, 34, 0.78)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+      ctx.lineWidth = Math.max(1.5, Math.round(W * 0.0025));
+      vtRoundRect(ctx, px, py, pillW, pillH, pillH / 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Green pulsing live dot
+      const dotR = Math.round(pillH * 0.14);
+      const dotX = px + Math.round(pillH * 0.45);
+      const dotY = py + pillH / 2;
+      const pulse = 0.65 + 0.35 * Math.sin(t * 6.5);
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, dotR * (0.9 + 0.2 * pulse), 0, Math.PI * 2);
+      ctx.fillStyle = '#10B981';
+      ctx.shadowColor = '#10B981';
+      ctx.shadowBlur = Math.round(W * 0.015 * pulse);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Header text
+      ctx.fillStyle = '#F8FAFC';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillText(hudText, dotX + dotR + Math.round(W * 0.022), dotY + 1, pillW - eqW - Math.round(W * 0.08));
+
+      // Animated audio equalizer bars on right of HUD pill
+      const barBaseX = px + pillW - eqW - Math.round(W * 0.02);
+      const barW = Math.max(2, Math.round(W * 0.006));
+      for (let b = 0; b < 4; b++) {
+        const amp = 0.35 + 0.65 * Math.abs(Math.sin(t * 8.2 + b * 1.15));
+        const bh = Math.round(pillH * 0.52 * amp);
+        ctx.fillStyle = accent;
+        vtRoundRect(ctx, barBaseX + b * (barW * 1.9), dotY - bh / 2, barW, bh, barW / 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // 4. Right-Edge Vertical Timeline Rail
+    if (cfg.showTimeline !== false) {
+      const railX = W - Math.round(W * 0.042);
+      const railTop = Math.round(H * 0.22);
+      const railH = Math.round(H * 0.48);
+      const prog = vtClamp(t / duration, 0, 1);
+      const fillH = Math.round(railH * prog);
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      vtRoundRect(ctx, railX - 2, railTop, 4, railH, 2);
+      ctx.fill();
+
+      const rGrad = ctx.createLinearGradient(0, railTop, 0, railTop + Math.max(8, fillH));
+      rGrad.addColorStop(0, '#38BDF8');
+      rGrad.addColorStop(1, accent);
+      ctx.fillStyle = rGrad;
+      ctx.shadowColor = neonGlow;
+      ctx.shadowBlur = Math.round(W * 0.02);
+      vtRoundRect(ctx, railX - 2.5, railTop, 5, Math.max(5, fillH), 2.5);
+      ctx.fill();
+
+      // Active thumb + timestamp badge
+      const thumbY = railTop + fillH;
+      ctx.beginPath();
+      ctx.arc(railX, thumbY, Math.round(W * 0.012), 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      const tsFont = Math.max(10, Math.round(W * 0.021));
+      ctx.font = `700 ${tsFont}px "Space Grotesk", monospace, sans-serif`;
+      const tsStr = vtFormatTime(t);
+      const tsW = Math.round(ctx.measureText(tsStr).width + W * 0.03);
+      const tsH = Math.round(tsFont * 1.65);
+      ctx.fillStyle = 'rgba(11, 18, 34, 0.85)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+      ctx.lineWidth = 1;
+      vtRoundRect(ctx, railX - tsW - Math.round(W * 0.02), thumbY - tsH / 2, tsW, tsH, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = accent;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tsStr, railX - tsW / 2 - Math.round(W * 0.02), thumbY + 0.5);
+      ctx.restore();
+    }
+
+    // 5. Scene-Specific Hero Choreography (F0..F3)
+    if (sceneIdx === 0 && cfg.showCard !== false) {
+      // F0 HOOK: Sliding top-center glass Hook Banner + subtle reticle scan line
+      const bannerW = Math.round(W * 0.62);
+      const bannerH = Math.round(H * 0.056);
+      const bx = (W - bannerW) / 2;
+      const by = Math.round(H * 0.145 - (1 - slideBack) * H * 0.04);
+      const hookTxt = (cfg.tag || 'HOOK // 01').toUpperCase();
+
+      ctx.save();
+      ctx.globalAlpha = enterT;
+      ctx.fillStyle = 'rgba(11, 18, 34, 0.84)';
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = Math.max(1.5, Math.round(W * 0.003));
+      ctx.shadowColor = neonGlow;
+      ctx.shadowBlur = Math.round(W * 0.025);
+      vtRoundRect(ctx, bx, by, bannerW, bannerH, Math.round(bannerH * 0.28));
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const fPx = Math.max(12, Math.round(W * 0.03));
+      ctx.font = `800 ${fPx}px ${fontFam}`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`⚡ ${hookTxt}`, W / 2, by + bannerH / 2 + 1, bannerW * 0.88);
+      ctx.restore();
+    } else if (sceneIdx === 1 && cfg.showCard !== false) {
+      // F1 DATA PROOF CARD: Obsidian glass stat + animated neon sparkline
+      const cardW = Math.round(W * 0.44);
+      const cardH = Math.round(H * 0.175);
+      const cx0 = W - padX - cardW - Math.round(W * 0.055);
+      const cy0 = Math.round(H * 0.165);
+      const popS = 0.82 + 0.18 * slideBack;
+
+      ctx.save();
+      ctx.globalAlpha = enterT;
+      ctx.translate(cx0 + cardW / 2, cy0 + cardH / 2);
+      ctx.scale(popS, popS);
+      ctx.translate(-cardW / 2, -cardH / 2);
+
+      ctx.fillStyle = 'rgba(11, 18, 34, 0.86)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.68)';
+      ctx.lineWidth = Math.max(1.5, Math.round(W * 0.003));
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+      ctx.shadowBlur = Math.round(W * 0.04);
+      vtRoundRect(ctx, 0, 0, cardW, cardH, Math.round(W * 0.032));
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+
+      // Metric value
+      const statVal = cfg.stat || '+340%';
+      const statPx = Math.max(18, Math.round(W * 0.068));
+      ctx.font = `900 ${statPx}px ${fontFam}`;
+      ctx.fillStyle = accent;
+      ctx.shadowColor = neonGlow;
+      ctx.shadowBlur = Math.round(W * 0.022);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(statVal, Math.round(cardW * 0.1), Math.round(cardH * 0.11), cardW * 0.8);
+      ctx.shadowBlur = 0;
+
+      // Label
+      const lblPx = Math.max(10, Math.round(W * 0.024));
+      ctx.font = `700 ${lblPx}px ${fontFam}`;
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.88)';
+      ctx.fillText((cfg.statLabel || 'RETENTION BOOST').toUpperCase(), Math.round(cardW * 0.1), Math.round(cardH * 0.44), cardW * 0.8);
+
+      // Animated cyan sparkline inside card bottom
+      const gx0 = Math.round(cardW * 0.1);
+      const gw = Math.round(cardW * 0.8);
+      const gyBase = Math.round(cardH * 0.86);
+      const gh = Math.round(cardH * 0.24);
+      const pts = [0.15, 0.42, 0.28, 0.65, 0.52, 0.96];
+      const drawProg = vtEaseOutCubic(vtClamp(tau / 0.75, 0, 1));
+      const visPts = 1 + drawProg * (pts.length - 1);
+
+      ctx.beginPath();
+      for (let i = 0; i <= Math.floor(visPts); i++) {
+        const idx = Math.min(pts.length - 1, i);
+        const px = gx0 + (idx / (pts.length - 1)) * gw;
+        const py = gyBase - pts[idx] * gh;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = Math.max(2, Math.round(W * 0.005));
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = neonGlow;
+      ctx.shadowBlur = Math.round(W * 0.018);
+      ctx.stroke();
+
+      const lastIdx = Math.min(pts.length - 1, Math.floor(visPts));
+      ctx.beginPath();
+      ctx.arc(gx0 + (lastIdx / (pts.length - 1)) * gw, gyBase - pts[lastIdx] * gh, Math.round(W * 0.009), 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.restore();
+    } else if (sceneIdx === 2 && cfg.showCard !== false) {
+      // F2 FOCUS CHECKLIST DECK: 3 stacked sequential pills on left
+      const steps = [
+        (cfg.tag || 'STEP 01').toUpperCase(),
+        (cfg.statLabel || 'SYSTEM CORE').toUpperCase(),
+        (cfg.quote || 'EXECUTE FAST').toUpperCase().slice(0, 22)
+      ];
+      const deckW = Math.round(W * 0.52);
+      const itemH = Math.round(H * 0.048);
+      const gapY = Math.round(H * 0.012);
+      const sx = padX + Math.round(W * 0.02);
+      const sy = Math.round(H * 0.16);
+      const activeRow = Math.floor(uBeat * 3) % 3;
+
+      steps.forEach((lbl, idx) => {
+        const delay = idx * 0.09;
+        const rowT = vtEaseOutBack(vtClamp((tau - delay) / 0.34, 0, 1));
+        const rx = sx - (1 - rowT) * Math.round(W * 0.09);
+        const ry = sy + idx * (itemH + gapY);
+        const isOn = idx <= activeRow;
+
+        ctx.save();
+        ctx.globalAlpha = rowT;
+        ctx.fillStyle = isOn ? 'rgba(14, 165, 233, 0.24)' : 'rgba(11, 18, 34, 0.76)';
+        ctx.strokeStyle = isOn ? accent : 'rgba(148, 163, 184, 0.38)';
+        ctx.lineWidth = Math.max(1.5, Math.round(W * 0.0025));
+        vtRoundRect(ctx, rx, ry, deckW, itemH, Math.round(itemH * 0.28));
+        ctx.fill();
+        ctx.stroke();
+
+        // Index badge
+        const badgeW = Math.round(itemH * 0.72);
+        const bPad = Math.round(itemH * 0.14);
+        ctx.fillStyle = isOn ? accent : 'rgba(255,255,255,0.12)';
+        vtRoundRect(ctx, rx + bPad, ry + bPad, badgeW, badgeW, Math.round(badgeW * 0.25));
+        ctx.fill();
+
+        ctx.font = `800 ${Math.max(10, Math.round(W * 0.022))}px ${fontFam}`;
+        ctx.fillStyle = isOn ? '#090D16' : '#CBD5E1';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`0${idx + 1}`, rx + bPad + badgeW / 2, ry + itemH / 2 + 0.5);
+
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#F8FAFC';
+        ctx.fillText(lbl, rx + bPad * 2 + badgeW + 2, ry + itemH / 2 + 0.5, deckW - badgeW - bPad * 4);
+        ctx.restore();
+      });
+    } else if (sceneIdx === 3 && cfg.showCard !== false) {
+      // F3 CLIMAX SPOTLIGHT BANNER: Wide chest-height translucent sweep band + verified tag
+      const bandY = Math.round(H * 0.65 + posDeltaY * 0.45);
+      const bandH = Math.round(H * 0.21);
+      ctx.save();
+      ctx.globalAlpha = 0.85 * enterT;
+      const bGrad = ctx.createLinearGradient(0, bandY, W, bandY);
+      bGrad.addColorStop(0, 'rgba(11, 18, 34, 0.15)');
+      bGrad.addColorStop(0.5, 'rgba(14, 165, 233, 0.28)');
+      bGrad.addColorStop(1, 'rgba(11, 18, 34, 0.15)');
+      ctx.fillStyle = bGrad;
+      ctx.fillRect(0, bandY, W, bandH);
+
+      // Top & bottom neon laser hairlines
+      ctx.fillStyle = accent;
+      ctx.shadowColor = neonGlow;
+      ctx.shadowBlur = Math.round(W * 0.02);
+      ctx.fillRect(W * 0.08, bandY, W * 0.84 * enterT, Math.max(2, Math.round(H * 0.0028)));
+      ctx.fillRect(W * 0.08, bandY + bandH, W * 0.84 * enterT, Math.max(2, Math.round(H * 0.0028)));
+      ctx.restore();
+    }
+
+    // 6. Step Context Pill + Kinetic Caption Headline at lower zone
+    if (cfg.showCaptions !== false) {
+      const { words, activeWordIdx } = vtGetActiveCaptionTokens(activeCap, t);
+      const capCy = Math.round(H * 0.77 + posDeltaY);
+      const stepLabels = ['01 // HOOK', (cfg.tag || 'STEP 02').toUpperCase(), '03 // BREAKDOWN', '04 // VERDICT'];
+      const chipText = stepLabels[sceneIdx] || '01 // HOOK';
+
+      // Context chip above caption
+      const chipFont = Math.max(10, Math.round(W * 0.024));
+      ctx.save();
+      ctx.font = `800 ${chipFont}px ${fontFam}`;
+      const chipW = Math.round(ctx.measureText(chipText).width + W * 0.055);
+      const chipH = Math.round(chipFont * 1.75);
+      const chipY = capCy - Math.round(H * 0.092 * fScale);
+      ctx.fillStyle = 'rgba(11, 18, 34, 0.85)';
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = Math.max(1.5, Math.round(W * 0.0025));
+      vtRoundRect(ctx, (W - chipW) / 2, chipY, chipW, chipH, Math.round(chipH * 0.35));
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = accent;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(chipText, W / 2, chipY + chipH / 2 + 0.5);
+      ctx.restore();
+
+      const capFontPx = Math.max(24, Math.round(W * 0.072 * fScale));
+      vtDrawKineticWords(ctx, {
+        words,
+        activeIdx: activeWordIdx,
+        cx: W / 2,
+        cy: capCy,
+        maxW: W * 0.80,
+        fontPx: capFontPx,
+        fontFam,
+        baseColor: baseText,
+        hiColor: accent,
+        pillFill: accent,
+        pillText: '#070B14',
+        strokeCol: 'rgba(7, 11, 20, 0.9)',
+        glowCol: (ov && ov.customGlowEnabled === false) ? null : neonGlow,
+        glowBlur: (ov && ov.customGlowBlur !== null) ? ov.customGlowBlur : Math.round(W * 0.022),
+        lineMult,
+        trackPx: ov ? Math.round(ov.letterTrackDelta * 2) : 0,
+        enterT: tau
+      });
+
+      // Glowing cyber beam underline beneath headline
+      const beamW = Math.round(W * (sceneIdx === 3 ? 0.56 : 0.42) * enterT);
+      const beamY = capCy + Math.round(H * 0.078 * fScale);
+      ctx.save();
+      ctx.fillStyle = accent;
+      ctx.shadowColor = neonGlow;
+      ctx.shadowBlur = Math.round(W * 0.026);
+      vtRoundRect(ctx, (W - beamW) / 2, beamY, beamW, Math.max(3, Math.round(H * 0.0045)), 3);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawAtelierZineTemplate(ctx, t, W, H, isPreview, videoSource, cfg, beatInfo) {
+    const ov = typeof resolveSceneStyleOverrides === 'function' ? resolveSceneStyleOverrides(S.style, H) : null;
+    const vermilion = ov ? ov.pickHi('#E85D3F') : '#E85D3F';
+    const cream = ov ? ov.pickBase('#FFFDF7') : '#FFFDF7';
+    const ink = '#141519';
+    const sansFam = ov ? ov.pickFontFam('"Oswald", "Anton", "Montserrat", sans-serif') : '"Oswald", "Anton", "Montserrat", sans-serif';
+    const fScale = Number((S.style && S.style.fontScale) || 1.0);
+    const posDeltaY = ov ? ov.posDeltaY : 0;
+    const lineMult = ov ? ov.lineSpacingMult : 1.0;
+
+    const { sceneIdx, tau, duration, activeCap } = beatInfo;
+    const enterT = vtEaseOutCubic(vtClamp(tau / 0.36, 0, 1));
+    const slideBack = vtEaseOutBack(vtClamp(tau / 0.44, 0, 1));
+
+    // Inset rounded video window geometry
+    const winX = Math.round(W * 0.078);
+    const winY = Math.round(H * 0.088);
+    const winW = W - winX * 2;
+    const winH = H - Math.round(H * 0.195);
+    const winR = Math.round(W * 0.036);
+
+    // 1. Dark Editorial Dot-Grid Studio Matte + Inset Video Window
+    ctx.save();
+    if (!videoSource) {
+      // Live preview: inverse evenodd clip preserves crisp native <video> element inside window
+      ctx.beginPath();
+      ctx.rect(0, 0, W, H);
+      ctx.moveTo(winX + winR, winY);
+      ctx.arcTo(winX + winW, winY, winX + winW, winY + winH, winR);
+      ctx.arcTo(winX + winW, winY + winH, winX, winY + winH, winR);
+      ctx.arcTo(winX, winY + winH, winX, winY, winR);
+      ctx.arcTo(winX, winY, winX + winW, winY, winR);
+      ctx.closePath();
+      ctx.clip('evenodd');
+      ctx.fillStyle = ink;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      ctx.fillStyle = ink;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Subtle paper dot-grid pattern across outer matte
+    const dotStep = Math.max(16, Math.round(W * 0.036));
+    ctx.fillStyle = 'rgba(255, 253, 247, 0.13)';
+    for (let gx = Math.round(dotStep / 2); gx < W; gx += dotStep) {
+      for (let gy = Math.round(dotStep / 2); gy < H; gy += dotStep) {
+        ctx.fillRect(gx, gy, 1.8, 1.8);
+      }
+    }
+    ctx.restore();
+
+    if (videoSource) {
+      ctx.save();
+      vtRoundRect(ctx, winX, winY, winW, winH, winR);
+      ctx.clip();
+      drawCoverVideo(ctx, videoSource, winX, winY, winW, winH);
+      ctx.restore();
+    }
+
+    // Readability dark gradient inside lower half of video window + crisp cream pinstripe border
+    ctx.save();
+    vtRoundRect(ctx, winX, winY, winW, winH, winR);
+    ctx.clip();
+    const legGrad = ctx.createLinearGradient(0, winY + winH * 0.58, 0, winY + winH);
+    legGrad.addColorStop(0, 'rgba(20, 21, 25, 0)');
+    legGrad.addColorStop(1, 'rgba(20, 21, 25, 0.78)');
+    ctx.fillStyle = legGrad;
+    ctx.fillRect(winX, winY + winH * 0.58, winW, winH * 0.42);
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = cream;
+    ctx.lineWidth = Math.max(2, Math.round(W * 0.0042));
+    vtRoundRect(ctx, winX, winY, winW, winH, winR);
+    ctx.stroke();
+    ctx.restore();
+
+    // 2. Top Editorial Ticker Strip + REC Tag
+    if (cfg.showHeader !== false) {
+      const barH = Math.round(H * 0.044);
+      const barY = Math.round((winY - barH) / 2);
+      const barFont = Math.max(11, Math.round(W * 0.024));
+
+      ctx.save();
+      ctx.fillStyle = cream;
+      vtRoundRect(ctx, winX, barY, winW, barH, Math.round(barH * 0.25));
+      ctx.fill();
+
+      const chapterTags = ['01 // COVER', '02 // INSIGHT', '03 // ARCHIVE', '04 // FINALE'];
+      const chStr = chapterTags[sceneIdx] || '01 // COVER';
+      ctx.font = `800 ${barFont}px ${sansFam}`;
+      const chW = Math.round(ctx.measureText(chStr).width + W * 0.045);
+
+      ctx.fillStyle = vermilion;
+      vtRoundRect(ctx, winX + winW - chW - 4, barY + 4, chW, barH - 8, Math.round(barH * 0.18));
+      ctx.fill();
+
+      ctx.fillStyle = cream;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(chStr, winX + winW - chW / 2 - 4, barY + barH / 2 + 0.5);
+
+      ctx.fillStyle = ink;
+      ctx.textAlign = 'left';
+      const headStr = (cfg.header || 'ISSUE 08 • CREATIVE DIRECTION').toUpperCase();
+      ctx.fillText(headStr, winX + Math.round(W * 0.025), barY + barH / 2 + 0.5, winW - chW - Math.round(W * 0.07));
+
+      // REC • 24FPS pill inside top-left corner of video window
+      const recFont = Math.max(10, Math.round(W * 0.021));
+      ctx.font = `700 ${recFont}px monospace, sans-serif`;
+      const recStr = 'REC • 24FPS';
+      const recW = Math.round(ctx.measureText(recStr).width + W * 0.06);
+      const recH = Math.round(recFont * 1.75);
+      const recX = winX + Math.round(W * 0.028);
+      const recY = winY + Math.round(H * 0.022);
+      ctx.fillStyle = 'rgba(20, 21, 25, 0.78)';
+      vtRoundRect(ctx, recX, recY, recW, recH, 6);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(recX + Math.round(W * 0.02), recY + recH / 2, Math.max(3, Math.round(W * 0.006)), 0, Math.PI * 2);
+      ctx.fillStyle = (Math.sin(t * 5) > -0.3) ? vermilion : 'rgba(232,93,63,0.35)';
+      ctx.fill();
+      ctx.fillStyle = cream;
+      ctx.fillText(recStr, recX + Math.round(W * 0.036), recY + recH / 2 + 0.5);
+      ctx.restore();
+    }
+
+    // 3. Bottom Film-Perforation Scrubber Bar
+    if (cfg.showTimeline !== false) {
+      const botTop = winY + winH + Math.round(H * 0.018);
+      const prog = vtClamp(t / duration, 0, 1);
+
+      // Sprocket film notches
+      ctx.save();
+      const holeW = Math.round(W * 0.028);
+      const holeH = Math.round(H * 0.011);
+      const stepX = Math.round(W * 0.056);
+      ctx.fillStyle = 'rgba(255, 253, 247, 0.24)';
+      for (let hx = winX; hx <= winX + winW - holeW; hx += stepX) {
+        vtRoundRect(ctx, hx, botTop, holeW, holeH, 2);
+        ctx.fill();
+      }
+
+      const trackY = botTop + holeH + Math.round(H * 0.024);
+      const tsFont = Math.max(10, Math.round(W * 0.022));
+      ctx.font = `700 ${tsFont}px monospace, sans-serif`;
+      const sLeft = vtFormatTime(t);
+      const sRight = vtFormatTime(duration);
+      ctx.fillStyle = cream;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillText(sLeft, winX, trackY);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(255, 253, 247, 0.65)';
+      ctx.fillText(sRight, winX + winW, trackY);
+
+      const lineX0 = winX + Math.round(W * 0.13);
+      const lineX1 = winX + winW - Math.round(W * 0.13);
+      const lineW = Math.max(40, lineX1 - lineX0);
+      ctx.fillStyle = 'rgba(255, 253, 247, 0.25)';
+      ctx.fillRect(lineX0, trackY - 1.5, lineW, 3);
+      ctx.fillStyle = vermilion;
+      ctx.fillRect(lineX0, trackY - 1.5, Math.round(lineW * prog), 3);
+
+      ctx.beginPath();
+      ctx.arc(lineX0 + lineW * prog, trackY, Math.round(W * 0.012), 0, Math.PI * 2);
+      ctx.fillStyle = cream;
+      ctx.fill();
+      ctx.strokeStyle = vermilion;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 4. Scene-Specific Zine Collage Choreography (F0..F3)
+    if (sceneIdx === 0 && cfg.showCard !== false) {
+      // F0 MAGAZINE COVER: Tilted burnt-vermilion issue stamp ribbon top-right of window
+      const lbl = (cfg.stat || 'ISSUE 08').toUpperCase();
+      const fPx = Math.max(12, Math.round(W * 0.032));
+      ctx.save();
+      ctx.font = `900 ${fPx}px ${sansFam}`;
+      const rw = Math.round(ctx.measureText(lbl).width + W * 0.08);
+      const rh = Math.round(fPx * 1.85);
+      const rx = winX + winW - rw * 0.58 - Math.round(W * 0.03);
+      const ry = winY + Math.round(H * 0.065);
+      ctx.translate(rx, ry);
+      ctx.rotate(-0.07 * slideBack);
+      ctx.scale(slideBack, slideBack);
+      ctx.fillStyle = ink;
+      vtRoundRect(ctx, -rw / 2 + 4, -rh / 2 + 4, rw, rh, 6);
+      ctx.fill();
+      ctx.fillStyle = vermilion;
+      vtRoundRect(ctx, -rw / 2, -rh / 2, rw, rh, 6);
+      ctx.fill();
+      ctx.fillStyle = cream;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(lbl, 0, 1);
+      ctx.restore();
+    } else if (sceneIdx === 1 && cfg.showCard !== false) {
+      // F1 PULL-QUOTE + TILTED KEY RULE STICKER
+      ctx.save();
+      ctx.globalAlpha = enterT;
+
+      // Tilted cream sticker badge on left
+      const stW = Math.round(W * 0.34);
+      const stH = Math.round(H * 0.044);
+      const stX = winX + Math.round(W * 0.05) + stW / 2;
+      const stY = winY + Math.round(H * 0.14);
+      ctx.save();
+      ctx.translate(stX, stY);
+      ctx.rotate(-0.075);
+      ctx.scale(slideBack, slideBack);
+      ctx.fillStyle = ink;
+      vtRoundRect(ctx, -stW / 2 + 3, -stH / 2 + 3, stW, stH, 6);
+      ctx.fill();
+      ctx.fillStyle = cream;
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 2;
+      vtRoundRect(ctx, -stW / 2, -stH / 2, stW, stH, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = `900 ${Math.max(11, Math.round(W * 0.025))}px ${sansFam}`;
+      ctx.fillStyle = ink;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('★ KEY RULE', 0, 1);
+      ctx.restore();
+
+      // Pull-quote ivory card right-below sticker
+      const qW = Math.round(winW * 0.72);
+      const qH = Math.round(H * 0.11);
+      const qX = winX + Math.round(winW * 0.06);
+      const qY = winY + Math.round(H * 0.21 + (1 - enterT) * H * 0.025);
+      ctx.fillStyle = ink;
+      vtRoundRect(ctx, qX + 5, qY + 5, qW, qH, 10);
+      ctx.fill();
+      ctx.fillStyle = cream;
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 2;
+      vtRoundRect(ctx, qX, qY, qW, qH, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      const qTxt = `"${(cfg.quote || 'Contrast drives attention.').trim()}"`;
+      const qFontPx = Math.max(14, Math.round(W * 0.036));
+      ctx.font = `italic 800 ${qFontPx}px Georgia, "Times New Roman", serif`;
+      // Sweeping vermilion marker stripe inside quote card
+      const sweepW = Math.round((qW - W * 0.1) * vtEaseOutCubic(vtClamp(tau / 0.55, 0, 1)));
+      ctx.fillStyle = 'rgba(232, 93, 63, 0.28)';
+      ctx.fillRect(qX + Math.round(W * 0.045), qY + qH * 0.55, sweepW, Math.round(qH * 0.22));
+
+      ctx.fillStyle = ink;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(qTxt, qX + Math.round(W * 0.045), qY + qH * 0.50, qW - Math.round(W * 0.09));
+      ctx.restore();
+    } else if (sceneIdx === 2 && cfg.showCard !== false) {
+      // F2 ARCHIVE SPLIT SIDEBAR: Vertical cream margin index tab + registration mark
+      const tabW = Math.round(W * 0.072);
+      const tabH = Math.round(winH * 0.52);
+      const tabX = winX + winW - tabW + Math.round(W * 0.015);
+      const tabY = winY + Math.round(winH * 0.14);
+
+      ctx.save();
+      ctx.globalAlpha = enterT;
+      ctx.fillStyle = cream;
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 2;
+      vtRoundRect(ctx, tabX, tabY, tabW, tabH, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      const tabText = `${(cfg.stat || 'FIG. 03').toUpperCase()}  //  ${(cfg.statLabel || 'NOTES & METRICS').toUpperCase()}`;
+      ctx.save();
+      ctx.translate(tabX + tabW / 2, tabY + tabH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.font = `800 ${Math.max(10, Math.round(W * 0.023))}px monospace, sans-serif`;
+      ctx.fillStyle = ink;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tabText, 0, 0, tabH * 0.88);
+      ctx.restore();
+
+      // Crosshair mark bottom-left of video window
+      const chX = winX + Math.round(W * 0.08);
+      const chY = winY + Math.round(H * 0.18);
+      const chR = Math.round(W * 0.024);
+      ctx.strokeStyle = cream;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(chX, chY, chR, 0, Math.PI * 2);
+      ctx.moveTo(chX - chR * 1.4, chY);
+      ctx.lineTo(chX + chR * 1.4, chY);
+      ctx.moveTo(chX, chY - chR * 1.4);
+      ctx.lineTo(chX, chY + chR * 1.4);
+      ctx.stroke();
+      ctx.restore();
+    } else if (sceneIdx === 3 && cfg.showCard !== false) {
+      // F3 CLOSING STAMP: Brutalist stamped double-border rectangle
+      const stampTxt = (cfg.tag || 'VERIFIED').toUpperCase();
+      const fPx = Math.max(15, Math.round(W * 0.038));
+      ctx.save();
+      ctx.font = `900 ${fPx}px ${sansFam}`;
+      const sw = Math.round(ctx.measureText(stampTxt).width + W * 0.1);
+      const sh = Math.round(fPx * 1.85);
+      const sx = winX + winW * 0.72;
+      const sy = winY + Math.round(H * 0.16);
+      const slamScale = 1.45 - 0.45 * slideBack;
+
+      ctx.globalAlpha = enterT;
+      ctx.translate(sx, sy);
+      ctx.rotate(-0.14);
+      ctx.scale(slamScale, slamScale);
+
+      ctx.fillStyle = 'rgba(20, 21, 25, 0.72)';
+      vtRoundRect(ctx, -sw / 2, -sh / 2, sw, sh, 6);
+      ctx.fill();
+
+      ctx.strokeStyle = vermilion;
+      ctx.lineWidth = Math.max(3, Math.round(W * 0.006));
+      vtRoundRect(ctx, -sw / 2, -sh / 2, sw, sh, 6);
+      ctx.stroke();
+
+      ctx.lineWidth = 1.5;
+      vtRoundRect(ctx, -sw / 2 + 5, -sh / 2 + 5, sw - 10, sh - 10, 3);
+      ctx.stroke();
+
+      ctx.fillStyle = vermilion;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(stampTxt, 0, 1);
+      ctx.restore();
+    }
+
+    // 5. Cutout Editorial Captions inside lower video window
+    if (cfg.showCaptions !== false) {
+      const { words, activeWordIdx } = vtGetActiveCaptionTokens(activeCap, t);
+      const capCy = Math.round(winY + winH * 0.80 + posDeltaY * 0.7);
+      const capFontPx = Math.max(22, Math.round(W * 0.068 * fScale));
+      vtDrawKineticWords(ctx, {
+        words,
+        activeIdx: activeWordIdx,
+        cx: W / 2,
+        cy: capCy,
+        maxW: winW * 0.86,
+        fontPx: capFontPx,
+        fontFam: sansFam,
+        baseColor: cream,
+        hiColor: cream,
+        pillFill: vermilion,
+        pillText: cream,
+        strokeCol: ink,
+        glowCol: (ov && ov.customGlowEnabled === true) ? (ov.customGlow || vermilion) : null,
+        glowBlur: (ov && ov.customGlowBlur !== null) ? ov.customGlowBlur : 0,
+        lineMult,
+        trackPx: ov ? Math.round(ov.letterTrackDelta * 2) : 0,
+        enterT: tau
+      });
+    }
+  }
+
+  function drawCustomVideoTemplateFrame(tplId, ctx, behindCtx, t, W, H, isPreview, videoSource) {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, W, H);
+    if (behindCtx && behindCtx !== ctx) {
+      behindCtx.clearRect(0, 0, W, H);
+    }
+    const cfg = getVideoTplConfig(tplId);
+    const beatInfo = resolveTemplateBeats(t, cfg);
+    if (tplId === 'chronoVault') {
+      drawChronoVaultTemplate(ctx, t, W, H, isPreview, videoSource, cfg, beatInfo);
+    } else if (tplId === 'atelierZine') {
+      drawAtelierZineTemplate(ctx, t, W, H, isPreview, videoSource, cfg, beatInfo);
+    }
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

@@ -13,8 +13,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bangers&family=Bebas+Neue&family=Bowlby+One&family=Bungee&family=Cinzel:wght@700;900&family=Cormorant+Garamond:wght@700&family=DM+Serif+Display&family=Fredoka:wght@600;700&family=Great+Vibes&family=Inter:wght@400;500;600;700;800;900&family=Lobster&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Outfit:wght@700;800&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,700;0,900;1,600;1,700&family=Poppins:ital,wght@0,500;0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Raleway:wght@700;800&family=Righteous&family=Rubik:wght@700;800;900&family=Shrikhand&family=Space+Mono:wght@700&family=Syne:wght@700;800&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=7.23.1">
-  <link rel="stylesheet" href="/static/layout.css?v=7.23.1">
+  <link rel="stylesheet" href="/static/style.css?v=7.24.0">
+  <link rel="stylesheet" href="/static/layout.css?v=7.24.0">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -730,6 +730,55 @@
                   <div id="popBeatsListContainer" class="pop-beats-scroll-list" style="display:flex; gap:6px; overflow-x:auto; padding-bottom:6px;">
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- MULTI-FRAME VIDEO TEMPLATE CUSTOMIZER (Chrono Vault HUD / Atelier Zine Studio) -->
+            <div id="videoTemplateCustomizer" class="vtemplate-customizer hidden" aria-label="Customize Multi-Frame Video Template">
+              <div class="vt-custom-head">
+                <div class="vt-custom-title-wrap">
+                  <span class="vt-custom-pill">🎬 4-FRAME TEMPLATE</span>
+                  <strong id="vtCustomName">Chrono Vault HUD</strong>
+                </div>
+                <button type="button" id="btnResetVideoTplConfig" class="vt-reset-btn" title="Reset template fields to default">Reset</button>
+              </div>
+              <div class="vt-scene-row">
+                <span class="vt-row-lbl">Scene Frame:</span>
+                <div class="vt-scene-pills" id="vtSceneModeGroup">
+                  <button type="button" class="vt-scene-btn active" data-scene="auto">Auto (4)</button>
+                  <button type="button" class="vt-scene-btn" data-scene="0">F1 Hook</button>
+                  <button type="button" class="vt-scene-btn" data-scene="1">F2 Card</button>
+                  <button type="button" class="vt-scene-btn" data-scene="2">F3 Focus</button>
+                  <button type="button" class="vt-scene-btn" data-scene="3">F4 Climax</button>
+                </div>
+              </div>
+              <div class="vt-inputs-grid">
+                <label class="vt-field">
+                  <span>Header / Issue</span>
+                  <input type="text" id="vtInputHeader" maxlength="36" placeholder="EP. 04 • VIRAL SYSTEM">
+                </label>
+                <label class="vt-field">
+                  <span>Badge / Tag</span>
+                  <input type="text" id="vtInputTag" maxlength="24" placeholder="STEP 02">
+                </label>
+                <label class="vt-field">
+                  <span>Stat / Index</span>
+                  <input type="text" id="vtInputStat" maxlength="16" placeholder="+340%">
+                </label>
+                <label class="vt-field">
+                  <span>Stat Label</span>
+                  <input type="text" id="vtInputStatLabel" maxlength="28" placeholder="RETENTION BOOST">
+                </label>
+                <label class="vt-field vt-field-wide">
+                  <span>Quote / Callout</span>
+                  <input type="text" id="vtInputQuote" maxlength="64" placeholder="Make it unforgettable.">
+                </label>
+              </div>
+              <div class="vt-toggles-row">
+                <label class="vt-chk"><input type="checkbox" id="vtToggleHeader" checked><span>Header HUD</span></label>
+                <label class="vt-chk"><input type="checkbox" id="vtToggleCard" checked><span>Cards &amp; Stickers</span></label>
+                <label class="vt-chk"><input type="checkbox" id="vtToggleTimeline" checked><span>Progress Rail</span></label>
+                <label class="vt-chk"><input type="checkbox" id="vtToggleCaptions" checked><span>Kinetic Captions</span></label>
               </div>
             </div>
 
@@ -2093,6 +2142,6 @@
     window.MediaPipeVision = { FilesetResolver, ImageSegmenter };
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=7.23.1"></script>
+  <script src="/static/app.js?v=7.24.0"></script>
 </body>
 </html>
