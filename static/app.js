@@ -9917,27 +9917,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     return card;
   }
 
-  function renderFrontShowcasePresets(filterCat = 'all') {
+  let _frontActiveCat = 'all';
+  let _frontSearchQuery = '';
+
+  function renderFrontShowcasePresets(filterCat, searchQuery) {
     const grid = $('frontPresetGrid') || $('duoPresetGrid');
     if (!grid) return;
+    if (typeof filterCat === 'string' && filterCat.length > 0) {
+      _frontActiveCat = filterCat;
+    }
+    if (typeof searchQuery === 'string') {
+      _frontSearchQuery = searchQuery.toLowerCase().trim();
+    } else {
+      const fInput = $('frontTemplateSearchInput');
+      if (fInput && typeof fInput.value === 'string') {
+        _frontSearchQuery = fInput.value.toLowerCase().trim();
+      }
+    }
+
     grid.innerHTML = '';
 
-    const filtered = filterCat === 'all'
-      ? S.presets
-      : S.presets.filter(p => {
-          const cat = (p.category || '').toLowerCase();
-          const name = (p.name || '').toLowerCase();
-          const id = (p.id || '').toLowerCase();
-          if (filterCat === 'duo') return cat === 'duo' || name.startsWith('duo ·') || Boolean(p.isDuo);
-          if (filterCat === 'viral') return cat.includes('viral') || name.includes('viral') || name.includes('pop') || id.includes('hype');
-          if (filterCat === 'neon') return cat.includes('neon') || name.includes('neon') || name.includes('ice') || name.includes('electric') || name.includes('glow');
-          if (filterCat === 'box') return name.includes('box') || cat.includes('box') || Boolean(p.pill);
-          if (filterCat === 'real-estate') return cat.includes('real-estate') || id.includes('estate');
-          if (filterCat === 'colourful') return cat.includes('colourful') || cat.includes('color') || name.includes('fire') || name.includes('sunset') || name.includes('aurora');
-          if (filterCat === 'minimal') return cat.includes('minimal') || cat.includes('classic') || name.includes('clean') || name.includes('sub');
-          if (filterCat === 'special') return cat.includes('special') || id.includes('special') || Boolean(p.isSpecial);
-          return true;
-        });
+    const filtered = (S.presets || []).filter(p => matchesPresetFilter(p, _frontActiveCat, _frontSearchQuery));
 
     const countPill = $('frontPresetCount') || $('duoPresetCount');
     if (countPill) countPill.textContent = `${filtered.length} STYLES`;
@@ -9949,7 +9949,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
 
     if (!filtered.length) {
-      grid.innerHTML = '<p class="duo-empty">No presets in this category.</p>';
+      grid.innerHTML = `<p class="duo-empty">No templates match${_frontSearchQuery ? ` "${_frontSearchQuery}"` : ' in this category'}.</p>`;
       return;
     }
 
@@ -9975,12 +9975,24 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       duoPill.textContent = `⚡ Duo Styles (${duoCount})`;
     }
     frontCatPills.forEach(pill => {
+      if (pill._frontPillBound) return;
+      pill._frontPillBound = true;
       pill.addEventListener('click', () => {
         frontCatPills.forEach(p => p.classList.toggle('active', p === pill));
         const cat = pill.getAttribute('data-cat') || 'all';
-        renderFrontShowcasePresets(cat);
+        renderFrontShowcasePresets(cat, _frontSearchQuery);
       });
     });
+
+    const fSearch = $('frontTemplateSearchInput');
+    if (fSearch && !fSearch._frontSearchBound) {
+      fSearch._frontSearchBound = true;
+      const onFrontSearch = (e) => {
+        renderFrontShowcasePresets(_frontActiveCat, e.target.value);
+      };
+      fSearch.addEventListener('input', onFrontSearch);
+      fSearch.addEventListener('search', onFrontSearch);
+    }
   }
 
   async function loadPresets() {
@@ -11710,11 +11722,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
 
     const titles = {
-      tabTemplates: '🎨 Choose Template',
-      tabCaptions: '📝 Edit Captions',
-      tabBroll: '🎬 B-Roll & Visuals',
-      tabStyle: '🎚️ Style Options',
-      tabAudio: '🎵 Audio & Music'
+      tabTemplates: '🎨 Templates',
+      tabCaptions: '📝 Captions',
+      tabBroll: '✨ Auto Edit & B-Roll',
+      tabStyle: '🎚️ Customize Style',
+      tabAudio: '🎵 Voice & Audio'
     };
     drawerTitle.textContent = titles[targetId] || 'Editor Options';
 
@@ -12602,6 +12614,25 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // TAB 3: STYLE CONTROLS
   // ==========================================================================
   function setupStyleHandlers() {
+    // Quick section filter chips at top of Customize Style tab
+    const styleGroupPills = $$('#styleSectionPills .cat-pill');
+    if (styleGroupPills.length) {
+      styleGroupPills.forEach(pill => {
+        if (pill._groupBound) return;
+        pill._groupBound = true;
+        pill.addEventListener('click', () => {
+          const group = pill.getAttribute('data-style-group') || 'all';
+          styleGroupPills.forEach(p => p.classList.toggle('active', p === pill));
+          $$('#tabStyle .style-options-grid > [data-style-group]').forEach(card => {
+            const matches = (group === 'all') || (card.getAttribute('data-style-group') === group);
+            card.classList.toggle('style-filter-hidden', !matches);
+          });
+          const sc = $('#drawerPanel .drawer-content');
+          if (sc) sc.scrollTop = 0;
+        });
+      });
+    }
+
     // -------------------------------------------------------------------------
     // MOONSHOT TACTILE STEPPERS (Words Per Line, Size, Line Spacing, Glow)
     // -------------------------------------------------------------------------

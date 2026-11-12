@@ -13,8 +13,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bangers&family=Bebas+Neue&family=Bowlby+One&family=Bungee&family=Cinzel:wght@700;900&family=Cormorant+Garamond:wght@700&family=DM+Serif+Display&family=Fredoka:wght@600;700&family=Great+Vibes&family=Inter:wght@400;500;600;700;800;900&family=Lobster&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Outfit:wght@700;800&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,700;0,900;1,600;1,700&family=Poppins:ital,wght@0,500;0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Raleway:wght@700;800&family=Righteous&family=Rubik:wght@700;800;900&family=Shrikhand&family=Space+Mono:wght@700&family=Syne:wght@700;800&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=7.16.0">
-  <link rel="stylesheet" href="/static/layout.css?v=7.16.0">
+  <link rel="stylesheet" href="/static/style.css?v=7.17.0">
+  <link rel="stylesheet" href="/static/layout.css?v=7.17.0">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -63,7 +63,12 @@
 
     <div class="upload-container">
       <h1 class="hero-title">Add Viral Captions to <span class="gradient-text">Any Video</span></h1>
-      <p class="hero-subtitle">Upload your video below to auto-transcribe & burn voice-synced captions.</p>
+      <p class="hero-subtitle">Upload your clip to auto-transcribe &amp; render word-synced captions.</p>
+      <div class="hero-steps-row" aria-label="How it works">
+        <span class="hero-step-pill"><span class="step-num">1</span> Pick Video</span>
+        <span class="hero-step-arrow">&rarr;</span>
+        <span class="hero-step-pill"><span class="step-num">2</span> Pick Template &amp; Download</span>
+      </div>
 
       <!-- PRIORITY 1: UPLOAD CARD -->
       <div class="upload-card" id="dropZone">
@@ -132,10 +137,15 @@
       <section class="template-showcase-section" aria-labelledby="frontShowcaseTitle">
         <div class="showcase-header">
           <div class="showcase-titles">
-            <h2 id="frontShowcaseTitle">🎨 All Caption Templates</h2>
-            <p>Tap any template to preview & select &bull; Auto-applied to your uploaded video</p>
+            <h2 id="frontShowcaseTitle">🎨 Caption Templates</h2>
+            <p>Tap any style to preview &bull; Auto-applied when you open a video</p>
           </div>
           <span id="frontPresetCount" class="showcase-count-pill">FEATURED STYLES</span>
+        </div>
+
+        <!-- Quick Home Template Search -->
+        <div class="front-search-row">
+          <input type="search" id="frontTemplateSearchInput" class="front-search-input" placeholder="🔍 Search templates by name or style (e.g. cobalt, neon, dubai)..." aria-label="Search caption templates">
         </div>
 
         <!-- Category Filter Pills -->
@@ -799,9 +809,16 @@
 
           <!-- TAB 3: STYLE OPTIONS -->
           <div id="tabStyle" class="tab-pane hidden">
+            <div class="style-section-pills" id="styleSectionPills">
+              <button type="button" class="cat-pill active" data-style-group="all">All</button>
+              <button type="button" class="cat-pill" data-style-group="text">Font &amp; Size</button>
+              <button type="button" class="cat-pill" data-style-group="color">Colors &amp; Glow</button>
+              <button type="button" class="cat-pill" data-style-group="motion">Motion &amp; Pos</button>
+              <button type="button" class="cat-pill" data-style-group="extras">Extras</button>
+            </div>
             <div class="style-options-grid">
               <!-- Hero Look Selector (Solid, See-through, Texture) -->
-              <div class="control-card" id="cardHeroLook">
+              <div class="control-card" id="cardHeroLook" data-style-group="motion">
                 <div class="control-header">
                   <label>Hero Look</label>
                   <span id="valHeroLookBadge" class="val-badge badge-green">SOLID</span>
@@ -815,7 +832,7 @@
               </div>
 
               <!-- Line by Line Animation Toggle -->
-              <div class="control-card" id="cardLineByLine">
+              <div class="control-card" id="cardLineByLine" data-style-group="motion">
                 <div class="control-header">
                   <label>Line by Line Animation</label>
                   <label class="switch-toggle">
@@ -826,20 +843,8 @@
                 <p class="voiceover-help">Animate top line, hero word, and bottom line sequentially as spoken words arrive.</p>
               </div>
 
-              <!-- Bottom Progress Line Toggle (Optional) -->
-              <div class="control-card" id="cardProgressLine">
-                <div class="control-header">
-                  <label>📊 Bottom Progress Line</label>
-                  <label class="switch-toggle">
-                    <input type="checkbox" id="chkBottomProgressLine" onchange="toggleBottomProgressLine(this.checked)">
-                    <span class="switch-slider"></span>
-                  </label>
-                </div>
-                <p class="voiceover-help">Optional animated progress line running across the bottom of the video.</p>
-              </div>
-
               <!-- 🔤 CAPTION FONT FAMILY & VISUAL FONT PICKER -->
-              <div class="control-card" id="cardFontFamily">
+              <div class="control-card" id="cardFontFamily" data-style-group="text">
                 <div class="control-header">
                   <label>🔤 Caption Font Family</label>
                   <span id="valFontBadge" class="val-badge badge-green">POPPINS</span>
@@ -928,7 +933,7 @@
               </div>
 
               <!-- 🔠 TEXT CASING (CAPITAL / LOWERCASE / TITLE) -->
-              <div class="control-card" id="cardTextCasing">
+              <div class="control-card" id="cardTextCasing" data-style-group="text">
                 <div class="control-header">
                   <label>🔠 Text Casing</label>
                   <span id="valCasingBadge" class="val-badge badge-green">ALL CAPS</span>
@@ -951,7 +956,7 @@
               </div>
 
               <!-- Real Estate Clr Palette Dots -->
-              <div class="control-card" id="cardRealEstateColors">
+              <div class="control-card" id="cardRealEstateColors" data-style-group="color">
                 <div class="control-header">
                   <label>Real Estate Clr Palette</label>
                   <span id="valRealEstateColorBadge" class="val-badge badge-green">AUTO ROTATION</span>
@@ -970,7 +975,7 @@
               </div>
 
               <!-- Big Type Switch (Behind Person) -->
-              <div class="control-card" id="cardBigType">
+              <div class="control-card" id="cardBigType" data-style-group="text">
                 <div class="control-header">
                   <label>Big Type (Behind Person)</label>
                   <span id="valBigTypeBadge" class="val-badge badge-green">ON</span>
@@ -984,7 +989,7 @@
 
 
               <!-- 1. Words per line Stepper (Chunk Pacing) -->
-              <div class="stepper-card">
+              <div class="stepper-card" data-style-group="text">
                 <div class="stepper-header-row">
                   <div class="stepper-label-col">
                     <label class="stepper-label">⚡ Words Per Line</label>
@@ -1000,7 +1005,7 @@
               </div>
 
               <!-- 2. Caption Font Size Stepper -->
-              <div class="stepper-card">
+              <div class="stepper-card" data-style-group="text">
                 <div class="stepper-header-row">
                   <div class="stepper-label-col">
                     <label class="stepper-label">📏 Caption Size</label>
@@ -1025,7 +1030,7 @@
               </div>
 
               <!-- 3. Line Spacing Stepper -->
-              <div class="stepper-card">
+              <div class="stepper-card" data-style-group="text">
                 <div class="stepper-header-row">
                   <div class="stepper-label-col">
                     <label class="stepper-label">↕️ Line Spacing</label>
@@ -1041,7 +1046,7 @@
               </div>
 
               <!-- 4. Text Glow Bloom Stepper & Color Swatches -->
-              <div class="stepper-card glow-stepper-card">
+              <div class="stepper-card glow-stepper-card" data-style-group="color">
                 <div class="stepper-header-row">
                   <div class="stepper-label-col">
                     <label class="stepper-label">✨ Text Glow-Up & Neon Bloom</label>
@@ -1082,7 +1087,7 @@
               </div>
 
               <!-- 5. Vertical Position & Auto Emojis -->
-              <div class="stepper-card">
+              <div class="stepper-card" data-style-group="motion">
                 <div class="stepper-header-row">
                   <div class="stepper-label-col">
                     <label class="stepper-label">📍 Screen Position</label>
@@ -1106,7 +1111,7 @@
               </div>
 
               <!-- 👑 Dubai Luxury Effects (White Splash Sheen & Atmospheric Glow) -->
-              <div class="control-card" id="cardDubaiEffects">
+              <div class="control-card" id="cardDubaiEffects" data-style-group="color">
                 <div class="control-header">
                   <label>👑 Luxury White Splash & Glow</label>
                   <span id="valDubaiEffectsBadge" class="val-badge badge-green">ON</span>
@@ -1136,7 +1141,7 @@
                 </div>
               </div>
 
-              <div class="stepper-card">
+              <div class="stepper-card" data-style-group="motion">
                 <div class="stepper-header-row">
                   <div class="stepper-label-col">
                     <label class="stepper-label">🔥 Auto Emojis</label>
@@ -1151,7 +1156,7 @@
               </div>
 
               <!-- 6. Motion & Animation -->
-              <div class="control-card">
+              <div class="control-card" data-style-group="motion">
                 <div class="control-header">
                   <label>🎬 Animation Style</label>
                   <span id="valAnimName" class="val-badge">Pop & Bounce</span>
@@ -1185,7 +1190,7 @@
               </div>
 
               <!-- 7. Colors: Highlight & Base -->
-              <div class="control-card">
+              <div class="control-card" data-style-group="color">
                 <div class="control-header">
                   <label>🎨 Highlight Word Color</label>
                   <span id="valHighlightColor" class="val-badge" style="background:#FFE600; color:#000;">#FFE600</span>
@@ -1209,7 +1214,7 @@
               </div>
 
               <!-- 10. Dynamic Auto-Zoom: Fully User-Adjustable (Speed, Duration, Interval) -->
-              <div class="control-card">
+              <div class="control-card" data-style-group="motion">
                 <div class="control-header">
                   <label>🎥 Dynamic Auto-Zoom (Retention Cut)</label>
                   <span id="valAutoZoomBadge" class="val-badge badge-green">Smooth (Every 10s)</span>
@@ -1261,13 +1266,19 @@
               </div>
 
               <!-- 11. Reel Progress Bar -->
-              <div class="control-card">
+              <div class="control-card" id="cardProgressBar" data-style-group="extras">
                 <div class="control-header">
-                  <label>📊 Reel Progress Bar</label>
-                  <span id="valProgressBarBadge" class="val-badge badge-gray">Hidden</span>
+                  <label>📊 Bottom Progress Bar</label>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span id="valProgressBarBadge" class="val-badge badge-gray">Hidden</span>
+                    <label class="switch-toggle" title="Toggle progress line">
+                      <input type="checkbox" id="chkBottomProgressLine" onchange="toggleBottomProgressLine(this.checked)">
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
                 </div>
-                <p class="voiceover-help">Animated neon progress line running across the bottom or top of the video.</p>
-                <div class="btn-group" id="progressBarToggleGroup" style="margin-bottom: 8px;">
+                <p class="voiceover-help">Animated progress line running across the bottom or top of your video.</p>
+                <div class="btn-group" id="progressBarToggleGroup" style="display:none;">
                   <button type="button" class="btn-toggle" data-progress="on">Progress Bar: ON</button>
                   <button type="button" class="btn-toggle active" data-progress="off">Progress Bar: OFF</button>
                 </div>
@@ -1281,7 +1292,7 @@
               </div>
 
               <!-- 12. Creator Social Handle & Watermark -->
-              <div class="control-card">
+              <div class="control-card" data-style-group="extras">
                 <div class="control-header">
                   <label>🏷️ Creator Handle & Watermark</label>
                   <span class="val-badge">Branding</span>
@@ -1596,13 +1607,13 @@
           <span class="nav-btn-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/></svg>
           </span>
-          <span class="nav-btn-label">Auto edit</span>
+          <span class="nav-btn-label">Auto Edit</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabCaptions" id="btnNavTranscript">
           <span class="nav-btn-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
           </span>
-          <span class="nav-btn-label">Transcript</span>
+          <span class="nav-btn-label">Captions</span>
         </button>
         <button class="bottom-nav-btn active" data-tab="tabTemplates" id="btnNavTemplates">
           <span class="nav-btn-icon">
@@ -1610,11 +1621,11 @@
           </span>
           <span class="nav-btn-label">Templates</span>
         </button>
-        <button class="bottom-nav-btn" data-tab="tabStyle" id="btnNavCustomize">
+        <button class="bottom-nav-btn" data-tab="tabStyle" id="btnNavCustomize" title="Customize Font, Color & Size">
           <span class="nav-btn-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg>
           </span>
-          <span class="nav-btn-label">Customize</span>
+          <span class="nav-btn-label">Style</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabAudio" id="btnNavVoice">
           <span class="nav-btn-icon">
@@ -2030,6 +2041,6 @@
     window.MediaPipeVision = { FilesetResolver, ImageSegmenter };
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=7.16.0"></script>
+  <script src="/static/app.js?v=7.17.0"></script>
 </body>
 </html>
