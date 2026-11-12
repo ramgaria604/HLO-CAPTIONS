@@ -94,7 +94,7 @@ def register_razorpay_routes(app, WORK):
         razorpay_signature = data.get("razorpay_signature")
         pack_id = data.get("pack_id", "pack10")
         device_id = (data.get("device_id") or "").strip()
-        user_email = (data.get("email") or "").strip()
+        user_email = (data.get("email") or "").strip().lower()
         user_name = (data.get("name") or "").strip()
 
         if not (razorpay_order_id and razorpay_payment_id and razorpay_signature):
@@ -118,7 +118,13 @@ def register_razorpay_routes(app, WORK):
         expires_at = (time.time() + valid_days * 86400) if valid_days else None
 
         # Record payment transaction
+        import cloud_storage
         payments_file = (WORK.parent / "data") / "razorpay_payments.json"
+        if not payments_file.exists() and cloud_storage.storage.is_enabled():
+            try:
+                cloud_storage.storage.download_file("razorpay_payments.json", payments_file)
+            except Exception:
+                pass
         payments_data = []
         if payments_file.exists():
             try:
@@ -140,12 +146,20 @@ def register_razorpay_routes(app, WORK):
         }
         payments_data.append(payment_record)
         try:
+            payments_file.parent.mkdir(parents=True, exist_ok=True)
             payments_file.write_text(json.dumps(payments_data, indent=2), encoding="utf-8")
+            if cloud_storage.storage.is_enabled():
+                cloud_storage.storage.upload_file(payments_file, "razorpay_payments.json")
         except Exception:
             pass
 
         # Update device credits
         dev_file = (WORK.parent / "data") / "device_credits.json"
+        if not dev_file.exists() and cloud_storage.storage.is_enabled():
+            try:
+                cloud_storage.storage.download_file("device_credits.json", dev_file)
+            except Exception:
+                pass
         dev_data = {}
         if dev_file.exists():
             try:
@@ -153,12 +167,13 @@ def register_razorpay_routes(app, WORK):
             except Exception:
                 pass
 
-        account_keys = [k for k in [device_id, user_email] if k]
+        account_keys = list(dict.fromkeys([k for k in [device_id, user_email] if k]))
         target_key = account_keys[0] if account_keys else "guest"
 
         for key in account_keys:
             if key in dev_data:
                 dev_data[key]["credits"] = dev_data[key].get("credits", 0) + credits_to_add
+                dev_data[key]["has_paid"] = True
                 if expires_at:
                     dev_data[key]["expires_at"] = expires_at
                 if user_email:
@@ -169,6 +184,7 @@ def register_razorpay_routes(app, WORK):
                 dev_data[key] = {
                     "credits": credits_to_add,
                     "used": 0,
+                    "has_paid": True,
                     "created_at": time.time(),
                     "email": user_email,
                     "name": user_name
@@ -178,7 +194,6 @@ def register_razorpay_routes(app, WORK):
 
         try:
             dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
-            import cloud_storage
             if cloud_storage.storage.is_enabled():
                 cloud_storage.storage.upload_file(dev_file, "device_credits.json")
         except Exception:
@@ -191,14 +206,19 @@ def register_razorpay_routes(app, WORK):
                 u_dir = (WORK.parent / "data") / "users"
                 u_dir.mkdir(parents=True, exist_ok=True)
                 u_file = u_dir / f"{u_id}.json"
+                if not u_file.exists() and cloud_storage.storage.is_enabled():
+                    cloud_storage.storage.download_file(f"users/{u_id}.json", u_file)
                 u_data = {}
                 if u_file.exists():
                     try: u_data = json.loads(u_file.read_text(encoding="utf-8"))
                     except Exception: pass
                 u_data["credits"] = dev_data.get(user_email, {}).get("credits", credits_to_add)
                 u_data["email"] = user_email
+                u_data["has_paid"] = True
                 if user_name: u_data["name"] = user_name
                 u_file.write_text(json.dumps(u_data, indent=2), encoding="utf-8")
+                if cloud_storage.storage.is_enabled():
+                    cloud_storage.storage.upload_file(u_file, f"users/{u_id}.json")
             except Exception:
                 pass
 

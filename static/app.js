@@ -10742,8 +10742,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   function setupAuthHandlers() {
     try {
-      const stored = localStorage.getItem('cs_user');
-      if (stored) S.user = JSON.parse(stored);
+      const stored = safeLSGet('cs_user') || getCookieVal('cs_user');
+      if (stored) {
+        S.user = JSON.parse(stored);
+        if (S.user && S.user.email) {
+          safeLSSet('cs_user', JSON.stringify(S.user));
+        }
+      }
     } catch (_) {}
     syncUserUI();
 
@@ -10765,7 +10770,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     const logout = () => {
       S.user = null;
-      try { localStorage.removeItem('cs_user'); } catch (_) {}
+      safeLSRemove('cs_user');
+      setCookieVal('cs_user', '', -1);
+      safeLSRemove('cs_credits');
       S.credits = 0;
       syncUserUI();
       updateCreditsUI();
@@ -10787,10 +10794,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           const res = await fetch('/api/auth/google', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+            credentials: 'same-origin',
             body: JSON.stringify({
               name,
               email,
+              device_id: getPersistentDeviceId(),
               client_credits: S.credits,
+              has_proof: safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true',
               free_used: S.credits === 0 && safeLSGet('cs_free_used') === 'true'
             })
           });
@@ -10801,6 +10812,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           if (data.ok && data.user) {
             S.user = data.user;
             safeLSSet('cs_user', JSON.stringify(S.user));
+            setCookieVal('cs_user', JSON.stringify({ id: S.user.id, email: S.user.email, name: S.user.name }), 365);
+            if (data.has_paid) safeLSSet('cs_has_paid', 'true');
             // Sync exact server credits for this user across any device
             if (typeof data.credits === 'number') {
               saveUserCredits(data.credits);
@@ -10828,9 +10841,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
               // If One Tap is suppressed, click the rendered official Google button
               const renderedBtn = document.querySelector('#googleOfficialBtn div[role="button"]');
-              if (renderedBtn) renderedBtn.click();
+              if (renderedBtn) {
+                renderedBtn.click();
+              } else if (typeof isInAppBrowser === 'function' && isInAppBrowser()) {
+                showToast('Instagram browser blocks Google Sign-In. Opening in Chrome / Safari...');
+                if (typeof openExternalBrowser === 'function') openExternalBrowser();
+              }
             }
           });
+        } else if (typeof isInAppBrowser === 'function' && isInAppBrowser()) {
+          showToast('Google Sign-In is blocked inside Instagram. Opening Chrome / Safari...');
+          if (typeof openExternalBrowser === 'function') openExternalBrowser();
         } else {
           showToast('Google Sign-In is loading, please wait 2 seconds...');
         }
@@ -10880,18 +10901,24 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        credentials: 'same-origin',
         body: JSON.stringify({
           id: payload.sub,
           email: payload.email,
           name: payload.name,
           picture: payload.picture,
+          device_id: getPersistentDeviceId(),
           client_credits: S.credits,
+          has_proof: safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true',
           free_used: S.credits === 0 && safeLSGet('cs_free_used') === 'true'
         })
       }).then(r => r.json()).then(data => {
         if (data.ok && data.user) {
           S.user = data.user;
           safeLSSet('cs_user', JSON.stringify(S.user));
+          setCookieVal('cs_user', JSON.stringify({ id: S.user.id, email: S.user.email, name: S.user.name }), 365);
+          if (data.has_paid) safeLSSet('cs_has_paid', 'true');
           // Sync exact server credits for this Gmail account across any device
           if (typeof data.credits === 'number') {
             saveUserCredits(data.credits);
@@ -11266,8 +11293,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         _creditSyncInFlight = false;
         _lastCreditSyncAt = Date.now();
         if (data && typeof data.credits === 'number') {
+          if (data.has_paid) safeLSSet('cs_has_paid', 'true');
           const serverCredits = Math.max(0, data.credits);
-          const hasVerifiedProof = safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true';
+          const hasVerifiedProof = Boolean(data.has_paid) || safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true';
           if (S.credits > serverCredits && hasVerifiedProof) {
             saveUserCredits(S.credits);
             fetch('/api/credits/sync', {
@@ -11364,16 +11392,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (msg) msg.classList.add('hidden');
 
       try {
-        let deviceId = localStorage.getItem('cs_device_id');
-        if (!deviceId) {
-          deviceId = 'dev_' + Math.random().toString(36).slice(2, 10);
-          localStorage.setItem('cs_device_id', deviceId);
-        }
+        const deviceId = getPersistentDeviceId();
 
         const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
         const res = await fetch('/api/coupons/redeem', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          credentials: 'same-origin',
           body: JSON.stringify({
             code: code,
             user_id: S.user ? S.user.id : null,
@@ -11388,7 +11414,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         }
 
         const newBalance = typeof data.total_credits === 'number' ? data.total_credits : ((S.credits || 0) + (data.added_credits || 10));
-        try { localStorage.setItem('cs_coupon_used', 'true'); } catch (_) {}
+        safeLSSet('cs_coupon_used', 'true');
+        safeLSSet('cs_has_paid', 'true');
         saveUserCredits(newBalance);
         updateCreditsUI();
 
@@ -11438,13 +11465,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           return;
         }
 
-        let devId = localStorage.getItem('cs_device_id');
-        if (!devId) {
-          devId = 'dev_' + Math.random().toString(36).slice(2, 10);
-          localStorage.setItem('cs_device_id', devId);
-        }
+        const devId = getPersistentDeviceId();
 
-        const userEmail = S.user ? (S.user.email || '') : '';
+        const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
         const userName = S.user ? (S.user.name || '') : '';
 
         // 1. Create Order on backend
@@ -11505,7 +11528,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
               // Update Credits in UI
               const newBalance = verifyData.total_credits || ((S.credits || 0) + (verifyData.credits_added || 1));
-              try { localStorage.setItem('cs_has_paid', 'true'); } catch (_) {}
+              safeLSSet('cs_has_paid', 'true');
               saveUserCredits(newBalance);
               updateCreditsUI();
 
