@@ -9726,24 +9726,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     return;
   }
 
-  // B3 Export Parity: Caption manual positioning & scale (ratio offsets relative to W, H)
+  // B3 Export Parity: Caption manual positioning, rotation & scale (ratio offsets relative to W, H)
   const capDx = (Number(cap && cap.dx) || 0) * W;
   const capDy = (Number(cap && cap.dy) || 0) * H;
   const capScale = (cap && typeof cap.scale === 'number' && cap.scale > 0) ? cap.scale : 1.0;
-  const hasCapTransform = capDx !== 0 || capDy !== 0 || capScale !== 1.0;
+  const capRot = Number(cap && cap.rot) || 0;
+  const hasCapTransform = capDx !== 0 || capDy !== 0 || capScale !== 1.0 || capRot !== 0;
 
   if (hasCapTransform) {
     const origCx = W * 0.5;
     const origCy = H * (Number(st && (st.position || st.posY)) || 0.65);
-    ctxFore.save();
-    ctxFore.translate(origCx + capDx, origCy + capDy);
-    ctxFore.scale(capScale, capScale);
-    ctxFore.translate(-origCx, -origCy);
+    const rotRad = (capRot * Math.PI) / 180;
+    const applyCtxTransform = (c) => {
+      c.save();
+      c.translate(origCx + capDx, origCy + capDy);
+      if (rotRad) c.rotate(rotRad);
+      c.scale(capScale, capScale);
+      c.translate(-origCx, -origCy);
+    };
+    applyCtxTransform(ctxFore);
     if (ctxBehind && ctxBehind !== ctxFore) {
-      ctxBehind.save();
-      ctxBehind.translate(origCx + capDx, origCy + capDy);
-      ctxBehind.scale(capScale, capScale);
-      ctxBehind.translate(-origCx, -origCy);
+      applyCtxTransform(ctxBehind);
     }
   }
 
@@ -10864,7 +10867,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.20.0';
+    const CURRENT_PRESET_VER = 'v7.21.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -14684,51 +14687,77 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const hint = $('captionDragHint');
     let drag = null;
     stage.addEventListener('pointerdown', (event) => {
-      if (!S.captions.length || !S.style || event.target.closest('button')) return;
+      if (!S.captions.length || !S.style || event.target.closest('button') || event.target.closest('#captionBoundingBox')) return;
+      if (!event.isPrimary) { drag = null; return; }
       const rect = stage.getBoundingClientRect();
-      if (!rect.height) return;
+      if (!rect.height || !rect.width) return;
 
+      const curT = vid ? (vid.currentTime || 0) : 0;
+      const activeCap = S.captions.find(c => curT >= c.start && curT <= c.end) || null;
       drag = {
         id: event.pointerId,
+        startX: event.clientX,
         startY: event.clientY,
-        lastY: event.clientY,
+        rectW: rect.width,
+        rectH: rect.height,
+        activeCap,
+        origDx: activeCap ? (Number(activeCap.dx) || 0) : 0,
+        origDy: activeCap ? (Number(activeCap.dy) || 0) : 0,
+        origPos: Number(S.style.position || S.style.posY || 0.75),
         moved: false
       };
     });
 
     stage.addEventListener('pointermove', (event) => {
       if (!drag || drag.id !== event.pointerId) return;
-      const rect = stage.getBoundingClientRect();
-      if (!rect.height) return;
-      if (!drag.moved && Math.abs(event.clientY - drag.startY) < 3) return;
+      const dX = event.clientX - drag.startX;
+      const dY = event.clientY - drag.startY;
+      if (!drag.moved && Math.hypot(dX, dY) < 5) return;
       if (!drag.moved) {
         try { stage.setPointerCapture(event.pointerId); } catch (e) {}
+        if (drag.activeCap && S.selectedCaptionId !== drag.activeCap.id) {
+          S.selectedCaptionId = drag.activeCap.id;
+          S.editMode = 'whole';
+          S.selectedWordIndex = -1;
+        }
       }
       drag.moved = true;
       event.preventDefault();
       stage.classList.add('is-caption-dragging');
 
-      const delta = (event.clientY - drag.lastY) / rect.height;
-      drag.lastY = event.clientY;
-
-      const cur = Number(S.style.position || S.style.posY || 0.75);
-      const nextPos = Math.max(0.08, Math.min(0.92, cur + delta));
-      S.style.position = nextPos;
-      S.style.posY = nextPos;
-
-      if (hint) {
-        hint.textContent = '↕ Caption Position: ' + Math.round(nextPos * 100) + '% · release to place';
+      if (drag.activeCap && typeof applyCaptionTransform === 'function') {
+        const snap = snapAndClampDelta(drag.origDx + dX / drag.rectW, drag.origDy + dY / drag.rectH);
+        applyCaptionTransform(drag.activeCap, (c) => {
+          c.dx = snap.dx;
+          c.dy = snap.dy;
+        });
+        updateSnapGuidesDOM(snap.snapV, snap.snapH);
+        updateTransformHud(`${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
+        if (hint) hint.textContent = '✥ Dragging caption · snap to center';
+        renderCanvas();
+        updateVideoEditOverlay();
+      } else {
+        const nextPos = Math.max(0.08, Math.min(0.92, drag.origPos + dY / drag.rectH));
+        S.style.position = nextPos;
+        S.style.posY = nextPos;
+        if (hint) hint.textContent = '↕ Caption Position: ' + Math.round(nextPos * 100) + '%';
+        renderCanvas();
       }
-      renderCanvas();
     });
 
     const finish = (event) => {
       if (!drag || drag.id !== event.pointerId) return;
-      const moved = drag.moved;
+      const d = drag;
       drag = null;
       stage.classList.remove('is-caption-dragging');
-      if (hint) hint.textContent = '💡 Drag caption to move anywhere on video';
-      if (moved) renderCanvas();
+      if (typeof updateSnapGuidesDOM === 'function') updateSnapGuidesDOM(false, false);
+      if (typeof updateTransformHud === 'function') updateTransformHud('', false);
+      if (hint) hint.textContent = '💡 Tap or drag caption to move · pinch corners to resize';
+      if (d.moved) {
+        if (d.activeCap) pushHistoryState('Move caption on screen');
+        renderCanvas();
+        if (d.activeCap && typeof updateVideoEditOverlay === 'function') updateVideoEditOverlay();
+      }
     };
     stage.addEventListener('pointerup', finish);
     stage.addEventListener('pointercancel', finish);
@@ -18818,7 +18847,55 @@ window._hasScrubbedTimeline = false;
 S.selectedCaptionId = null;
 S.selectedWordIndex = -1;
 S.editMode = 'whole'; // 'whole' | 'word'
+S.adjustScope = 'all'; // 'all' | 'one'
 S.cachedLayoutBoxes = [];
+
+function getTargetCaptionsForEdit(cap) {
+  if (S.adjustScope === 'all' && S.editMode !== 'word' && Array.isArray(S.captions) && S.captions.length) {
+    return S.captions;
+  }
+  return cap ? [cap] : [];
+}
+
+function applyCaptionTransform(cap, mutator) {
+  getTargetCaptionsForEdit(cap).forEach(c => {
+    if (c) mutator(c);
+  });
+}
+
+function snapAndClampDelta(rawDx, rawDy) {
+  let dx = rawDx;
+  let dy = rawDy;
+  let snapV = false;
+  let snapH = false;
+  if (Math.abs(dx) < 0.02) { dx = 0; snapV = true; }
+  if (Math.abs(dy) < 0.02) { dy = 0; snapH = true; }
+  dx = Math.round(Math.max(-0.42, Math.min(0.42, dx)) * 1000) / 1000;
+  dy = Math.round(Math.max(-0.42, Math.min(0.42, dy)) * 1000) / 1000;
+  return { dx, dy, snapV, snapH };
+}
+
+function snapRotationDeg(rawDeg) {
+  let d = ((Number(rawDeg) || 0) % 360 + 540) % 360 - 180;
+  for (const anchor of [0, 45, -45, 90, -90, 135, -135, 180, -180]) {
+    if (Math.abs(d - anchor) <= 4) { d = anchor === -180 ? 180 : anchor; break; }
+  }
+  return Math.round(d * 10) / 10;
+}
+
+function updateSnapGuidesDOM(showV, showH) {
+  const snapV = $('snapGuideV');
+  const snapH = $('snapGuideH');
+  if (snapV) snapV.classList.toggle('hidden', !showV);
+  if (snapH) snapH.classList.toggle('hidden', !showH);
+}
+
+function updateTransformHud(text, show) {
+  const hud = $('boxTransformHud');
+  if (!hud) return;
+  hud.textContent = text || '';
+  hud.classList.toggle('hidden', !show);
+}
 
 /**
  * B3 & B4: Record bounding boxes during render for tap-to-edit hit-testing
@@ -18868,10 +18945,12 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
     });
   });
 
-  const capBoxX = Math.max(0, Math.min(0.9, (centerX - (totalW / 2) + capDx) / W));
-  const capBoxY = Math.max(0, Math.min(0.9, (startY + capDy) / H));
-  const capBoxW = Math.max(0.12, Math.min(0.96, (totalW * capScale) / W));
-  const capBoxH = Math.max(0.04, Math.min(0.96, (totalH * capScale) / H));
+  const scaledW = totalW * capScale;
+  const scaledH = totalH * capScale;
+  const capBoxW = Math.max(0.14, Math.min(0.96, scaledW / W));
+  const capBoxH = Math.max(0.05, Math.min(0.96, scaledH / H));
+  const capBoxX = Math.max(0, Math.min(1 - capBoxW, ((centerX + capDx) / W) - capBoxW / 2));
+  const capBoxY = Math.max(0, Math.min(1 - capBoxH, ((centerY + capDy) / H) - capBoxH / 2));
 
   const entry = {
     capId: cap.id,
@@ -18955,6 +19034,7 @@ function deselectCaption() {
 
   const snapV = $('snapGuideV'); if (snapV) snapV.classList.add('hidden');
   const snapH = $('snapGuideH'); if (snapH) snapH.classList.add('hidden');
+  updateTransformHud('', false);
 
   renderCanvas();
 }
@@ -18987,7 +19067,13 @@ function updateVideoEditOverlay() {
   bbox.classList.remove('hidden');
   miniToolbar.classList.remove('hidden');
 
-  // Update mode pills
+  // Update scope & mode pills
+  const btnScopeAll = $('btnAdjustScopeAll');
+  const btnScopeOne = $('btnAdjustScopeOne');
+  if (btnScopeAll && btnScopeOne) {
+    btnScopeAll.classList.toggle('active', S.adjustScope === 'all');
+    btnScopeOne.classList.toggle('active', S.adjustScope !== 'all');
+  }
   const btnWhole = $('btnEditModeWhole');
   const btnWord = $('btnEditModeWord');
   if (btnWhole && btnWord) {
@@ -19011,6 +19097,11 @@ function updateVideoEditOverlay() {
   const stageLeftInWrapper = stageRect.left - wrapperRect.left;
   const stageTopInWrapper = stageRect.top - wrapperRect.top;
 
+  const snapV = $('snapGuideV');
+  const snapH = $('snapGuideH');
+  if (snapV) snapV.style.left = Math.round(stageLeftInWrapper + stageRect.width * 0.5) + 'px';
+  if (snapH) snapH.style.top = Math.round(stageTopInWrapper + stageRect.height * 0.5) + 'px';
+
   const layoutItem = (S.cachedLayoutBoxes || []).find(item => item.capId === cap.id);
   let targetNormBox = layoutItem ? layoutItem.box : null;
 
@@ -19019,33 +19110,42 @@ function updateVideoEditOverlay() {
   }
 
   if (!targetNormBox) {
+    const scaleVal = Number(cap.scale) || 1.0;
+    const estW = Math.min(0.94, 0.78 * scaleVal);
+    const estH = Math.min(0.45, 0.14 * scaleVal);
+    const cxNorm = 0.5 + (Number(cap.dx) || 0);
+    const cyNorm = (Number(S.style?.position || S.style?.posY) || 0.72) + (Number(cap.dy) || 0);
     targetNormBox = {
-      x: 0.10 + (Number(cap.dx) || 0),
-      y: (Number(S.style?.position) || 0.65) - 0.08 + (Number(cap.dy) || 0),
-      w: 0.80 * (Number(cap.scale) || 1.0),
-      h: 0.16 * (Number(cap.scale) || 1.0)
+      x: Math.max(0, Math.min(1 - estW, cxNorm - estW / 2)),
+      y: Math.max(0, Math.min(1 - estH, cyNorm - estH / 2)),
+      w: estW,
+      h: estH
     };
   }
 
   const boxX = stageLeftInWrapper + targetNormBox.x * stageRect.width;
   const boxY = stageTopInWrapper + targetNormBox.y * stageRect.height;
-  const boxW = Math.max(48, targetNormBox.w * stageRect.width);
-  const boxH = Math.max(32, targetNormBox.h * stageRect.height);
+  const boxW = Math.max(56, targetNormBox.w * stageRect.width);
+  const boxH = Math.max(36, targetNormBox.h * stageRect.height);
 
   bbox.style.left = Math.round(boxX) + 'px';
   bbox.style.top = Math.round(boxY) + 'px';
   bbox.style.width = Math.round(boxW) + 'px';
   bbox.style.height = Math.round(boxH) + 'px';
+  const rotDeg = S.editMode === 'word' ? 0 : (Number(cap.rot) || 0);
+  bbox.style.transform = rotDeg ? `rotate(${rotDeg}deg)` : '';
 
-  // Position mini toolbar near the box
-  let toolbarY = boxY + boxH + 8;
-  if (toolbarY + 44 > wrapperRect.height - 12) {
-    toolbarY = Math.max(12, boxY - 48);
+  // Position mini toolbar centered near the box and safely inside wrapperRect
+  const tbW = miniToolbar.offsetWidth || Math.min(wrapperRect.width - 16, 330);
+  const tbH = miniToolbar.offsetHeight || 42;
+  let toolbarY = boxY + boxH + 40; // leave room for bottom rotation handle
+  if (toolbarY + tbH > wrapperRect.height - 8) {
+    toolbarY = Math.max(8, boxY - tbH - 12);
   }
-  let toolbarX = boxX + (boxW / 2) - 130;
-  toolbarX = Math.max(8, Math.min(wrapperRect.width - 270, toolbarX));
+  const halfTb = tbW * 0.5;
+  const toolbarCenterX = Math.max(halfTb + 8, Math.min(wrapperRect.width - halfTb - 8, boxX + boxW * 0.5));
 
-  miniToolbar.style.left = Math.round(toolbarX) + 'px';
+  miniToolbar.style.left = Math.round(toolbarCenterX) + 'px';
   miniToolbar.style.top = Math.round(toolbarY) + 'px';
 }
 
@@ -19118,16 +19218,70 @@ function setupVideoOverlayInteractions() {
   stageWrapper.addEventListener('click', handleStageTapToEdit);
 
   let drag = null;
+  let pinch = null;
+  const activePointers = new Map();
+  let wheelHistoryTimer = null;
+
+  const getSelectedCap = () => {
+    const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+    return capIdx === -1 ? null : { capIdx, cap: S.captions[capIdx] };
+  };
+
+  const commitFrameUpdate = () => {
+    requestAnimationFrame(() => {
+      renderCanvas();
+      updateVideoEditOverlay();
+    });
+  };
+
+  const startTwoFingerPinch = () => {
+    const pts = [...activePointers.values()];
+    if (pts.length < 2) return;
+    const found = getSelectedCap();
+    const curT = vid ? (vid.currentTime || 0) : 0;
+    const cap = found ? found.cap : S.captions.find(c => curT >= c.start && curT <= c.end);
+    if (!cap) return;
+    if (!found) {
+      S.selectedCaptionId = cap.id;
+      S.editMode = 'whole';
+      S.selectedWordIndex = -1;
+    }
+    const [p1, p2] = pts;
+    const stageRect = stage.getBoundingClientRect();
+    drag = null;
+    pinch = {
+      cap,
+      stageW: Math.max(1, stageRect.width),
+      stageH: Math.max(1, stageRect.height),
+      startDist: Math.max(12, Math.hypot(p2.x - p1.x, p2.y - p1.y)),
+      startAngle: Math.atan2(p2.y - p1.y, p2.x - p1.x) * (180 / Math.PI),
+      startMidX: (p1.x + p2.x) * 0.5,
+      startMidY: (p1.y + p2.y) * 0.5,
+      origScale: Number(cap.scale) || 1.0,
+      origRot: Number(cap.rot) || 0,
+      origDx: Number(cap.dx) || 0,
+      origDy: Number(cap.dy) || 0
+    };
+  };
+
+  const onWrapperPointerDown = (e) => {
+    if (e.target.closest('#videoEditMiniToolbar')) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.size === 2) {
+      startTwoFingerPinch();
+    }
+  };
 
   const onPointerDown = (e) => {
     if (e.target.closest('#videoEditMiniToolbar')) return;
-
-    const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
-    if (capIdx === -1) return;
-    const cap = S.captions[capIdx];
+    const found = getSelectedCap();
+    if (!found) return;
+    const { capIdx, cap } = found;
 
     e.stopPropagation();
-    try { e.target.setPointerCapture(e.pointerId); } catch(_) {}
+    try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+
+    if (activePointers.size >= 2) return;
 
     const handleEl = e.target.closest('.box-handle');
     const stageRect = stage.getBoundingClientRect();
@@ -19137,18 +19291,33 @@ function setupVideoOverlayInteractions() {
       const bboxRect = bbox.getBoundingClientRect();
       const centerX = bboxRect.left + bboxRect.width / 2;
       const centerY = bboxRect.top + bboxRect.height / 2;
-      const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
-      drag = {
-        type: 'scale',
-        pointerId: e.pointerId,
-        handle: handleType,
-        centerX,
-        centerY,
-        startDist: Math.max(10, startDist),
-        origScale: Number(cap.scale) || 1.0,
-        capIdx,
-        cap
-      };
+      if (handleType === 'rot') {
+        drag = {
+          type: 'rotate',
+          pointerId: e.pointerId,
+          centerX,
+          centerY,
+          startAngle: Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI),
+          origRot: Number(cap.rot) || 0,
+          capIdx,
+          cap,
+          moved: false
+        };
+      } else {
+        const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+        drag = {
+          type: 'scale',
+          pointerId: e.pointerId,
+          handle: handleType,
+          centerX,
+          centerY,
+          startDist: Math.max(10, startDist),
+          origScale: Number(cap.scale) || 1.0,
+          capIdx,
+          cap,
+          moved: false
+        };
+      }
     } else {
       const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]);
       const targetObj = isWordMode ? cap.words[S.selectedWordIndex] : cap;
@@ -19159,10 +19328,11 @@ function setupVideoOverlayInteractions() {
         startY: e.clientY,
         origDx: Number(targetObj.dx) || 0,
         origDy: Number(targetObj.dy) || 0,
-        stageW: stageRect.width,
-        stageH: stageRect.height,
+        stageW: Math.max(1, stageRect.width),
+        stageH: Math.max(1, stageRect.height),
         isWordMode,
         targetObj,
+        cap,
         capIdx,
         wordIdx: isWordMode ? S.selectedWordIndex : -1,
         moved: false
@@ -19171,77 +19341,102 @@ function setupVideoOverlayInteractions() {
   };
 
   const onPointerMove = (e) => {
+    if (activePointers.has(e.pointerId)) {
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (pinch && activePointers.size >= 2) {
+      e.preventDefault();
+      const [p1, p2] = [...activePointers.values()];
+      const curDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      const curAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * (180 / Math.PI);
+      const midX = (p1.x + p2.x) * 0.5;
+      const midY = (p1.y + p2.y) * 0.5;
+
+      const nextScale = Math.round(Math.max(0.4, Math.min(2.5, pinch.origScale * (curDist / pinch.startDist))) * 100) / 100;
+      const nextRot = snapRotationDeg(pinch.origRot + (curAngle - pinch.startAngle));
+      const snap = snapAndClampDelta(pinch.origDx + (midX - pinch.startMidX) / pinch.stageW, pinch.origDy + (midY - pinch.startMidY) / pinch.stageH);
+
+      applyCaptionTransform(pinch.cap, (c) => {
+        c.scale = nextScale;
+        c.rot = nextRot;
+        c.dx = snap.dx;
+        c.dy = snap.dy;
+      });
+      updateSnapGuidesDOM(snap.snapV, snap.snapH);
+      updateTransformHud(`${nextScale.toFixed(2)}× · ${nextRot}°`, true);
+      commitFrameUpdate();
+      return;
+    }
+
     if (!drag || drag.pointerId !== e.pointerId) return;
 
     if (drag.type === 'scale') {
+      drag.moved = true;
       const curDist = Math.hypot(e.clientX - drag.centerX, e.clientY - drag.centerY);
       const scaleFactor = curDist / drag.startDist;
-      const newScale = Math.max(0.4, Math.min(2.5, drag.origScale * scaleFactor));
-      drag.cap.scale = Math.round(newScale * 100) / 100;
-      requestAnimationFrame(() => {
-        renderCanvas();
-        updateVideoEditOverlay();
-      });
+      const newScale = Math.round(Math.max(0.4, Math.min(2.5, drag.origScale * scaleFactor)) * 100) / 100;
+      applyCaptionTransform(drag.cap, (c) => { c.scale = newScale; });
+      updateTransformHud(`${newScale.toFixed(2)}×`, true);
+      commitFrameUpdate();
+    } else if (drag.type === 'rotate') {
+      drag.moved = true;
+      const curAngle = Math.atan2(e.clientY - drag.centerY, e.clientX - drag.centerX) * (180 / Math.PI);
+      const nextRot = snapRotationDeg(drag.origRot + (curAngle - drag.startAngle));
+      applyCaptionTransform(drag.cap, (c) => { c.rot = nextRot; });
+      updateTransformHud(`${nextRot}°`, true);
+      commitFrameUpdate();
     } else if (drag.type === 'move') {
       const deltaX = e.clientX - drag.startX;
       const deltaY = e.clientY - drag.startY;
       if (!drag.moved && Math.hypot(deltaX, deltaY) < 3) return;
       drag.moved = true;
 
-      let newDx = drag.origDx + (deltaX / drag.stageW);
-      let newDy = drag.origDy + (deltaY / drag.stageH);
-
-      // Snap guides (center and 8% safe margins)
-      const snapV = $('snapGuideV');
-      const snapH = $('snapGuideH');
-      let didSnap = false;
-
-      if (Math.abs(newDx) < 0.02) {
-        newDx = 0;
-        if (snapV) snapV.classList.remove('hidden');
-        didSnap = true;
-      } else if (snapV) {
-        snapV.classList.add('hidden');
+      const snap = snapAndClampDelta(drag.origDx + (deltaX / drag.stageW), drag.origDy + (deltaY / drag.stageH));
+      updateSnapGuidesDOM(snap.snapV, snap.snapH);
+      if ((snap.snapV || snap.snapH) && navigator.vibrate) {
+        try { navigator.vibrate(8); } catch (_) {}
       }
 
-      if (Math.abs(newDy) < 0.02) {
-        newDy = 0;
-        if (snapH) snapH.classList.remove('hidden');
-        didSnap = true;
-      } else if (snapH) {
-        snapH.classList.add('hidden');
+      if (drag.isWordMode) {
+        drag.targetObj.dx = snap.dx;
+        drag.targetObj.dy = snap.dy;
+      } else {
+        applyCaptionTransform(drag.cap, (c) => {
+          c.dx = snap.dx;
+          c.dy = snap.dy;
+        });
       }
-
-      if (didSnap && navigator.vibrate) {
-        try { navigator.vibrate(8); } catch(_) {}
-      }
-
-      // Safe clamp inside 8% frame margins
-      newDx = Math.max(-0.42, Math.min(0.42, newDx));
-      newDy = Math.max(-0.42, Math.min(0.42, newDy));
-
-      drag.targetObj.dx = Math.round(newDx * 1000) / 1000;
-      drag.targetObj.dy = Math.round(newDy * 1000) / 1000;
-
-      requestAnimationFrame(() => {
-        renderCanvas();
-        updateVideoEditOverlay();
-      });
+      updateTransformHud(`${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
+      commitFrameUpdate();
     }
   };
 
   const onPointerUp = (e) => {
+    activePointers.delete(e.pointerId);
+    if (pinch && activePointers.size < 2) {
+      pinch = null;
+      updateSnapGuidesDOM(false, false);
+      updateTransformHud('', false);
+      pushHistoryState('Pinch adjust caption');
+      renderCanvas();
+      updateVideoEditOverlay();
+    }
+
     if (!drag || drag.pointerId !== e.pointerId) return;
     const d = drag;
     drag = null;
-    try { e.target.releasePointerCapture(e.pointerId); } catch(_) {}
+    try { e.target.releasePointerCapture(e.pointerId); } catch (_) {}
 
-    const snapV = $('snapGuideV'); if (snapV) snapV.classList.add('hidden');
-    const snapH = $('snapGuideH'); if (snapH) snapH.classList.add('hidden');
+    updateSnapGuidesDOM(false, false);
+    updateTransformHud('', false);
 
-    if (d.type === 'scale') {
+    if (d.type === 'scale' && d.moved) {
       pushHistoryState('Scale caption');
       console.log('[EDIT]', 'scale', d.capIdx, -1, d.cap.scale);
+    } else if (d.type === 'rotate' && d.moved) {
+      pushHistoryState('Rotate caption');
+      console.log('[EDIT]', 'rotate', d.capIdx, -1, d.cap.rot);
     } else if (d.type === 'move' && d.moved) {
       pushHistoryState('Move caption position');
       console.log('[EDIT]', 'move', d.capIdx, d.wordIdx, { dx: d.targetObj.dx, dy: d.targetObj.dy });
@@ -19250,12 +19445,43 @@ function setupVideoOverlayInteractions() {
     updateVideoEditOverlay();
   };
 
+  stageWrapper.addEventListener('pointerdown', onWrapperPointerDown, { passive: true });
   bbox.addEventListener('pointerdown', onPointerDown);
+  bbox.addEventListener('wheel', (e) => {
+    const found = getSelectedCap();
+    if (!found) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const step = e.deltaY < 0 ? 0.06 : -0.06;
+    const nextScale = Math.round(Math.max(0.4, Math.min(2.5, (Number(found.cap.scale) || 1.0) + step)) * 100) / 100;
+    applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
+    updateTransformHud(`${nextScale.toFixed(2)}×`, true);
+    renderCanvas();
+    updateVideoEditOverlay();
+    clearTimeout(wheelHistoryTimer);
+    wheelHistoryTimer = setTimeout(() => {
+      updateTransformHud('', false);
+      pushHistoryState('Resize caption');
+    }, 350);
+  }, { passive: false });
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
   window.addEventListener('pointercancel', onPointerUp);
 
   // Mini toolbar button handlers
+  const bindScopeBtn = (id, scope) => {
+    const btn = $(id);
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      S.adjustScope = scope;
+      updateVideoEditOverlay();
+      showToast(scope === 'all' ? 'Editing all captions together' : 'Editing only this caption');
+    });
+  };
+  bindScopeBtn('btnAdjustScopeAll', 'all');
+  bindScopeBtn('btnAdjustScopeOne', 'one');
+
   const btnWhole = $('btnEditModeWhole');
   if (btnWhole) {
     btnWhole.addEventListener('click', (e) => {
@@ -19277,6 +19503,41 @@ function setupVideoOverlayInteractions() {
     });
   }
 
+  const stepScale = (delta) => {
+    const found = getSelectedCap();
+    if (!found) return;
+    const nextScale = Math.round(Math.max(0.4, Math.min(2.5, (Number(found.cap.scale) || 1.0) + delta)) * 100) / 100;
+    applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
+    pushHistoryState('Scale caption');
+    renderCanvas();
+    updateVideoEditOverlay();
+    updateTransformHud(`${nextScale.toFixed(2)}×`, true);
+    clearTimeout(wheelHistoryTimer);
+    wheelHistoryTimer = setTimeout(() => updateTransformHud('', false), 700);
+  };
+
+  const btnScaleDown = $('btnMiniScaleDown');
+  if (btnScaleDown) btnScaleDown.addEventListener('click', (e) => { e.stopPropagation(); stepScale(-0.10); });
+  const btnScaleUp = $('btnMiniScaleUp');
+  if (btnScaleUp) btnScaleUp.addEventListener('click', (e) => { e.stopPropagation(); stepScale(0.10); });
+
+  const btnCenter = $('btnMiniCenter');
+  if (btnCenter) {
+    btnCenter.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const found = getSelectedCap();
+      if (!found) return;
+      applyCaptionTransform(found.cap, (c) => {
+        c.dx = 0;
+        c.rot = 0;
+      });
+      pushHistoryState('Center caption');
+      renderCanvas();
+      updateVideoEditOverlay();
+      showToast('Centered & leveled caption');
+    });
+  }
+
   const btnMiniEditText = $('btnMiniEditText');
   if (btnMiniEditText) {
     btnMiniEditText.addEventListener('click', (e) => {
@@ -19289,23 +19550,26 @@ function setupVideoOverlayInteractions() {
   if (btnMiniResetPos) {
     btnMiniResetPos.addEventListener('click', (e) => {
       e.stopPropagation();
-      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
-      if (capIdx === -1) return;
-      const cap = S.captions[capIdx];
+      const found = getSelectedCap();
+      if (!found) return;
+      const { capIdx, cap } = found;
       if (S.editMode === 'word' && S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]) {
         cap.words[S.selectedWordIndex].dx = 0;
         cap.words[S.selectedWordIndex].dy = 0;
         console.log('[EDIT]', 'reset_word_pos', capIdx, S.selectedWordIndex, 0);
       } else {
-        cap.dx = 0;
-        cap.dy = 0;
-        cap.scale = 1.0;
+        applyCaptionTransform(cap, (c) => {
+          c.dx = 0;
+          c.dy = 0;
+          c.scale = 1.0;
+          c.rot = 0;
+        });
         console.log('[EDIT]', 'reset_caption_pos', capIdx, -1, 0);
       }
       pushHistoryState('Reset position');
       renderCanvas();
       updateVideoEditOverlay();
-      showToast('Position reset to default');
+      showToast('Position, size & angle reset');
     });
   }
 
@@ -19313,21 +19577,20 @@ function setupVideoOverlayInteractions() {
   if (btnMiniApplyAll) {
     btnMiniApplyAll.addEventListener('click', (e) => {
       e.stopPropagation();
-      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
-      if (capIdx === -1) return;
-      const cap = S.captions[capIdx];
-      if (confirm('Apply this caption position and scale to all captions?')) {
-        S.captions.forEach((c) => {
-          c.dx = cap.dx || 0;
-          c.dy = cap.dy || 0;
-          c.scale = cap.scale || 1.0;
-        });
-        pushHistoryState('Apply position to all captions');
-        console.log('[EDIT]', 'apply_all_pos', capIdx, -1, { dx: cap.dx, dy: cap.dy, scale: cap.scale });
-        renderCanvas();
-        updateVideoEditOverlay();
-        showToast('Applied position to all captions');
-      }
+      const found = getSelectedCap();
+      if (!found) return;
+      const { capIdx, cap } = found;
+      S.captions.forEach((c) => {
+        c.dx = cap.dx || 0;
+        c.dy = cap.dy || 0;
+        c.scale = cap.scale || 1.0;
+        c.rot = cap.rot || 0;
+      });
+      pushHistoryState('Apply position to all captions');
+      console.log('[EDIT]', 'apply_all_pos', capIdx, -1, { dx: cap.dx, dy: cap.dy, scale: cap.scale, rot: cap.rot });
+      renderCanvas();
+      updateVideoEditOverlay();
+      showToast('Synced position, size & angle to all captions');
     });
   }
 

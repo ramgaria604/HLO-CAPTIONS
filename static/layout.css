@@ -397,8 +397,9 @@ html, body {
   z-index: var(--z-edit-overlay) !important;
   pointer-events: none !important;
 }
-#videoEditOverlayContainer.is-active,
-#videoEditOverlayContainer:not(.hidden).is-active {
+#videoEditOverlayContainer:not(.hidden) #captionBoundingBox,
+#videoEditOverlayContainer:not(.hidden) #videoEditMiniToolbar,
+#videoEditOverlayContainer:not(.hidden) .box-handle {
   pointer-events: auto !important;
 }
 #videoEditOverlayContainer.hidden {
