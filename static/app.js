@@ -488,7 +488,8 @@ function computeBehindCrownPlacement(ctx, text, {
   const detectedTop = (!isSampleCard && typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
     ? window._editorialHeadTopRatio
     : null;
-  const crownRatio = Math.max(0.11, Math.min(0.46, detectedTop !== null ? detectedTop : fallbackCrownRatio));
+  const crownRatio = Math.max(0.045, Math.min(0.46, detectedTop !== null ? detectedTop : fallbackCrownRatio));
+  const isTightHeadroom = crownRatio < 0.17;
   const headCrownY = Math.round(H * crownRatio);
   const safeTopY = Math.round(H * safeTopRatio) + Math.max(0, Math.round(extraAbovePx || 0));
 
@@ -518,27 +519,106 @@ function computeBehindCrownPlacement(ctx, text, {
     return { asc, desc, inkH: Math.max(1, asc + desc) };
   };
 
-  const floorMin = Math.min(minSize, preferredSize);
+  const floorMin = isTightHeadroom
+    ? Math.max(18, Math.round(Math.min(minSize, preferredSize) * 0.72))
+    : Math.min(minSize, preferredSize);
   let size = Math.max(floorMin, preferredSize);
   let glyphs = measureGlyphs(size);
-  const availAbove = Math.max(24, headCrownY - safeTopY);
+  const availAbove = Math.max(18, headCrownY - safeTopY);
   const visibleFrac = Math.max(0.10, 1 - overlapRatio);
   if (glyphs.inkH * visibleFrac > availAbove) {
     const maxInkH = availAbove / visibleFrac;
-    const shrunk = Math.floor(size * (maxInkH / glyphs.inkH));
+    const shrunk = Math.floor(size * (maxInkH / Math.max(1, glyphs.inkH)));
     size = Math.max(floorMin, Math.min(size, shrunk));
     glyphs = measureGlyphs(size);
   }
 
   let baseY = Math.round(headCrownY + glyphs.inkH * overlapRatio - glyphs.desc);
-  const hardTopY = Math.round(H * 0.022) + Math.max(0, Math.round(extraAbovePx || 0));
+  const hardTopY = Math.round(H * (isTightHeadroom ? 0.016 : 0.022)) + Math.max(0, Math.round(extraAbovePx || 0));
   if (baseY - glyphs.asc < hardTopY) {
-    baseY = Math.round(hardTopY + glyphs.asc);
+    // Shrink to fit above the subject's crown instead of shoving text down behind the eyes/face.
+    const maxLiftSpan = Math.max(20, (headCrownY + glyphs.inkH * overlapRatio) - hardTopY);
+    if (isTightHeadroom && glyphs.inkH > maxLiftSpan) {
+      const fitShrunk = Math.floor(size * (maxLiftSpan / Math.max(1, glyphs.inkH)));
+      size = Math.max(floorMin, Math.min(size, fitShrunk));
+      glyphs = measureGlyphs(size);
+      baseY = Math.round(headCrownY + glyphs.inkH * overlapRatio - glyphs.desc);
+    }
+    if (baseY - glyphs.asc < hardTopY) {
+      baseY = Math.round(hardTopY + glyphs.asc);
+    }
   }
   const inkTopY = Math.round(baseY - glyphs.asc);
   const inkBotY = Math.round(baseY + glyphs.desc);
   const centerY = Math.round((inkTopY + inkBotY) * 0.5);
-  return { size, baseY, centerY, inkTopY, inkBotY, headCrownY, asc: glyphs.asc, desc: glyphs.desc, inkH: glyphs.inkH };
+  return {
+    size,
+    baseY,
+    centerY,
+    inkTopY,
+    inkBotY,
+    headCrownY,
+    headTopRatio: crownRatio,
+    isTightHeadroom,
+    asc: glyphs.asc,
+    desc: glyphs.desc,
+    inkH: glyphs.inkH
+  };
+}
+
+function getSubjectMaskStats() {
+  if (typeof window === 'undefined') return null;
+  const s = window._subjectMaskStats;
+  if (!s || !s.floats || !s.w || !s.h) return null;
+  return s;
+}
+
+function getSubjectBoxOcclusion(xPx, yPx, wPx, hPx, W, H) {
+  const s = getSubjectMaskStats();
+  if (!s || !W || !H || wPx <= 0 || hPx <= 0) return null;
+  const cols = 8;
+  const rows = 4;
+  let fg = 0;
+  let maxVal = 0;
+  let total = 0;
+  const x0 = Math.max(0, Math.min(1, xPx / W));
+  const x1 = Math.max(x0, Math.min(1, (xPx + wPx) / W));
+  const y0 = Math.max(0, Math.min(1, yPx / H));
+  const y1 = Math.max(y0, Math.min(1, (yPx + hPx) / H));
+  for (let r = 0; r < rows; r++) {
+    const ty = y0 + ((r + 0.5) / rows) * (y1 - y0);
+    const my = Math.max(0, Math.min(s.h - 1, Math.floor(ty * s.h)));
+    const rowOff = my * s.w;
+    for (let c = 0; c < cols; c++) {
+      const tx = x0 + ((c + 0.5) / cols) * (x1 - x0);
+      const mx = Math.max(0, Math.min(s.w - 1, Math.floor(tx * s.w)));
+      const v = s.floats[rowOff + mx] || 0;
+      if (v > 0.5) fg++;
+      if (v > maxVal) maxVal = v;
+      total++;
+    }
+  }
+  return {
+    coverage: total > 0 ? fg / total : 0,
+    maxVal,
+    centerCoverage: typeof s.centerCoverage === 'number' ? s.centerCoverage : 0,
+    headTopRatio: typeof s.headTopRatio === 'number' ? s.headTopRatio : 0.28
+  };
+}
+
+function chooseAdaptiveBehindTarget(ctxFore, ctxBehind, isBehind, xPx, yPx, wPx, hPx, W, H, maxOccRatio = 0.36) {
+  if (!isBehind || !ctxBehind) {
+    return { ctx: ctxFore || ctxBehind, promoted: false, coverage: 0 };
+  }
+  const occ = getSubjectBoxOcclusion(xPx, yPx, wPx, hPx, W, H);
+  if (!occ) {
+    return { ctx: ctxBehind, promoted: false, coverage: 0 };
+  }
+  const tightCloseUp = occ.headTopRatio < 0.14 && occ.coverage > Math.min(0.28, maxOccRatio);
+  if (occ.coverage > maxOccRatio || tightCloseUp) {
+    return { ctx: ctxFore || ctxBehind, promoted: true, coverage: occ.coverage };
+  }
+  return { ctx: ctxBehind, promoted: false, coverage: occ.coverage };
 }
 
 function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll) {
@@ -2244,7 +2324,14 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
 
     const isBehindPerson = (lineLayer === 'behind');
-    const targetCtx = (isBehindPerson && ctxBehind) ? ctxBehind : ctxFore;
+    const _oW = Math.max(40, o.width || (o.size * 2.5));
+    const _oH = Math.max(24, (o.asc && o.desc) ? (o.asc + o.desc) : (o.size * 0.9));
+    const _oX = (typeof o.x === 'number' ? o.x : W * 0.5) - _oW * 0.5;
+    const _oY = (typeof o.inkTop === 'number')
+      ? o.inkTop
+      : (typeof o.baseline === 'number' ? o.baseline - o.size * 0.85 : ((typeof o.y === 'number' ? o.y : posY * H) - _oH * 0.5));
+    const _adaptive = chooseAdaptiveBehindTarget(ctxFore, ctxBehind, isBehindPerson, _oX, _oY, _oW, _oH, W, H, 0.38);
+    const targetCtx = _adaptive.ctx;
     if (!targetCtx) return;
 
     if (useUnifiedStack) {
@@ -5330,17 +5417,55 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
   const n = words.length;
   const heroX = Math.round(W * 0.50);
 
+  const maskStats = (!isSampleCard) ? getSubjectMaskStats() : null;
+  const isTightCloseUp = Boolean(maskStats && (maskStats.headTopRatio < 0.16 || maskStats.centerCoverage > 0.52));
+
+  // Renders an array of word tokens sequentially in clean white on one centered or aligned row
+  // without erasing earlier words in the group.
+  const drawProgressiveTokenRow = (ctx, tokenObjs, centerX, baselineY, fontSize, weight, trackEm, minStart, keepPunct, gapPx) => {
+    if (!tokenObjs || !tokenObjs.length) return;
+    const items = tokenObjs.map((w, idx) => ({
+      txt: cleanREToken(w.t || w.word || '', keepPunct),
+      start: wordStartTime(w, minStart + idx * 0.12)
+    })).filter(it => Boolean(it.txt));
+    if (!items.length) return;
+
+    const fullLine = items.map(it => it.txt).join(' ');
+    const trk = ov.trackEmWith(trackEm);
+    let fitSize = fontSize;
+    ctx.save();
+    ctx.font = `${weight} ${fitSize}px ${reFam}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${trk}em`;
+    const spaceW = Math.max(4, measureREWidth(ctx, ' ', fitSize, trk), gapPx || 0);
+    const totalW = measureREWidth(ctx, fullLine, fitSize, trk);
+    const maxRowW = W * 0.86;
+    if (totalW > maxRowW && totalW > 0) {
+      fitSize = Math.max(Math.round(H * 0.022), Math.floor(fitSize * (maxRowW / totalW)));
+      ctx.font = `${weight} ${fitSize}px ${reFam}`;
+    }
+    const itemWidths = items.map(it => measureREWidth(ctx, it.txt, fitSize, trk));
+    const spW = Math.max(Math.round(fitSize * 0.28), measureREWidth(ctx, ' ', fitSize, trk));
+    const rowW = itemWidths.reduce((a, b) => a + b, 0) + spW * Math.max(0, items.length - 1);
+    ctx.restore();
+
+    let curX = Math.round(centerX - rowW * 0.5);
+    items.forEach((it, idx) => {
+      drawCleanWhite(ctx, it.txt, curX, baselineY, fitSize, weight, 'left', it.start, 1.0, trackEm);
+      curX += Math.round(itemWidths[idx] + spW);
+    });
+  };
+
   if (modeIdx === 0) {
     // MODE 1: Split Behind-Head Depth Hero + Top Pair + Waist Hero w/ Small Centered Accent
     let lightText = '', lightStart = capStart;
     let boldText = '', boldStart = capStart + 0.14;
-    let topHeroObj = null, waistSmallA = null, waistSmallB = null, waistHeroObj = null;
+    let topHeroObj = null, waistSmallObjs = [], waistHeroObj = null;
 
     if (isSampleCard) {
       lightText = 'you can';
       boldText = 'add';
       topHeroObj = { t: 'Real', s: 0 };
-      waistSmallA = { t: 'estate', s: 0 };
+      waistSmallObjs = [{ t: 'estate', s: 0 }];
       waistHeroObj = { t: 'Captions', s: 0 };
     } else if (n >= 6) {
       lightText = words.slice(0, 2).map(w => cleanREToken(w.t || w.word, true)).filter(Boolean).join(' ');
@@ -5348,16 +5473,16 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
       boldText = cleanREToken(words[2].t || words[2].word, false);
       boldStart = wordStartTime(words[2], lightStart + 0.16);
       topHeroObj = words[3];
-      waistSmallA = words[4];
       waistHeroObj = words[5];
-      if (n >= 7) waistSmallB = words[6];
+      // Preserve words[4] and ALL trailing words words[6..n-1] so zero words are ever dropped.
+      waistSmallObjs = [words[4], ...words.slice(6)];
     } else if (n === 5) {
       lightText = cleanREToken(words[0].t || words[0].word, true);
       lightStart = wordStartTime(words[0], capStart);
       boldText = cleanREToken(words[1].t || words[1].word, false);
       boldStart = wordStartTime(words[1], lightStart + 0.14);
       topHeroObj = words[2];
-      waistSmallA = words[3];
+      waistSmallObjs = [words[3]];
       waistHeroObj = words[4];
     } else if (n === 4) {
       lightText = cleanREToken(words[0].t || words[0].word, true);
@@ -5378,35 +5503,62 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
       topHeroObj = words[0];
     }
 
-    // Dynamic head-crown tracking for Top Behind-Head Hero
-    let topHeroCenterRatio = 0.322;
-    if (!isSampleCard) {
-      const detectedTop = (typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number')
-        ? window._editorialHeadTopRatio
-        : null;
-      if (detectedTop !== null) {
-        const targetRatio = Math.max(0.20, Math.min(0.37, detectedTop + 0.068));
-        if (cap && typeof cap._latchedRETopRatio !== 'number') {
-          cap._latchedRETopRatio = targetRatio;
-        }
-        topHeroCenterRatio = (cap && typeof cap._latchedRETopRatio === 'number') ? cap._latchedRETopRatio : targetRatio;
-      }
-    }
-
     const topHeroText = topHeroObj ? cleanREToken(topHeroObj.t || topHeroObj.word, false) : '';
-    const topHeroFontSize = fitREFont(targetBehind, topHeroText, 900, H * 0.133, H * 0.072, W * 0.86, -0.035);
-    const topHeroBaseY = Math.round(H * topHeroCenterRatio + topHeroFontSize * 0.36);
+    const rawTopHeroSize = fitREFont(targetBehind, topHeroText || 'CAPTION', 900, H * 0.133, H * 0.064, W * 0.86, -0.035);
+    const hasTopLead = Boolean(lightText || boldText);
+    const leadRoomPx = hasTopLead ? Math.round(H * 0.056) : Math.round(H * 0.012);
+    const crownPlace = computeBehindCrownPlacement(ctxFore, topHeroText || 'CAPTION', {
+      fontFn: (sz) => `900 ${sz}px ${reFam}`,
+      trackEm: ov.trackEmWith(-0.035),
+      preferredSize: rawTopHeroSize,
+      minSize: Math.round(H * 0.056),
+      W,
+      H,
+      isSampleCard,
+      fallbackCrownRatio: 0.275,
+      overlapRatio: isTightCloseUp ? 0.18 : 0.28,
+      safeTopRatio: 0.044,
+      extraAbovePx: leadRoomPx
+    });
 
-    // Draw Top Hero on targetBehind (Layer 2 behind #personCanvas so speaker head/hair cleanly occludes it)
-    const behindOpacity = isSampleCard ? 0.96 : (isBehind && ctxBehind ? 0.98 : 0.90);
+    const topHeroFontSize = crownPlace.size;
+    const topHeroBaseY = crownPlace.baseY;
+    let topHeroW = Math.round(W * 0.56);
     if (topHeroText) {
-      drawMoltenHero(targetBehind, topHeroText, heroX, topHeroBaseY, topHeroFontSize, wordStartTime(topHeroObj, capStart + 0.26), 1.0, behindOpacity);
+      ctxFore.save();
+      ctxFore.font = `900 ${topHeroFontSize}px ${reFam}`;
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${ov.trackEmWith(-0.035)}em`;
+      topHeroW = Math.max(40, Math.round(measureREWidth(ctxFore, topHeroText, topHeroFontSize, ov.trackEmWith(-0.035))));
+      ctxFore.restore();
     }
 
-    // Top flanking pair directly along upper edge of Top Hero
-    let lightFontSize = Math.round(H * 0.039);
-    let boldFontSize = Math.round(H * 0.060);
-    const topLeadBaseY = Math.round(topHeroBaseY - topHeroFontSize * 0.71 - (ov.lineSpacingMult - 1.0) * topHeroFontSize * 0.28);
+    // Automatically keep behind-head depth on wide shots, and promote to foreground
+    // if close-up subject framing would hide > 36% of the hero word.
+    const topAdaptive = chooseAdaptiveBehindTarget(
+      ctxFore,
+      targetBehind,
+      true,
+      heroX - topHeroW * 0.5,
+      crownPlace.inkTopY,
+      topHeroW,
+      crownPlace.inkH,
+      W,
+      H,
+      0.36
+    );
+    const topHeroCtx = topAdaptive.ctx;
+    const behindOpacity = topAdaptive.promoted ? 0.94 : (isSampleCard ? 0.96 : (isBehind && ctxBehind ? 0.98 : 0.90));
+    if (topHeroText) {
+      drawMoltenHero(topHeroCtx, topHeroText, heroX, topHeroBaseY, topHeroFontSize, wordStartTime(topHeroObj, capStart + 0.22), 1.0, behindOpacity);
+    }
+
+    // Top flanking pair placed directly above Top Hero while respecting the top safe border.
+    let lightFontSize = crownPlace.isTightHeadroom ? Math.round(H * 0.034) : Math.round(H * 0.039);
+    let boldFontSize = crownPlace.isTightHeadroom ? Math.round(H * 0.050) : Math.round(H * 0.060);
+    const leadMinTopBaseY = Math.round(H * 0.030 + Math.max(lightFontSize, boldFontSize) * 0.78);
+    const rawLeadBaseY = Math.round(crownPlace.inkTopY - Math.max(H * 0.008, topHeroFontSize * 0.05) - (ov.lineSpacingMult - 1.0) * topHeroFontSize * 0.22);
+    const topLeadBaseY = Math.max(leadMinTopBaseY, rawLeadBaseY);
+
     if (lightText && boldText) {
       const measurePair = (lfs, bfs) => {
         ctxFore.save();
@@ -5440,75 +5592,93 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
       drawCleanWhite(ctxFore, txt, heroX, topLeadBaseY, fs, wt, 'center', ts, 1.0, -0.025);
     }
 
-    // Lower Waist Molten Hero + Small White Swapping Accent inside center
+    // Lower Waist Molten Hero + Progressive White Supporting Tokens inside center
     if (waistHeroObj) {
       const wHeroText = cleanREToken(waistHeroObj.t || waistHeroObj.word, true);
-      const wHeroSize = fitREFont(ctxFore, wHeroText, 900, H * 0.120, H * 0.062, W * 0.76, -0.038);
+      const wHeroSize = fitREFont(ctxFore, wHeroText, 900, H * 0.120, H * 0.060, W * 0.78, -0.038);
       const wHeroBaseY = Math.round(H * 0.614 + wHeroSize * 0.35 + (ov.lineSpacingMult - 1.0) * H * 0.026);
-      drawMoltenHero(ctxFore, wHeroText, heroX, wHeroBaseY, wHeroSize, wordStartTime(waistHeroObj, capStart + 0.55), 1.0, 0.90);
+      drawMoltenHero(ctxFore, wHeroText, heroX, wHeroBaseY, wHeroSize, wordStartTime(waistHeroObj, capStart + 0.50), 1.0, 0.90);
 
-      const smallSwap = resolveSwap(waistSmallA, waistSmallB, 0.45);
-      const smallSize = Math.round(H * 0.044);
-      const smallBaseY = Math.round(H * 0.606 + smallSize * 0.32 + (ov.lineSpacingMult - 1.0) * H * 0.026);
-      if (smallSwap.showA) drawCleanWhite(ctxFore, smallSwap.aTxt, heroX, smallBaseY, smallSize, 700, 'center', smallSwap.aStart, 1.0, -0.02, smallSwap.aOutP);
-      if (smallSwap.showB) drawCleanWhite(ctxFore, smallSwap.bTxt, heroX, smallBaseY, smallSize, 700, 'center', smallSwap.bStart, 1.0, -0.02);
+      if (waistSmallObjs.length) {
+        const smallSize = Math.round(H * 0.044);
+        const smallBaseY = Math.round(H * 0.606 + smallSize * 0.32 + (ov.lineSpacingMult - 1.0) * H * 0.026);
+        drawProgressiveTokenRow(ctxFore, waistSmallObjs, heroX, smallBaseY, smallSize, 700, -0.02, capStart + 0.42, true);
+      }
     }
   } else if (modeIdx === 1) {
-    // MODE 2: Mid-Torso Stack + Molten Word Swap ("this in One Click.")
+    // MODE 2: Mid-Torso Stack + Progressive Lead Row + Molten Hero ("this in One Click.")
     const topObj = words[0];
-    const leadObjs = n >= 4 ? words.slice(1, n - 2) : (n === 3 ? [words[1]] : []);
-    const swapAObj = n >= 4 ? words[n - 2] : null;
-    const swapBObj = n >= 2 ? words[n - 1] : null;
+    const leadObjs = n >= 3 ? words.slice(1, n - 1) : [];
+    const endHeroObj = n >= 2 ? words[n - 1] : null;
 
     if (topObj) {
       const topTxt = cleanREToken(topObj.t || topObj.word, false);
-      const topSize = fitREFont(ctxFore, topTxt, 800, H * 0.092, H * 0.052, W * 0.58, -0.03);
-      drawCleanWhite(ctxFore, topTxt, Math.round(W * 0.415), Math.round(H * 0.556 - (ov.lineSpacingMult - 1.0) * H * 0.026), topSize, 800, 'center', wordStartTime(topObj, capStart), 1.0, -0.03);
+      const topSize = fitREFont(ctxFore, topTxt, 800, H * 0.092, H * 0.050, W * 0.72, -0.03);
+      const topX = isTightCloseUp ? heroX : Math.round(W * 0.44);
+      drawCleanWhite(ctxFore, topTxt, topX, Math.round(H * 0.548 - (ov.lineSpacingMult - 1.0) * H * 0.026), topSize, 800, 'center', wordStartTime(topObj, capStart), 1.0, -0.03);
     }
 
-    const botLeadTxt = leadObjs.map(w => cleanREToken(w.t || w.word, true)).filter(Boolean).join(' ');
-    const botLeadStart = leadObjs.length ? wordStartTime(leadObjs[0], capStart + 0.25) : capStart;
-    const swap = resolveSwap(swapAObj, swapBObj, 0.35);
-    let leadSize = Math.round(H * 0.033);
-    let fierySize = fitREFont(ctxFore, swap.bTxt || swap.aTxt || 'Click.', 900, H * 0.064, H * 0.042, W * 0.58, -0.035);
+    const endHeroTxt = endHeroObj ? cleanREToken(endHeroObj.t || endHeroObj.word, true) : '';
+    const endHeroStart = endHeroObj ? wordStartTime(endHeroObj, capStart + 0.35) : capStart;
+    const leadItems = leadObjs.map((w, idx) => ({
+      txt: cleanREToken(w.t || w.word || '', true),
+      start: wordStartTime(w, capStart + 0.14 + idx * 0.10)
+    })).filter(it => Boolean(it.txt));
+
+    let leadSize = Math.round(H * 0.034);
+    let fierySize = fitREFont(ctxFore, endHeroTxt || 'Click.', 900, H * 0.064, H * 0.040, W * 0.62, -0.035);
     const rowBaseY = Math.round(H * 0.610 + (ov.lineSpacingMult - 1.0) * H * 0.026);
 
-    let leadX = Math.round(W * 0.34);
-    let fieryX = heroX;
-    if (botLeadTxt && (swap.showA || swap.showB)) {
-      const measureSwapRow = (ls, fs) => {
+    if (leadItems.length && endHeroTxt) {
+      const fullLeadStr = leadItems.map(it => it.txt).join(' ');
+      const measureCombinedRow = (ls, fs) => {
         ctxFore.save();
-        ctxFore.font = `400 ${ls}px "Inter", "Montserrat", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
-        const lwVal = measureREWidth(ctxFore, botLeadTxt, ls, -0.02);
-        ctxFore.font = `900 ${fs}px "Inter", "Montserrat", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.035em';
-        const fwA = swap.aTxt ? measureREWidth(ctxFore, swap.aTxt, fs, -0.035) : 0;
-        const fwB = swap.bTxt ? measureREWidth(ctxFore, swap.bTxt, fs, -0.035) : 0;
+        ctxFore.font = `400 ${ls}px ${reFam}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${ov.trackEmWith(-0.02)}em`;
+        const lwVal = measureREWidth(ctxFore, fullLeadStr, ls, ov.trackEmWith(-0.02));
+        ctxFore.font = `900 ${fs}px ${reFam}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${ov.trackEmWith(-0.035)}em`;
+        const fwVal = measureREWidth(ctxFore, endHeroTxt, fs, ov.trackEmWith(-0.035));
         ctxFore.restore();
-        return { lw: lwVal, maxFw: Math.max(fwA, fwB) };
+        return { lw: lwVal, fw: fwVal };
       };
-      let gap = Math.round(W * 0.026);
-      let dims = measureSwapRow(leadSize, fierySize);
+      let gap = Math.round(W * 0.024);
+      let dims = measureCombinedRow(leadSize, fierySize);
       const maxRowW = W * 0.86;
-      if (dims.lw + gap + dims.maxFw > maxRowW && (dims.lw + gap + dims.maxFw) > 0) {
-        const s = maxRowW / (dims.lw + gap + dims.maxFw);
-        leadSize = Math.max(11, Math.floor(leadSize * s));
-        fierySize = Math.max(Math.round(H * 0.032), Math.floor(fierySize * s));
-        gap = Math.max(6, Math.floor(gap * s));
-        dims = measureSwapRow(leadSize, fierySize);
+      // Split into 2 clean rows if too many words would shrink typography below readable scale.
+      if (leadItems.length >= 4 || (dims.lw + gap + dims.fw > maxRowW * 1.32)) {
+        drawProgressiveTokenRow(ctxFore, leadObjs, heroX, Math.round(H * 0.594), leadSize, 400, -0.02, capStart + 0.14, true);
+        drawMoltenHero(ctxFore, endHeroTxt, heroX, Math.round(H * 0.664), fierySize, endHeroStart, 1.0, 0.90);
+      } else {
+        if (dims.lw + gap + dims.fw > maxRowW && (dims.lw + gap + dims.fw) > 0) {
+          const s = maxRowW / (dims.lw + gap + dims.fw);
+          leadSize = Math.max(12, Math.floor(leadSize * s));
+          fierySize = Math.max(Math.round(H * 0.032), Math.floor(fierySize * s));
+          gap = Math.max(6, Math.floor(gap * s));
+          dims = measureCombinedRow(leadSize, fierySize);
+        }
+        const leftEdge = Math.round(heroX - (dims.lw + gap + dims.fw) * 0.5);
+        ctxFore.save();
+        ctxFore.font = `400 ${leadSize}px ${reFam}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${ov.trackEmWith(-0.02)}em`;
+        const spW = Math.max(Math.round(leadSize * 0.28), measureREWidth(ctxFore, ' ', leadSize, ov.trackEmWith(-0.02)));
+        const widths = leadItems.map(it => measureREWidth(ctxFore, it.txt, leadSize, ov.trackEmWith(-0.02)));
+        ctxFore.restore();
+        let curX = leftEdge;
+        leadItems.forEach((it, idx) => {
+          drawCleanWhite(ctxFore, it.txt, curX, rowBaseY, leadSize, 400, 'left', it.start, 1.0, -0.02);
+          curX += Math.round(widths[idx] + spW);
+        });
+        const fieryX = Math.round(leftEdge + dims.lw + gap + dims.fw * 0.5);
+        drawMoltenHero(ctxFore, endHeroTxt, fieryX, rowBaseY, fierySize, endHeroStart, 1.0, 0.90);
       }
-      // Lock leadX and fieryX across swapA -> swapB so lead phrase never shifts sideways on swap
-      const leftEdge = Math.round(heroX - (dims.lw + gap + dims.maxFw) * 0.5);
-      leadX = leftEdge;
-      fieryX = Math.round(leftEdge + dims.lw + gap + dims.maxFw * 0.5);
+    } else if (leadItems.length) {
+      drawProgressiveTokenRow(ctxFore, leadObjs, heroX, rowBaseY, leadSize, 400, -0.02, capStart + 0.14, true);
+    } else if (endHeroTxt) {
+      drawMoltenHero(ctxFore, endHeroTxt, heroX, rowBaseY, fierySize, endHeroStart, 1.0, 0.90);
     }
-
-    if (botLeadTxt) drawCleanWhite(ctxFore, botLeadTxt, leadX, rowBaseY, leadSize, 400, 'left', botLeadStart, 1.0, -0.02);
-    if (swap.showA) drawMoltenHero(ctxFore, swap.aTxt, fieryX, rowBaseY, fierySize, swap.aStart, 1.0, 0.90, swap.aOutP);
-    if (swap.showB) drawMoltenHero(ctxFore, swap.bTxt, fieryX, rowBaseY, fierySize, swap.bStart, 1.0, 0.90);
   } else {
-    // MODE 3: Flanking Edge Frame + Full-Width Molten Centerpiece ("first, go to Whitestair.com" / "and see your Sales Skyrocket.")
+    // MODE 3: Flanking Edge Frame + Balanced Molten Centerpiece ("first, go to Whitestair.com" / "and see your Sales Skyrocket.")
     let leftObj = null, rightObj = null, tailObj = null, centerWords = [];
     if (n >= 4) {
       leftObj = words[0];
@@ -5526,27 +5696,71 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
       centerWords = [words[0]];
     }
 
-    const leftEdgeX = Math.round(W * 0.068);
-    const rightEdgeX = Math.round(W * 0.932);
+    const edgeInset = isTightCloseUp ? 0.088 : 0.075;
+    const leftEdgeX = Math.round(W * edgeInset);
+    const rightEdgeX = Math.round(W * (1 - edgeInset));
     const flankSize = Math.round(H * 0.032);
     const topFlankBaseY = Math.round(H * 0.456);
 
     if (leftObj) {
-      drawCleanWhite(ctxFore, cleanREToken(leftObj.t || leftObj.word, true), leftEdgeX, topFlankBaseY, flankSize, 400, 'left', wordStartTime(leftObj, capStart), 1.0, -0.02);
+      const lTxt = cleanREToken(leftObj.t || leftObj.word, true);
+      const lFs = fitREFont(ctxFore, lTxt, 400, flankSize, Math.round(H * 0.021), W * 0.38, -0.02);
+      drawCleanWhite(ctxFore, lTxt, leftEdgeX, topFlankBaseY, lFs, 400, 'left', wordStartTime(leftObj, capStart), 1.0, -0.02);
     }
     if (rightObj) {
-      drawCleanWhite(ctxFore, cleanREToken(rightObj.t || rightObj.word, true), rightEdgeX, topFlankBaseY, flankSize, 400, 'right', wordStartTime(rightObj, capStart + 0.08), 1.0, -0.02);
+      const rTxt = cleanREToken(rightObj.t || rightObj.word, true);
+      const rFs = fitREFont(ctxFore, rTxt, 400, flankSize, Math.round(H * 0.021), W * 0.38, -0.02);
+      drawCleanWhite(ctxFore, rTxt, rightEdgeX, topFlankBaseY, rFs, 400, 'right', wordStartTime(rightObj, capStart + 0.08), 1.0, -0.02);
     }
     if (tailObj) {
-      const tailSize = Math.round(H * 0.045);
-      drawCleanWhite(ctxFore, cleanREToken(tailObj.t || tailObj.word, true), rightEdgeX, Math.round(H * 0.578), tailSize, 800, 'right', wordStartTime(tailObj, capStart + 0.16), 1.0, -0.025);
+      const tTxt = cleanREToken(tailObj.t || tailObj.word, true);
+      const tailSize = fitREFont(ctxFore, tTxt, 800, H * 0.045, Math.round(H * 0.024), W * 0.42, -0.025);
+      drawCleanWhite(ctxFore, tTxt, rightEdgeX, Math.round(H * 0.642), tailSize, 800, 'right', wordStartTime(tailObj, capStart + 0.16), 1.0, -0.025);
     }
 
-    const centerText = centerWords.map(w => cleanREToken(w.t || w.word, true)).filter(Boolean).join(' ');
-    if (centerText) {
-      const centerStart = wordStartTime(centerWords[0], capStart + 0.24);
-      const centerSize = fitREFont(ctxFore, centerText, 900, H * 0.076, H * 0.044, W * 0.85, -0.035);
-      drawMoltenHero(ctxFore, centerText, heroX, Math.round(H * 0.526), centerSize, centerStart, 1.0, 0.90);
+    const centerItems = centerWords.map((w, idx) => ({
+      txt: cleanREToken(w.t || w.word || '', true),
+      start: wordStartTime(w, capStart + 0.16 + idx * 0.09)
+    })).filter(it => Boolean(it.txt));
+
+    if (centerItems.length) {
+      const fullCenter = centerItems.map(it => it.txt).join(' ');
+      const idealCenterSize = Math.round(H * 0.074);
+      ctxFore.save();
+      ctxFore.font = `900 ${idealCenterSize}px ${reFam}`;
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${ov.trackEmWith(-0.035)}em`;
+      const rawCenterW = measureREWidth(ctxFore, fullCenter, idealCenterSize, ov.trackEmWith(-0.035));
+      ctxFore.restore();
+
+      const lines = [];
+      if (centerItems.length >= 2 && rawCenterW > W * 0.84) {
+        const splitAt = Math.ceil(centerItems.length / 2);
+        lines.push(centerItems.slice(0, splitAt));
+        lines.push(centerItems.slice(splitAt));
+      } else {
+        lines.push(centerItems);
+      }
+
+      const rowGapPx = Math.round(H * 0.068);
+      const startRowY = lines.length === 2 ? Math.round(H * 0.514) : Math.round(H * 0.532);
+      lines.forEach((lineItems, lineIdx) => {
+        const lineStr = lineItems.map(it => it.txt).join(' ');
+        const lineFs = fitREFont(ctxFore, lineStr, 900, H * (lines.length === 2 ? 0.064 : 0.076), H * 0.036, W * 0.84, -0.035);
+        const lineY = startRowY + lineIdx * rowGapPx;
+        ctxFore.save();
+        ctxFore.font = `900 ${lineFs}px ${reFam}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${ov.trackEmWith(-0.035)}em`;
+        const spW = Math.max(Math.round(lineFs * 0.25), measureREWidth(ctxFore, ' ', lineFs, ov.trackEmWith(-0.035)));
+        const widths = lineItems.map(it => measureREWidth(ctxFore, it.txt, lineFs, ov.trackEmWith(-0.035)));
+        ctxFore.restore();
+        const totalLineW = widths.reduce((a, b) => a + b, 0) + spW * Math.max(0, lineItems.length - 1);
+        let curX = Math.round(heroX - totalLineW * 0.5);
+        lineItems.forEach((it, idx) => {
+          const itemCenterX = Math.round(curX + widths[idx] * 0.5);
+          drawMoltenHero(ctxFore, it.txt, itemCenterX, lineY, lineFs, it.start, 1.0, 0.90);
+          curX += Math.round(widths[idx] + spW);
+        });
+      });
     }
   }
 }
@@ -11800,7 +12014,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (confirm('Start a new video project? Current unsaved edits will be cleared.')) {
       vid.pause();
       vid.src = '';
-      if (typeof window !== 'undefined') window._editorialHeadTopRatio = null;
+      if (typeof window !== 'undefined') { window._editorialHeadTopRatio = null; window._subjectMaskStats = null; }
       S.file = null;
       S.filename = '';
       S.voiceoverFilename = '';
@@ -11997,7 +12211,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   function stageSelectedFile(file) {
     S.file = file;
-    if (typeof window !== 'undefined') window._editorialHeadTopRatio = null;
+    if (typeof window !== 'undefined') { window._editorialHeadTopRatio = null; window._subjectMaskStats = null; }
     headerFileName.textContent = file.name;
     selectedMediaName.textContent = 'Ready: ' + file.name;
     selectedMediaName.classList.remove('hidden');
@@ -16464,11 +16678,12 @@ async function createExportSegmenter() {
   }
 }
 
-// Shared helper to detect top of speaker's head from segmentation mask floats for Editorial Depth Stack
+// Shared helper to detect top of speaker's head & subject coverage from segmentation mask floats
 function updateEditorialHeadTopRatio(floats, mW, mH) {
   if (!floats || !mW || !mH || typeof window === 'undefined') return;
   const xMin = Math.floor(mW * 0.15);
   const xMax = Math.ceil(mW * 0.85);
+  let detectedRatio = null;
   for (let y = 0; y < mH; y++) {
     let hits = 0;
     const rowOff = y * mW;
@@ -16476,15 +16691,47 @@ function updateEditorialHeadTopRatio(floats, mW, mH) {
       if (floats[rowOff + x] > 0.55) {
         hits++;
         if (hits >= 4) {
-          const ratio = y / mH;
-          window._editorialHeadTopRatio = (typeof window._editorialHeadTopRatio === 'number')
-            ? (window._editorialHeadTopRatio * 0.70 + ratio * 0.30)
-            : ratio;
-          return;
+          detectedRatio = y / mH;
+          break;
         }
       }
     }
+    if (detectedRatio !== null) break;
   }
+  if (detectedRatio !== null) {
+    window._editorialHeadTopRatio = (typeof window._editorialHeadTopRatio === 'number')
+      ? (window._editorialHeadTopRatio * 0.70 + detectedRatio * 0.30)
+      : detectedRatio;
+  }
+
+  // Copy a compact 48x64 mask grid so live preview & export share frame-safe anti-occlusion stats
+  const gW = 48;
+  const gH = 64;
+  const grid = new Float32Array(gW * gH);
+  let centerFg = 0;
+  let centerTotal = 0;
+  for (let gy = 0; gy < gH; gy++) {
+    const sy = Math.min(mH - 1, Math.floor(((gy + 0.5) / gH) * mH));
+    const sOff = sy * mW;
+    const dOff = gy * gW;
+    const inCenterY = gy >= Math.floor(gH * 0.15) && gy <= Math.ceil(gH * 0.65);
+    for (let gx = 0; gx < gW; gx++) {
+      const sx = Math.min(mW - 1, Math.floor(((gx + 0.5) / gW) * mW));
+      const v = floats[sOff + sx] || 0;
+      grid[dOff + gx] = v;
+      if (inCenterY && gx >= Math.floor(gW * 0.22) && gx <= Math.ceil(gW * 0.78)) {
+        if (v > 0.5) centerFg++;
+        centerTotal++;
+      }
+    }
+  }
+  window._subjectMaskStats = {
+    floats: grid,
+    w: gW,
+    h: gH,
+    headTopRatio: (typeof window._editorialHeadTopRatio === 'number') ? window._editorialHeadTopRatio : 0.28,
+    centerCoverage: centerTotal > 0 ? (centerFg / centerTotal) : 0
+  };
 }
 
 // Preview mask helper with adaptive downscale (128px smooth, 160px balanced, 256px paused)
