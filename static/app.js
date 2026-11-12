@@ -950,21 +950,24 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     lines = [words.slice(0, mid), words.slice(mid)];
   }
 
+  const ov = resolveSceneStyleOverrides(st, H);
   // 2. Preserve each preset's authentic designer font and typography
   const currentCase = S.style?.textCase || S.textCase || 'upper';
   const chosenFont = S.style?.fontFamily || S.font || st.fontFamily || st.font || (kRole && kRole.font) || (fRole && fRole.font) || 'Montserrat';
   const fontFam = `"${chosenFont}", "Poppins", sans-serif`;
   let fs = Math.max(18, Math.round(base * (st.fontSize || fRole.size || kRole.size || 0.082)));
-  const leading = 1.18;
+  const leading = 1.18 * ov.lineSpacingMult;
+  const stdTrackStr = ov.letterTrackDelta ? `${ov.letterTrackDelta}em` : '';
 
   // 3. Preserve each preset's authentic colors, highlights & gradients
-  let smallColor = st.baseColor || fRole.color || st.color || '#FFFFFF';
-  let bigColor = st.highlightColor || (st.highlight && st.highlight.color) || kRole.color || '#FFE600';
-  let glowColor = kRole.glow || st.glow || bigColor;
+  let smallColor = ov.customBase || st.baseColor || fRole.color || st.color || '#FFFFFF';
+  let bigColor = ov.customHighlight || st.highlightColor || (st.highlight && st.highlight.color) || kRole.color || '#FFE600';
+  let glowColor = st.glowColor || kRole.glow || st.glow || bigColor;
 
   // 4. Measure words per line & calculate safe auto-fit scale
   ctx.save();
   ctx.font = `800 ${fs}px ${fontFam}`;
+  if (stdTrackStr && 'letterSpacing' in ctx) ctx.letterSpacing = stdTrackStr;
   let maxLineWidth = 0;
   const measuredLines = lines.map(lineWords => {
     let lineWidth = 0;
@@ -1016,6 +1019,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     // Recalculate word measurements with final font size
     ctx.save();
     ctx.font = `800 ${fs}px ${fontFam}`;
+    if (stdTrackStr && 'letterSpacing' in ctx) ctx.letterSpacing = stdTrackStr;
     const scaledSpaceWidth = Math.max(fs * 0.28, ctx.measureText(' ').width);
     let actualLineWidth = 0;
     mLine.wordObjs.forEach((wo, idx) => {
@@ -1047,13 +1051,14 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 
         const isBoxMode = wo.isKey && st.highlight && st.highlight.mode === 'box';
         ctx.font = `${wo.isKey ? (kRole.italic ? 'italic ' : '') + '900' : (fRole.italic ? 'italic ' : '') + '800'} ${fs}px ${fontFam}`;
+        if (stdTrackStr && 'letterSpacing' in ctx) ctx.letterSpacing = stdTrackStr;
 
         if (isBoxMode) {
           const padX = Math.max(6, Math.round(fs * 0.22));
           const boxW = wo.width + padX * 2;
           const boxH = fs * 1.20;
           ctx.save();
-          ctx.fillStyle = st.highlight.color || '#FFE600';
+          ctx.fillStyle = ov.customHighlight || st.highlightColor || st.highlight.color || '#FFE600';
           ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
           ctx.shadowBlur = 8;
           ctx.beginPath();
@@ -1065,10 +1070,10 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
           ctx.fillText(wo.txt, 0, 0);
         } else {
           const isGlowActive = st.glowEnabled !== false;
-          const gColor = st.glowColor || (kRole && kRole.glow) || st.highlightColor || '#FFE600';
+          const gColor = st.glowColor || (kRole && kRole.glow) || bigColor || '#FFE600';
           const gBlur = Math.max(6, Math.round(Number(st.glowBlur) || 18));
 
-          if (isGlowActive && wo.isKey) {
+          if (isGlowActive && (wo.isKey || (ov.hasCustomGlow && ov.customGlowEnabled))) {
             ctx.save();
             ctx.shadowColor = gColor;
             ctx.shadowBlur = gBlur;
@@ -1089,7 +1094,9 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 
           // Fill text
           const wordBox = { x: -wo.width / 2, y: -fs / 2, w: wo.width, h: fs };
-          ctx.fillStyle = wo.isKey ? canvasRolePaint(ctx, kRole, bigColor, fs, wordBox) : canvasRolePaint(ctx, fRole, smallColor, fs, wordBox);
+          ctx.fillStyle = wo.isKey
+            ? (ov.customHighlight || canvasRolePaint(ctx, kRole, bigColor, fs, wordBox))
+            : (ov.customBase || canvasRolePaint(ctx, fRole, smallColor, fs, wordBox));
           ctx.fillText(wo.txt, 0, 0);
         }
 
@@ -4061,6 +4068,10 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
   if (exitFade <= 0.005) return;
 
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
+  const ov = resolveSceneStyleOverrides(st, H);
+  const flexScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const flexFam = ov.pickFontFam('"Poppins", "Montserrat", sans-serif');
+  const flexPosY = (y) => Math.round(y + ov.posDeltaY);
   const capsList = (typeof S !== 'undefined' && S && Array.isArray(S.captions)) ? S.captions : [];
   const foundIdx = (cap && capsList.length > 0) ? capsList.indexOf(cap) : -1;
   const rawIdx = (cap && cap.index != null) ? Number(cap.index) - 1 : parseInt(cap && cap.id, 10) - 1;
@@ -4092,12 +4103,13 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     return Math.max(0, w + Math.max(0, text.length - 1) * fontSize * (trackEm || 0));
   };
   const fitFlexFont = (ctx, text, weight, italic, idealPx, minPx, maxW, trackEm) => {
-    let size = Math.round(idealPx);
+    const effTrack = ov.trackEmWith(trackEm || 0);
+    let size = Math.round(idealPx * flexScale);
     if (!text) return size;
     ctx.save();
-    ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px "Poppins", "Montserrat", sans-serif`;
-    if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm || 0}em`;
-    const rawW = measureFlexWidth(ctx, text, size, trackEm);
+    ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${flexFam}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${effTrack}em`;
+    const rawW = measureFlexWidth(ctx, text, size, effTrack);
     ctx.restore();
     if (rawW > maxW && rawW > 0) {
       size = Math.max(Math.round(minPx), Math.floor(size * (maxW / rawW)));
@@ -4134,16 +4146,17 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     })).filter(it => it.txt);
     if (!tokens.length) return { left: x, right: x, width: 0 };
 
+    const effTrack = ov.trackEmWith(trackEm || 0);
     const fullStr = tokens.map(it => it.txt).join(' ');
     const fitSize = fitFlexFont(ctx, fullStr, weight, italic, fontSize, Math.round(H * 0.018), W * 0.88, trackEm);
     ctx.save();
-    ctx.font = `${italic ? 'italic ' : ''}${weight} ${fitSize}px "Poppins", "Montserrat", sans-serif`;
-    if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
-    const spaceW = measureFlexWidth(ctx, ' ', fitSize, trackEm);
+    ctx.font = `${italic ? 'italic ' : ''}${weight} ${fitSize}px ${flexFam}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${effTrack}em`;
+    const spaceW = measureFlexWidth(ctx, ' ', fitSize, effTrack);
     const segs = tokens.map((it, i) => ({
       txt: it.txt,
       s: it.s,
-      w: measureFlexWidth(ctx, it.txt, fitSize, trackEm) + (i < tokens.length - 1 ? spaceW * 0.85 : 0)
+      w: measureFlexWidth(ctx, it.txt, fitSize, effTrack) + (i < tokens.length - 1 ? spaceW * 0.85 : 0)
     }));
     const totalW = segs.reduce((acc, s) => acc + s.w, 0);
     ctx.restore();
@@ -4151,6 +4164,9 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     let startX = x;
     if (align === 'center') startX = x - totalW * 0.5;
     else if (align === 'right') startX = x - totalW;
+
+    const adjY = flexPosY(baselineY);
+    ov.recordSceneBox(cap, W, H, startX, adjY - fitSize, totalW, fitSize * 1.25);
 
     const outAlpha = (typeof outFadeP === 'number') ? Math.max(0, 1 - outFadeP) : 1.0;
     let curX = startX;
@@ -4163,8 +4179,8 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         ctx.save();
         try {
           ctx.globalAlpha = exitFade * outAlpha * Math.min(1, p * 1.4);
-          ctx.font = `${italic ? 'italic ' : ''}${weight} ${fitSize}px "Poppins", "Montserrat", sans-serif`;
-          if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
+          ctx.font = `${italic ? 'italic ' : ''}${weight} ${fitSize}px ${flexFam}`;
+          if ('letterSpacing' in ctx) ctx.letterSpacing = `${effTrack}em`;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'alphabetic';
           if (withDarkEdge) {
@@ -4172,14 +4188,13 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
             ctx.lineCap = 'round';
             ctx.strokeStyle = 'rgba(10, 8, 18, 0.42)';
             ctx.lineWidth = Math.max(1.2, Math.round(fitSize * 0.052));
-            ctx.strokeText(seg.txt, Math.round(curX), Math.round(baselineY + yOff));
+            ctx.strokeText(seg.txt, Math.round(curX), Math.round(adjY + yOff));
           }
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.62)';
-          ctx.shadowBlur = Math.max(3, Math.round(H * 0.006));
+          ov.applyGlow(ctx, 'rgba(0, 0, 0, 0.62)', Math.max(3, Math.round(H * 0.006)));
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = Math.round(H * 0.002);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillText(seg.txt, Math.round(curX), Math.round(baselineY + yOff));
+          ctx.fillStyle = ov.pickBase('#FFFFFF');
+          ctx.fillText(seg.txt, Math.round(curX), Math.round(adjY + yOff));
         } finally {
           ctx.restore();
         }
@@ -4198,28 +4213,32 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     const alpha = exitFade * ep;
     if (alpha <= 0.01) return;
     const sc = fullInstant ? 1.0 : (0.94 + 0.06 * ep);
+    const effTrack = ov.trackEmWith(trackEm || 0);
+    const effSize = Math.round(fontSize * flexScale);
+    const adjY = flexPosY(baselineY);
 
     ctx.save();
     try {
       ctx.globalAlpha = alpha;
-      ctx.font = `${italic ? 'italic ' : ''}${weight} ${fontSize}px "Poppins", "Montserrat", sans-serif`;
-      if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
+      ctx.font = `${italic ? 'italic ' : ''}${weight} ${effSize}px ${flexFam}`;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${effTrack}em`;
       ctx.textAlign = align;
       ctx.textBaseline = 'alphabetic';
-      const midY = baselineY - fontSize * 0.30;
+      const fw = measureFlexWidth(ctx, text, effSize, effTrack);
+      const bx0 = align === 'center' ? (x - fw * 0.5) : (align === 'right' ? x - fw : x);
+      ov.recordSceneBox(cap, W, H, bx0, adjY - effSize, fw, effSize * 1.25);
+      const midY = adjY - effSize * 0.30;
       ctx.translate(x, midY);
       ctx.scale(sc, sc);
       ctx.translate(-x, -midY);
       if (withGlow) {
-        ctx.shadowColor = 'rgba(224, 24, 255, 0.90)';
-        ctx.shadowBlur = Math.max(10, Math.round(H * 0.022));
+        ov.applyGlow(ctx, 'rgba(224, 24, 255, 0.90)', Math.max(10, Math.round(H * 0.022)));
       } else {
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.56)';
-        ctx.shadowBlur = Math.max(4, Math.round(H * 0.007));
+        ov.applyGlow(ctx, 'rgba(0, 0, 0, 0.56)', Math.max(4, Math.round(H * 0.007)));
         ctx.shadowOffsetY = Math.round(H * 0.002);
       }
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(text, x, baselineY);
+      ctx.fillStyle = withGlow ? ov.pickHi('#FFFFFF') : ov.pickBase('#FFFFFF');
+      ctx.fillText(text, x, adjY);
     } finally {
       ctx.restore();
     }
@@ -4318,25 +4337,28 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         targetBehind.scale(nScale, nScale);
         targetBehind.translate(-heroCenterX, -heroCenterY);
 
-        targetBehind.font = `700 ${numFontSize}px "Poppins", "Montserrat", sans-serif`;
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.025em';
+        targetBehind.font = `700 ${numFontSize}px ${flexFam}`;
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${ov.trackEmWith(-0.025)}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
         targetBehind.lineWidth = Math.max(5, Math.round(numFontSize * 0.022));
         targetBehind.lineJoin = 'round';
         targetBehind.lineCap = 'round';
 
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.28)';
-        targetBehind.shadowBlur = Math.max(4, Math.round(H * 0.006));
+        ov.applyGlow(targetBehind, 'rgba(0, 0, 0, 0.28)', Math.max(4, Math.round(H * 0.006)));
         targetBehind.shadowOffsetY = Math.round(H * 0.002);
 
-        const coolGrad = targetBehind.createLinearGradient(heroCenterX, topY, heroCenterX, botY);
-        coolGrad.addColorStop(0.00, '#5EDB43');
-        coolGrad.addColorStop(0.28, '#14B387');
-        coolGrad.addColorStop(0.56, '#144BD4');
-        coolGrad.addColorStop(0.84, '#5616D0');
-        coolGrad.addColorStop(1.00, '#7212DA');
-        targetBehind.strokeStyle = coolGrad;
+        if (ov.customHighlight) {
+          targetBehind.strokeStyle = ov.customHighlight;
+        } else {
+          const coolGrad = targetBehind.createLinearGradient(heroCenterX, topY, heroCenterX, botY);
+          coolGrad.addColorStop(0.00, '#5EDB43');
+          coolGrad.addColorStop(0.28, '#14B387');
+          coolGrad.addColorStop(0.56, '#144BD4');
+          coolGrad.addColorStop(0.84, '#5616D0');
+          coolGrad.addColorStop(1.00, '#7212DA');
+          targetBehind.strokeStyle = coolGrad;
+        }
         targetBehind.strokeText(metricWord, heroCenterX, numBaseY);
       } finally {
         targetBehind.restore();
@@ -4347,7 +4369,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     if (topLabelWords.length > 0) {
       const heroLeft = heroCenterX - numW * 0.5;
       const preX = Math.max(W * 0.052, Math.round(heroLeft - numW * 0.16));
-      const preBaseY = Math.max(H * 0.075, Math.round(numBaseY - numFontSize * 0.67));
+      const preBaseY = Math.max(H * 0.075, Math.round(numBaseY - numFontSize * 0.67 - (ov.lineSpacingMult - 1.0) * numFontSize * 0.25));
       drawProgressiveWords(ctxFore, topLabelWords, preX, preBaseY, Math.round(H * 0.031), 800, true, 'left', -0.02, false);
     }
 
@@ -4364,7 +4386,7 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
     // 4. Waist Subtitle ('Imagine a home')
     if (waistWords.length > 0) {
-      drawProgressiveWords(ctxFore, waistWords, Math.round(W * 0.50), Math.round(H * 0.533), Math.round(H * 0.035), 600, false, 'center', -0.015, false);
+      drawProgressiveWords(ctxFore, waistWords, Math.round(W * 0.50), Math.round(H * 0.533 + (ov.lineSpacingMult - 1.0) * H * 0.032), Math.round(H * 0.035), 600, false, 'center', -0.015, false);
     }
 
   } else if (styleMode === 2) {
@@ -4388,8 +4410,8 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     const numBaseY = Math.round(heroCenterY + numFontSize * 0.35);
 
     ctxFore.save();
-    ctxFore.font = `italic 900 ${numFontSize}px "Poppins", "Montserrat", sans-serif`;
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.04em';
+    ctxFore.font = `italic 900 ${numFontSize}px ${flexFam}`;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${ov.trackEmWith(-0.04)}em`;
     const numW = measureFlexWidth(ctxFore, metricWord, numFontSize, -0.04);
     ctxFore.restore();
 
@@ -4405,20 +4427,23 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         targetBehind.scale(nScale, nScale);
         targetBehind.translate(-heroCenterX, -heroCenterY);
 
-        targetBehind.font = `italic 900 ${numFontSize}px "Poppins", "Montserrat", sans-serif`;
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.04em';
+        targetBehind.font = `italic 900 ${numFontSize}px ${flexFam}`;
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${ov.trackEmWith(-0.04)}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.45)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.008));
+        ov.applyGlow(targetBehind, 'rgba(0, 0, 0, 0.45)', Math.max(6, Math.round(H * 0.008)));
         targetBehind.shadowOffsetY = Math.round(H * 0.003);
 
-        const magGrad = targetBehind.createLinearGradient(0, gTop, 0, numBaseY + numFontSize * 0.05);
-        magGrad.addColorStop(0.00, '#BD2EE6');
-        magGrad.addColorStop(0.45, '#B810E6');
-        magGrad.addColorStop(1.00, '#D926E8');
-        targetBehind.fillStyle = magGrad;
+        if (ov.customHighlight) {
+          targetBehind.fillStyle = ov.customHighlight;
+        } else {
+          const magGrad = targetBehind.createLinearGradient(0, gTop, 0, numBaseY + numFontSize * 0.05);
+          magGrad.addColorStop(0.00, '#BD2EE6');
+          magGrad.addColorStop(0.45, '#B810E6');
+          magGrad.addColorStop(1.00, '#D926E8');
+          targetBehind.fillStyle = magGrad;
+        }
         targetBehind.fillText(metricWord, heroCenterX, numBaseY);
       } finally {
         targetBehind.restore();
@@ -4428,13 +4453,13 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     // Top-right italic qualifier ('a month') nestled along upper rim of '00'
     if (topRightWords.length > 0) {
       const noteX = Math.round(heroCenterX + numW * 0.12);
-      const noteBaseY = Math.max(H * 0.070, Math.round(numBaseY - numFontSize * 0.77));
+      const noteBaseY = Math.max(H * 0.070, Math.round(numBaseY - numFontSize * 0.77 - (ov.lineSpacingMult - 1.0) * numFontSize * 0.25));
       drawProgressiveWords(ctxFore, topRightWords, noteX, noteBaseY, Math.round(H * 0.025), 800, true, 'center', -0.02, false);
     }
 
     // Front Waist Subtitle ('With a tenant paying')
     if (waistWords.length > 0) {
-      drawProgressiveWords(ctxFore, waistWords, Math.round(W * 0.50), Math.round(H * 0.530), Math.round(H * 0.035), 600, false, 'center', -0.015, false);
+      drawProgressiveWords(ctxFore, waistWords, Math.round(W * 0.50), Math.round(H * 0.530 + (ov.lineSpacingMult - 1.0) * H * 0.032), Math.round(H * 0.035), 600, false, 'center', -0.015, false);
     }
 
   } else if (styleMode === 3) {
@@ -4547,14 +4572,18 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       const hScale = fullInstant ? 1.0 : (0.95 + 0.05 * hep);
 
       const drawHeroBase = (c, ox, oy) => {
-        const g = c.createLinearGradient(0, oy - heroFontSize * 0.72, 0, oy + heroFontSize * 0.22);
-        g.addColorStop(0.00, '#180544');
-        g.addColorStop(0.51, '#21065E');
-        g.addColorStop(0.555, '#540EB8');
-        g.addColorStop(0.59, '#8820F4');
-        g.addColorStop(0.75, '#7614E8');
-        g.addColorStop(1.00, '#580BC0');
-        c.fillStyle = g;
+        if (ov.customHighlight) {
+          c.fillStyle = ov.customHighlight;
+        } else {
+          const g = c.createLinearGradient(0, oy - heroFontSize * 0.72, 0, oy + heroFontSize * 0.22);
+          g.addColorStop(0.00, '#180544');
+          g.addColorStop(0.51, '#21065E');
+          g.addColorStop(0.555, '#540EB8');
+          g.addColorStop(0.59, '#8820F4');
+          g.addColorStop(0.75, '#7614E8');
+          g.addColorStop(1.00, '#580BC0');
+          c.fillStyle = g;
+        }
         c.fillText(heroWord, ox, oy);
       };
 
@@ -4730,6 +4759,12 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
 function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
+  const ov = resolveSceneStyleOverrides(st, H);
+  const edFam = ov.pickFontFam('"Poppins", "Montserrat", sans-serif');
+  const edFontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const edCase = st && st.textCase;
+  const edHTrk = ov.trackEmWith(-0.068);
+  const edLTrk = ov.trackEmWith(-0.03);
 
   const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
@@ -4763,8 +4798,19 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     }
     return String(str || '').length * fallbackPx * 0.54;
   };
-  const cleanHeroWord = (txt) => String(txt || '').replace(/^[""'`.,/#!$%^&*;:{}=\-_~()?]+|[""'`.,/#!$%^&*;:{}=\-_~()?]+$/g, '').toLowerCase();
-  const cleanLeadWord = (txt) => String(txt || '').replace(/^[""']+|[,.;:!?""']+$/g, '');
+  const cleanHeroWord = (txt) => {
+    const s = String(txt || '').replace(/^[""'`.,/#!$%^&*;:{}=\-_~()?]+|[""'`.,/#!$%^&*;:{}=\-_~()?]+$/g, '');
+    if (edCase === 'upper') return s.toUpperCase();
+    if (edCase === 'asIs') return s;
+    if (edCase === 'title') return s.replace(/\b\w/g, (c) => c.toUpperCase());
+    return s.toLowerCase();
+  };
+  const cleanLeadWord = (txt) => {
+    const s = String(txt || '').replace(/^[""']+|[,.;:!?""']+$/g, '');
+    if (edCase === 'upper') return s.toUpperCase();
+    if (edCase === 'lower') return s.toLowerCase();
+    return s;
+  };
 
   const normalizeWords = (wordList, fallbackStart, fallbackEnd) => {
     const arr = (wordList || []).map(w => ({
@@ -4789,43 +4835,42 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     const heroText = cleanHeroWord(heroRaw) || 'seen';
     const heroStart = (heroObj && typeof heroObj.s === 'number') ? heroObj.s : 0;
 
-    // 1. Measure Giant Lowercase Upright Hero Typography (Poppins 900 un-squished round geometric, tight -0.068em)
-    let heroFontSize = Math.round(H * 0.128); // ~164px on 1280h
+    let heroFontSize = Math.round(H * 0.128 * edFontScale);
     targetBehind.save();
-    targetBehind.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
-    targetBehind.letterSpacing = '-0.068em';
+    targetBehind.font = `900 ${heroFontSize}px ${edFam}`;
+    if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${edHTrk}em`;
     const rawHeroW = measureWidth(targetBehind, heroText, heroFontSize);
     targetBehind.restore();
 
     const maxHeroW = W * 0.90;
     if (rawHeroW > maxHeroW && rawHeroW > 0) {
-      heroFontSize = Math.max(Math.round(H * 0.070), Math.floor(heroFontSize * (maxHeroW / rawHeroW)));
+      heroFontSize = Math.max(Math.round(H * 0.055), Math.floor(heroFontSize * (maxHeroW / rawHeroW)));
     }
 
     const heroX = Math.round(W * 0.50);
-    // For Top Hero: place ~10% of the word height behind the detected hair crown (~90% visible above); Waist stays lower-third
     let heroBaselineY;
     let heroInkTopY;
     if (slot === 'top') {
       const crownPlace = computeBehindCrownPlacement(targetBehind, heroText, {
         W,
         H,
-        fontFn: (sz) => `900 ${sz}px "Poppins", "Montserrat", sans-serif`,
+        fontFn: (sz) => `900 ${sz}px ${edFam}`,
         preferredSize: heroFontSize,
-        minSize: Math.round(H * 0.068),
-        trackEm: -0.068,
+        minSize: Math.round(H * 0.055),
+        trackEm: edHTrk,
         isSampleCard,
         fallbackCrownRatio: 0.225,
         extraAbovePx: (leadList && leadList.length > 0) ? Math.round(H * 0.048) : 0
       });
       heroFontSize = crownPlace.size;
-      heroBaselineY = crownPlace.baseY;
-      heroInkTopY = crownPlace.inkTopY;
+      heroBaselineY = Math.round(crownPlace.baseY + ov.posDeltaY);
+      heroInkTopY = Math.round(crownPlace.inkTopY + ov.posDeltaY);
     } else {
-      const heroCenterY = Math.round(H * 0.620);
+      const heroCenterY = Math.round(H * 0.620 + ov.posDeltaY);
       heroBaselineY = Math.round(heroCenterY + heroFontSize * 0.28);
       heroInkTopY = Math.round(heroBaselineY - heroFontSize * 0.58);
     }
+    ov.recordSceneBox(cap, W, H, heroX - W * 0.42, heroInkTopY - H * 0.05, W * 0.84, (heroBaselineY - heroInkTopY) + H * 0.08);
 
     // Hero entrance curve ("how it comes"): slides gently rightwards into center while sharpening out of blur
     const heroAge = fullInstant ? 1.0 : Math.max(0, evalT - heroStart);
@@ -4852,10 +4897,10 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         heroCtx.scale(heroScale, heroScale);
         heroCtx.translate(-heroX, -heroBaselineY);
 
-        heroCtx.font = `900 ${heroFontSize}px "Poppins", "Montserrat", sans-serif`;
+        heroCtx.font = `900 ${heroFontSize}px ${edFam}`;
         heroCtx.textAlign = 'center';
         heroCtx.textBaseline = 'alphabetic';
-        heroCtx.letterSpacing = '-0.068em';
+        if ('letterSpacing' in heroCtx) heroCtx.letterSpacing = `${edHTrk}em`;
 
         const finalHeroW = Math.max(W * 0.26, measureWidth(heroCtx, heroText, heroFontSize));
         const gradLeft = heroX - finalHeroW * 0.52;
@@ -4865,12 +4910,11 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         horizGrad.addColorStop(0.52, pal.mid);
         horizGrad.addColorStop(1.00, pal.right);
 
-        heroCtx.shadowColor = 'rgba(0, 0, 0, 0.22)';
-        heroCtx.shadowBlur = 8;
+        ov.applyGlow(heroCtx, 'rgba(0, 0, 0, 0.22)', 8, 1);
         heroCtx.shadowOffsetX = 0;
         heroCtx.shadowOffsetY = 2;
 
-        heroCtx.fillStyle = horizGrad;
+        heroCtx.fillStyle = ov.customHighlight || horizGrad;
         heroCtx.fillText(heroText, heroX, heroBaselineY);
       } finally {
         if ('filter' in heroCtx) heroCtx.filter = 'none';
@@ -4884,36 +4928,35 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       .filter(w => w.txt);
 
     if (cleanTokens.length > 0 && fadeAlpha > 0.005) {
-      const leadWeight = slot === 'top' ? '700' : '500'; // Top lead bold ("Some homes get"), Waist lead cleaner medium ("A few get")
-      let leadFontSize = Math.round(H * 0.038); // ~49px on 1280h
+      const leadWeight = slot === 'top' ? '700' : '500';
+      let leadFontSize = Math.round(H * 0.038 * edFontScale);
       const fullLeadStr = cleanTokens.map(w => w.txt).join(' ');
 
       ctxFore.save();
-      ctxFore.font = `${leadWeight} ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
-      ctxFore.letterSpacing = '-0.03em';
+      ctxFore.font = `${leadWeight} ${leadFontSize}px ${edFam}`;
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${edLTrk}em`;
       const rawLeadW = measureWidth(ctxFore, fullLeadStr, leadFontSize);
       ctxFore.restore();
 
       const maxLeadW = W * 0.88;
       if (rawLeadW > maxLeadW && rawLeadW > 0) {
-        leadFontSize = Math.max(Math.round(H * 0.022), Math.floor(leadFontSize * (maxLeadW / rawLeadW)));
+        leadFontSize = Math.max(Math.round(H * 0.020), Math.floor(leadFontSize * (maxLeadW / rawLeadW)));
       }
 
-      // Baseline hugs top rim of Hero word while keeping safe clearance from top frame edge
+      const leadGap = Math.round((ov.lineSpacingMult - 1.0) * heroFontSize * 0.26);
       const leadBaselineY = Math.max(
         Math.round(H * 0.025 + leadFontSize * 0.80),
-        Math.round(Math.min(heroBaselineY - heroFontSize * 0.54, heroInkTopY - Math.round(H * 0.004)))
+        Math.round(Math.min(heroBaselineY - heroFontSize * 0.54, heroInkTopY - Math.round(H * 0.004)) - leadGap)
       );
 
       ctxFore.save();
       try {
-        ctxFore.font = `${leadWeight} ${leadFontSize}px "Poppins", "Montserrat", sans-serif`;
-        ctxFore.letterSpacing = '-0.03em';
+        ctxFore.font = `${leadWeight} ${leadFontSize}px ${edFam}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${edLTrk}em`;
         ctxFore.textAlign = 'left';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.fillStyle = '#FFFFFF';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctxFore.shadowBlur = 8;
+        ctxFore.fillStyle = ov.pickBase('#FFFFFF');
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 8, 1);
         ctxFore.shadowOffsetX = 0;
         ctxFore.shadowOffsetY = 2;
 
@@ -5065,6 +5108,10 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
 
 function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
+  const ov = resolveSceneStyleOverrides(st, H);
+  const reFam = ov.pickFontFam('"Inter", "Montserrat", sans-serif');
+  const reFontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  ov.recordSceneBox(cap, W, H, W * 0.12, Math.round(H * 0.48 + ov.posDeltaY), W * 0.76, H * 0.24 * ov.lineSpacingMult);
 
   const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
   const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
@@ -5112,12 +5159,13 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
   };
 
   const fitREFont = (ctx, text, weight, idealPx, minPx, maxW, trackEm) => {
-    let size = Math.round(idealPx);
+    const trk = ov.trackEmWith(trackEm);
+    let size = Math.round(idealPx * reFontScale);
     if (!text) return size;
     ctx.save();
-    ctx.font = `${weight} ${size}px "Inter", "Montserrat", sans-serif`;
-    if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
-    const rawW = measureREWidth(ctx, text, size, trackEm);
+    ctx.font = `${weight} ${size}px ${reFam}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${trk}em`;
+    const rawW = measureREWidth(ctx, text, size, trk);
     ctx.restore();
     if (rawW > maxW && rawW > 0) {
       size = Math.max(Math.round(minPx), Math.floor(size * (maxW / rawW)));
@@ -5141,19 +5189,20 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     const scaleIn = fullInstant ? 1.0 : (0.94 + 0.06 * ep);
     const scaleOut = (typeof outFadeP === 'number' && outFadeP > 0) ? (1.0 - 0.05 * outFadeP) : 1.0;
     const scale = scaleIn * scaleOut;
+    const adjY = Math.round(baselineY + (ctx === ctxFore ? ov.posDeltaY : 0));
 
     ctx.save();
     try {
       ctx.globalAlpha = alpha;
       if (blurPx > 0.2 && 'filter' in ctx) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
-      ctx.font = `900 ${fontSize}px "Inter", "Montserrat", sans-serif`;
+      ctx.font = `900 ${fontSize}px ${reFam}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      const trackEm = -0.035;
+      const trackEm = ov.trackEmWith(-0.035);
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
 
       const boxW = Math.max(W * 0.22, measureREWidth(ctx, text, fontSize, trackEm));
-      const midY = baselineY - fontSize * 0.36;
+      const midY = adjY - fontSize * 0.36;
       ctx.translate(x, midY);
       ctx.scale(scale, scale);
       ctx.translate(-x, -midY);
@@ -5161,9 +5210,9 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
       const phase = fullInstant ? 0 : Math.sin(evalT * 1.6) * 0.03;
       const g = ctx.createLinearGradient(
         x - boxW * 0.52,
-        baselineY - fontSize * 0.88,
+        adjY - fontSize * 0.88,
         x + boxW * 0.52,
-        baselineY + fontSize * 0.16
+        adjY + fontSize * 0.16
       );
       g.addColorStop(0.00, '#FF6A08');
       g.addColorStop(Math.max(0.06, Math.min(0.24, 0.16 + phase)), '#F24B04');
@@ -5174,12 +5223,11 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
       g.addColorStop(Math.max(0.82, Math.min(0.95, 0.89 - phase * 0.4)), '#FF5D07');
       g.addColorStop(1.00, '#D83804');
 
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.40)';
-      ctx.shadowBlur = Math.max(4, Math.round(H * 0.006));
+      ov.applyGlow(ctx, 'rgba(0, 0, 0, 0.40)', Math.max(4, Math.round(H * 0.006)), 1);
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = Math.round(H * 0.002);
-      ctx.fillStyle = g;
-      ctx.fillText(text, x, baselineY);
+      ctx.fillStyle = ov.customHighlight || g;
+      ctx.fillText(text, x, adjY);
     } finally {
       if ('filter' in ctx) ctx.filter = 'none';
       ctx.restore();
@@ -5200,26 +5248,27 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     const blurOut = (typeof outFadeP === 'number' && outFadeP > 0) ? 3.5 * outFadeP : 0;
     const blurPx = Math.round((blurIn + blurOut) * 10) / 10;
     const scale = fullInstant ? 1.0 : (0.96 + 0.04 * ep);
+    const trk = ov.trackEmWith(trackEm);
+    const adjY = Math.round(baselineY + (ctx === ctxFore ? ov.posDeltaY : 0));
 
     ctx.save();
     try {
       ctx.globalAlpha = alpha;
       if (blurPx > 0.2 && 'filter' in ctx) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
-      ctx.font = `${weight} ${fontSize}px "Inter", "Montserrat", sans-serif`;
+      ctx.font = `${weight} ${fontSize}px ${reFam}`;
       ctx.textAlign = align;
       ctx.textBaseline = 'alphabetic';
-      if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${trk}em`;
 
-      ctx.translate(x, baselineY);
+      ctx.translate(x, adjY);
       ctx.scale(scale, scale);
-      ctx.translate(-x, -baselineY);
+      ctx.translate(-x, -adjY);
 
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.44)';
-      ctx.shadowBlur = Math.max(3, Math.round(H * 0.006));
+      ov.applyGlow(ctx, 'rgba(0, 0, 0, 0.44)', Math.max(3, Math.round(H * 0.006)), 1);
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = Math.round(H * 0.002);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(text, x, baselineY);
+      ctx.fillStyle = ov.pickBase('#FFFFFF');
+      ctx.fillText(text, x, adjY);
     } finally {
       if ('filter' in ctx) ctx.filter = 'none';
       ctx.restore();
@@ -5321,15 +5370,15 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     // Top flanking pair directly along upper edge of Top Hero
     let lightFontSize = Math.round(H * 0.039);
     let boldFontSize = Math.round(H * 0.060);
-    const topLeadBaseY = Math.round(topHeroBaseY - topHeroFontSize * 0.71);
+    const topLeadBaseY = Math.round(topHeroBaseY - topHeroFontSize * 0.71 - (ov.lineSpacingMult - 1.0) * topHeroFontSize * 0.28);
     if (lightText && boldText) {
       const measurePair = (lfs, bfs) => {
         ctxFore.save();
-        ctxFore.font = `400 ${lfs}px "Inter", "Montserrat", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+        ctxFore.font = `400 ${lfs}px ${reFam}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${ov.trackEmWith(-0.02)}em`;
         const lW = measureREWidth(ctxFore, lightText, lfs, -0.02);
-        ctxFore.font = `800 ${bfs}px "Inter", "Montserrat", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.03em';
+        ctxFore.font = `800 ${bfs}px ${reFam}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${ov.trackEmWith(-0.03)}em`;
         const bW = measureREWidth(ctxFore, boldText, bfs, -0.03);
         ctxFore.restore();
         return { lw: lW, bw: bW };
@@ -5359,12 +5408,12 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     if (waistHeroObj) {
       const wHeroText = cleanREToken(waistHeroObj.t || waistHeroObj.word, true);
       const wHeroSize = fitREFont(ctxFore, wHeroText, 900, H * 0.120, H * 0.062, W * 0.76, -0.038);
-      const wHeroBaseY = Math.round(H * 0.614 + wHeroSize * 0.35);
+      const wHeroBaseY = Math.round(H * 0.614 + wHeroSize * 0.35 + (ov.lineSpacingMult - 1.0) * H * 0.026);
       drawMoltenHero(ctxFore, wHeroText, heroX, wHeroBaseY, wHeroSize, wordStartTime(waistHeroObj, capStart + 0.55), 1.0, 0.90);
 
       const smallSwap = resolveSwap(waistSmallA, waistSmallB, 0.45);
       const smallSize = Math.round(H * 0.044);
-      const smallBaseY = Math.round(H * 0.606 + smallSize * 0.32);
+      const smallBaseY = Math.round(H * 0.606 + smallSize * 0.32 + (ov.lineSpacingMult - 1.0) * H * 0.026);
       if (smallSwap.showA) drawCleanWhite(ctxFore, smallSwap.aTxt, heroX, smallBaseY, smallSize, 700, 'center', smallSwap.aStart, 1.0, -0.02, smallSwap.aOutP);
       if (smallSwap.showB) drawCleanWhite(ctxFore, smallSwap.bTxt, heroX, smallBaseY, smallSize, 700, 'center', smallSwap.bStart, 1.0, -0.02);
     }
@@ -5378,7 +5427,7 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     if (topObj) {
       const topTxt = cleanREToken(topObj.t || topObj.word, false);
       const topSize = fitREFont(ctxFore, topTxt, 800, H * 0.092, H * 0.052, W * 0.58, -0.03);
-      drawCleanWhite(ctxFore, topTxt, Math.round(W * 0.415), Math.round(H * 0.556), topSize, 800, 'center', wordStartTime(topObj, capStart), 1.0, -0.03);
+      drawCleanWhite(ctxFore, topTxt, Math.round(W * 0.415), Math.round(H * 0.556 - (ov.lineSpacingMult - 1.0) * H * 0.026), topSize, 800, 'center', wordStartTime(topObj, capStart), 1.0, -0.03);
     }
 
     const botLeadTxt = leadObjs.map(w => cleanREToken(w.t || w.word, true)).filter(Boolean).join(' ');
@@ -5386,7 +5435,7 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
     const swap = resolveSwap(swapAObj, swapBObj, 0.35);
     let leadSize = Math.round(H * 0.033);
     let fierySize = fitREFont(ctxFore, swap.bTxt || swap.aTxt || 'Click.', 900, H * 0.064, H * 0.042, W * 0.58, -0.035);
-    const rowBaseY = Math.round(H * 0.610);
+    const rowBaseY = Math.round(H * 0.610 + (ov.lineSpacingMult - 1.0) * H * 0.026);
 
     let leadX = Math.round(W * 0.34);
     let fieryX = heroX;
@@ -5468,6 +5517,12 @@ function drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, 
 
 function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
   if (!words || !words.length) return;
+  const ov = resolveSceneStyleOverrides(st, H);
+  const ekFam = ov.pickFontFam('"Montserrat", "Inter", sans-serif');
+  const ekHi = ov.pickHi('#F0D314');
+  const ekBase = ov.pickBase('#FFFFFF');
+  const ekFontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const ekUserCase = st && st.textCase;
 
   const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
   const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
@@ -5506,7 +5561,7 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
     let px = Math.round(idealPx);
     if (!text) return px;
     ctx.save();
-    ctx.font = `${weight} ${px}px "Montserrat", "Inter", sans-serif`;
+    ctx.font = `${weight} ${px}px ${ekFam}`;
     if ('letterSpacing' in ctx) ctx.letterSpacing = `${trackEm}em`;
     const rawW = measureEKWidth(ctx, text, px, trackEm);
     ctx.restore();
@@ -5514,6 +5569,13 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
       px = Math.max(Math.round(minPx), Math.floor(px * (maxW / rawW)));
     }
     return px;
+  };
+  const applyEKCase = (str, defLower) => {
+    if (ekUserCase === 'upper') return str.toUpperCase();
+    if (ekUserCase === 'lower') return str.toLowerCase();
+    if (ekUserCase === 'title') return str.replace(/\b\w/g, (c) => c.toUpperCase());
+    if (ekUserCase === 'asIs') return str;
+    return defLower ? str.toLowerCase() : str.toUpperCase();
   };
 
   let line1Text = '';
@@ -5524,50 +5586,53 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
   let line3Start = capStart + 0.70;
 
   if (isSampleCard) {
-    line1Text = 'BUILD';
-    line2Text = 'INTENT';
-    line3Text = 'daily';
+    line1Text = applyEKCase('BUILD', false);
+    line2Text = applyEKCase('INTENT', false);
+    line3Text = applyEKCase('daily', true);
   } else if (words.length >= 3) {
-    line1Text = cleanET(words[0].t || words[0].word).toUpperCase();
-    line2Text = cleanET(words[1].t || words[1].word).toUpperCase();
-    line3Text = words.slice(2).map(w => cleanET(w.t || w.word)).filter(Boolean).join(' ').toLowerCase();
+    line1Text = applyEKCase(cleanET(words[0].t || words[0].word), false);
+    line2Text = applyEKCase(cleanET(words[1].t || words[1].word), false);
+    line3Text = applyEKCase(words.slice(2).map(w => cleanET(w.t || w.word)).filter(Boolean).join(' '), true);
     line1Start = wordStartTime(words[0], capStart);
     line2Start = wordStartTime(words[1], line1Start + 0.35);
     line3Start = wordStartTime(words[2], line2Start + 0.35);
   } else if (words.length === 2) {
-    line1Text = cleanET(words[0].t || words[0].word).toUpperCase();
-    line3Text = cleanET(words[1].t || words[1].word).toLowerCase();
+    line1Text = applyEKCase(cleanET(words[0].t || words[0].word), false);
+    line3Text = applyEKCase(cleanET(words[1].t || words[1].word), true);
     line1Start = wordStartTime(words[0], capStart);
     line3Start = wordStartTime(words[1], line1Start + 0.35);
   } else {
-    line1Text = cleanET(words[0].t || words[0].word).toUpperCase();
+    line1Text = applyEKCase(cleanET(words[0].t || words[0].word), false);
     line1Start = wordStartTime(words[0], capStart);
   }
 
-  // Exact proportions from ref 1olwjJXqLkpi2b1aRRs1RyVkpA0ZU5y_O: compact ALL-CAPS L1+L2, heaviest Black L3
-  const l1FontSize = fitEKFont(ctxFore, line1Text, 800, H * 0.050, H * 0.032, W * 0.62, -0.025);
-  const l2FontSize = fitEKFont(ctxFore, line2Text, 800, H * 0.050, H * 0.032, W * 0.68, -0.025);
-  const l3FontSize = fitEKFont(ctxFore, line3Text, 900, H * 0.072, H * 0.042, W * 0.76, -0.040);
+  const trk12 = ov.trackEmWith(-0.025);
+  const trk3 = ov.trackEmWith(-0.040);
+  const l1FontSize = fitEKFont(ctxFore, line1Text, 800, H * 0.050 * ekFontScale, H * 0.028, W * 0.62, trk12);
+  const l2FontSize = fitEKFont(ctxFore, line2Text, 800, H * 0.050 * ekFontScale, H * 0.028, W * 0.68, trk12);
+  const l3FontSize = fitEKFont(ctxFore, line3Text, 900, H * 0.072 * ekFontScale, H * 0.036, W * 0.76, trk3);
 
   // Measure actual widths for crisp viewport-safe staggering
   const getW = (txt, wt, px, trk) => {
     if (!txt) return 0;
     ctxFore.save();
-    ctxFore.font = `${wt} ${px}px "Montserrat", "Inter", sans-serif`;
+    ctxFore.font = `${wt} ${px}px ${ekFam}`;
     if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${trk}em`;
     const w = measureEKWidth(ctxFore, txt, px, trk);
     ctxFore.restore();
     return w;
   };
-  const w1 = getW(line1Text, 800, l1FontSize, -0.025);
-  const w2 = getW(line2Text, 800, l2FontSize, -0.025);
-  const w3 = getW(line3Text, 900, l3FontSize, -0.040);
+  const w1 = getW(line1Text, 800, l1FontSize, trk12);
+  const w2 = getW(line2Text, 800, l2FontSize, trk12);
+  const w3 = getW(line3Text, 900, l3FontSize, trk3);
 
-  const l1BaseY = Math.round(H * 0.775);
-  const l2BaseY = Math.round(l1BaseY + l1FontSize * 0.88);
+  const ekPosRatio = (typeof st?.posY === 'number') ? st.posY : ((typeof st?.position === 'number') ? st.position : 0.775);
+  const l1BaseY = Math.round(H * ekPosRatio);
+  const l2BaseY = Math.round(l1BaseY + l1FontSize * 0.88 * ov.lineSpacingMult);
   const l3BaseY = line2Text
-    ? Math.round(l2BaseY + l3FontSize * 0.68)
-    : Math.round(l1BaseY + l3FontSize * 0.74);
+    ? Math.round(l2BaseY + l3FontSize * 0.68 * ov.lineSpacingMult)
+    : Math.round(l1BaseY + l3FontSize * 0.74 * ov.lineSpacingMult);
+  ov.recordSceneBox(cap, W, H, W * 0.14, l1BaseY - l1FontSize, W * 0.72, (l3BaseY - l1BaseY) + l3FontSize * 1.3);
 
   let x1, x2, x3, alignMode;
   if (isRightAligned) {
@@ -5604,12 +5669,11 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
     try {
       ctxFore.globalAlpha = alpha;
       if (blurPx > 0.2 && 'filter' in ctxFore) ctxFore.filter = `blur(${blurPx.toFixed(1)}px)`;
-      ctxFore.font = `${wt} ${px}px "Montserrat", "Inter", sans-serif`;
+      ctxFore.font = `${wt} ${px}px ${ekFam}`;
       ctxFore.textAlign = alignMode;
       ctxFore.textBaseline = 'alphabetic';
       if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${trk}em`;
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.45)';
-      ctxFore.shadowBlur = Math.max(3, Math.round(H * 0.006));
+      ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.45)', Math.max(3, Math.round(H * 0.006)), 1);
       ctxFore.shadowOffsetX = 0;
       ctxFore.shadowOffsetY = Math.round(H * 0.002);
       ctxFore.fillStyle = color;
@@ -5620,10 +5684,9 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
     }
   };
 
-  // Line 1 remains Electric Gold-Yellow (#F0D314) while L2 and L3 stay Pure White (#FFFFFF)
-  drawKineticLine(line1Text, 800, l1FontSize, -0.025, x1, l1BaseY, '#F0D314', line1Start, 8);
-  if (line2Text) drawKineticLine(line2Text, 800, l2FontSize, -0.025, x2, l2BaseY, '#FFFFFF', line2Start, 10);
-  if (line3Text) drawKineticLine(line3Text, 900, l3FontSize, -0.040, x3, l3BaseY, '#FFFFFF', line3Start, 14);
+  drawKineticLine(line1Text, 800, l1FontSize, trk12, x1, l1BaseY, ekHi, line1Start, 8);
+  if (line2Text) drawKineticLine(line2Text, 800, l2FontSize, trk12, x2, l2BaseY, ekBase, line2Start, 10);
+  if (line3Text) drawKineticLine(line3Text, 900, l3FontSize, trk3, x3, l3BaseY, ekBase, line3Start, 14);
 }
 
 function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
@@ -5724,21 +5787,24 @@ function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isP
   const topStart = topWords.length ? wordStartTime(topWords[0], capStart) : capStart;
   const botStart = botWords.length ? wordStartTime(botWords[0], heroStart + 0.48) : (heroStart + 0.48);
 
+  const ov = resolveSceneStyleOverrides(st, H);
   const posYRatio = (typeof st?.posY === 'number') ? st.posY : ((typeof st?.position === 'number') ? st.position : 0.702);
   const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
   const centerX = Math.round(W * 0.50);
-  const heroFontFam = '"Montserrat", "Poppins", sans-serif';
-  const subFontFam = '"Poppins", "Montserrat", sans-serif';
+  const heroFontFam = ov.pickFontFam('"Montserrat", "Poppins", sans-serif');
+  const subFontFam = ov.pickFontFam('"Poppins", "Montserrat", sans-serif');
+  const hTrk = ov.trackEmWith(-0.025);
+  const sTrk = ov.trackEmWith(-0.015);
 
-  const heroSize = fitCSFont(ctxFore, heroText, heroFontFam, 900, false, H * 0.128 * fontScale, H * 0.044, W * 0.88, -0.025);
+  const heroSize = fitCSFont(ctxFore, heroText, heroFontFam, 900, false, H * 0.128 * fontScale, H * 0.044, W * 0.88, hTrk);
   const idealSub = Math.max(H * 0.035, Math.min(H * 0.055, heroSize * 0.47));
-  const topSize = topText ? fitCSFont(ctxFore, topText, subFontFam, 800, true, idealSub, H * 0.024, W * 0.84, -0.015) : 0;
-  const botSize = botText ? fitCSFont(ctxFore, botText, subFontFam, 800, true, idealSub, H * 0.024, W * 0.84, -0.015) : 0;
+  const topSize = topText ? fitCSFont(ctxFore, topText, subFontFam, 800, true, idealSub, H * 0.024, W * 0.84, sTrk) : 0;
+  const botSize = botText ? fitCSFont(ctxFore, botText, subFontFam, 800, true, idealSub, H * 0.024, W * 0.84, sTrk) : 0;
 
   ctxFore.save();
   ctxFore.font = `900 ${heroSize}px ${heroFontFam}`;
-  if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
-  const heroW = measureCSWidth(ctxFore, heroText, heroSize, -0.025);
+  if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${hTrk}em`;
+  const heroW = measureCSWidth(ctxFore, heroText, heroSize, hTrk);
   ctxFore.restore();
 
   // Compute balanced center anchor for 1/2/3-tier stack around posYRatio
@@ -5749,12 +5815,14 @@ function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isP
   const heroBaseY = Math.round(H * posYRatio + heroCapH * 0.48 + heroCenterOffsetY);
   const heroTopY = heroBaseY - heroCapH;
 
-  // Tight interlocking offsets: top italic kisses top rim of hero, bottom italic tucks right under hero baseline
-  const perchedTopBaseY = Math.round(heroTopY + heroSize * 0.055);
+  // Tight interlocking offsets scaled cleanly by lineSpacingMult
+  const spGap = (ov.lineSpacingMult - 1.0) * heroSize * 0.35;
+  const perchedTopBaseY = Math.round(heroTopY + heroSize * 0.055 - spGap);
   const preHeroCenterY = Math.round(H * posYRatio + topSize * 0.24);
   const glideUpP = fullInstant ? 1.0 : (evalT >= heroStart - 0.04 ? easeOutCubic(Math.min(1, (evalT - (heroStart - 0.04)) / 0.16)) : 0);
   const topBaseY = Math.round(preHeroCenterY + (perchedTopBaseY - preHeroCenterY) * glideUpP);
-  const botBaseY = Math.round(heroBaseY + botSize * 0.70);
+  const botBaseY = Math.round(heroBaseY + botSize * 0.70 * ov.lineSpacingMult);
+  ov.recordSceneBox(cap, W, H, centerX - Math.max(W * 0.30, heroW * 0.55), heroTopY - topSize * 1.1, Math.max(W * 0.60, heroW * 1.1), heroCapH + topSize * 1.4 + botSize * 1.4);
 
   // Helper to paint crisp white italic accent line with soft optical unblur & drop shadow
   const drawSubItalicLine = (text, startTime, targetBaseY, size) => {
@@ -5773,7 +5841,7 @@ function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isP
       ctxFore.globalAlpha = alpha;
       if (blurPx > 0.2 && 'filter' in ctxFore) ctxFore.filter = `blur(${blurPx.toFixed(1)}px)`;
       ctxFore.font = `italic 800 ${size}px ${subFontFam}`;
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrk}em`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
 
@@ -5782,11 +5850,10 @@ function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isP
       ctxFore.scale(scale, scale);
       ctxFore.translate(-centerX, -midY);
 
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
-      ctxFore.shadowBlur = Math.max(4, Math.round(H * 0.008));
+      ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.72)', Math.max(4, Math.round(H * 0.008)), 1);
       ctxFore.shadowOffsetX = 0;
       ctxFore.shadowOffsetY = Math.max(2, Math.round(H * 0.002));
-      ctxFore.fillStyle = '#FFFFFF';
+      ctxFore.fillStyle = ov.pickBase('#FFFFFF');
       ctxFore.fillText(text, centerX, targetBaseY);
     } finally {
       if ('filter' in ctxFore) ctxFore.filter = 'none';
@@ -5811,7 +5878,7 @@ function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isP
         ctxFore.globalAlpha = alpha;
         if (blurPx > 0.2 && 'filter' in ctxFore) ctxFore.filter = `blur(${blurPx.toFixed(1)}px)`;
         ctxFore.font = `900 ${heroSize}px ${heroFontFam}`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${hTrk}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
 
@@ -5834,11 +5901,10 @@ function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isP
         grad.addColorStop(clampS(0.89 + phase * 0.4), '#FF7D0C');
         grad.addColorStop(1.00, '#EC4A00');
 
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.46)';
-        ctxFore.shadowBlur = Math.max(4, Math.round(H * 0.007));
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.46)', Math.max(4, Math.round(H * 0.007)), 1);
         ctxFore.shadowOffsetX = 0;
         ctxFore.shadowOffsetY = Math.max(2, Math.round(H * 0.003));
-        ctxFore.fillStyle = grad;
+        ctxFore.fillStyle = ov.customHighlight || grad;
         ctxFore.fillText(heroText, centerX, heroBaseY);
       } finally {
         if ('filter' in ctxFore) ctxFore.filter = 'none';
@@ -5945,6 +6011,9 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
   // Dynamic head-crown alignment (places behind word via computeBehindCrownPlacement with ~10% overlap)
   const heroX = Math.round(W * 0.50);
   const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const ov = resolveSceneStyleOverrides(st, H);
+  const posY = (y) => Math.round(y + ov.posDeltaY);
+  const foreY = (ratio, rowIdx, lineStep) => posY(H * ratio + (rowIdx || 0) * (lineStep || 0) * (ov.lineSpacingMult - 1.0));
 
   const numIdx = words.findIndex(w => isMultiplierNum(w.t || w.word || ''));
   let styleMode = 1;
@@ -5981,11 +6050,12 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     }
 
     // 1. Giant Frosted Ice Glass Word on targetBehind
-    const behindFontFn = (sz) => `900 ${sz}px "Montserrat", "Poppins", sans-serif`;
-    const rawBSize = fitPGFont(targetBehind, behindTxt, behindFontFn, H * 0.165 * fontScale, H * 0.070, W * 0.88, -0.025);
+    const bTrack = ov.trackEmWith(-0.025);
+    const behindFontFn = (sz) => `900 ${sz}px ${ov.pickFontFam('"Montserrat", "Poppins", sans-serif')}`;
+    const rawBSize = fitPGFont(targetBehind, behindTxt, behindFontFn, H * 0.165 * fontScale, H * 0.070, W * 0.88, bTrack);
     const bPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: behindFontFn, preferredSize: rawBSize, minSize: Math.round(H * 0.068),
-      trackEm: -0.025, isSampleCard, fallbackCrownRatio: 0.225
+      trackEm: bTrack, isSampleCard, fallbackCrownRatio: 0.225
     });
     const bSize = bPlace.size;
     const bBaseY = bPlace.baseY;
@@ -6001,22 +6071,20 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -behindCenterY);
         targetBehind.font = behindFontFn(bSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.025em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${bTrack}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
         const g = targetBehind.createLinearGradient(0, bBaseY - bSize * 0.78, 0, bBaseY + bSize * 0.08);
-        g.addColorStop(0.00, 'rgba(255, 255, 255, 0.36)');
-        g.addColorStop(0.50, 'rgba(220, 236, 255, 0.18)');
-        g.addColorStop(1.00, 'rgba(255, 255, 255, 0.30)');
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.25)';
-        targetBehind.shadowBlur = Math.max(4, Math.round(H * 0.008));
+        g.addColorStop(0.00, ov.customHighlight || 'rgba(255, 255, 255, 0.36)');
+        g.addColorStop(0.50, ov.customHighlight || 'rgba(220, 236, 255, 0.18)');
+        g.addColorStop(1.00, ov.customHighlight || 'rgba(255, 255, 255, 0.30)');
+        ov.applyGlow(targetBehind, 'rgba(0, 0, 0, 0.25)', Math.max(4, Math.round(H * 0.008)));
         targetBehind.fillStyle = g;
         targetBehind.fillText(behindTxt, heroX, bBaseY);
 
-        targetBehind.shadowColor = 'rgba(225, 242, 255, 0.75)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.012));
-        targetBehind.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+        ov.applyGlow(targetBehind, 'rgba(225, 242, 255, 0.75)', Math.max(6, Math.round(H * 0.012)));
+        targetBehind.strokeStyle = ov.customHighlight || 'rgba(255, 255, 255, 0.92)';
         targetBehind.lineWidth = Math.max(1.5, Math.round(H * 0.0022));
         targetBehind.lineJoin = 'round';
         targetBehind.strokeText(behindTxt, heroX, bBaseY);
@@ -6027,20 +6095,22 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 
     // 2. Dark Frosted Glassmorphic Pill ('THIS ONE') at y ~ 0.635H
     if (pillWords.length > 0) {
-      const pillTxt = pillWords.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean).join(' ').toUpperCase();
+      const pillTxt = pillWords.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean).join(' ');
+      const pillLabel = userCase === 'lower' ? pillTxt.toLowerCase() : (userCase === 'title' ? pillTxt : pillTxt.toUpperCase());
       const pillStart = wordStartTime(pillWords[0], capStart + 0.18);
       const pillP = fullInstant ? 1.0 : (evalT >= pillStart - 0.02 ? Math.min(1, Math.max(0, (evalT - pillStart) / 0.15)) : 0);
-      if (pillTxt && pillP > 0.01) {
+      if (pillLabel && pillP > 0.01) {
         const pep = easeOutCubic(pillP);
-        const pillFontFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
-        const pSize = fitPGFont(ctxFore, pillTxt, pillFontFn, H * 0.025 * fontScale, H * 0.016, W * 0.72, 0.06);
-        const pillCy = Math.round(H * 0.635);
+        const pTrack = ov.trackEmWith(0.06);
+        const pillFontFn = (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        const pSize = fitPGFont(ctxFore, pillLabel, pillFontFn, H * 0.025 * fontScale, H * 0.016, W * 0.72, pTrack);
+        const pillCy = foreY(0.635, -0.5, Math.round(H * 0.06));
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * pep;
           ctxFore.font = pillFontFn(pSize);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.06em';
-          const tw = measurePGWidth(ctxFore, pillTxt, pSize, 0.06);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${pTrack}em`;
+          const tw = measurePGWidth(ctxFore, pillLabel, pSize, pTrack);
           const pw = Math.round(tw + pSize * 1.45);
           const ph = Math.round(pSize * 2.05);
           const px = Math.round(heroX - pw * 0.5);
@@ -6049,8 +6119,7 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
           const pg = ctxFore.createLinearGradient(0, py, 0, py + ph);
           pg.addColorStop(0.0, 'rgba(32, 38, 48, 0.58)');
           pg.addColorStop(1.0, 'rgba(14, 18, 26, 0.74)');
-          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.35)';
-          ctxFore.shadowBlur = 12;
+          ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.35)', 12);
           ctxFore.shadowOffsetY = 4;
           drawRoundRectPath(ctxFore, px, py, pw, ph, ph * 0.5);
           ctxFore.fillStyle = pg;
@@ -6059,14 +6128,15 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
           ctxFore.shadowColor = 'transparent';
           ctxFore.shadowBlur = 0;
           ctxFore.shadowOffsetY = 0;
-          ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.38)';
+          ctxFore.strokeStyle = ov.customBase || 'rgba(255, 255, 255, 0.38)';
           ctxFore.lineWidth = Math.max(1.0, H * 0.0014);
           ctxFore.stroke();
 
           ctxFore.textAlign = 'center';
           ctxFore.textBaseline = 'middle';
-          ctxFore.fillStyle = 'rgba(248, 250, 252, 0.96)';
-          ctxFore.fillText(pillTxt, heroX, pillCy + Math.round(pSize * 0.05));
+          ctxFore.fillStyle = ov.pickBase('rgba(248, 250, 252, 0.96)');
+          ctxFore.fillText(pillLabel, heroX, pillCy + Math.round(pSize * 0.05));
+          ov.recordSceneBox(cap, W, H, px, py, pw, ph);
         } finally {
           ctxFore.restore();
         }
@@ -6080,26 +6150,32 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       const serifP = fullInstant ? 1.0 : (evalT >= serifStart - 0.02 ? Math.min(1, Math.max(0, (evalT - serifStart) / 0.16)) : 0);
       if (serifTxt && serifP > 0.01) {
         const sep = easeOutCubic(serifP);
-        const serifFontFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
-        const sSize = fitPGFont(ctxFore, serifTxt, serifFontFn, H * 0.056 * fontScale, H * 0.028, W * 0.86, -0.015);
-        const sBaseY = pillWords.length > 0 ? Math.round(H * 0.718) : Math.round(H * 0.665);
+        const sTrack = ov.trackEmWith(-0.015);
+        const serifFontFn = (sz) => `italic 700 ${sz}px ${ov.pickFontFam('"Playfair Display", Georgia, serif')}`;
+        const sSize = fitPGFont(ctxFore, serifTxt, serifFontFn, H * 0.056 * fontScale, H * 0.028, W * 0.86, sTrack);
+        const sBaseY = pillWords.length > 0 ? foreY(0.718, 0.5, Math.round(H * 0.07)) : foreY(0.665, 0.35, Math.round(H * 0.07));
         const yOff = fullInstant ? 0 : Math.round((1 - sep) * H * 0.012);
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * sep;
           ctxFore.font = serifFontFn(sSize);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrack}em`;
           ctxFore.textAlign = 'center';
           ctxFore.textBaseline = 'alphabetic';
-          const cg = ctxFore.createLinearGradient(0, sBaseY - sSize * 0.85, 0, sBaseY + sSize * 0.12);
-          cg.addColorStop(0.0, '#FBE9BE');
-          cg.addColorStop(0.5, '#E4B773');
-          cg.addColorStop(1.0, '#C5904C');
-          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.56)';
-          ctxFore.shadowBlur = Math.max(4, Math.round(H * 0.008));
+          if (ov.customHighlight) {
+            ctxFore.fillStyle = ov.customHighlight;
+          } else {
+            const cg = ctxFore.createLinearGradient(0, sBaseY - sSize * 0.85, 0, sBaseY + sSize * 0.12);
+            cg.addColorStop(0.0, '#FBE9BE');
+            cg.addColorStop(0.5, '#E4B773');
+            cg.addColorStop(1.0, '#C5904C');
+            ctxFore.fillStyle = cg;
+          }
+          ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.56)', Math.max(4, Math.round(H * 0.008)));
           ctxFore.shadowOffsetY = Math.round(H * 0.002);
-          ctxFore.fillStyle = cg;
           ctxFore.fillText(serifTxt, heroX, sBaseY + yOff);
+          const sw = measurePGWidth(ctxFore, serifTxt, sSize, sTrack);
+          ov.recordSceneBox(cap, W, H, heroX - sw * 0.5, sBaseY + yOff - sSize, sw, sSize * 1.25);
         } finally {
           ctxFore.restore();
         }
@@ -6126,17 +6202,18 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       if (!activeWordRef) activeWordRef = words[0];
     }
 
-    const rowFontFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
+    const rTrack = ov.trackEmWith(-0.025);
+    const rowFontFn = (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
     const baseRowSize = Math.round(H * 0.044 * fontScale);
     const longestLine = rows.map(r => r.map(w => cleanTok(w.t || w.word || '', true)).join(' ')).sort((a, b) => b.length - a.length)[0] || '';
-    const lineSize = fitPGFont(ctxFore, longestLine, rowFontFn, baseRowSize, Math.round(H * 0.022), W * 0.84, -0.025);
-    const rowGap = Math.round(lineSize * 1.48);
-    const startBaseY = Math.round(H * 0.575 - ((rows.length - 1) * rowGap) * 0.5);
+    const lineSize = fitPGFont(ctxFore, longestLine, rowFontFn, baseRowSize, Math.round(H * 0.022), W * 0.84, rTrack);
+    const rowGap = Math.round(lineSize * 1.48 * ov.lineSpacingMult);
+    const startBaseY = posY(Math.round(H * 0.575 - ((rows.length - 1) * rowGap) * 0.5));
 
     ctxFore.save();
     ctxFore.font = rowFontFn(lineSize);
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
-    const spaceW = Math.max(lineSize * 0.28, measurePGWidth(ctxFore, ' ', lineSize, -0.025));
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${rTrack}em`;
+    const spaceW = Math.max(lineSize * 0.28, measurePGWidth(ctxFore, ' ', lineSize, rTrack));
     const pillPadX = Math.round(lineSize * 0.36);
 
     for (let r = 0; r < rows.length; r++) {
@@ -6144,12 +6221,13 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       const baseY = startBaseY + r * rowGap;
       const tokens = rWords.map((w, idx) => {
         const txt = cleanTok(w.t || w.word || '', true);
-        const tw = measurePGWidth(ctxFore, txt, lineSize, -0.025);
+        const tw = measurePGWidth(ctxFore, txt, lineSize, rTrack);
         return { w, txt, tw, isActive: w === activeWordRef, s: wordStartTime(w, capStart + (r * splitAt + idx) * 0.16) };
       }).filter(it => it.txt);
 
       const totalW = tokens.reduce((acc, it, idx) => acc + it.tw + (it.isActive ? pillPadX * 0.8 : 0) + (idx < tokens.length - 1 ? spaceW : 0), 0);
       let curX = Math.round(heroX - totalW * 0.5);
+      ov.recordSceneBox(cap, W, H, curX, baseY - lineSize, totalW, lineSize * 1.35);
 
       for (let i = 0; i < tokens.length; i++) {
         const tk = tokens[i];
@@ -6159,7 +6237,7 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
           ctxFore.save();
           ctxFore.globalAlpha = exitFade * Math.min(1, ep * 1.3);
           ctxFore.font = rowFontFn(lineSize);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${rTrack}em`;
           ctxFore.textAlign = 'left';
           ctxFore.textBaseline = 'alphabetic';
 
@@ -6170,25 +6248,22 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
             const boxY = Math.round(baseY - lineSize * 0.94);
 
             ctxFore.save();
-            ctxFore.shadowColor = 'rgba(45, 212, 191, 0.86)';
-            ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.016));
+            ov.applyGlow(ctxFore, 'rgba(45, 212, 191, 0.86)', Math.max(8, Math.round(H * 0.016)));
             drawRoundRectPath(ctxFore, boxX, boxY, boxW, boxH, boxH * 0.5);
-            ctxFore.fillStyle = 'rgba(12, 38, 42, 0.72)';
+            ctxFore.fillStyle = ov.customHighlight ? ov.customHighlight : 'rgba(12, 38, 42, 0.72)';
             ctxFore.fill();
-            ctxFore.strokeStyle = '#67F3DA';
+            ctxFore.strokeStyle = ov.pickHi('#67F3DA');
             ctxFore.lineWidth = Math.max(1.5, Math.round(H * 0.0020));
             ctxFore.stroke();
             ctxFore.restore();
 
-            ctxFore.shadowColor = 'rgba(103, 243, 218, 0.45)';
-            ctxFore.shadowBlur = 4;
-            ctxFore.fillStyle = '#FFFFFF';
+            ov.applyGlow(ctxFore, 'rgba(103, 243, 218, 0.45)', 4);
+            ctxFore.fillStyle = ov.customHighlight ? '#0D1117' : ov.pickBase('#FFFFFF');
             ctxFore.fillText(tk.txt, Math.round(curX + pillPadX * 0.9), baseY);
           } else {
-            ctxFore.shadowColor = 'rgba(0, 0, 0, 0.62)';
-            ctxFore.shadowBlur = Math.max(3, Math.round(H * 0.006));
+            ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.62)', Math.max(3, Math.round(H * 0.006)));
             ctxFore.shadowOffsetY = Math.round(H * 0.002);
-            ctxFore.fillStyle = '#FFFFFF';
+            ctxFore.fillStyle = ov.pickBase('#FFFFFF');
             ctxFore.fillText(tk.txt, Math.round(curX), baseY);
           }
           ctxFore.restore();
@@ -6210,11 +6285,12 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     const serifWord = remaining.length >= 1 ? remaining[remaining.length - 1] : null;
 
     // 1. Brushed Metallic Chrome Word on targetBehind
-    const chromeFontFn = (sz) => `900 ${sz}px "Montserrat", "Poppins", sans-serif`;
-    const rawCSize = fitPGFont(targetBehind, behindTxt, chromeFontFn, H * 0.165 * fontScale, H * 0.072, W * 0.88, -0.025);
+    const cTrack = ov.trackEmWith(-0.025);
+    const chromeFontFn = (sz) => `900 ${sz}px ${ov.pickFontFam('"Montserrat", "Poppins", sans-serif')}`;
+    const rawCSize = fitPGFont(targetBehind, behindTxt, chromeFontFn, H * 0.165 * fontScale, H * 0.072, W * 0.88, cTrack);
     const cPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: chromeFontFn, preferredSize: rawCSize, minSize: Math.round(H * 0.068),
-      trackEm: -0.025, isSampleCard, fallbackCrownRatio: 0.225
+      trackEm: cTrack, isSampleCard, fallbackCrownRatio: 0.225
     });
     const cSize = cPlace.size;
     const cBaseY = cPlace.baseY;
@@ -6230,22 +6306,25 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -behindCenterY);
         targetBehind.font = chromeFontFn(cSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.025em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${cTrack}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
-        const cg = targetBehind.createLinearGradient(heroX, cBaseY - cSize * 0.80, heroX, cBaseY + cSize * 0.08);
-        cg.addColorStop(0.00, '#96A0AD');
-        cg.addColorStop(0.22, '#FFFFFF');
-        cg.addColorStop(0.46, '#626B7A');
-        cg.addColorStop(0.56, '#DCE3EC');
-        cg.addColorStop(0.80, '#434B57');
-        cg.addColorStop(1.00, '#CBD2DC');
+        if (ov.customHighlight) {
+          targetBehind.fillStyle = ov.customHighlight;
+        } else {
+          const cg = targetBehind.createLinearGradient(heroX, cBaseY - cSize * 0.80, heroX, cBaseY + cSize * 0.08);
+          cg.addColorStop(0.00, '#96A0AD');
+          cg.addColorStop(0.22, '#FFFFFF');
+          cg.addColorStop(0.46, '#626B7A');
+          cg.addColorStop(0.56, '#DCE3EC');
+          cg.addColorStop(0.80, '#434B57');
+          cg.addColorStop(1.00, '#CBD2DC');
+          targetBehind.fillStyle = cg;
+        }
 
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.58)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.010));
+        ov.applyGlow(targetBehind, 'rgba(0, 0, 0, 0.58)', Math.max(6, Math.round(H * 0.010)));
         targetBehind.shadowOffsetY = Math.round(H * 0.004);
-        targetBehind.fillStyle = cg;
         targetBehind.fillText(behindTxt, heroX, cBaseY);
 
         targetBehind.shadowColor = 'transparent';
@@ -6261,21 +6340,23 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     // 2. Sans + Italic Serif Contrast Line at chest height ('starts' + 'here.')
     const leadTxt = leadWords.map(w => cleanTok(w.t || w.word || '', true)).filter(Boolean).join(' ');
     const serifTxt = serifWord ? cleanTok(serifWord.t || serifWord.word || '', true) : '';
-    const leadFontFn = (sz) => `400 ${sz}px "Inter", "Poppins", sans-serif`;
-    const serifFontFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
+    const lTrack = ov.trackEmWith(-0.02);
+    const sTrack3 = ov.trackEmWith(-0.015);
+    const leadFontFn = (sz) => `400 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+    const serifFontFn = (sz) => `italic 700 ${sz}px ${ov.pickFontFam('"Playfair Display", Georgia, serif')}`;
     let lSize = Math.round(H * 0.048 * fontScale);
     let sSize = Math.round(H * 0.056 * fontScale);
-    const waistBaseY = Math.round(H * 0.558);
+    const waistBaseY = posY(H * 0.558);
 
     if (leadTxt && serifTxt) {
       const measurePair = (ls, ss) => {
         ctxFore.save();
         ctxFore.font = leadFontFn(ls);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
-        const lw = measurePGWidth(ctxFore, leadTxt, ls, -0.02);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${lTrack}em`;
+        const lw = measurePGWidth(ctxFore, leadTxt, ls, lTrack);
         ctxFore.font = serifFontFn(ss);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
-        const sw = measurePGWidth(ctxFore, serifTxt, ss, -0.015);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrack3}em`;
+        const sw = measurePGWidth(ctxFore, serifTxt, ss, sTrack3);
         ctxFore.restore();
         return { lw, sw };
       };
@@ -6289,19 +6370,19 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
         d = measurePair(lSize, sSize);
       }
       const startX = Math.round(heroX - (d.lw + gap + d.sw) * 0.5);
+      ov.recordSceneBox(cap, W, H, startX, waistBaseY - Math.max(lSize, sSize), d.lw + gap + d.sw, Math.max(lSize, sSize) * 1.25);
       const lP = fullInstant ? 1.0 : Math.min(1, Math.max(0, (evalT - wordStartTime(leadWords[0], capStart + 0.16)) / 0.14));
       const sP = fullInstant ? 1.0 : Math.min(1, Math.max(0, (evalT - wordStartTime(serifWord, capStart + 0.34)) / 0.16));
       if (lP > 0.01) {
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(lP);
         ctxFore.font = leadFontFn(lSize);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${lTrack}em`;
         ctxFore.textAlign = 'left';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.56)';
-        ctxFore.shadowBlur = 6;
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.56)', 6);
         ctxFore.shadowOffsetY = 2;
-        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.fillStyle = ov.pickBase('#FFFFFF');
         ctxFore.fillText(leadTxt, startX, waistBaseY);
         ctxFore.restore();
       }
@@ -6309,26 +6390,27 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(sP);
         ctxFore.font = serifFontFn(sSize);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrack3}em`;
         ctxFore.textAlign = 'left';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(255, 250, 235, 0.52)';
-        ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.010));
-        ctxFore.fillStyle = '#FFF9EE';
+        ov.applyGlow(ctxFore, 'rgba(255, 250, 235, 0.52)', Math.max(6, Math.round(H * 0.010)));
+        ctxFore.fillStyle = ov.pickHi('#FFF9EE');
         ctxFore.fillText(serifTxt, startX + d.lw + gap, waistBaseY);
         ctxFore.restore();
       }
     } else if (serifTxt) {
-      const soloSize = fitPGFont(ctxFore, serifTxt, serifFontFn, sSize, H * 0.028, W * 0.86, -0.015);
+      const soloSize = fitPGFont(ctxFore, serifTxt, serifFontFn, sSize, H * 0.028, W * 0.86, sTrack3);
       ctxFore.save();
       ctxFore.globalAlpha = exitFade;
       ctxFore.font = serifFontFn(soloSize);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrack3}em`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
-      ctxFore.shadowColor = 'rgba(255, 250, 235, 0.50)';
-      ctxFore.shadowBlur = 8;
-      ctxFore.fillStyle = '#FFF9EE';
+      ov.applyGlow(ctxFore, 'rgba(255, 250, 235, 0.50)', 8);
+      ctxFore.fillStyle = ov.pickHi('#FFF9EE');
       ctxFore.fillText(serifTxt, heroX, waistBaseY);
+      const sw = measurePGWidth(ctxFore, serifTxt, soloSize, sTrack3);
+      ov.recordSceneBox(cap, W, H, heroX - sw * 0.5, waistBaseY - soloSize, sw, soloSize * 1.25);
       ctxFore.restore();
     }
 
@@ -6344,12 +6426,13 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     const leadWords = remaining.length > 1 ? remaining.slice(0, -1) : [];
 
     // 1. Hollow Fine Champagne-Gold Hairline on targetBehind
-    const outFontFn = (sz) => `700 ${sz}px "Montserrat", "Poppins", sans-serif`;
+    const oTrack4 = ov.trackEmWith(-0.025);
+    const outFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Montserrat", "Poppins", sans-serif')}`;
     const isShortNum = behindTxt.length <= 3;
-    const rawOSize = fitPGFont(targetBehind, behindTxt, outFontFn, H * (isShortNum ? 0.34 : 0.18) * fontScale, H * 0.080, W * 0.84, -0.025);
+    const rawOSize = fitPGFont(targetBehind, behindTxt, outFontFn, H * (isShortNum ? 0.34 : 0.18) * fontScale, H * 0.080, W * 0.84, oTrack4);
     const oPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: outFontFn, preferredSize: rawOSize, minSize: Math.round(H * 0.075),
-      trackEm: -0.025, isSampleCard, fallbackCrownRatio: 0.24
+      trackEm: oTrack4, isSampleCard, fallbackCrownRatio: 0.24
     });
     const oSize = oPlace.size;
     const oBaseY = oPlace.baseY;
@@ -6365,19 +6448,22 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -behindCenterY);
         targetBehind.font = outFontFn(oSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.025em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${oTrack4}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
-        const gg = targetBehind.createLinearGradient(0, oBaseY - oSize * 0.78, 0, oBaseY + oSize * 0.06);
-        gg.addColorStop(0.0, '#FBE6B2');
-        gg.addColorStop(0.5, '#D7AC6E');
-        gg.addColorStop(1.0, '#A87D47');
-        targetBehind.shadowColor = 'rgba(240, 198, 130, 0.35)';
-        targetBehind.shadowBlur = Math.max(4, Math.round(H * 0.008));
+        if (ov.customHighlight) {
+          targetBehind.strokeStyle = ov.customHighlight;
+        } else {
+          const gg = targetBehind.createLinearGradient(0, oBaseY - oSize * 0.78, 0, oBaseY + oSize * 0.06);
+          gg.addColorStop(0.0, '#FBE6B2');
+          gg.addColorStop(0.5, '#D7AC6E');
+          gg.addColorStop(1.0, '#A87D47');
+          targetBehind.strokeStyle = gg;
+        }
+        ov.applyGlow(targetBehind, 'rgba(240, 198, 130, 0.35)', Math.max(4, Math.round(H * 0.008)));
         targetBehind.lineWidth = Math.max(2.2, Math.round(H * 0.0028));
         targetBehind.lineJoin = 'round';
-        targetBehind.strokeStyle = gg;
         targetBehind.strokeText(behindTxt, heroX, oBaseY);
       } finally {
         targetBehind.restore();
@@ -6390,18 +6476,21 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       const lStart = wordStartTime(leadWords[0], capStart + 0.18);
       const lP = fullInstant ? 1.0 : (evalT >= lStart - 0.02 ? Math.min(1, Math.max(0, (evalT - lStart) / 0.14)) : 0);
       if (leadTxt && lP > 0.01) {
-        const lSize = fitPGFont(ctxFore, leadTxt, (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`, H * 0.036 * fontScale, H * 0.020, W * 0.80, -0.015);
+        const lTrack4 = ov.trackEmWith(-0.015);
+        const lSize = fitPGFont(ctxFore, leadTxt, (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`, H * 0.036 * fontScale, H * 0.020, W * 0.80, lTrack4);
+        const lY = foreY(0.648, -0.5, Math.round(H * 0.065));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(lP);
-        ctxFore.font = `600 ${lSize}px "Inter", "Poppins", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        ctxFore.font = `600 ${lSize}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${lTrack4}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.56)';
-        ctxFore.shadowBlur = 6;
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.56)', 6);
         ctxFore.shadowOffsetY = 2;
-        ctxFore.fillStyle = '#FFFFFF';
-        ctxFore.fillText(leadTxt, heroX, Math.round(H * 0.648));
+        ctxFore.fillStyle = ov.pickBase('#FFFFFF');
+        ctxFore.fillText(leadTxt, heroX, lY);
+        const lw4 = measurePGWidth(ctxFore, leadTxt, lSize, lTrack4);
+        ov.recordSceneBox(cap, W, H, heroX - lw4 * 0.5, lY - lSize, lw4, lSize * 1.25);
         ctxFore.restore();
       }
     }
@@ -6413,34 +6502,39 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       const cP = fullInstant ? 1.0 : (evalT >= cStart - 0.02 ? Math.min(1, Math.max(0, (evalT - cStart) / 0.16)) : 0);
       if (cTxt && cP > 0.01) {
         const cep = easeOutCubic(cP);
-        const sFontFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
-        const sSize = fitPGFont(ctxFore, cTxt, sFontFn, H * 0.062 * fontScale, H * 0.030, W * 0.86, -0.015);
-        const cBaseY = leadWords.length > 0 ? Math.round(H * 0.720) : Math.round(H * 0.675);
+        const sTrack4 = ov.trackEmWith(-0.015);
+        const sFontFn = (sz) => `italic 700 ${sz}px ${ov.pickFontFam('"Playfair Display", Georgia, serif')}`;
+        const sSize = fitPGFont(ctxFore, cTxt, sFontFn, H * 0.062 * fontScale, H * 0.030, W * 0.86, sTrack4);
+        const cBaseY = leadWords.length > 0 ? foreY(0.720, 0.5, Math.round(H * 0.065)) : foreY(0.675, 0.35, Math.round(H * 0.065));
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * cep;
           ctxFore.font = sFontFn(sSize);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrack4}em`;
           ctxFore.textAlign = 'center';
           ctxFore.textBaseline = 'alphabetic';
 
-          const cg = ctxFore.createLinearGradient(0, cBaseY - sSize * 0.85, 0, cBaseY + sSize * 0.12);
-          cg.addColorStop(0.0, '#FFF6E0');
-          cg.addColorStop(0.5, '#EDBF7A');
-          cg.addColorStop(1.0, '#BA803A');
+          if (ov.customHighlight) {
+            ctxFore.fillStyle = ov.customHighlight;
+          } else {
+            const cg = ctxFore.createLinearGradient(0, cBaseY - sSize * 0.85, 0, cBaseY + sSize * 0.12);
+            cg.addColorStop(0.0, '#FFF6E0');
+            cg.addColorStop(0.5, '#EDBF7A');
+            cg.addColorStop(1.0, '#BA803A');
+            ctxFore.fillStyle = cg;
+          }
           // Subtle dark readability backing shadow before golden glow
           ctxFore.save();
           ctxFore.shadowColor = 'rgba(0, 0, 0, 0.58)';
           ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.010));
           ctxFore.shadowOffsetY = Math.round(H * 0.002);
-          ctxFore.fillStyle = cg;
           ctxFore.fillText(cTxt, heroX, cBaseY);
           ctxFore.restore();
 
-          ctxFore.shadowColor = 'rgba(247, 210, 145, 0.62)';
-          ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.016));
-          ctxFore.fillStyle = cg;
+          ov.applyGlow(ctxFore, 'rgba(247, 210, 145, 0.62)', Math.max(8, Math.round(H * 0.016)));
           ctxFore.fillText(cTxt, heroX, cBaseY);
+          const cw4 = measurePGWidth(ctxFore, cTxt, sSize, sTrack4);
+          ov.recordSceneBox(cap, W, H, heroX - cw4 * 0.5, cBaseY - sSize, cw4, sSize * 1.25);
         } finally {
           ctxFore.restore();
         }
@@ -6527,6 +6621,9 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
 
   const heroX = Math.round(W * 0.50);
   const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const ov = resolveSceneStyleOverrides(st, H);
+  const posY = (y) => Math.round(y + ov.posDeltaY);
+  const kcY = (ratio, rowIdx, lineStep) => posY(H * ratio + (rowIdx || 0) * (lineStep || 0) * (ov.lineSpacingMult - 1.0));
   const styleMode = isSampleCard ? 1 : ((capIdx % 4) + 1);
 
   if (styleMode === 1) {
@@ -6545,42 +6642,47 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
     const keyStart = wordStartTime(keyObj, beforeWords.length ? beforeStart + 0.16 : capStart);
     const afterStart = afterWords.length ? wordStartTime(afterWords[0], keyStart + 0.16) : keyStart;
 
-    const drawKCRowText = (txt, yRatio, startT) => {
+    const rTrack1 = ov.trackEmWith(-0.025);
+    const drawKCRowText = (txt, yRatio, rowIdx, startT) => {
       if (!txt) return;
       const lP = fullInstant ? 1.0 : (evalT >= startT - 0.02 ? Math.min(1, Math.max(0, (evalT - startT) / 0.14)) : 0);
       if (lP <= 0.01) return;
-      const lFontFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
-      const lSize = fitKCFont(ctxFore, txt, lFontFn, H * 0.042 * fontScale, H * 0.020, W * 0.86, -0.025);
+      const lFontFn = (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+      const lSize = fitKCFont(ctxFore, txt, lFontFn, H * 0.042 * fontScale, H * 0.020, W * 0.86, rTrack1);
+      const yPx = kcY(yRatio, rowIdx, Math.round(H * 0.07));
       ctxFore.save();
       ctxFore.globalAlpha = exitFade * easeOutCubic(lP);
       ctxFore.font = lFontFn(lSize);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${rTrack1}em`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-      ctxFore.shadowBlur = 8;
+      ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 8);
       ctxFore.shadowOffsetY = 2;
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.fillText(txt, heroX, Math.round(H * yRatio));
+      ctxFore.fillStyle = ov.pickBase('#FFFFFF');
+      ctxFore.fillText(txt, heroX, yPx);
+      const tw = measureKCW(ctxFore, txt, lSize, rTrack1);
+      ov.recordSceneBox(cap, W, H, heroX - tw * 0.5, yPx - lSize, tw, lSize * 1.25);
       ctxFore.restore();
     };
 
     const kCyRatio = (beforeTxt && afterTxt) ? 0.618 : (beforeTxt ? 0.630 : (afterTxt ? 0.578 : 0.595));
-    if (beforeTxt) drawKCRowText(beforeTxt, afterTxt ? 0.548 : 0.562, beforeStart);
+    if (beforeTxt) drawKCRowText(beforeTxt, afterTxt ? 0.548 : 0.562, -0.5, beforeStart);
 
     const kP = fullInstant ? 1.0 : (evalT >= keyStart - 0.02 ? Math.min(1, Math.max(0, (evalT - keyStart) / 0.16)) : 0);
     if (keyTxt && kP > 0.01) {
       const kep = easeOutCubic(kP);
-      const kFontFn = (sz) => `800 ${sz}px "Montserrat", "Inter", sans-serif`;
-      const kSize = fitKCFont(ctxFore, keyTxt, kFontFn, H * 0.050 * fontScale, H * 0.026, W * 0.80, -0.03);
-      const kCy = Math.round(H * kCyRatio);
+      const kTrack1 = ov.trackEmWith(-0.03);
+      const kFontFn = (sz) => `800 ${sz}px ${ov.pickFontFam('"Montserrat", "Inter", sans-serif')}`;
+      const kSize = fitKCFont(ctxFore, keyTxt, kFontFn, H * 0.050 * fontScale, H * 0.026, W * 0.80, kTrack1);
+      const kCy = kcY(kCyRatio, 0, Math.round(H * 0.07));
 
       ctxFore.save();
       ctxFore.font = kFontFn(kSize);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.03em';
-      const tw = measureKCW(ctxFore, keyTxt, kSize, -0.03);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${kTrack1}em`;
+      const tw = measureKCW(ctxFore, keyTxt, kSize, kTrack1);
       const bw = Math.round(tw + kSize * 0.72);
       const bh = Math.round(kSize * 1.24);
+      ov.recordSceneBox(cap, W, H, heroX - bw * 0.5, kCy - bh * 0.5, bw, bh);
 
       ctxFore.globalAlpha = exitFade * Math.min(1, kep * 1.3);
       ctxFore.translate(heroX, kCy);
@@ -6588,17 +6690,16 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
 
       // Jagged diagonal neon-lime brush stroke wipe
       ctxFore.save();
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.45)';
-      ctxFore.shadowBlur = 10;
+      ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.45)', 10);
       ctxFore.shadowOffsetY = 3;
       const curBw = Math.max(10, Math.round(bw * (fullInstant ? 1.0 : Math.min(1, kep * 1.12))));
       const bx0 = -bw * 0.5;
       const by0 = -bh * 0.52;
-      ctxFore.fillStyle = '#D9FF00';
+      ctxFore.fillStyle = ov.pickHi('#D9FF00');
       drawKCRoundRect(ctxFore, bx0, by0, curBw, bh, Math.round(bh * 0.14));
       ctxFore.fill();
       // Secondary slanted marker under-swipe
-      ctxFore.fillStyle = '#C9EF00';
+      ctxFore.fillStyle = ov.customHighlight || '#C9EF00';
       drawKCRoundRect(ctxFore, bx0 + bw * 0.14, by0 + bh * 0.78, Math.round(curBw * 0.64), Math.round(bh * 0.28), 5);
       ctxFore.fill();
       ctxFore.restore();
@@ -6610,7 +6711,7 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
       ctxFore.restore();
     }
 
-    if (afterTxt) drawKCRowText(afterTxt, beforeTxt ? 0.692 : 0.652, afterStart);
+    if (afterTxt) drawKCRowText(afterTxt, beforeTxt ? 0.692 : 0.652, 0.6, afterStart);
 
   } else if (styleMode === 2) {
     // MODE 2: Matte Crimson Condensed Behind Head ('BUILD') + Clean Sans + Tilted Brush Script ('your own' + 'empire')
@@ -6624,11 +6725,12 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
     const sansWords = remaining.length > 1 ? remaining.slice(0, -1) : [];
 
     // 1. Matte Crimson Condensed Behind Head
-    const crimFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const rawCSize = fitKCFont(targetBehind, behindTxt, crimFontFn, H * 0.255 * fontScale, H * 0.11, W * 0.88, -0.01);
+    const cTrack2 = ov.trackEmWith(-0.01);
+    const crimFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+    const rawCSize = fitKCFont(targetBehind, behindTxt, crimFontFn, H * 0.255 * fontScale, H * 0.11, W * 0.88, cTrack2);
     const cPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: crimFontFn, preferredSize: rawCSize, minSize: Math.round(H * 0.085),
-      trackEm: -0.01, isSampleCard, fallbackCrownRatio: 0.225
+      trackEm: cTrack2, isSampleCard, fallbackCrownRatio: 0.225
     });
     const cSize = cPlace.size;
     const cBaseY = cPlace.baseY;
@@ -6644,17 +6746,20 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -behindCenterY);
         targetBehind.font = crimFontFn(cSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.01em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${cTrack2}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
-        const cg = targetBehind.createLinearGradient(0, cBaseY - cSize * 0.85, 0, cBaseY + cSize * 0.06);
-        cg.addColorStop(0.0, '#B8222B');
-        cg.addColorStop(0.6, '#96151D');
-        cg.addColorStop(1.0, '#780E15');
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.45)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.010));
-        targetBehind.fillStyle = cg;
+        if (ov.customHighlight) {
+          targetBehind.fillStyle = ov.customHighlight;
+        } else {
+          const cg = targetBehind.createLinearGradient(0, cBaseY - cSize * 0.85, 0, cBaseY + cSize * 0.06);
+          cg.addColorStop(0.0, '#B8222B');
+          cg.addColorStop(0.6, '#96151D');
+          cg.addColorStop(1.0, '#780E15');
+          targetBehind.fillStyle = cg;
+        }
+        ov.applyGlow(targetBehind, 'rgba(0, 0, 0, 0.45)', Math.max(6, Math.round(H * 0.010)));
         targetBehind.fillText(behindTxt, heroX, cBaseY);
       } finally {
         targetBehind.restore();
@@ -6664,23 +6769,25 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
     // 2. Sans Lead + Handwritten Script Overlay ('your own' + 'empire')
     const sansTxt = sansWords.map(w => cleanKC(w.t || w.word || '', true)).filter(Boolean).join(' ');
     const scriptTxt = scriptObj ? cleanKC(scriptObj.t || scriptObj.word || '', true) : '';
-    const baseWaistY = Math.round(H * 0.625);
+    const baseWaistY = posY(H * 0.625);
 
     if (sansTxt) {
       const sP = fullInstant ? 1.0 : (evalT >= wordStartTime(sansWords[0], capStart + 0.14) - 0.02 ? Math.min(1, Math.max(0, (evalT - wordStartTime(sansWords[0], capStart + 0.14)) / 0.14)) : 0);
       if (sP > 0.01) {
-        const sSize = fitKCFont(ctxFore, sansTxt, (sz) => `700 ${sz}px "Inter", "Poppins", sans-serif`, H * 0.048 * fontScale, H * 0.024, W * 0.86, -0.025);
+        const sTrack2 = ov.trackEmWith(-0.025);
+        const sSize = fitKCFont(ctxFore, sansTxt, (sz) => `700 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`, H * 0.048 * fontScale, H * 0.024, W * 0.86, sTrack2);
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(sP);
-        ctxFore.font = `700 ${sSize}px "Inter", "Poppins", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
+        ctxFore.font = `700 ${sSize}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrack2}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctxFore.shadowBlur = 8;
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 8);
         ctxFore.shadowOffsetY = 2;
-        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.fillStyle = ov.pickBase('#FFFFFF');
         ctxFore.fillText(sansTxt, heroX, baseWaistY);
+        const sw = measureKCW(ctxFore, sansTxt, sSize, sTrack2);
+        ov.recordSceneBox(cap, W, H, heroX - sw * 0.5, baseWaistY - sSize, sw, sSize * 1.25);
         ctxFore.restore();
       }
     }
@@ -6689,21 +6796,24 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
       const scStart = wordStartTime(scriptObj, capStart + 0.36);
       const scP = fullInstant ? 1.0 : (evalT >= scStart - 0.02 ? Math.min(1, Math.max(0, (evalT - scStart) / 0.16)) : 0);
       if (scP > 0.01) {
-        const scrFontFn = (sz) => `400 ${sz}px "Yellowtail", "Great Vibes", cursive`;
-        const scrSize = fitKCFont(ctxFore, scriptTxt, scrFontFn, H * 0.072 * fontScale, H * 0.036, W * 0.86, 0);
-        const scrY = sansTxt ? Math.round(baseWaistY + scrSize * 0.62) : baseWaistY;
+        const scTrack = ov.trackEmWith(0);
+        const scrFontFn = (sz) => `400 ${sz}px ${ov.pickFontFam('"Yellowtail", "Great Vibes", cursive')}`;
+        const scrSize = fitKCFont(ctxFore, scriptTxt, scrFontFn, H * 0.072 * fontScale, H * 0.036, W * 0.86, scTrack);
+        const scrY = sansTxt ? Math.round(baseWaistY + scrSize * 0.62 * ov.lineSpacingMult) : baseWaistY;
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(scP);
         ctxFore.translate(heroX, scrY);
         ctxFore.rotate(-0.06);
         ctxFore.font = scrFontFn(scrSize);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${scTrack}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.62)';
-        ctxFore.shadowBlur = 8;
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.62)', 8);
         ctxFore.shadowOffsetY = 2;
-        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.fillStyle = ov.pickBase('#FFFFFF');
         ctxFore.fillText(scriptTxt, 0, 0);
+        const scw = measureKCW(ctxFore, scriptTxt, scrSize, scTrack);
+        ov.recordSceneBox(cap, W, H, heroX - scw * 0.5, scrY - scrSize * 0.8, scw, scrSize * 1.2);
         ctxFore.restore();
       }
     }
@@ -6712,32 +6822,35 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
     // MODE 3: Brutalist Stacked Contrasting Tags (Tilted White Box 'MOST SKIP' + Jet-Black Gold Pill 'THIS PART')
     const n = words.length;
     const splitAt = n <= 1 ? 1 : Math.ceil(n / 2);
-    const topStr = words.slice(0, splitAt).map(w => cleanKC(w.t || w.word || '', true)).filter(Boolean).join(' ').toUpperCase();
-    const botStr = words.slice(splitAt).map(w => cleanKC(w.t || w.word || '', true)).filter(Boolean).join(' ').toUpperCase();
+    const topRaw = words.slice(0, splitAt).map(w => cleanKC(w.t || w.word || '', true)).filter(Boolean).join(' ');
+    const botRaw = words.slice(splitAt).map(w => cleanKC(w.t || w.word || '', true)).filter(Boolean).join(' ');
+    const topStr = userCase === 'lower' ? topRaw.toLowerCase() : (userCase === 'title' ? topRaw : topRaw.toUpperCase());
+    const botStr = userCase === 'lower' ? botRaw.toLowerCase() : (userCase === 'title' ? botRaw : botRaw.toUpperCase());
     const topStart = wordStartTime(words[0], capStart);
     const botStart = words[splitAt] ? wordStartTime(words[splitAt], capStart + 0.25) : capStart + 0.25;
 
-    const tagFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
+    const tTrack3 = ov.trackEmWith(0.01);
+    const tagFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", "Montserrat", sans-serif')}`;
     const drawBadge = (txt, cy, tilt, bg, fg, isRound, bStart, delayScale) => {
       if (!txt) return;
       const p = fullInstant ? 1.0 : (evalT >= bStart - 0.02 ? Math.min(1, Math.max(0, (evalT - bStart) / 0.14)) : 0);
       if (p <= 0.01) return;
       const ep = easeOutCubic(p);
-      const sz = fitKCFont(ctxFore, txt, tagFontFn, H * 0.046 * fontScale, H * 0.024, W * 0.78, 0.01);
+      const sz = fitKCFont(ctxFore, txt, tagFontFn, H * 0.046 * fontScale, H * 0.024, W * 0.78, tTrack3);
       ctxFore.save();
       ctxFore.globalAlpha = exitFade * Math.min(1, ep * 1.35);
       ctxFore.font = tagFontFn(sz);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.01em';
-      const tw = measureKCW(ctxFore, txt, sz, 0.01);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${tTrack3}em`;
+      const tw = measureKCW(ctxFore, txt, sz, tTrack3);
       const pw = Math.round(tw + sz * 0.95);
       const ph = Math.round(sz * 1.48);
       const sc = fullInstant ? 1.0 : (delayScale + (1 - delayScale) * ep);
+      ov.recordSceneBox(cap, W, H, heroX - pw * 0.5, cy - ph * 0.5, pw, ph);
 
       ctxFore.translate(heroX, cy);
       ctxFore.rotate(tilt);
       ctxFore.scale(sc, sc);
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.48)';
-      ctxFore.shadowBlur = 14;
+      ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.48)', 14);
       ctxFore.shadowOffsetY = 5;
       drawKCRoundRect(ctxFore, -pw * 0.5, -ph * 0.5, pw, ph, isRound ? ph * 0.5 : Math.round(ph * 0.18));
       ctxFore.fillStyle = bg;
@@ -6751,10 +6864,10 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
       ctxFore.restore();
     };
 
-    const topCy = botStr ? Math.round(H * 0.578) : Math.round(H * 0.610);
-    const botCy = Math.round(H * 0.648);
-    drawBadge(topStr, topCy, -0.045, '#FFFFFF', '#0D1014', false, topStart, 0.92);
-    if (botStr) drawBadge(botStr, botCy, -0.028, '#0B0D12', '#FFD60A', true, botStart, 0.92);
+    const topCy = botStr ? kcY(0.578, -0.5, Math.round(H * 0.07)) : posY(H * 0.610);
+    const botCy = kcY(0.648, 0.5, Math.round(H * 0.07));
+    drawBadge(topStr, topCy, -0.045, ov.pickBase('#FFFFFF'), '#0D1014', false, topStart, 0.92);
+    if (botStr) drawBadge(botStr, botCy, -0.028, '#0B0D12', ov.pickHi('#FFD60A'), true, botStart, 0.92);
 
   } else {
     // MODE 4: Hollow Ivory Serif Outline ('NOW') Behind + Tracked White Caps ('DON'T WAIT') + Glow Cobalt Underline ('permission.')
@@ -6768,11 +6881,12 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
     const kickWords = remaining.length > 1 ? remaining.slice(0, -1) : [];
 
     // 1. Hollow Ivory Serif Behind Head
-    const serifFontFn = (sz) => `700 ${sz}px "Cinzel", "Playfair Display", Georgia, serif`;
-    const rawOSize = fitKCFont(targetBehind, behindTxt, serifFontFn, H * (behindTxt.length <= 4 ? 0.21 : 0.16) * fontScale, H * 0.075, W * 0.88, 0.03);
+    const sTrack4 = ov.trackEmWith(0.03);
+    const serifFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Cinzel", "Playfair Display", Georgia, serif')}`;
+    const rawOSize = fitKCFont(targetBehind, behindTxt, serifFontFn, H * (behindTxt.length <= 4 ? 0.21 : 0.16) * fontScale, H * 0.075, W * 0.88, sTrack4);
     const oPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: serifFontFn, preferredSize: rawOSize, minSize: Math.round(H * 0.070),
-      trackEm: 0.03, isSampleCard, fallbackCrownRatio: 0.225
+      trackEm: sTrack4, isSampleCard, fallbackCrownRatio: 0.225
     });
     const oSize = oPlace.size;
     const oBaseY = oPlace.baseY;
@@ -6783,10 +6897,10 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
       try {
         targetBehind.globalAlpha = exitFade * oep;
         targetBehind.font = serifFontFn(oSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '0.03em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${sTrack4}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
-        targetBehind.strokeStyle = 'rgba(248, 245, 236, 0.90)';
+        targetBehind.strokeStyle = ov.customHighlight || 'rgba(248, 245, 236, 0.90)';
         targetBehind.lineWidth = Math.max(1.5, Math.round(H * 0.0022));
         targetBehind.lineJoin = 'round';
         targetBehind.strokeText(behindTxt, heroX, oBaseY);
@@ -6797,20 +6911,24 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
 
     // 2. Small Tracked Uppercase Kicker ('DON'T WAIT')
     if (kickWords.length > 0) {
-      const kTxt = kickWords.map(w => cleanKC(w.t || w.word || '', false)).filter(Boolean).join(' ').toUpperCase();
+      const kRaw = kickWords.map(w => cleanKC(w.t || w.word || '', false)).filter(Boolean).join(' ');
+      const kTxt = userCase === 'lower' ? kRaw.toLowerCase() : (userCase === 'title' ? kRaw : kRaw.toUpperCase());
       const kP = fullInstant ? 1.0 : (evalT >= wordStartTime(kickWords[0], capStart + 0.15) - 0.02 ? Math.min(1, Math.max(0, (evalT - wordStartTime(kickWords[0], capStart + 0.15)) / 0.14)) : 0);
       if (kTxt && kP > 0.01) {
-        const kSize = fitKCFont(ctxFore, kTxt, (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`, H * 0.023 * fontScale, H * 0.014, W * 0.84, 0.14);
+        const kTrack4 = ov.trackEmWith(0.14);
+        const kSize = fitKCFont(ctxFore, kTxt, (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`, H * 0.023 * fontScale, H * 0.014, W * 0.84, kTrack4);
+        const kY4 = kcY(0.625, -0.5, Math.round(H * 0.065));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(kP);
-        ctxFore.font = `600 ${kSize}px "Inter", "Poppins", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.14em';
+        ctxFore.font = `600 ${kSize}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${kTrack4}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.60)';
-        ctxFore.shadowBlur = 6;
-        ctxFore.fillStyle = 'rgba(245, 247, 250, 0.95)';
-        ctxFore.fillText(kTxt, heroX, Math.round(H * 0.625));
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.60)', 6);
+        ctxFore.fillStyle = ov.pickBase('rgba(245, 247, 250, 0.95)');
+        ctxFore.fillText(kTxt, heroX, kY4);
+        const kw = measureKCW(ctxFore, kTxt, kSize, kTrack4);
+        ov.recordSceneBox(cap, W, H, heroX - kw * 0.5, kY4 - kSize, kw, kSize * 1.25);
         ctxFore.restore();
       }
     }
@@ -6822,36 +6940,40 @@ function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isB
       const pP = fullInstant ? 1.0 : (evalT >= pStart - 0.02 ? Math.min(1, Math.max(0, (evalT - pStart) / 0.16)) : 0);
       if (pTxt && pP > 0.01) {
         const pep = easeOutCubic(pP);
-        const pFontFn = (sz) => `900 ${sz}px "Montserrat", "Inter", sans-serif`;
-        const pSize = fitKCFont(ctxFore, pTxt, pFontFn, H * 0.056 * fontScale, H * 0.028, W * 0.86, -0.025);
-        const pBaseY = kickWords.length > 0 ? Math.round(H * 0.692) : Math.round(H * 0.655);
+        const pTrack4 = ov.trackEmWith(-0.025);
+        const pFontFn = (sz) => `900 ${sz}px ${ov.pickFontFam('"Montserrat", "Inter", sans-serif')}`;
+        const pSize = fitKCFont(ctxFore, pTxt, pFontFn, H * 0.056 * fontScale, H * 0.028, W * 0.86, pTrack4);
+        const pBaseY = kickWords.length > 0 ? kcY(0.692, 0.5, Math.round(H * 0.065)) : kcY(0.655, 0.35, Math.round(H * 0.065));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * pep;
         ctxFore.font = pFontFn(pSize);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
-        const pw = measureKCW(ctxFore, pTxt, pSize, -0.025);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${pTrack4}em`;
+        const pw = measureKCW(ctxFore, pTxt, pSize, pTrack4);
         const barW = Math.round(pw * 1.06 * (fullInstant ? 1.0 : Math.min(1, pep * 1.1)));
         const barY = Math.round(pBaseY + pSize * 0.22);
         const barH = Math.max(4, Math.round(H * 0.0055));
+        ov.recordSceneBox(cap, W, H, heroX - pw * 0.5, pBaseY - pSize, pw, pSize * 1.35);
 
         ctxFore.save();
-        ctxFore.shadowColor = 'rgba(59, 130, 246, 0.92)';
-        ctxFore.shadowBlur = Math.max(10, Math.round(H * 0.018));
-        const bg = ctxFore.createLinearGradient(heroX - barW * 0.5, 0, heroX + barW * 0.5, 0);
-        bg.addColorStop(0.0, '#1D4ED8');
-        bg.addColorStop(0.5, '#60A5FA');
-        bg.addColorStop(1.0, '#1D4ED8');
-        ctxFore.fillStyle = bg;
+        ov.applyGlow(ctxFore, 'rgba(59, 130, 246, 0.92)', Math.max(10, Math.round(H * 0.018)));
+        if (ov.customHighlight) {
+          ctxFore.fillStyle = ov.customHighlight;
+        } else {
+          const bg = ctxFore.createLinearGradient(heroX - barW * 0.5, 0, heroX + barW * 0.5, 0);
+          bg.addColorStop(0.0, '#1D4ED8');
+          bg.addColorStop(0.5, '#60A5FA');
+          bg.addColorStop(1.0, '#1D4ED8');
+          ctxFore.fillStyle = bg;
+        }
         drawKCRoundRect(ctxFore, Math.round(heroX - barW * 0.5), barY, barW, barH, barH * 0.5);
         ctxFore.fill();
         ctxFore.restore();
 
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctxFore.shadowBlur = 8;
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 8);
         ctxFore.shadowOffsetY = 2;
-        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.fillStyle = ov.pickBase('#FFFFFF');
         ctxFore.fillText(pTxt, heroX, pBaseY);
         ctxFore.restore();
       }
@@ -6938,6 +7060,9 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 
   const heroX = Math.round(W * 0.50);
   const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const ov = resolveSceneStyleOverrides(st, H);
+  const posY = (y) => Math.round(y + ov.posDeltaY);
+  const ocY = (ratio, rowIdx, lineStep) => posY(H * ratio + (rowIdx || 0) * (lineStep || 0) * (ov.lineSpacingMult - 1.0));
 
   const pctIdx = words.findIndex(w => isPctOrMetric(w.t || w.word || ''));
   let styleMode = 1;
@@ -6961,11 +7086,12 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     const mainSerifWord = remaining.length >= 1 ? remaining[remaining.length - 1] : null;
 
     // 1. Metallic Deep Emerald Serif on targetBehind
-    const emFontFn = (sz) => `700 ${sz}px "Cinzel", "Playfair Display", Georgia, serif`;
-    const rawESize = fitOCFont(targetBehind, behindTxt, emFontFn, H * 0.175 * fontScale, H * 0.075, W * 0.88, 0.015);
+    const emTrack = ov.trackEmWith(0.015);
+    const emFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Cinzel", "Playfair Display", Georgia, serif')}`;
+    const rawESize = fitOCFont(targetBehind, behindTxt, emFontFn, H * 0.175 * fontScale, H * 0.075, W * 0.88, emTrack);
     const ePlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: emFontFn, preferredSize: rawESize, minSize: Math.round(H * 0.070),
-      trackEm: 0.015, isSampleCard, fallbackCrownRatio: 0.225
+      trackEm: emTrack, isSampleCard, fallbackCrownRatio: 0.225
     });
     const eSize = ePlace.size;
     const eBaseY = ePlace.baseY;
@@ -6981,24 +7107,27 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -behindCenterY);
         targetBehind.font = emFontFn(eSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '0.015em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${emTrack}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
-        const eg = targetBehind.createLinearGradient(0, eBaseY - eSize * 0.85, 0, eBaseY + eSize * 0.06);
-        eg.addColorStop(0.00, '#326E54');
-        eg.addColorStop(0.32, '#133C2C');
-        eg.addColorStop(0.55, '#255D45');
-        eg.addColorStop(0.85, '#092218');
-        eg.addColorStop(1.00, '#2B5E47');
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.68)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.012));
+        if (ov.customHighlight) {
+          targetBehind.fillStyle = ov.customHighlight;
+        } else {
+          const eg = targetBehind.createLinearGradient(0, eBaseY - eSize * 0.85, 0, eBaseY + eSize * 0.06);
+          eg.addColorStop(0.00, '#326E54');
+          eg.addColorStop(0.32, '#133C2C');
+          eg.addColorStop(0.55, '#255D45');
+          eg.addColorStop(0.85, '#092218');
+          eg.addColorStop(1.00, '#2B5E47');
+          targetBehind.fillStyle = eg;
+        }
+        ov.applyGlow(targetBehind, 'rgba(0, 0, 0, 0.68)', Math.max(6, Math.round(H * 0.012)));
         targetBehind.shadowOffsetY = Math.round(H * 0.004);
-        targetBehind.fillStyle = eg;
         targetBehind.fillText(behindTxt, heroX, eBaseY);
 
         targetBehind.shadowColor = 'transparent';
-        targetBehind.strokeStyle = 'rgba(120, 205, 160, 0.42)';
+        targetBehind.strokeStyle = ov.customHighlight || 'rgba(120, 205, 160, 0.42)';
         targetBehind.lineWidth = Math.max(1.0, H * 0.0012);
         targetBehind.strokeText(behindTxt, heroX, eBaseY);
       } finally {
@@ -7008,20 +7137,24 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 
     // 2. Wide-Tracked White Micro Kicker ('EXCLUSIVE')
     if (kickWords.length > 0) {
-      const kTxt = kickWords.map(w => cleanOC(w.t || w.word || '', false)).filter(Boolean).join(' ').toUpperCase();
+      const kRaw = kickWords.map(w => cleanOC(w.t || w.word || '', false)).filter(Boolean).join(' ');
+      const kTxt = userCase === 'lower' ? kRaw.toLowerCase() : (userCase === 'title' ? kRaw : kRaw.toUpperCase());
       const kP = fullInstant ? 1.0 : (evalT >= wordStartTime(kickWords[0], capStart + 0.16) - 0.02 ? Math.min(1, Math.max(0, (evalT - wordStartTime(kickWords[0], capStart + 0.16)) / 0.14)) : 0);
       if (kTxt && kP > 0.01) {
-        const kSize = fitOCFont(ctxFore, kTxt, (sz) => `500 ${sz}px "Inter", "Poppins", sans-serif`, H * 0.022 * fontScale, H * 0.014, W * 0.84, 0.24);
+        const kTrack1 = ov.trackEmWith(0.24);
+        const kSize = fitOCFont(ctxFore, kTxt, (sz) => `500 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`, H * 0.022 * fontScale, H * 0.014, W * 0.84, kTrack1);
+        const kY1 = ocY(0.635, -0.5, Math.round(H * 0.07));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(kP);
-        ctxFore.font = `500 ${kSize}px "Inter", "Poppins", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.24em';
+        ctxFore.font = `500 ${kSize}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${kTrack1}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctxFore.shadowBlur = 6;
-        ctxFore.fillStyle = '#F8FAFC';
-        ctxFore.fillText(kTxt, heroX, Math.round(H * 0.635));
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 6);
+        ctxFore.fillStyle = ov.pickBase('#F8FAFC');
+        ctxFore.fillText(kTxt, heroX, kY1);
+        const kw = measureOCW(ctxFore, kTxt, kSize, kTrack1);
+        ov.recordSceneBox(cap, W, H, heroX - kw * 0.5, kY1 - kSize, kw, kSize * 1.25);
         ctxFore.restore();
       }
     }
@@ -7032,31 +7165,39 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       const mStart = wordStartTime(mainSerifWord, capStart + 0.34);
       const mP = fullInstant ? 1.0 : (evalT >= mStart - 0.02 ? Math.min(1, Math.max(0, (evalT - mStart) / 0.16)) : 0);
       if (mTxt && mP > 0.01) {
-        const mFontFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
-        const mSize = fitOCFont(ctxFore, mTxt, mFontFn, H * 0.062 * fontScale, H * 0.032, W * 0.86, -0.015);
-        const mBaseY = kickWords.length > 0 ? Math.round(H * 0.708) : Math.round(H * 0.668);
+        const mTrack1 = ov.trackEmWith(-0.015);
+        const mFontFn = (sz) => `italic 700 ${sz}px ${ov.pickFontFam('"Playfair Display", Georgia, serif')}`;
+        const mSize = fitOCFont(ctxFore, mTxt, mFontFn, H * 0.062 * fontScale, H * 0.032, W * 0.86, mTrack1);
+        const mBaseY = kickWords.length > 0 ? ocY(0.708, 0.5, Math.round(H * 0.07)) : ocY(0.668, 0.35, Math.round(H * 0.07));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(mP);
         ctxFore.font = mFontFn(mSize);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${mTrack1}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        const gg = ctxFore.createLinearGradient(0, mBaseY - mSize * 0.85, 0, mBaseY + mSize * 0.12);
-        gg.addColorStop(0.0, '#FDE8AE');
-        gg.addColorStop(0.5, '#D8A852');
-        gg.addColorStop(1.0, '#966520');
+        let fillObj;
+        if (ov.customHighlight) {
+          fillObj = ov.customHighlight;
+        } else {
+          const gg = ctxFore.createLinearGradient(0, mBaseY - mSize * 0.85, 0, mBaseY + mSize * 0.12);
+          gg.addColorStop(0.0, '#FDE8AE');
+          gg.addColorStop(0.5, '#D8A852');
+          gg.addColorStop(1.0, '#966520');
+          fillObj = gg;
+        }
         ctxFore.save();
         ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
         ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.012));
         ctxFore.shadowOffsetY = Math.round(H * 0.003);
-        ctxFore.fillStyle = gg;
+        ctxFore.fillStyle = fillObj;
         ctxFore.fillText(mTxt, heroX, mBaseY);
         ctxFore.restore();
 
-        ctxFore.shadowColor = 'rgba(247, 210, 145, 0.42)';
-        ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.012));
-        ctxFore.fillStyle = gg;
+        ov.applyGlow(ctxFore, 'rgba(247, 210, 145, 0.42)', Math.max(6, Math.round(H * 0.012)));
+        ctxFore.fillStyle = fillObj;
         ctxFore.fillText(mTxt, heroX, mBaseY);
+        const mw = measureOCW(ctxFore, mTxt, mSize, mTrack1);
+        ov.recordSceneBox(cap, W, H, heroX - mw * 0.5, mBaseY - mSize, mw, mSize * 1.25);
         ctxFore.restore();
       }
     }
@@ -7065,35 +7206,38 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     // MODE 2: Smoked Frosted Glass Bento Card + Left Gold Accent Stripe ('SKY PENTHOUSE' / 'Private Rooftop')
     const n = words.length;
     const splitAt = n <= 1 ? 1 : Math.ceil(n / 2);
-    const row1 = words.slice(0, splitAt).map(w => cleanOC(w.t || w.word || '', true)).filter(Boolean).join(' ').toUpperCase();
+    const r1Raw = words.slice(0, splitAt).map(w => cleanOC(w.t || w.word || '', true)).filter(Boolean).join(' ');
+    const row1 = userCase === 'lower' ? r1Raw.toLowerCase() : (userCase === 'title' ? r1Raw : r1Raw.toUpperCase());
     const row2 = words.slice(splitAt).map(w => cleanOC(w.t || w.word || '', true)).filter(Boolean).join(' ');
     const pStart = wordStartTime(words[0], capStart);
     const cP = fullInstant ? 1.0 : (evalT >= pStart - 0.02 ? Math.min(1, Math.max(0, (evalT - pStart) / 0.16)) : 0);
     if (cP <= 0.01) return;
 
-    const r1FontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const r2FontFn = (sz) => `400 ${sz}px "Inter", "Poppins", sans-serif`;
-    const r1Size = fitOCFont(ctxFore, row1 || 'LUXURY', r1FontFn, H * 0.036 * fontScale, H * 0.020, W * 0.72, 0.03);
-    const r2Size = row2 ? fitOCFont(ctxFore, row2, r2FontFn, H * 0.026 * fontScale, H * 0.016, W * 0.72, -0.01) : 0;
+    const r1Track = ov.trackEmWith(0.03);
+    const r2Track = ov.trackEmWith(-0.01);
+    const r1FontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+    const r2FontFn = (sz) => `400 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+    const r1Size = fitOCFont(ctxFore, row1 || 'LUXURY', r1FontFn, H * 0.036 * fontScale, H * 0.020, W * 0.72, r1Track);
+    const r2Size = row2 ? fitOCFont(ctxFore, row2, r2FontFn, H * 0.026 * fontScale, H * 0.016, W * 0.72, r2Track) : 0;
 
     ctxFore.save();
     ctxFore.font = r1FontFn(r1Size);
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.03em';
-    const w1 = measureOCW(ctxFore, row1, r1Size, 0.03);
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${r1Track}em`;
+    const w1 = measureOCW(ctxFore, row1, r1Size, r1Track);
     ctxFore.font = r2FontFn(r2Size || r1Size);
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.01em';
-    const w2 = row2 ? measureOCW(ctxFore, row2, r2Size, -0.01) : 0;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${r2Track}em`;
+    const w2 = row2 ? measureOCW(ctxFore, row2, r2Size, r2Track) : 0;
 
     const innerW = Math.max(w1, w2, W * 0.38);
     const cardW = Math.min(Math.round(W * 0.86), Math.round(innerW + H * 0.055));
-    const cardH = Math.round(row2 ? (r1Size * 2.15 + r2Size * 1.45) : (r1Size * 2.2));
+    const cardH = Math.round(row2 ? (r1Size * 2.15 + r2Size * 1.45 * ov.lineSpacingMult) : (r1Size * 2.2));
     const cardX = Math.round(heroX - cardW * 0.5);
-    const cardY = Math.round(H * 0.535 - cardH * 0.5);
+    const cardY = posY(Math.round(H * 0.535 - cardH * 0.5));
     const cep = easeOutCubic(cP);
+    ov.recordSceneBox(cap, W, H, cardX, cardY, cardW, cardH);
 
     ctxFore.globalAlpha = exitFade * cep;
-    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.55)';
-    ctxFore.shadowBlur = 22;
+    ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.55)', 22);
     ctxFore.shadowOffsetY = 8;
     const bgGrad = ctxFore.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
     bgGrad.addColorStop(0.0, 'rgba(26, 28, 34, 0.78)');
@@ -7112,32 +7256,37 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     const barH = Math.round(cardH * 0.62);
     const barX = cardX + Math.round(H * 0.016);
     const barY = Math.round(cardY + (cardH - barH) * 0.5);
-    const barG = ctxFore.createLinearGradient(0, barY, 0, barY + barH);
-    barG.addColorStop(0.0, '#FCE5A2');
-    barG.addColorStop(0.5, '#D8A852');
-    barG.addColorStop(1.0, '#A67830');
+    let barFill;
+    if (ov.customHighlight) {
+      barFill = ov.customHighlight;
+    } else {
+      const barG = ctxFore.createLinearGradient(0, barY, 0, barY + barH);
+      barG.addColorStop(0.0, '#FCE5A2');
+      barG.addColorStop(0.5, '#D8A852');
+      barG.addColorStop(1.0, '#A67830');
+      barFill = barG;
+    }
     ctxFore.save();
-    ctxFore.shadowColor = 'rgba(216, 168, 82, 0.55)';
-    ctxFore.shadowBlur = 8;
+    ov.applyGlow(ctxFore, 'rgba(216, 168, 82, 0.55)', 8);
     drawOCRoundRect(ctxFore, barX, barY, barW, barH, barW * 0.5);
-    ctxFore.fillStyle = barG;
+    ctxFore.fillStyle = barFill;
     ctxFore.fill();
     ctxFore.restore();
 
     const textX = barX + barW + Math.round(H * 0.016);
-    const row1BaseY = row2 ? Math.round(cardY + cardH * 0.45) : Math.round(cardY + cardH * 0.58);
+    const row1BaseY = row2 ? Math.round(cardY + cardH * 0.43) : Math.round(cardY + cardH * 0.58);
     ctxFore.font = r1FontFn(r1Size);
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.03em';
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${r1Track}em`;
     ctxFore.textAlign = 'left';
     ctxFore.textBaseline = 'alphabetic';
-    ctxFore.fillStyle = '#E6C073';
+    ctxFore.fillStyle = ov.pickHi('#E6C073');
     ctxFore.fillText(row1, textX, row1BaseY);
 
     if (row2) {
       ctxFore.font = r2FontFn(r2Size);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.01em';
-      ctxFore.fillStyle = 'rgba(241, 245, 249, 0.96)';
-      ctxFore.fillText(row2, textX, Math.round(row1BaseY + r2Size * 1.48));
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${r2Track}em`;
+      ctxFore.fillStyle = ov.pickBase('rgba(241, 245, 249, 0.96)');
+      ctxFore.fillText(row2, textX, Math.round(row1BaseY + r2Size * 1.48 * ov.lineSpacingMult));
     }
     ctxFore.restore();
 
@@ -7154,11 +7303,12 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     const serifWords = remaining.length > 1 ? remaining.slice(0, -1) : [];
 
     // 1. Brushed Metallic Rose-Bronze Word on targetBehind
-    const rbFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const rawRSize = fitOCFont(targetBehind, behindTxt, rbFontFn, H * (behindTxt.length <= 5 ? 0.23 : 0.17) * fontScale, H * 0.085, W * 0.88, -0.01);
+    const rbTrack = ov.trackEmWith(-0.01);
+    const rbFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+    const rawRSize = fitOCFont(targetBehind, behindTxt, rbFontFn, H * (behindTxt.length <= 5 ? 0.23 : 0.17) * fontScale, H * 0.085, W * 0.88, rbTrack);
     const rPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: rbFontFn, preferredSize: rawRSize, minSize: Math.round(H * 0.080),
-      trackEm: -0.01, isSampleCard, fallbackCrownRatio: 0.23
+      trackEm: rbTrack, isSampleCard, fallbackCrownRatio: 0.23
     });
     const rSize = rPlace.size;
     const rBaseY = rPlace.baseY;
@@ -7174,20 +7324,23 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -behindCenterY);
         targetBehind.font = rbFontFn(rSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.01em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${rbTrack}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
-        const rg = targetBehind.createLinearGradient(0, rBaseY - rSize * 0.85, 0, rBaseY + rSize * 0.06);
-        rg.addColorStop(0.00, '#F5D5C3');
-        rg.addColorStop(0.28, '#B87C64');
-        rg.addColorStop(0.54, '#6A3C2B');
-        rg.addColorStop(0.80, '#DEB09B');
-        rg.addColorStop(1.00, '#854E3A');
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.62)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.010));
+        if (ov.customHighlight) {
+          targetBehind.fillStyle = ov.customHighlight;
+        } else {
+          const rg = targetBehind.createLinearGradient(0, rBaseY - rSize * 0.85, 0, rBaseY + rSize * 0.06);
+          rg.addColorStop(0.00, '#F5D5C3');
+          rg.addColorStop(0.28, '#B87C64');
+          rg.addColorStop(0.54, '#6A3C2B');
+          rg.addColorStop(0.80, '#DEB09B');
+          rg.addColorStop(1.00, '#854E3A');
+          targetBehind.fillStyle = rg;
+        }
+        ov.applyGlow(targetBehind, 'rgba(0, 0, 0, 0.62)', Math.max(6, Math.round(H * 0.010)));
         targetBehind.shadowOffsetY = Math.round(H * 0.004);
-        targetBehind.fillStyle = rg;
         targetBehind.fillText(behindTxt, heroX, rBaseY);
 
         targetBehind.shadowColor = 'transparent';
@@ -7201,20 +7354,23 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 
     // 2. Inline Dual Pair at waist ('pure' Playfair italic + 'CRAFT' Anton bold)
     const serifTxt = serifWords.map(w => cleanOC(w.t || w.word || '', true)).filter(Boolean).join(' ');
-    const boldTxt = boldWord ? cleanOC(boldWord.t || boldWord.word || '', true).toUpperCase() : '';
-    const waistY = Math.round(H * 0.658);
+    const boldRaw = boldWord ? cleanOC(boldWord.t || boldWord.word || '', true) : '';
+    const boldTxt = userCase === 'lower' ? boldRaw.toLowerCase() : (userCase === 'title' ? boldRaw : boldRaw.toUpperCase());
+    const waistY = ocY(0.658, 0.4, Math.round(H * 0.065));
+    const sTrack3 = ov.trackEmWith(-0.01);
+    const bTrack3 = ov.trackEmWith(0.01);
     if (serifTxt && boldTxt) {
-      const sFontFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
-      const bFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
+      const sFontFn = (sz) => `italic 700 ${sz}px ${ov.pickFontFam('"Playfair Display", Georgia, serif')}`;
+      const bFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", "Montserrat", sans-serif')}`;
       let sSz = Math.round(H * 0.054 * fontScale);
       let bSz = Math.round(H * 0.062 * fontScale);
       let gap = Math.round(W * 0.024);
       const mPair = (ss, bs) => {
         ctxFore.save();
         ctxFore.font = sFontFn(ss);
-        const sw = measureOCW(ctxFore, serifTxt, ss, -0.01);
+        const sw = measureOCW(ctxFore, serifTxt, ss, sTrack3);
         ctxFore.font = bFontFn(bs);
-        const bw = measureOCW(ctxFore, boldTxt, bs, 0.01);
+        const bw = measureOCW(ctxFore, boldTxt, bs, bTrack3);
         ctxFore.restore();
         return { sw, bw };
       };
@@ -7227,30 +7383,35 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
         d = mPair(sSz, bSz);
       }
       const startX = Math.round(heroX - (d.sw + gap + d.bw) * 0.5);
+      ov.recordSceneBox(cap, W, H, startX, waistY - Math.max(sSz, bSz), d.sw + gap + d.bw, Math.max(sSz, bSz) * 1.25);
       ctxFore.save();
       ctxFore.globalAlpha = exitFade;
       ctxFore.textAlign = 'left';
       ctxFore.textBaseline = 'alphabetic';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-      ctxFore.shadowBlur = 8;
+      ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 8);
       ctxFore.shadowOffsetY = 2;
-      ctxFore.fillStyle = '#FFFFFF';
+      ctxFore.fillStyle = ov.pickBase('#FFFFFF');
       ctxFore.font = sFontFn(sSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrack3}em`;
       ctxFore.fillText(serifTxt, startX, waistY);
       ctxFore.font = bFontFn(bSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${bTrack3}em`;
+      ctxFore.fillStyle = ov.pickHi('#FFFFFF');
       ctxFore.fillText(boldTxt, startX + d.sw + gap, waistY);
       ctxFore.restore();
     } else if (boldTxt) {
-      const soloSz = fitOCFont(ctxFore, boldTxt, (sz) => `700 ${sz}px "Anton", sans-serif`, H * 0.062 * fontScale, H * 0.03, W * 0.86, 0.01);
+      const soloSz = fitOCFont(ctxFore, boldTxt, (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", sans-serif')}`, H * 0.062 * fontScale, H * 0.03, W * 0.86, bTrack3);
       ctxFore.save();
       ctxFore.globalAlpha = exitFade;
-      ctxFore.font = `700 ${soloSz}px "Anton", sans-serif`;
+      ctxFore.font = `700 ${soloSz}px ${ov.pickFontFam('"Anton", sans-serif')}`;
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${bTrack3}em`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-      ctxFore.shadowBlur = 8;
-      ctxFore.fillStyle = '#FFFFFF';
+      ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 8);
+      ctxFore.fillStyle = ov.pickBase('#FFFFFF');
       ctxFore.fillText(boldTxt, heroX, waistY);
+      const bw = measureOCW(ctxFore, boldTxt, soloSz, bTrack3);
+      ov.recordSceneBox(cap, W, H, heroX - bw * 0.5, waistY - soloSz, bw, soloSz * 1.25);
       ctxFore.restore();
     }
 
@@ -7260,24 +7421,28 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     const splitAt = n <= 2 ? 0 : Math.min(2, Math.floor(n / 2));
     const headWords = splitAt > 0 ? words.slice(0, splitAt) : [];
     const mainWords = words.slice(splitAt);
-    const headTxt = headWords.map(w => cleanOC(w.t || w.word || '', false)).filter(Boolean).join(' ').toUpperCase();
+    const headRaw = headWords.map(w => cleanOC(w.t || w.word || '', false)).filter(Boolean).join(' ');
+    const headTxt = userCase === 'lower' ? headRaw.toLowerCase() : (userCase === 'title' ? headRaw : headRaw.toUpperCase());
     const mainTxt = mainWords.map(w => cleanOC(w.t || w.word || '', true)).filter(Boolean).join(' ');
     const mStart = wordStartTime(mainWords[0], capStart + 0.14);
 
     if (headTxt) {
-      const hSize = fitOCFont(ctxFore, headTxt, (sz) => `500 ${sz}px "Inter", "Poppins", sans-serif`, H * 0.020 * fontScale, H * 0.013, W * 0.86, 0.26);
+      const hTrack4 = ov.trackEmWith(0.26);
+      const hSize = fitOCFont(ctxFore, headTxt, (sz) => `500 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`, H * 0.020 * fontScale, H * 0.013, W * 0.86, hTrack4);
       const hP = fullInstant ? 1.0 : Math.min(1, Math.max(0, (evalT - wordStartTime(headWords[0], capStart)) / 0.14));
       if (hP > 0.01) {
+        const hY4 = ocY(0.625, -0.5, Math.round(H * 0.065));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(hP);
-        ctxFore.font = `500 ${hSize}px "Inter", "Poppins", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.26em';
+        ctxFore.font = `500 ${hSize}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${hTrack4}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.62)';
-        ctxFore.shadowBlur = 6;
-        ctxFore.fillStyle = '#E6D5B8';
-        ctxFore.fillText(headTxt, heroX, Math.round(H * 0.625));
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.62)', 6);
+        ctxFore.fillStyle = ov.pickHi('#E6D5B8');
+        ctxFore.fillText(headTxt, heroX, hY4);
+        const hw = measureOCW(ctxFore, headTxt, hSize, hTrack4);
+        ov.recordSceneBox(cap, W, H, heroX - hw * 0.5, hY4 - hSize, hw, hSize * 1.25);
         ctxFore.restore();
       }
     }
@@ -7286,40 +7451,45 @@ function drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       const mP = fullInstant ? 1.0 : (evalT >= mStart - 0.02 ? Math.min(1, Math.max(0, (evalT - mStart) / 0.18)) : 0);
       if (mP > 0.01) {
         const mep = easeOutCubic(mP);
-        const sFontFn = (sz) => `700 ${sz}px "Playfair Display", "Cinzel", Georgia, serif`;
-        const sSize = fitOCFont(ctxFore, mainTxt, sFontFn, H * 0.052 * fontScale, H * 0.026, W * 0.88, -0.01);
-        const mBaseY = headTxt ? Math.round(H * 0.690) : Math.round(H * 0.660);
+        const sTrack4 = ov.trackEmWith(-0.01);
+        const sFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Playfair Display", "Cinzel", Georgia, serif')}`;
+        const sSize = fitOCFont(ctxFore, mainTxt, sFontFn, H * 0.052 * fontScale, H * 0.026, W * 0.88, sTrack4);
+        const mBaseY = headTxt ? ocY(0.690, 0.5, Math.round(H * 0.065)) : ocY(0.660, 0.35, Math.round(H * 0.065));
 
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * mep;
         ctxFore.font = sFontFn(sSize);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.01em';
-        const mw = measureOCW(ctxFore, mainTxt, sSize, -0.01);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrack4}em`;
+        const mw = measureOCW(ctxFore, mainTxt, sSize, sTrack4);
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
+        ov.recordSceneBox(cap, W, H, heroX - mw * 0.5, mBaseY - sSize, mw, sSize * 1.35);
 
         // Dark readability shadow then soft ivory serif bloom
         ctxFore.save();
         ctxFore.shadowColor = 'rgba(0, 0, 0, 0.68)';
         ctxFore.shadowBlur = 8;
         ctxFore.shadowOffsetY = 2;
-        ctxFore.fillStyle = '#FFF9EC';
+        ctxFore.fillStyle = ov.pickBase('#FFF9EC');
         ctxFore.fillText(mainTxt, heroX, mBaseY);
         ctxFore.restore();
 
-        ctxFore.shadowColor = 'rgba(255, 232, 185, 0.56)';
-        ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.015));
-        ctxFore.fillStyle = '#FFF9EC';
+        ov.applyGlow(ctxFore, 'rgba(255, 232, 185, 0.56)', Math.max(8, Math.round(H * 0.015)));
+        ctxFore.fillStyle = ov.pickBase('#FFF9EC');
         ctxFore.fillText(mainTxt, heroX, mBaseY);
 
         // Tapered golden horizontal hairline rule cleanly underneath
         const ruleW = Math.round(Math.min(W * 0.72, mw * 0.92) * (fullInstant ? 1.0 : mep));
         const ruleY = Math.round(mBaseY + sSize * 0.34);
-        const rg = ctxFore.createLinearGradient(heroX - ruleW * 0.5, 0, heroX + ruleW * 0.5, 0);
-        rg.addColorStop(0.0, 'rgba(223, 178, 99, 0.0)');
-        rg.addColorStop(0.5, 'rgba(223, 178, 99, 0.92)');
-        rg.addColorStop(1.0, 'rgba(223, 178, 99, 0.0)');
-        ctxFore.fillStyle = rg;
+        if (ov.customHighlight) {
+          ctxFore.fillStyle = ov.customHighlight;
+        } else {
+          const rg = ctxFore.createLinearGradient(heroX - ruleW * 0.5, 0, heroX + ruleW * 0.5, 0);
+          rg.addColorStop(0.0, 'rgba(223, 178, 99, 0.0)');
+          rg.addColorStop(0.5, 'rgba(223, 178, 99, 0.92)');
+          rg.addColorStop(1.0, 'rgba(223, 178, 99, 0.0)');
+          ctxFore.fillStyle = rg;
+        }
         ctxFore.fillRect(Math.round(heroX - ruleW * 0.5), ruleY, ruleW, Math.max(1.5, Math.round(H * 0.0018)));
         ctxFore.restore();
       }
@@ -7406,6 +7576,9 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
   const heroX = Math.round(W * 0.50);
   const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const ov = resolveSceneStyleOverrides(st, H);
+  const posY = (y) => Math.round(y + ov.posDeltaY);
+  const asY = (ratio, rowIdx, lineStep) => posY(H * ratio + (rowIdx || 0) * (lineStep || 0) * (ov.lineSpacingMult - 1.0));
 
   const metricIdx = words.findIndex(w => isMultiplierMetric(w.t || w.word || ''));
   let styleMode = 1;
@@ -7438,11 +7611,12 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     }
 
     // 1. Holographic Iridescent Metallic Chrome behind speaker crown
-    const holoFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const rawHSize = fitASFont(targetBehind, behindTxt, holoFontFn, H * 0.215 * fontScale, H * 0.090, W * 0.88, 0.01);
+    const hTrack1 = ov.trackEmWith(0.01);
+    const holoFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+    const rawHSize = fitASFont(targetBehind, behindTxt, holoFontFn, H * 0.215 * fontScale, H * 0.090, W * 0.88, hTrack1);
     const hPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: holoFontFn, preferredSize: rawHSize, minSize: Math.round(H * 0.080),
-      trackEm: 0.01, isSampleCard, fallbackCrownRatio: 0.23
+      trackEm: hTrack1, isSampleCard, fallbackCrownRatio: 0.23
     });
     const hSize = hPlace.size;
     const hBaseY = hPlace.baseY;
@@ -7458,29 +7632,35 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -behindCenterY);
         targetBehind.font = holoFontFn(hSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '0.01em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${hTrack1}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
-        const hg = targetBehind.createLinearGradient(heroX - W * 0.36, hBaseY - hSize * 0.85, heroX + W * 0.36, hBaseY + hSize * 0.08);
-        hg.addColorStop(0.00, '#A5F3FC');
-        hg.addColorStop(0.28, '#FFFFFF');
-        hg.addColorStop(0.54, '#C4B5FD');
-        hg.addColorStop(0.78, '#93C5FD');
-        hg.addColorStop(1.00, '#F9A8D4');
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.012));
+        if (ov.customHighlight) {
+          targetBehind.fillStyle = ov.customHighlight;
+        } else {
+          const hg = targetBehind.createLinearGradient(heroX - W * 0.36, hBaseY - hSize * 0.85, heroX + W * 0.36, hBaseY + hSize * 0.08);
+          hg.addColorStop(0.00, '#A5F3FC');
+          hg.addColorStop(0.28, '#FFFFFF');
+          hg.addColorStop(0.54, '#C4B5FD');
+          hg.addColorStop(0.78, '#93C5FD');
+          hg.addColorStop(1.00, '#F9A8D4');
+          targetBehind.fillStyle = hg;
+        }
+        ov.applyGlow(targetBehind, 'rgba(0, 0, 0, 0.65)', Math.max(6, Math.round(H * 0.012)));
         targetBehind.shadowOffsetY = Math.round(H * 0.004);
-        targetBehind.fillStyle = hg;
         targetBehind.fillText(behindTxt, heroX, hBaseY);
 
-        targetBehind.shadowColor = 'rgba(103, 232, 249, 0.55)';
-        targetBehind.shadowBlur = Math.max(4, Math.round(H * 0.008));
-        const rimG = targetBehind.createLinearGradient(heroX - W * 0.36, 0, heroX + W * 0.36, 0);
-        rimG.addColorStop(0.0, 'rgba(34, 211, 238, 0.85)');
-        rimG.addColorStop(0.5, 'rgba(255, 255, 255, 0.90)');
-        rimG.addColorStop(1.0, 'rgba(236, 72, 153, 0.85)');
-        targetBehind.strokeStyle = rimG;
+        ov.applyGlow(targetBehind, 'rgba(103, 232, 249, 0.55)', Math.max(4, Math.round(H * 0.008)));
+        if (ov.customHighlight) {
+          targetBehind.strokeStyle = ov.customHighlight;
+        } else {
+          const rimG = targetBehind.createLinearGradient(heroX - W * 0.36, 0, heroX + W * 0.36, 0);
+          rimG.addColorStop(0.0, 'rgba(34, 211, 238, 0.85)');
+          rimG.addColorStop(0.5, 'rgba(255, 255, 255, 0.90)');
+          rimG.addColorStop(1.0, 'rgba(236, 72, 153, 0.85)');
+          targetBehind.strokeStyle = rimG;
+        }
         targetBehind.lineWidth = Math.max(1.2, H * 0.0014);
         targetBehind.strokeText(behindTxt, heroX, hBaseY);
       } finally {
@@ -7490,27 +7670,29 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
     // 2. Spatial Glass Pill ('LEVEL UP') with cyan-magenta gradient rim border
     if (pillWords.length > 0) {
-      const pTxt = pillWords.map(w => cleanAS(w.t || w.word || '', false)).filter(Boolean).join(' ').toUpperCase();
+      const pRaw = pillWords.map(w => cleanAS(w.t || w.word || '', false)).filter(Boolean).join(' ');
+      const pTxt = userCase === 'lower' ? pRaw.toLowerCase() : (userCase === 'title' ? pRaw : pRaw.toUpperCase());
       const pStart = wordStartTime(pillWords[0], capStart + 0.16);
       const pP = fullInstant ? 1.0 : (evalT >= pStart - 0.02 ? Math.min(1, Math.max(0, (evalT - pStart) / 0.16)) : 0);
       if (pTxt && pP > 0.01) {
         const pep = easeOutCubic(pP);
-        const pFontFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
-        const pSize = fitASFont(ctxFore, pTxt, pFontFn, H * 0.028 * fontScale, H * 0.018, W * 0.72, 0.06);
-        const pCy = Math.round(H * 0.628);
+        const pTrack1 = ov.trackEmWith(0.06);
+        const pFontFn = (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        const pSize = fitASFont(ctxFore, pTxt, pFontFn, H * 0.028 * fontScale, H * 0.018, W * 0.72, pTrack1);
+        const pCy = asY(0.628, 0, Math.round(H * 0.07));
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * pep;
           ctxFore.font = pFontFn(pSize);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.06em';
-          const tw = measureASW(ctxFore, pTxt, pSize, 0.06);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${pTrack1}em`;
+          const tw = measureASW(ctxFore, pTxt, pSize, pTrack1);
           const pw = Math.round(tw + pSize * 1.45);
           const ph = Math.round(pSize * 2.05);
           const px = Math.round(heroX - pw * 0.5);
           const py = Math.round(pCy - ph * 0.5);
+          ov.recordSceneBox(cap, W, H, px, py, pw, ph);
 
-          ctxFore.shadowColor = 'rgba(139, 92, 246, 0.65)';
-          ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.014));
+          ov.applyGlow(ctxFore, 'rgba(139, 92, 246, 0.65)', Math.max(8, Math.round(H * 0.014)));
           const bgG = ctxFore.createLinearGradient(0, py, 0, py + ph);
           bgG.addColorStop(0.0, 'rgba(16, 28, 42, 0.72)');
           bgG.addColorStop(1.0, 'rgba(12, 16, 26, 0.88)');
@@ -7519,17 +7701,21 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
           ctxFore.fill();
 
           ctxFore.shadowColor = 'transparent';
-          const bG = ctxFore.createLinearGradient(px, 0, px + pw, 0);
-          bG.addColorStop(0.0, '#22D3EE');
-          bG.addColorStop(0.5, '#A855F7');
-          bG.addColorStop(1.0, '#EC4899');
-          ctxFore.strokeStyle = bG;
+          if (ov.customHighlight) {
+            ctxFore.strokeStyle = ov.customHighlight;
+          } else {
+            const bG = ctxFore.createLinearGradient(px, 0, px + pw, 0);
+            bG.addColorStop(0.0, '#22D3EE');
+            bG.addColorStop(0.5, '#A855F7');
+            bG.addColorStop(1.0, '#EC4899');
+            ctxFore.strokeStyle = bG;
+          }
           ctxFore.lineWidth = Math.max(1.8, Math.round(H * 0.0020));
           ctxFore.stroke();
 
           ctxFore.textAlign = 'center';
           ctxFore.textBaseline = 'middle';
-          ctxFore.fillStyle = '#E0F7FF';
+          ctxFore.fillStyle = ov.pickBase('#E0F7FF');
           ctxFore.fillText(pTxt, heroX, pCy + Math.round(pSize * 0.05));
         } finally {
           ctxFore.restore();
@@ -7544,26 +7730,31 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       const sP = fullInstant ? 1.0 : (evalT >= sStart - 0.02 ? Math.min(1, Math.max(0, (evalT - sStart) / 0.16)) : 0);
       if (sTxt && sP > 0.01) {
         const sep = easeOutCubic(sP);
-        const sFontFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
-        const sSize = fitASFont(ctxFore, sTxt, sFontFn, H * 0.044 * fontScale, H * 0.022, W * 0.86, -0.02);
-        const sBaseY = pillWords.length > 0 ? Math.round(H * 0.708) : Math.round(H * 0.665);
+        const sTrack1 = ov.trackEmWith(-0.02);
+        const sFontFn = (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        const sSize = fitASFont(ctxFore, sTxt, sFontFn, H * 0.044 * fontScale, H * 0.022, W * 0.86, sTrack1);
+        const sBaseY = pillWords.length > 0 ? asY(0.708, 1, Math.round(H * 0.07)) : asY(0.665, 0, Math.round(H * 0.07));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * sep;
         ctxFore.font = sFontFn(sSize);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
-        const sw = measureASW(ctxFore, sTxt, sSize, -0.02);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrack1}em`;
+        const sw = measureASW(ctxFore, sTxt, sSize, sTrack1);
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.70)';
-        ctxFore.shadowBlur = 8;
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.70)', 8);
         ctxFore.shadowOffsetY = 2;
-        const sg = ctxFore.createLinearGradient(heroX - sw * 0.5, 0, heroX + sw * 0.5, 0);
-        sg.addColorStop(0.0, '#FFFFFF');
-        sg.addColorStop(0.45, '#FFFFFF');
-        sg.addColorStop(0.75, '#C4B5FD');
-        sg.addColorStop(1.0, '#F9A8D4');
-        ctxFore.fillStyle = sg;
+        if (ov.customBase) {
+          ctxFore.fillStyle = ov.customBase;
+        } else {
+          const sg = ctxFore.createLinearGradient(heroX - sw * 0.5, 0, heroX + sw * 0.5, 0);
+          sg.addColorStop(0.0, '#FFFFFF');
+          sg.addColorStop(0.45, '#FFFFFF');
+          sg.addColorStop(0.75, '#C4B5FD');
+          sg.addColorStop(1.0, '#F9A8D4');
+          ctxFore.fillStyle = sg;
+        }
         ctxFore.fillText(sTxt, heroX, sBaseY);
+        ov.recordSceneBox(cap, W, H, heroX - sw * 0.5, sBaseY - sSize, sw, sSize * 1.25);
         ctxFore.restore();
       }
     }
@@ -7572,47 +7763,53 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     // MODE 2: Crisp Lead ('never settle for') + Heavy Uppercase Sliced by Chromatic Laser Flare ('ORDINARY')
     const pIdx = pickBestHeroIdx(words);
     const spAS = splitChronologicalAroundHero(words, pIdx, (v) => cleanAS(v, true));
-    const keyTxt = (spAS.heroTxt || 'ORDINARY').toUpperCase();
+    const keyRaw2 = spAS.heroTxt || 'ORDINARY';
+    const keyTxt = userCase === 'lower' ? keyRaw2.toLowerCase() : (userCase === 'title' ? keyRaw2 : keyRaw2.toUpperCase());
     const beforeTxt = spAS.beforeTxt;
     const afterTxt = spAS.afterTxt;
     const beforeStart = spAS.beforeWords.length ? wordStartTime(spAS.beforeWords[0], capStart) : capStart;
     const keyStart = wordStartTime(words[pIdx], spAS.beforeWords.length ? beforeStart + 0.16 : capStart);
     const afterStart = spAS.afterWords.length ? wordStartTime(spAS.afterWords[0], keyStart + 0.16) : keyStart;
 
-    const drawASRowText = (txt, yRatio, startT) => {
+    const rTrack2 = ov.trackEmWith(-0.02);
+    const drawASRowText = (txt, yRatio, rowIdx, startT) => {
       if (!txt) return;
       const lP = fullInstant ? 1.0 : (evalT >= startT - 0.02 ? Math.min(1, Math.max(0, (evalT - startT) / 0.14)) : 0);
       if (lP <= 0.01) return;
-      const lSize = fitASFont(ctxFore, txt, (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`, H * 0.034 * fontScale, H * 0.018, W * 0.86, -0.02);
+      const lSize = fitASFont(ctxFore, txt, (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`, H * 0.034 * fontScale, H * 0.018, W * 0.86, rTrack2);
+      const yPx = asY(yRatio, rowIdx, Math.round(H * 0.07));
       ctxFore.save();
       ctxFore.globalAlpha = exitFade * easeOutCubic(lP);
-      ctxFore.font = `600 ${lSize}px "Inter", "Poppins", sans-serif`;
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+      ctxFore.font = `600 ${lSize}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${rTrack2}em`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.68)';
-      ctxFore.shadowBlur = 8;
-      ctxFore.fillStyle = '#FFFFFF';
-      ctxFore.fillText(txt, heroX, Math.round(H * yRatio));
+      ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.68)', 8);
+      ctxFore.fillStyle = ov.pickBase('#FFFFFF');
+      ctxFore.fillText(txt, heroX, yPx);
+      const lw = measureASW(ctxFore, txt, lSize, rTrack2);
+      ov.recordSceneBox(cap, W, H, heroX - lw * 0.5, yPx - lSize, lw, lSize * 1.25);
       ctxFore.restore();
     };
 
     const keyYRatio = (beforeTxt && afterTxt) ? 0.642 : (beforeTxt ? 0.654 : (afterTxt ? 0.600 : 0.618));
-    if (beforeTxt) drawASRowText(beforeTxt, afterTxt ? 0.542 : 0.562, beforeStart);
+    if (beforeTxt) drawASRowText(beforeTxt, afterTxt ? 0.542 : 0.562, -0.5, beforeStart);
 
     const kP = fullInstant ? 1.0 : (evalT >= keyStart - 0.03 ? Math.min(1, Math.max(0, (evalT - keyStart) / 0.16)) : 0);
     if (keyTxt && kP > 0.01) {
       const kep = easeOutCubic(kP);
-      const kFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-      const kSize = fitASFont(ctxFore, keyTxt, kFontFn, H * 0.098 * fontScale, H * 0.044, W * 0.86, 0.01);
-      const kBaseY = Math.round(H * keyYRatio);
+      const kTrack2 = ov.trackEmWith(0.01);
+      const kFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+      const kSize = fitASFont(ctxFore, keyTxt, kFontFn, H * 0.098 * fontScale, H * 0.044, W * 0.86, kTrack2);
+      const kBaseY = asY(keyYRatio, 0, Math.round(H * 0.07));
       const kCy = Math.round(kBaseY - kSize * 0.36);
 
       ctxFore.save();
       ctxFore.font = kFontFn(kSize);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.01em';
-      const kw = measureASW(ctxFore, keyTxt, kSize, 0.01);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${kTrack2}em`;
+      const kw = measureASW(ctxFore, keyTxt, kSize, kTrack2);
       ctxFore.globalAlpha = exitFade * kep;
+      ov.recordSceneBox(cap, W, H, heroX - kw * 0.5, kBaseY - kSize, kw, kSize * 1.2);
 
       // Anamorphic Cyan-to-Magenta Horizontal Laser Flare behind punch word
       const drawFlareEllipse = (cx, cy, rx, ry, colA, colB) => {
@@ -7643,14 +7840,13 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       ctxFore.fillStyle = 'rgba(236, 72, 153, 0.72)';
       ctxFore.fillText(keyTxt, heroX + shiftX, kBaseY);
 
-      ctxFore.shadowColor = 'rgba(255, 255, 255, 0.45)';
-      ctxFore.shadowBlur = Math.max(4, Math.round(H * 0.008));
-      ctxFore.fillStyle = '#FFFFFF';
+      ov.applyGlow(ctxFore, 'rgba(255, 255, 255, 0.45)', Math.max(4, Math.round(H * 0.008)));
+      ctxFore.fillStyle = ov.pickHi('#FFFFFF');
       ctxFore.fillText(keyTxt, heroX, kBaseY);
       ctxFore.restore();
     }
 
-    if (afterTxt) drawASRowText(afterTxt, beforeTxt ? 0.715 : 0.675, afterStart);
+    if (afterTxt) drawASRowText(afterTxt, beforeTxt ? 0.715 : 0.675, 0.5, afterStart);
 
   } else if (styleMode === 3) {
     // MODE 3: Aurora Neon Wireframe Behind ('FUTURE') + Clean White Sans ('own the') + Glowing Script ('moment.')
@@ -7664,11 +7860,12 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     const leadWords = remaining.length > 1 ? remaining.slice(0, -1) : [];
 
     // 1. Aurora Gradient Neon Wireframe on targetBehind
-    const wireFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const rawWSize = fitASFont(targetBehind, behindTxt, wireFontFn, H * 0.225 * fontScale, H * 0.095, W * 0.88, 0.015);
+    const wTrack3 = ov.trackEmWith(0.015);
+    const wireFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+    const rawWSize = fitASFont(targetBehind, behindTxt, wireFontFn, H * 0.225 * fontScale, H * 0.095, W * 0.88, wTrack3);
     const wPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: wireFontFn, preferredSize: rawWSize, minSize: Math.round(H * 0.080),
-      trackEm: 0.015, isSampleCard, fallbackCrownRatio: 0.23
+      trackEm: wTrack3, isSampleCard, fallbackCrownRatio: 0.23
     });
     const wSize = wPlace.size;
     const wBaseY = wPlace.baseY;
@@ -7679,21 +7876,24 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       try {
         targetBehind.globalAlpha = exitFade * bep;
         targetBehind.font = wireFontFn(wSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '0.015em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${wTrack3}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
         targetBehind.fillStyle = 'rgba(180, 245, 255, 0.08)';
         targetBehind.fillText(behindTxt, heroX, wBaseY);
 
-        const ag = targetBehind.createLinearGradient(heroX - W * 0.38, 0, heroX + W * 0.38, 0);
-        ag.addColorStop(0.00, '#2EE8B6');
-        ag.addColorStop(0.35, '#38BDF8');
-        ag.addColorStop(0.68, '#A855F7');
-        ag.addColorStop(1.00, '#EC4899');
-        targetBehind.shadowColor = 'rgba(56, 189, 248, 0.65)';
-        targetBehind.shadowBlur = Math.max(8, Math.round(H * 0.012));
-        targetBehind.strokeStyle = ag;
+        if (ov.customHighlight) {
+          targetBehind.strokeStyle = ov.customHighlight;
+        } else {
+          const ag = targetBehind.createLinearGradient(heroX - W * 0.38, 0, heroX + W * 0.38, 0);
+          ag.addColorStop(0.00, '#2EE8B6');
+          ag.addColorStop(0.35, '#38BDF8');
+          ag.addColorStop(0.68, '#A855F7');
+          ag.addColorStop(1.00, '#EC4899');
+          targetBehind.strokeStyle = ag;
+        }
+        ov.applyGlow(targetBehind, 'rgba(56, 189, 248, 0.65)', Math.max(8, Math.round(H * 0.012)));
         targetBehind.lineWidth = Math.max(2.0, Math.round(H * 0.0024));
         targetBehind.lineJoin = 'round';
         targetBehind.strokeText(behindTxt, heroX, wBaseY);
@@ -7705,21 +7905,23 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     // 2. Sans Lead + Glowing Brush Script ('own the' + 'moment.')
     const leadTxt = leadWords.map(w => cleanAS(w.t || w.word || '', true)).filter(Boolean).join(' ');
     const scriptTxt = scriptWord ? cleanAS(scriptWord.t || scriptWord.word || '', true) : '';
-    const baseWaistY = Math.round(H * 0.622);
+    const baseWaistY = posY(H * 0.622);
     if (leadTxt) {
       const lP = fullInstant ? 1.0 : (evalT >= wordStartTime(leadWords[0], capStart + 0.15) - 0.02 ? Math.min(1, Math.max(0, (evalT - wordStartTime(leadWords[0], capStart + 0.15)) / 0.14)) : 0);
       if (lP > 0.01) {
-        const lSz = fitASFont(ctxFore, leadTxt, (sz) => `700 ${sz}px "Inter", "Poppins", sans-serif`, H * 0.044 * fontScale, H * 0.022, W * 0.84, -0.02);
+        const lTrack3 = ov.trackEmWith(-0.02);
+        const lSz = fitASFont(ctxFore, leadTxt, (sz) => `700 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`, H * 0.044 * fontScale, H * 0.022, W * 0.84, lTrack3);
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(lP);
-        ctxFore.font = `700 ${lSz}px "Inter", "Poppins", sans-serif`;
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+        ctxFore.font = `700 ${lSz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${lTrack3}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.68)';
-        ctxFore.shadowBlur = 8;
-        ctxFore.fillStyle = '#FFFFFF';
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.68)', 8);
+        ctxFore.fillStyle = ov.pickBase('#FFFFFF');
         ctxFore.fillText(leadTxt, heroX, baseWaistY);
+        const lw = measureASW(ctxFore, leadTxt, lSz, lTrack3);
+        ov.recordSceneBox(cap, W, H, heroX - lw * 0.5, baseWaistY - lSz, lw, lSz * 1.25);
         ctxFore.restore();
       }
     }
@@ -7727,20 +7929,23 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       const scStart = wordStartTime(scriptWord, capStart + 0.34);
       const scP = fullInstant ? 1.0 : (evalT >= scStart - 0.02 ? Math.min(1, Math.max(0, (evalT - scStart) / 0.16)) : 0);
       if (scP > 0.01) {
-        const scFontFn = (sz) => `400 ${sz}px "Yellowtail", "Great Vibes", cursive`;
-        const scSz = fitASFont(ctxFore, scriptTxt, scFontFn, H * 0.072 * fontScale, H * 0.036, W * 0.86, 0);
-        const scY = leadTxt ? Math.round(baseWaistY + scSz * 0.62) : baseWaistY;
+        const scTrack3 = ov.trackEmWith(0);
+        const scFontFn = (sz) => `400 ${sz}px ${ov.pickFontFam('"Yellowtail", "Great Vibes", cursive')}`;
+        const scSz = fitASFont(ctxFore, scriptTxt, scFontFn, H * 0.072 * fontScale, H * 0.036, W * 0.86, scTrack3);
+        const scY = leadTxt ? Math.round(baseWaistY + scSz * 0.62 * ov.lineSpacingMult) : baseWaistY;
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(scP);
         ctxFore.translate(heroX, scY);
         ctxFore.rotate(-0.05);
         ctxFore.font = scFontFn(scSz);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${scTrack3}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(190, 242, 255, 0.68)';
-        ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.014));
-        ctxFore.fillStyle = '#FFFFFF';
+        ov.applyGlow(ctxFore, 'rgba(190, 242, 255, 0.68)', Math.max(8, Math.round(H * 0.014)));
+        ctxFore.fillStyle = ov.pickHi('#FFFFFF');
         ctxFore.fillText(scriptTxt, 0, 0);
+        const scw = measureASW(ctxFore, scriptTxt, scSz, scTrack3);
+        ov.recordSceneBox(cap, W, H, heroX - scw * 0.5, scY - scSz * 0.8, scw, scSz * 1.2);
         ctxFore.restore();
       }
     }
@@ -7765,11 +7970,12 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     }
 
     // 1. 3D Extruded Obsidian Face + Liquid Gold Side Bevel Depth on targetBehind
-    const gFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const rawGSize = fitASFont(targetBehind, behindTxt, gFontFn, H * (behindTxt.length <= 4 ? 0.255 : 0.19) * fontScale, H * 0.095, W * 0.88, -0.01);
+    const gTrack4 = ov.trackEmWith(-0.01);
+    const gFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+    const rawGSize = fitASFont(targetBehind, behindTxt, gFontFn, H * (behindTxt.length <= 4 ? 0.255 : 0.19) * fontScale, H * 0.095, W * 0.88, gTrack4);
     const gPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: gFontFn, preferredSize: rawGSize, minSize: Math.round(H * 0.085),
-      trackEm: -0.01, isSampleCard, fallbackCrownRatio: 0.235
+      trackEm: gTrack4, isSampleCard, fallbackCrownRatio: 0.235
     });
     const gSize = gPlace.size;
     const gBaseY = gPlace.baseY;
@@ -7785,17 +7991,23 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -behindCenterY);
         targetBehind.font = gFontFn(gSize);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.01em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${gTrack4}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
-        const extG = targetBehind.createLinearGradient(0, gBaseY - gSize * 0.85, 0, gBaseY + gSize * 0.08);
-        extG.addColorStop(0.0, '#FDE68A');
-        extG.addColorStop(0.5, '#D99B38');
-        extG.addColorStop(1.0, '#8C5A12');
+        let extFill;
+        if (ov.customHighlight) {
+          extFill = ov.customHighlight;
+        } else {
+          const extG = targetBehind.createLinearGradient(0, gBaseY - gSize * 0.85, 0, gBaseY + gSize * 0.08);
+          extG.addColorStop(0.0, '#FDE68A');
+          extG.addColorStop(0.5, '#D99B38');
+          extG.addColorStop(1.0, '#8C5A12');
+          extFill = extG;
+        }
         const depthSteps = Math.max(4, Math.round(H * 0.006));
         for (let k = depthSteps; k >= 1; k--) {
-          targetBehind.fillStyle = extG;
+          targetBehind.fillStyle = extFill;
           targetBehind.fillText(behindTxt, heroX + k * 1.15, gBaseY + k * 1.15);
         }
 
@@ -7803,13 +8015,12 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         faceG.addColorStop(0.0, '#2A2D36');
         faceG.addColorStop(0.5, '#0F1116');
         faceG.addColorStop(1.0, '#1D2028');
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.010));
+        ov.applyGlow(targetBehind, 'rgba(0, 0, 0, 0.65)', Math.max(6, Math.round(H * 0.010)));
         targetBehind.fillStyle = faceG;
         targetBehind.fillText(behindTxt, heroX, gBaseY);
 
         targetBehind.shadowColor = 'transparent';
-        targetBehind.strokeStyle = extG;
+        targetBehind.strokeStyle = extFill;
         targetBehind.lineWidth = Math.max(1.4, H * 0.0018);
         targetBehind.strokeText(behindTxt, heroX, gBaseY);
       } finally {
@@ -7819,29 +8030,31 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
     // 2. Spatial HUD Index Pill ('01 // VISION') with glowing gold dot
     if (hudWords.length > 0) {
-      const rawHud = hudWords.map(w => cleanAS(w.t || w.word || '', false)).filter(Boolean).join(' ').toUpperCase();
+      const rawH = hudWords.map(w => cleanAS(w.t || w.word || '', false)).filter(Boolean).join(' ');
+      const rawHud = userCase === 'lower' ? rawH.toLowerCase() : (userCase === 'title' ? rawH : rawH.toUpperCase());
       const hudTxt = /\d|\/\//.test(rawHud) ? rawHud : `${String(capIdx + 1).padStart(2, '0')} // ${rawHud}`;
       const hStart = wordStartTime(hudWords[0], capStart + 0.16);
       const hP = fullInstant ? 1.0 : (evalT >= hStart - 0.02 ? Math.min(1, Math.max(0, (evalT - hStart) / 0.15)) : 0);
       if (rawHud && hP > 0.01) {
         const hep = easeOutCubic(hP);
-        const hudFontFn = (sz) => `500 ${sz}px "Inter", "Space Mono", sans-serif`;
-        const hudSz = fitASFont(ctxFore, hudTxt, hudFontFn, H * 0.021 * fontScale, H * 0.014, W * 0.72, 0.10);
-        const hCy = Math.round(H * 0.625);
+        const hTrack4 = ov.trackEmWith(0.10);
+        const hudFontFn = (sz) => `500 ${sz}px ${ov.pickFontFam('"Inter", "Space Mono", sans-serif')}`;
+        const hudSz = fitASFont(ctxFore, hudTxt, hudFontFn, H * 0.021 * fontScale, H * 0.014, W * 0.72, hTrack4);
+        const hCy = asY(0.625, 0, Math.round(H * 0.07));
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * hep;
           ctxFore.font = hudFontFn(hudSz);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.10em';
-          const tw = measureASW(ctxFore, hudTxt, hudSz, 0.10);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${hTrack4}em`;
+          const tw = measureASW(ctxFore, hudTxt, hudSz, hTrack4);
           const dotR = Math.max(3, Math.round(hudSz * 0.22));
           const pw = Math.round(tw + hudSz * 1.9 + dotR * 2);
           const ph = Math.round(hudSz * 2.15);
           const px = Math.round(heroX - pw * 0.5);
           const py = Math.round(hCy - ph * 0.5);
+          ov.recordSceneBox(cap, W, H, px, py, pw, ph);
 
-          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.55)';
-          ctxFore.shadowBlur = 14;
+          ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.55)', 14);
           ctxFore.shadowOffsetY = 4;
           drawASRoundRect(ctxFore, px, py, pw, ph, ph * 0.5);
           ctxFore.fillStyle = 'rgba(16, 18, 24, 0.84)';
@@ -7853,9 +8066,9 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
           ctxFore.stroke();
 
           ctxFore.save();
-          ctxFore.shadowColor = 'rgba(253, 230, 138, 0.85)';
+          ctxFore.shadowColor = ov.customHighlight || 'rgba(253, 230, 138, 0.85)';
           ctxFore.shadowBlur = 8;
-          ctxFore.fillStyle = '#FDE68A';
+          ctxFore.fillStyle = ov.pickHi('#FDE68A');
           ctxFore.beginPath();
           ctxFore.arc(Math.round(px + ph * 0.55), hCy, dotR, 0, Math.PI * 2);
           ctxFore.fill();
@@ -7863,7 +8076,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
 
           ctxFore.textAlign = 'left';
           ctxFore.textBaseline = 'middle';
-          ctxFore.fillStyle = '#F3EAD8';
+          ctxFore.fillStyle = ov.pickBase('#F3EAD8');
           ctxFore.fillText(hudTxt, Math.round(px + ph * 0.55 + dotR * 2 + hudSz * 0.45), hCy + Math.round(hudSz * 0.04));
         } finally {
           ctxFore.restore();
@@ -7878,31 +8091,39 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       const cP = fullInstant ? 1.0 : (evalT >= cStart - 0.02 ? Math.min(1, Math.max(0, (evalT - cStart) / 0.16)) : 0);
       if (cTxt && cP > 0.01) {
         const cep = easeOutCubic(cP);
-        const cFontFn = (sz) => `700 ${sz}px "Inter", "Montserrat", sans-serif`;
-        const cSz = fitASFont(ctxFore, cTxt, cFontFn, H * 0.052 * fontScale, H * 0.026, W * 0.86, -0.025);
-        const cBaseY = hudWords.length > 0 ? Math.round(H * 0.706) : Math.round(H * 0.668);
+        const cTrack4 = ov.trackEmWith(-0.025);
+        const cFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Inter", "Montserrat", sans-serif')}`;
+        const cSz = fitASFont(ctxFore, cTxt, cFontFn, H * 0.052 * fontScale, H * 0.026, W * 0.86, cTrack4);
+        const cBaseY = hudWords.length > 0 ? asY(0.706, 1, Math.round(H * 0.07)) : asY(0.668, 0, Math.round(H * 0.07));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * cep;
         ctxFore.font = cFontFn(cSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.025em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${cTrack4}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
+        const cw4 = measureASW(ctxFore, cTxt, cSz, cTrack4);
+        ov.recordSceneBox(cap, W, H, heroX - cw4 * 0.5, cBaseY - cSz, cw4, cSz * 1.25);
 
-        const cg = ctxFore.createLinearGradient(0, cBaseY - cSz * 0.85, 0, cBaseY + cSz * 0.1);
-        cg.addColorStop(0.0, '#FFFDF5');
-        cg.addColorStop(1.0, '#FDE68A');
+        let fillC4;
+        if (ov.customBase) {
+          fillC4 = ov.customBase;
+        } else {
+          const cg = ctxFore.createLinearGradient(0, cBaseY - cSz * 0.85, 0, cBaseY + cSz * 0.1);
+          cg.addColorStop(0.0, '#FFFDF5');
+          cg.addColorStop(1.0, '#FDE68A');
+          fillC4 = cg;
+        }
 
         ctxFore.save();
         ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
         ctxFore.shadowBlur = 8;
         ctxFore.shadowOffsetY = 2;
-        ctxFore.fillStyle = cg;
+        ctxFore.fillStyle = fillC4;
         ctxFore.fillText(cTxt, heroX, cBaseY);
         ctxFore.restore();
 
-        ctxFore.shadowColor = 'rgba(253, 230, 138, 0.48)';
-        ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.012));
-        ctxFore.fillStyle = cg;
+        ov.applyGlow(ctxFore, 'rgba(253, 230, 138, 0.48)', Math.max(6, Math.round(H * 0.012)));
+        ctxFore.fillStyle = fillC4;
         ctxFore.fillText(cTxt, heroX, cBaseY);
         ctxFore.restore();
       }
@@ -7970,10 +8191,77 @@ function splitThreeLinesChronological(words, keyIdx) {
 }
 
 /**
+ * Resolves explicit user Style overrides (highlight/base/glow colors, glow blur, font family,
+ * line spacing, letter tracking, position delta) while leaving each preset's signature palette
+ * intact until the user customizes a control.
+ */
+function resolveSceneStyleOverrides(st, H) {
+  const lsRaw = (st && typeof st.lineSpacing === 'number' && st.lineSpacing > 0) ? st.lineSpacing : 1.2;
+  const lineSpacingMult = Math.max(0.65, Math.min(1.8, lsRaw / 1.2));
+  const letterTrackDelta = (st && typeof st.letterSpacing === 'number' && !isNaN(st.letterSpacing)) ? st.letterSpacing : 0;
+  const customHighlight = (st && st._customColorActive && st.highlightColor) ? st.highlightColor : null;
+  const customBase = (st && st._customBaseColorActive && st.baseColor) ? st.baseColor : null;
+  const hasCustomGlow = Boolean(st && st._customGlowActive);
+  const customGlow = (hasCustomGlow && st.glowColor) ? st.glowColor : null;
+  const customGlowEnabled = (hasCustomGlow && typeof st.glowEnabled === 'boolean') ? st.glowEnabled : null;
+  const customGlowBlur = (hasCustomGlow && typeof st.glowBlur === 'number') ? st.glowBlur : null;
+  const customFont = (st && st._customFontActive && st.fontFamily) ? st.fontFamily : null;
+  const customFontStr = customFont ? `"${customFont}", sans-serif` : null;
+  const posYRatio = (st && Number.isFinite(Number(st.posY ?? st.position))) ? Number(st.posY ?? st.position) : null;
+  const defPosY = (st && Number.isFinite(Number(st._defaultPosY))) ? Number(st._defaultPosY) : posYRatio;
+  const posDeltaY = (H && posYRatio !== null && defPosY !== null) ? Math.round((posYRatio - defPosY) * H) : 0;
+  return {
+    lineSpacingMult,
+    letterTrackDelta,
+    customHighlight,
+    customBase,
+    hasCustomGlow,
+    customGlow,
+    customGlowEnabled,
+    customGlowBlur,
+    customFont,
+    customFontStr,
+    posYRatio,
+    posDeltaY,
+    pickHi: (fallback) => customHighlight || fallback,
+    pickBase: (fallback) => customBase || fallback,
+    pickFontFam: (fallbackFam) => customFontStr || fallbackFam,
+    trackEmWith: (baseTrackEm) => (baseTrackEm || 0) + letterTrackDelta,
+    applyGlow: (ctx, defColor, defBlur, blurScale) => {
+      if (customGlowEnabled === false) {
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        return;
+      }
+      const gCol = customGlow || (customGlowEnabled === true ? (customHighlight || defColor || '#FFE600') : defColor);
+      const baseBlur = (customGlowBlur !== null) ? customGlowBlur : (customGlowEnabled === true && !(defBlur > 0) ? 18 : (defBlur || 0));
+      const finalBlur = Math.max(0, Math.round(baseBlur * (blurScale || 1)));
+      if (finalBlur > 0 && gCol) {
+        ctx.shadowColor = gCol;
+        ctx.shadowBlur = finalBlur;
+      } else {
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+      }
+    },
+    recordSceneBox: (cap, W, boxHRef, x0, y0, bw, bh) => {
+      if (!cap || cap.id === 'preview_sample' || typeof recordLayoutBox !== 'function' || !W || !boxHRef) return;
+      recordLayoutBox(cap.id, {
+        x: Math.max(0.02, Math.min(0.95, x0 / W)),
+        y: Math.max(0.02, Math.min(0.95, y0 / boxHRef)),
+        w: Math.max(0.10, Math.min(0.96, bw / W)),
+        h: Math.max(0.06, Math.min(0.85, bh / boxHRef))
+      }, []);
+    }
+  };
+}
+
+/**
  * Shared setup, font-width measurement/fitting, word timing, and rounded-box helper
  * for multi-scene flagship behind-person caption presets.
  */
 function initEditorialSceneRuntime(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, extraStops) {
+  const ov = resolveSceneStyleOverrides(st, H);
   const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
   const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
   const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
@@ -8068,7 +8356,23 @@ function initEditorialSceneRuntime(ctxFore, ctxBehind, cap, words, t, st, W, H, 
     measureW,
     fitFont,
     roundRectPath,
-    pickHeroIdx
+    pickHeroIdx,
+    ov,
+    lineSpacingMult: ov.lineSpacingMult,
+    letterTrackDelta: ov.letterTrackDelta,
+    customHighlight: ov.customHighlight,
+    customBase: ov.customBase,
+    customGlow: ov.customGlow,
+    customGlowEnabled: ov.customGlowEnabled,
+    customGlowBlur: ov.customGlowBlur,
+    customFontStr: ov.customFontStr,
+    posDeltaY: ov.posDeltaY,
+    pickHi: ov.pickHi,
+    pickBase: ov.pickBase,
+    pickFontFam: ov.pickFontFam,
+    trackEmWith: ov.trackEmWith,
+    applyGlow: ov.applyGlow,
+    recordSceneBox: (x0, y0, bw, bh) => ov.recordSceneBox(cap, W, H, x0, y0, bw, bh)
   };
 }
 
@@ -8083,7 +8387,12 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
   const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind, ['out', 'build', 'no', 'days', 'off', 'who']);
   if (rt.exitFade <= 0.005) return;
 
-  const { isSampleCard, capStart, evalT, fullInstant, exitFade, targetBehind, capIdx, userCase, heroX, fontScale, cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont, roundRectPath, pickHeroIdx } = rt;
+  const {
+    isSampleCard, capStart, evalT, fullInstant, exitFade, targetBehind, capIdx, userCase, heroX, fontScale,
+    cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont, roundRectPath, pickHeroIdx,
+    lineSpacingMult, customHighlight, pickHi, pickBase, pickFontFam, trackEmWith, applyGlow, posDeltaY, recordSceneBox
+  } = rt;
+  const shiftY = (y) => Math.round(y + posDeltaY);
   const isNumRatio = (raw) => /^\$?\d[\d.,]*(?:\/\d+|%|x|k|m|b|cr)?$/i.test(String(raw || '').replace(/[.,!?;:'"’()[\]{}]/g, (m) => m === '/' || m === '%' ? m : ''));
 
   const numIdx = words.findIndex(w => isNumRatio(w.t || w.word || ''));
@@ -8108,11 +8417,12 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
     const tailWords = remaining.length > 1 ? remaining.slice(1) : [];
 
     // 1. Giant Electric Klein-Blue -> Sapphire Gradient word behind crown (90% visible above hair, ~10% overlap)
-    const crownFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const rawSize = fitFont(targetBehind, behindTxt, crownFontFn, H * 0.255 * fontScale, H * 0.090, W * 0.90, -0.015);
+    const crownFontFn = (sz) => `700 ${sz}px ${pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+    const cTrk = trackEmWith(-0.015);
+    const rawSize = fitFont(targetBehind, behindTxt, crownFontFn, H * 0.255 * fontScale, H * 0.090, W * 0.90, cTrk);
     const place = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: crownFontFn, preferredSize: rawSize, minSize: Math.round(H * 0.085),
-      trackEm: -0.015, isSampleCard, fallbackCrownRatio: 0.23
+      trackEm: cTrk, isSampleCard, fallbackCrownRatio: 0.23
     });
     const bP = progFactor(bStart, 0.18);
     if (bP > 0.01) {
@@ -8125,7 +8435,7 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -place.centerY);
         targetBehind.font = crownFontFn(place.size);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.015em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${cTrk}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
@@ -8135,10 +8445,9 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         sg.addColorStop(0.78, '#0EA5E9');
         sg.addColorStop(1.00, '#38BDF8');
 
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.58)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.012));
+        applyGlow(targetBehind, 'rgba(0, 0, 0, 0.58)', Math.max(6, Math.round(H * 0.012)), 1);
         targetBehind.shadowOffsetY = Math.round(H * 0.004);
-        targetBehind.fillStyle = sg;
+        targetBehind.fillStyle = customHighlight || sg;
         targetBehind.fillText(behindTxt, heroX, place.baseY);
 
         targetBehind.shadowColor = 'rgba(56, 189, 248, 0.35)';
@@ -8157,18 +8466,21 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
       const tailTxt = tailWords.map(w => cleanTok(w.t || w.word || '', true)).filter(Boolean).join(' ');
       const pStart = wordStart(pillWord, capStart + 0.16);
       const tStart = wordStart(tailWords[0] || pillWord, capStart + 0.28);
-      const rowCy = Math.round(H * 0.642);
-      const pillFontFn = (sz) => `800 ${sz}px "Poppins", "Montserrat", sans-serif`;
-      const tailFontFn = (sz) => `800 ${sz}px "Poppins", "Montserrat", sans-serif`;
+      const rowCy = shiftY(H * 0.642 + (lineSpacingMult - 1.0) * H * 0.024);
+      const caFam = pickFontFam('"Poppins", "Montserrat", sans-serif');
+      const pillFontFn = (sz) => `800 ${sz}px ${caFam}`;
+      const tailFontFn = (sz) => `800 ${sz}px ${caFam}`;
+      const pTrk = trackEmWith(0.01);
+      const tTrk = trackEmWith(-0.02);
 
       let pSz = Math.round(H * 0.042 * fontScale);
       let tSz = Math.round(H * 0.048 * fontScale);
       const meas = () => {
         ctxFore.save();
         ctxFore.font = pillFontFn(pSz);
-        const pwText = pillTxt ? measureW(ctxFore, pillTxt, pSz, 0.01) : 0;
+        const pwText = pillTxt ? measureW(ctxFore, pillTxt, pSz, pTrk) : 0;
         ctxFore.font = tailFontFn(tSz);
-        const twText = tailTxt ? measureW(ctxFore, tailTxt, tSz, -0.02) : 0;
+        const twText = tailTxt ? measureW(ctxFore, tailTxt, tSz, tTrk) : 0;
         ctxFore.restore();
         const padX = Math.round(pSz * 0.56);
         const pw = pillTxt ? Math.round(pwText + padX * 2) : 0;
@@ -8183,6 +8495,7 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         dims = meas();
       }
       const startX = Math.round(heroX - dims.total * 0.5);
+      recordSceneBox(startX - 12, rowCy - Math.max(pSz, tSz) * 0.9, dims.total + 24, Math.max(pSz, tSz) * 1.8);
 
       if (pillTxt) {
         const pp = progFactor(pStart, 0.14);
@@ -8202,18 +8515,17 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
             const pg = ctxFore.createLinearGradient(px, py, px, py + ph);
             pg.addColorStop(0.0, '#FF5B3A');
             pg.addColorStop(1.0, '#EA3815');
-            ctxFore.shadowColor = 'rgba(0, 0, 0, 0.52)';
-            ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.010));
+            applyGlow(ctxFore, 'rgba(0, 0, 0, 0.52)', Math.max(6, Math.round(H * 0.010)), 1);
             ctxFore.shadowOffsetY = 3;
             roundRectPath(ctxFore, px, py, dims.pw, ph, ph * 0.5);
-            ctxFore.fillStyle = pg;
+            ctxFore.fillStyle = customHighlight || pg;
             ctxFore.fill();
             ctxFore.shadowColor = 'transparent';
             ctxFore.font = pillFontFn(pSz);
-            if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.01em';
+            if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${pTrk}em`;
             ctxFore.textAlign = 'center';
             ctxFore.textBaseline = 'middle';
-            ctxFore.fillStyle = '#FFFFFF';
+            ctxFore.fillStyle = customHighlight ? '#0F172A' : '#FFFFFF';
             ctxFore.fillText(pillTxt, pcx, rowCy + Math.round(pSz * 0.05));
           } finally {
             ctxFore.restore();
@@ -8229,13 +8541,12 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
           ctxFore.save();
           ctxFore.globalAlpha = exitFade * tep;
           ctxFore.font = tailFontFn(tSz);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${tTrk}em`;
           ctxFore.textAlign = 'left';
           ctxFore.textBaseline = 'middle';
-          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.68)';
-          ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.008));
+          applyGlow(ctxFore, 'rgba(0, 0, 0, 0.68)', Math.max(6, Math.round(H * 0.008)), 1);
           ctxFore.shadowOffsetY = 2;
-          ctxFore.fillStyle = '#FFFFFF';
+          ctxFore.fillStyle = pickBase('#FFFFFF');
           ctxFore.fillText(tailTxt, tx, rowCy + Math.round(tSz * 0.04));
           ctxFore.restore();
         }
@@ -8255,14 +8566,15 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
     if (rawTag && tagP > 0.01) {
       const tep = easeOutCubic(tagP);
       const tFontFn = (sz) => `700 ${sz}px "Space Mono", "Inter", monospace`;
-      const tSz = fitFont(ctxFore, rawTag, tFontFn, H * 0.022 * fontScale, H * 0.014, W * 0.72, 0.08);
-      const tCy = Math.round(H * 0.548);
+      const mTrk = trackEmWith(0.08);
+      const tSz = fitFont(ctxFore, rawTag, tFontFn, H * 0.022 * fontScale, H * 0.014, W * 0.72, mTrk);
+      const tCy = shiftY(H * 0.548);
       ctxFore.save();
       try {
         ctxFore.globalAlpha = exitFade * tep;
         ctxFore.font = tFontFn(tSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.08em';
-        const tw = measureW(ctxFore, rawTag, tSz, 0.08);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${mTrk}em`;
+        const tw = measureW(ctxFore, rawTag, tSz, mTrk);
         const pw = Math.round(tw + tSz * 1.55);
         const ph = Math.round(tSz * 1.95);
         const px = Math.round(heroX - pw * 0.5);
@@ -8270,10 +8582,9 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         const cg = ctxFore.createLinearGradient(px, py, px + pw, py + ph);
         cg.addColorStop(0.0, '#67E8F9');
         cg.addColorStop(1.0, '#22D3EE');
-        ctxFore.shadowColor = 'rgba(34, 211, 238, 0.55)';
-        ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.012));
+        applyGlow(ctxFore, customHighlight || 'rgba(34, 211, 238, 0.55)', Math.max(6, Math.round(H * 0.012)), 1);
         roundRectPath(ctxFore, px, py, pw, ph, Math.round(H * 0.008));
-        ctxFore.fillStyle = cg;
+        ctxFore.fillStyle = customHighlight || cg;
         ctxFore.fill();
         ctxFore.shadowColor = 'transparent';
         ctxFore.fillStyle = '#061326';
@@ -8287,11 +8598,14 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
 
     const line1Txt = line1Words.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean).join(' ');
     const line2Txt = line2Words.map(w => cleanTok(w.t || w.word || '', true)).filter(Boolean).join(' ');
-    const serifFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
+    const sFam = pickFontFam('"Playfair Display", Georgia, serif');
+    const serifFn = (sz) => `italic 700 ${sz}px ${sFam}`;
+    const sTrk = trackEmWith(-0.015);
     const maxLineStr = line1Txt.length >= line2Txt.length ? line1Txt : line2Txt;
-    const sSz = fitFont(ctxFore, maxLineStr || 'authority', serifFn, H * 0.056 * fontScale, H * 0.028, W * 0.86, -0.015);
-    const l1Y = line1Txt ? Math.round(H * 0.616) : 0;
-    const l2Y = line1Txt ? Math.round(H * 0.678) : Math.round(H * 0.635);
+    const sSz = fitFont(ctxFore, maxLineStr || 'authority', serifFn, H * 0.056 * fontScale, H * 0.028, W * 0.86, sTrk);
+    const l1Y = line1Txt ? shiftY(H * 0.616) : 0;
+    const l2Y = line1Txt ? Math.round(l1Y + H * 0.062 * lineSpacingMult) : shiftY(H * 0.635);
+    recordSceneBox(heroX - W * 0.42, (l1Y || l2Y) - sSz * 1.4, W * 0.84, H * 0.16 * lineSpacingMult);
 
     if (line1Txt) {
       const p1 = progFactor(wordStart(line1Words[0], capStart + 0.14), 0.16);
@@ -8299,13 +8613,12 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(p1);
         ctxFore.font = serifFn(sSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrk}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
-        ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.008));
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.72)', Math.max(6, Math.round(H * 0.008)), 1);
         ctxFore.shadowOffsetY = 2;
-        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.fillStyle = pickBase('#FFFFFF');
         ctxFore.fillText(line1Txt, heroX, l1Y);
         ctxFore.restore();
       }
@@ -8316,11 +8629,10 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         const pep2 = easeOutCubic(p2);
         ctxFore.save();
         ctxFore.font = serifFn(sSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
-        const l2W = measureW(ctxFore, line2Txt, sSz, -0.015);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrk}em`;
+        const l2W = measureW(ctxFore, line2Txt, sSz, sTrk);
         ctxFore.restore();
 
-        // Organic glowing sapphire brush underline wiping right along bottom of keyword
         const brushW = Math.max(l2W + W * 0.05, W * 0.34) * (fullInstant ? 1.0 : pep2);
         const bx0 = Math.round(heroX - l2W * 0.5 - W * 0.025);
         const bx1 = bx0 + brushW;
@@ -8331,9 +8643,8 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         bg.addColorStop(0.0, '#1D4ED8');
         bg.addColorStop(0.55, '#2563EB');
         bg.addColorStop(1.0, '#60A5FA');
-        ctxFore.strokeStyle = bg;
-        ctxFore.shadowColor = 'rgba(37, 99, 235, 0.85)';
-        ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.014));
+        ctxFore.strokeStyle = customHighlight || bg;
+        applyGlow(ctxFore, customHighlight || 'rgba(37, 99, 235, 0.85)', Math.max(8, Math.round(H * 0.014)), 1);
         ctxFore.lineCap = 'round';
         ctxFore.lineWidth = Math.max(4, Math.round(H * 0.0065));
         ctxFore.beginPath();
@@ -8345,13 +8656,12 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * pep2;
         ctxFore.font = serifFn(sSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrk}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
-        ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.008));
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.72)', Math.max(6, Math.round(H * 0.008)), 1);
         ctxFore.shadowOffsetY = 2;
-        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.fillStyle = pickBase('#FFFFFF');
         ctxFore.fillText(line2Txt, heroX, l2Y);
         ctxFore.restore();
       }
@@ -8366,11 +8676,12 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
     const remaining = frontWordsForBehindHero(words, bIdx);
 
     const isCompactMetric = behindTxt.length <= 5;
-    const outFontFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-    const rawOSize = fitFont(targetBehind, behindTxt, outFontFn, H * (isCompactMetric ? 0.275 : 0.185) * fontScale, H * 0.080, W * 0.88, 0.01);
+    const outFontFn = (sz) => `700 ${sz}px ${pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+    const oTrk = trackEmWith(0.01);
+    const rawOSize = fitFont(targetBehind, behindTxt, outFontFn, H * (isCompactMetric ? 0.275 : 0.185) * fontScale, H * 0.080, W * 0.88, oTrk);
     const oPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: outFontFn, preferredSize: rawOSize, minSize: Math.round(H * 0.080),
-      trackEm: 0.01, isSampleCard, fallbackCrownRatio: 0.23
+      trackEm: oTrk, isSampleCard, fallbackCrownRatio: 0.23
     });
     const oP = progFactor(bStart, 0.18);
     if (oP > 0.01) {
@@ -8383,14 +8694,13 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -oPlace.centerY);
         targetBehind.font = outFontFn(oPlace.size);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '0.01em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${oTrk}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
-        targetBehind.fillStyle = 'rgba(219, 234, 254, 0.07)';
+        targetBehind.fillStyle = customHighlight ? 'rgba(255, 255, 255, 0.08)' : 'rgba(219, 234, 254, 0.07)';
         targetBehind.fillText(behindTxt, heroX, oPlace.baseY);
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.48)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.010));
-        targetBehind.strokeStyle = 'rgba(255, 255, 255, 0.94)';
+        applyGlow(targetBehind, 'rgba(0, 0, 0, 0.48)', Math.max(6, Math.round(H * 0.010)), 1);
+        targetBehind.strokeStyle = customHighlight || 'rgba(255, 255, 255, 0.94)';
         targetBehind.lineWidth = Math.max(2.2, Math.round(H * 0.0028));
         targetBehind.lineJoin = 'round';
         targetBehind.strokeText(behindTxt, heroX, oPlace.baseY);
@@ -8404,20 +8714,22 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
     const cp = progFactor(wordStart(cardWords[0], capStart + 0.16), 0.16);
     if (cardTxt && cp > 0.01) {
       const cep = easeOutCubic(cp);
-      const cFontFn = (sz) => `700 ${sz}px "Poppins", "Inter", sans-serif`;
-      const cSz = fitFont(ctxFore, cardTxt, cFontFn, H * 0.036 * fontScale, H * 0.020, W * 0.72, 0.03);
-      const cardCy = Math.round(H * 0.652);
+      const cFontFn = (sz) => `700 ${sz}px ${pickFontFam('"Poppins", "Inter", sans-serif')}`;
+      const cTrk = trackEmWith(0.03);
+      const cSz = fitFont(ctxFore, cardTxt, cFontFn, H * 0.036 * fontScale, H * 0.020, W * 0.72, cTrk);
+      const cardCy = shiftY(H * 0.652 + (lineSpacingMult - 1.0) * H * 0.024);
       ctxFore.save();
       try {
         ctxFore.globalAlpha = exitFade * cep;
         ctxFore.font = cFontFn(cSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.03em';
-        const tw = measureW(ctxFore, cardTxt, cSz, 0.03);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${cTrk}em`;
+        const tw = measureW(ctxFore, cardTxt, cSz, cTrk);
         const dotR = Math.max(4, Math.round(cSz * 0.16));
         const pw = Math.round(tw + cSz * 1.9 + dotR * 2.5);
-        const ph = Math.round(cSz * 2.25);
+        const ph = Math.round(cSz * (1.25 + 1.0 * lineSpacingMult));
         const px = Math.round(heroX - pw * 0.5);
         const py = Math.round(cardCy - ph * 0.5);
+        recordSceneBox(px, py, pw, ph);
 
         ctxFore.shadowColor = 'rgba(0, 0, 0, 0.62)';
         ctxFore.shadowBlur = Math.max(10, Math.round(H * 0.014));
@@ -8429,20 +8741,19 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         ctxFore.fillStyle = cg;
         ctxFore.fill();
 
-        ctxFore.shadowColor = 'rgba(59, 130, 246, 0.45)';
-        ctxFore.shadowBlur = 8;
-        ctxFore.strokeStyle = 'rgba(59, 130, 246, 0.78)';
+        applyGlow(ctxFore, customHighlight || 'rgba(59, 130, 246, 0.45)', 8, 1);
+        ctxFore.strokeStyle = customHighlight || 'rgba(59, 130, 246, 0.78)';
         ctxFore.lineWidth = Math.max(1.5, Math.round(H * 0.0018));
         ctxFore.stroke();
 
         ctxFore.shadowColor = 'transparent';
         ctxFore.textAlign = 'left';
         ctxFore.textBaseline = 'middle';
-        ctxFore.fillStyle = '#FFFFFF';
+        ctxFore.fillStyle = pickBase('#FFFFFF');
         const textX = Math.round(heroX - (tw + dotR * 2.5 + cSz * 0.25) * 0.5);
         ctxFore.fillText(cardTxt, textX, cardCy + Math.round(cSz * 0.05));
 
-        ctxFore.fillStyle = '#FF4D2D';
+        ctxFore.fillStyle = pickHi('#FF4D2D');
         ctxFore.beginPath();
         ctxFore.arc(Math.round(textX + tw + cSz * 0.24 + dotR), cardCy + Math.round(cSz * 0.08), dotR, 0, Math.PI * 2);
         ctxFore.fill();
@@ -8463,7 +8774,8 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
       if (!txt || p <= 0.01) return;
       const ep = easeOutCubic(p);
       const sc = fullInstant ? 1.0 : (0.90 + 0.10 * ep);
-      const fFn = (sz) => `900 ${sz}px "Montserrat", "Poppins", sans-serif`;
+      const fFn = (sz) => `900 ${sz}px ${pickFontFam('"Montserrat", "Poppins", sans-serif')}`;
+      const sTrk = trackEmWith(0.01);
       const parts = txt.split(/\s+/);
       let rows = [txt];
       if (!isBlue && parts.length >= 2 && txt.length >= 11) {
@@ -8471,7 +8783,7 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         rows = [parts.slice(0, half).join(' '), parts.slice(half).join(' ')];
       }
       const longest = rows.reduce((a, b) => b.length > a.length ? b : a, '');
-      const sz = fitFont(ctxFore, longest, fFn, H * (isBlue ? 0.038 : 0.036) * fontScale, H * 0.020, W * 0.72, 0.01);
+      const sz = fitFont(ctxFore, longest, fFn, H * (isBlue ? 0.038 : 0.036) * fontScale, H * 0.020, W * 0.72, sTrk);
       ctxFore.save();
       try {
         ctxFore.globalAlpha = exitFade * ep;
@@ -8479,28 +8791,27 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
         ctxFore.rotate(tilt);
         ctxFore.scale(sc, sc);
         ctxFore.font = fFn(sz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.01em';
-        const maxW = Math.max(...rows.map(r => measureW(ctxFore, r, sz, 0.01)));
-        const rowH = Math.round(sz * 1.18);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrk}em`;
+        const maxW = Math.max(...rows.map(r => measureW(ctxFore, r, sz, sTrk)));
+        const rowH = Math.round(sz * 1.18 * lineSpacingMult);
         const pw = Math.round(maxW + sz * 1.35);
         const ph = Math.round(rows.length * rowH + sz * 0.65);
 
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.58)';
-        ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.012));
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.58)', Math.max(8, Math.round(H * 0.012)), 1);
         ctxFore.shadowOffsetY = 5;
         roundRectPath(ctxFore, -pw * 0.5, -ph * 0.5, pw, ph, isBlue ? ph * 0.5 : Math.round(H * 0.014));
         if (isBlue) {
           const bg = ctxFore.createLinearGradient(-pw * 0.5, 0, pw * 0.5, 0);
           bg.addColorStop(0.0, '#1D4ED8');
           bg.addColorStop(1.0, '#2563EB');
-          ctxFore.fillStyle = bg;
+          ctxFore.fillStyle = customHighlight || bg;
         } else {
           ctxFore.fillStyle = '#F6F2E9';
         }
         ctxFore.fill();
 
         ctxFore.shadowColor = 'transparent';
-        ctxFore.fillStyle = isBlue ? '#FFFFFF' : '#0B132B';
+        ctxFore.fillStyle = isBlue ? (customHighlight ? '#0F172A' : '#FFFFFF') : pickBase('#0B132B');
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'middle';
         const y0 = -((rows.length - 1) * rowH) * 0.5 + Math.round(sz * 0.04);
@@ -8510,8 +8821,9 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
       }
     };
 
-    const topCy = botStr ? Math.round(H * 0.594) : Math.round(H * 0.625);
-    const botCy = Math.round(H * 0.668);
+    const topCy = botStr ? shiftY(H * 0.594) : shiftY(H * 0.625);
+    const botCy = Math.round(topCy + H * 0.074 * lineSpacingMult);
+    recordSceneBox(heroX - W * 0.36, topCy - H * 0.055, W * 0.72, H * 0.16 * lineSpacingMult);
     drawSticker(topStr, Math.round(heroX - (botStr ? W * 0.04 : 0)), topCy, -0.055, false, wordStart(topWords[0], capStart + 0.06));
     if (botStr) {
       drawSticker(botStr, Math.round(heroX + W * 0.06), botCy, 0.025, true, wordStart(botWords[0], capStart + 0.22));
@@ -8532,7 +8844,12 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
   const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind, ['silently', 'always', 'master', 'own', 'chapter']);
   if (rt.exitFade <= 0.005) return;
 
-  const { isSampleCard, capStart, evalT, fullInstant, exitFade, targetBehind, capIdx, userCase, heroX, fontScale, cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont, roundRectPath, pickHeroIdx } = rt;
+  const {
+    isSampleCard, capStart, evalT, fullInstant, exitFade, targetBehind, capIdx, userCase, heroX, fontScale,
+    cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont, roundRectPath, pickHeroIdx,
+    lineSpacingMult, customHighlight, pickHi, pickBase, pickFontFam, trackEmWith, applyGlow, posDeltaY, recordSceneBox
+  } = rt;
+  const shiftY = (y) => Math.round(y + posDeltaY);
   const isPctMetric = (raw) => /^\$?\d[\d,.]*(?:%|x|k|m|b|cr)?$/i.test(String(raw || '').replace(/[.,!?;:'"’()[\]{}]/g, (m) => m === '%' ? m : ''));
 
   const metricIdx = words.findIndex(w => isPctMetric(w.t || w.word || ''));
@@ -8566,11 +8883,12 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
     }
 
     // 1. Liquid Titanium Silver Serif Behind Head (90% clear above crown, ~10% overlap)
-    const silverFn = (sz) => `700 ${sz}px "Cinzel", "Playfair Display", Georgia, serif`;
-    const rawSSize = fitFont(targetBehind, behindTxt, silverFn, H * 0.205 * fontScale, H * 0.080, W * 0.88, -0.01);
+    const silverFn = (sz) => `700 ${sz}px ${pickFontFam('"Cinzel", "Playfair Display", Georgia, serif')}`;
+    const cTrk = trackEmWith(-0.01);
+    const rawSSize = fitFont(targetBehind, behindTxt, silverFn, H * 0.205 * fontScale, H * 0.080, W * 0.88, cTrk);
     const sPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: silverFn, preferredSize: rawSSize, minSize: Math.round(H * 0.075),
-      trackEm: -0.01, isSampleCard, fallbackCrownRatio: 0.23
+      trackEm: cTrk, isSampleCard, fallbackCrownRatio: 0.23
     });
     const bP = progFactor(bStart, 0.18);
     if (bP > 0.01) {
@@ -8583,7 +8901,7 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -sPlace.centerY);
         targetBehind.font = silverFn(sPlace.size);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.01em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${cTrk}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
 
@@ -8594,10 +8912,9 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
         mg.addColorStop(0.76, '#E2E8F0');
         mg.addColorStop(1.00, '#94A3B8');
 
-        targetBehind.shadowColor = 'rgba(0, 0, 0, 0.72)';
-        targetBehind.shadowBlur = Math.max(6, Math.round(H * 0.012));
+        applyGlow(targetBehind, 'rgba(0, 0, 0, 0.72)', Math.max(6, Math.round(H * 0.012)), 1);
         targetBehind.shadowOffsetY = Math.round(H * 0.004);
-        targetBehind.fillStyle = mg;
+        targetBehind.fillStyle = customHighlight || mg;
         targetBehind.fillText(behindTxt, heroX, sPlace.baseY);
 
         targetBehind.shadowColor = 'transparent';
@@ -8610,20 +8927,22 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
     }
 
     // 2. Smoked Obsidian Capsule ('SILENTLY')
+    recordSceneBox(heroX - W * 0.40, shiftY(H * 0.56), W * 0.80, H * 0.16 * lineSpacingMult);
     if (pillWords.length > 0) {
       const pTxt = pillWords.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean).join(' ').toUpperCase();
       const pp = progFactor(wordStart(pillWords[0], capStart + 0.16), 0.15);
       if (pTxt && pp > 0.01) {
         const pep = easeOutCubic(pp);
-        const pFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
-        const pSz = fitFont(ctxFore, pTxt, pFn, H * 0.026 * fontScale, H * 0.016, W * 0.72, 0.08);
-        const pCy = Math.round(H * 0.598);
+        const pFn = (sz) => `600 ${sz}px ${pickFontFam('"Inter", "Poppins", sans-serif')}`;
+        const pTrk = trackEmWith(0.08);
+        const pSz = fitFont(ctxFore, pTxt, pFn, H * 0.026 * fontScale, H * 0.016, W * 0.72, pTrk);
+        const pCy = shiftY(H * 0.598);
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * pep;
           ctxFore.font = pFn(pSz);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.08em';
-          const tw = measureW(ctxFore, pTxt, pSz, 0.08);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${pTrk}em`;
+          const tw = measureW(ctxFore, pTxt, pSz, pTrk);
           const pw = Math.round(tw + pSz * 2.1);
           const ph = Math.round(pSz * 2.25);
           const px = Math.round(heroX - pw * 0.5);
@@ -8640,11 +8959,11 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
           ctxFore.fill();
 
           ctxFore.shadowColor = 'transparent';
-          ctxFore.strokeStyle = 'rgba(226, 232, 240, 0.28)';
+          ctxFore.strokeStyle = customHighlight || 'rgba(226, 232, 240, 0.28)';
           ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
           ctxFore.stroke();
 
-          ctxFore.fillStyle = '#E2E8F0';
+          ctxFore.fillStyle = pickBase('#E2E8F0');
           ctxFore.textAlign = 'center';
           ctxFore.textBaseline = 'middle';
           ctxFore.fillText(pTxt, heroX, pCy + Math.round(pSz * 0.04));
@@ -8660,13 +8979,14 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
       const ip = progFactor(wordStart(italicWords[0], capStart + 0.30), 0.16);
       if (iTxt && ip > 0.01) {
         const iep = easeOutCubic(ip);
-        const iFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
-        const iSz = fitFont(ctxFore, iTxt, iFn, H * 0.056 * fontScale, H * 0.028, W * 0.86, -0.015);
-        const iBaseY = pillWords.length > 0 ? Math.round(H * 0.684) : Math.round(H * 0.640);
+        const iFn = (sz) => `italic 700 ${sz}px ${pickFontFam('"Playfair Display", Georgia, serif')}`;
+        const iTrk = trackEmWith(-0.015);
+        const iSz = fitFont(ctxFore, iTxt, iFn, H * 0.056 * fontScale, H * 0.028, W * 0.86, iTrk);
+        const iBaseY = pillWords.length > 0 ? Math.round(shiftY(H * 0.598) + H * 0.086 * lineSpacingMult) : shiftY(H * 0.640);
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * iep;
         ctxFore.font = iFn(iSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${iTrk}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
 
@@ -8675,9 +8995,8 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
         ig.addColorStop(0.5, '#FB923C');
         ig.addColorStop(1.0, '#EA580C');
 
-        ctxFore.shadowColor = 'rgba(249, 115, 22, 0.55)';
-        ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.012));
-        ctxFore.fillStyle = ig;
+        applyGlow(ctxFore, customHighlight || 'rgba(249, 115, 22, 0.55)', Math.max(6, Math.round(H * 0.012)), 1);
+        ctxFore.fillStyle = customHighlight || ig;
         ctxFore.fillText(iTxt, heroX, iBaseY);
 
         ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
@@ -8697,13 +9016,14 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
 
     const topP = topTxt ? progFactor(wordStart(topWords[0], capStart + 0.05), 0.14) : 0;
     const botP = botTxt ? progFactor(wordStart(botWords[0], capStart + 0.18), 0.16) : 0;
-    const fFn = (sz) => `800 ${sz}px "Poppins", "Inter", sans-serif`;
+    const fFn = (sz) => `800 ${sz}px ${pickFontFam('"Poppins", "Inter", sans-serif')}`;
+    const cTrk = trackEmWith(-0.03);
     const maxStr = topTxt.length >= botTxt.length ? topTxt : botTxt;
-    const sz = fitFont(ctxFore, maxStr || 'matters', fFn, H * 0.068 * fontScale, H * 0.034, W * 0.86, -0.03);
-    const l1Y = topTxt ? Math.round(H * 0.588) : 0;
-    const l2Y = topTxt ? Math.round(H * 0.654) : Math.round(H * 0.625);
+    const sz = fitFont(ctxFore, maxStr || 'matters', fFn, H * 0.068 * fontScale, H * 0.034, W * 0.86, cTrk);
+    const l1Y = topTxt ? shiftY(H * 0.588) : 0;
+    const l2Y = topTxt ? Math.round(l1Y + H * 0.066 * lineSpacingMult) : shiftY(H * 0.625);
+    recordSceneBox(heroX - W * 0.42, (l1Y || l2Y) - sz * 1.1, W * 0.84, sz * 2.5 * lineSpacingMult);
 
-    // Anamorphic horizontal molten copper flare slicing behind & along base line
     if (botP > 0.02) {
       const fep = easeOutCubic(botP);
       const flareY = l2Y + Math.round(sz * 0.06);
@@ -8717,12 +9037,10 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
       beamG.addColorStop(0.75, 'rgba(249, 115, 22, 0.72)');
       beamG.addColorStop(1.00, 'rgba(234, 88, 12, 0)');
 
-      ctxFore.fillStyle = beamG;
-      ctxFore.shadowColor = 'rgba(249, 115, 22, 0.88)';
-      ctxFore.shadowBlur = Math.max(12, Math.round(H * 0.018));
+      ctxFore.fillStyle = customHighlight || beamG;
+      applyGlow(ctxFore, customHighlight || 'rgba(249, 115, 22, 0.88)', Math.max(12, Math.round(H * 0.018)), 1);
       ctxFore.fillRect(heroX - halfSpan, flareY - Math.round(H * 0.003), halfSpan * 2, Math.max(3, Math.round(H * 0.006)));
 
-      // Soft warm bloom halo above/below streak
       const radG = ctxFore.createRadialGradient(heroX, flareY, 2, heroX, flareY, Math.max(16, Math.round(W * 0.34)));
       radG.addColorStop(0.0, 'rgba(253, 186, 116, 0.38)');
       radG.addColorStop(0.5, 'rgba(234, 88, 12, 0.14)');
@@ -8734,23 +9052,22 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
       ctxFore.restore();
     }
 
-    const drawSansLine = (txt, baseY, p) => {
+    const drawSansLine = (txt, baseY, p, col) => {
       if (!txt || p <= 0.01) return;
       ctxFore.save();
       ctxFore.globalAlpha = exitFade * easeOutCubic(p);
       ctxFore.font = fFn(sz);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.03em';
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${cTrk}em`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
-      ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.009));
+      applyGlow(ctxFore, 'rgba(0, 0, 0, 0.72)', Math.max(6, Math.round(H * 0.009)), 1);
       ctxFore.shadowOffsetY = 2;
-      ctxFore.fillStyle = '#FFFFFF';
+      ctxFore.fillStyle = col;
       ctxFore.fillText(txt, heroX, baseY);
       ctxFore.restore();
     };
-    drawSansLine(topTxt, l1Y, topP);
-    drawSansLine(botTxt, l2Y, botP);
+    drawSansLine(topTxt, l1Y, topP, pickBase('#FFFFFF'));
+    drawSansLine(botTxt, l2Y, botP, customHighlight || pickBase('#FFFFFF'));
   } else if (styleMode === 3) {
     // MODE 3: 3D Architectural Bronze Contour ('99%') Behind (10% crown overlap) + 'master the MINDSET'
     let bIdx = words.findIndex(w => isPctMetric(w.t || w.word || ''));
@@ -8762,13 +9079,13 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
     const leadWords = remaining.length > 1 ? remaining.slice(0, -1) : [];
     const titanWord = remaining.length >= 1 ? remaining[remaining.length - 1] : null;
 
-    // 1. 3D Beveled Hollow Bronze Outline on targetBehind
-    const brFontFn = (sz) => `900 ${sz}px "Montserrat", "Poppins", sans-serif`;
+    const brFontFn = (sz) => `900 ${sz}px ${pickFontFam('"Montserrat", "Poppins", sans-serif')}`;
+    const bTrk = trackEmWith(-0.02);
     const isShort = behindTxt.length <= 4;
-    const rawBSize = fitFont(targetBehind, behindTxt, brFontFn, H * (isShort ? 0.27 : 0.18) * fontScale, H * 0.080, W * 0.88, -0.02);
+    const rawBSize = fitFont(targetBehind, behindTxt, brFontFn, H * (isShort ? 0.27 : 0.18) * fontScale, H * 0.080, W * 0.88, bTrk);
     const bPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
       W, H, fontFn: brFontFn, preferredSize: rawBSize, minSize: Math.round(H * 0.075),
-      trackEm: -0.02, isSampleCard, fallbackCrownRatio: 0.235
+      trackEm: bTrk, isSampleCard, fallbackCrownRatio: 0.235
     });
     const bP = progFactor(bStart, 0.18);
     if (bP > 0.01) {
@@ -8781,16 +9098,14 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
         targetBehind.scale(sc, sc);
         targetBehind.translate(-heroX, -bPlace.centerY);
         targetBehind.font = brFontFn(bPlace.size);
-        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = '-0.02em';
+        if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${bTrk}em`;
         targetBehind.textAlign = 'center';
         targetBehind.textBaseline = 'alphabetic';
         targetBehind.lineJoin = 'round';
 
-        // Inner dark warm glass tint
-        targetBehind.fillStyle = 'rgba(251, 146, 60, 0.08)';
+        targetBehind.fillStyle = customHighlight ? 'rgba(255, 255, 255, 0.08)' : 'rgba(251, 146, 60, 0.08)';
         targetBehind.fillText(behindTxt, heroX, bPlace.baseY);
 
-        // 3D beveled architectural depth shadow strokes
         const steps = Math.max(3, Math.round(H * 0.004));
         targetBehind.lineWidth = Math.max(2.0, Math.round(H * 0.0024));
         targetBehind.strokeStyle = 'rgba(124, 45, 18, 0.72)';
@@ -8798,14 +9113,12 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
           targetBehind.strokeText(behindTxt, heroX + k * 0.9, bPlace.baseY + k * 0.9);
         }
 
-        // Front brushed copper-peach contour hairline
         const cg = targetBehind.createLinearGradient(0, bPlace.inkTopY, 0, bPlace.inkBotY);
         cg.addColorStop(0.0, '#FED7AA');
         cg.addColorStop(0.5, '#FB923C');
         cg.addColorStop(1.0, '#C2410C');
-        targetBehind.shadowColor = 'rgba(251, 146, 60, 0.45)';
-        targetBehind.shadowBlur = Math.max(5, Math.round(H * 0.008));
-        targetBehind.strokeStyle = cg;
+        applyGlow(targetBehind, customHighlight || 'rgba(251, 146, 60, 0.45)', Math.max(5, Math.round(H * 0.008)), 1);
+        targetBehind.strokeStyle = customHighlight || cg;
         targetBehind.lineWidth = Math.max(2.0, Math.round(H * 0.0025));
         targetBehind.strokeText(behindTxt, heroX, bPlace.baseY);
       } finally {
@@ -8813,23 +9126,24 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
       }
     }
 
-    // 2. Crisp Foreground 'master the' + Brushed Silver Uppercase 'MINDSET'
+    const leadBaseY = shiftY(H * 0.586 - (lineSpacingMult - 1.0) * H * 0.020);
+    recordSceneBox(heroX - W * 0.42, leadBaseY - H * 0.04, W * 0.84, H * 0.16 * lineSpacingMult);
     if (leadWords.length > 0) {
       const leadTxt = leadWords.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean).join(' ');
       const lp = progFactor(wordStart(leadWords[0], capStart + 0.16), 0.14);
       if (leadTxt && lp > 0.01) {
-        const lFn = (sz) => `500 ${sz}px "Poppins", "Inter", sans-serif`;
-        const lSz = fitFont(ctxFore, leadTxt, lFn, H * 0.044 * fontScale, H * 0.022, W * 0.84, -0.02);
+        const lFn = (sz) => `500 ${sz}px ${pickFontFam('"Poppins", "Inter", sans-serif')}`;
+        const lTrk = trackEmWith(-0.02);
+        const lSz = fitFont(ctxFore, leadTxt, lFn, H * 0.044 * fontScale, H * 0.022, W * 0.84, lTrk);
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(lp);
         ctxFore.font = lFn(lSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${lTrk}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.75)';
-        ctxFore.shadowBlur = 6;
-        ctxFore.fillStyle = '#FFFFFF';
-        ctxFore.fillText(leadTxt, heroX, Math.round(H * 0.586));
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.75)', 6, 1);
+        ctxFore.fillStyle = pickBase('#FFFFFF');
+        ctxFore.fillText(leadTxt, heroX, leadBaseY);
         ctxFore.restore();
       }
     }
@@ -8837,22 +9151,22 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
       const tTxt = cleanTok(titanWord.t || titanWord.word || '', true).toUpperCase();
       const tp = progFactor(wordStart(titanWord, capStart + 0.28), 0.16);
       if (tTxt && tp > 0.01) {
-        const tFn = (sz) => `700 ${sz}px "Anton", "Montserrat", sans-serif`;
-        const tSz = fitFont(ctxFore, tTxt, tFn, H * 0.092 * fontScale, H * 0.044, W * 0.88, 0.01);
-        const tBaseY = leadWords.length > 0 ? Math.round(H * 0.674) : Math.round(H * 0.638);
+        const tFn = (sz) => `700 ${sz}px ${pickFontFam('"Anton", "Montserrat", sans-serif')}`;
+        const tTrk = trackEmWith(0.01);
+        const tSz = fitFont(ctxFore, tTxt, tFn, H * 0.092 * fontScale, H * 0.044, W * 0.88, tTrk);
+        const tBaseY = leadWords.length > 0 ? Math.round(leadBaseY + H * 0.088 * lineSpacingMult) : shiftY(H * 0.638);
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * easeOutCubic(tp);
         ctxFore.font = tFn(tSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.01em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${tTrk}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'alphabetic';
         const sg = ctxFore.createLinearGradient(0, tBaseY - tSz * 0.85, 0, tBaseY + tSz * 0.08);
         sg.addColorStop(0.0, '#FFFFFF');
         sg.addColorStop(0.55, '#CBD5E1');
         sg.addColorStop(1.0, '#94A3B8');
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
-        ctxFore.shadowBlur = Math.max(6, Math.round(H * 0.010));
-        ctxFore.fillStyle = sg;
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.72)', Math.max(6, Math.round(H * 0.010)), 1);
+        ctxFore.fillStyle = customHighlight || sg;
         ctxFore.fillText(tTxt, heroX, tBaseY);
         ctxFore.restore();
       }
@@ -8874,27 +9188,30 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
     const cp = progFactor(wordStart(words[0], capStart + 0.05), 0.16);
     if (cp > 0.01) {
       const cep = easeOutCubic(cp);
-      const eyFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
-      const hFn = (sz) => `700 ${sz}px "Poppins", "Montserrat", sans-serif`;
-      const eySz = fitFont(ctxFore, rawEy, eyFn, H * 0.019 * fontScale, H * 0.012, W * 0.72, 0.22);
+      const eyFn = (sz) => `600 ${sz}px ${pickFontFam('"Inter", "Poppins", sans-serif')}`;
+      const hFn = (sz) => `700 ${sz}px ${pickFontFam('"Poppins", "Montserrat", sans-serif')}`;
+      const eyTrk = trackEmWith(0.22);
+      const hTrk = trackEmWith(-0.02);
+      const eySz = fitFont(ctxFore, rawEy, eyFn, H * 0.019 * fontScale, H * 0.012, W * 0.72, eyTrk);
       const longHead = headLines.reduce((a, b) => b.length > a.length ? b : a, '');
-      const hSz = fitFont(ctxFore, longHead, hFn, H * 0.044 * fontScale, H * 0.024, W * 0.76, -0.02);
+      const hSz = fitFont(ctxFore, longHead, hFn, H * 0.044 * fontScale, H * 0.024, W * 0.76, hTrk);
 
       ctxFore.save();
       try {
         ctxFore.globalAlpha = exitFade * cep;
         ctxFore.font = eyFn(eySz);
-        const ew = measureW(ctxFore, rawEy, eySz, 0.22);
+        const ew = measureW(ctxFore, rawEy, eySz, eyTrk);
         ctxFore.font = hFn(hSz);
-        const hw = Math.max(...headLines.map(r => measureW(ctxFore, r, hSz, -0.02)));
+        const hw = Math.max(...headLines.map(r => measureW(ctxFore, r, hSz, hTrk)));
 
         const padX = Math.round(H * 0.038);
         const cw = Math.min(Math.round(W * 0.88), Math.max(Math.round(W * 0.54), Math.round(Math.max(ew, hw) + padX * 2)));
-        const rowGap = Math.round(hSz * 1.18);
-        const ch = Math.round(eySz * 2.2 + headLines.length * rowGap + H * 0.042);
+        const rowGap = Math.round(hSz * 1.18 * lineSpacingMult);
+        const ch = Math.round(eySz * 2.2 * lineSpacingMult + headLines.length * rowGap + H * 0.042);
         const cx0 = Math.round(heroX - cw * 0.5);
-        const cyMid = Math.round(H * 0.625);
+        const cyMid = shiftY(H * 0.625);
         const cy0 = Math.round(cyMid - ch * 0.5);
+        recordSceneBox(cx0, cy0, cw, ch);
 
         ctxFore.shadowColor = 'rgba(0, 0, 0, 0.72)';
         ctxFore.shadowBlur = Math.max(12, Math.round(H * 0.018));
@@ -8904,19 +9221,17 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
         ctxFore.fill();
 
         ctxFore.shadowColor = 'transparent';
-        ctxFore.strokeStyle = 'rgba(251, 146, 60, 0.36)';
+        ctxFore.strokeStyle = customHighlight || 'rgba(251, 146, 60, 0.36)';
         ctxFore.lineWidth = Math.max(1.0, H * 0.0012);
         ctxFore.stroke();
 
-        // Glowing copper L-brackets at 4 corners
         const bLen = Math.round(Math.min(cw, ch) * 0.16);
         const brG = ctxFore.createLinearGradient(cx0, cy0, cx0 + cw, cy0 + ch);
         brG.addColorStop(0.0, '#FDBA74');
         brG.addColorStop(0.5, '#F97316');
         brG.addColorStop(1.0, '#EA580C');
-        ctxFore.strokeStyle = brG;
-        ctxFore.shadowColor = 'rgba(249, 115, 22, 0.65)';
-        ctxFore.shadowBlur = 6;
+        ctxFore.strokeStyle = customHighlight || brG;
+        applyGlow(ctxFore, customHighlight || 'rgba(249, 115, 22, 0.65)', 6, 1);
         ctxFore.lineWidth = Math.max(2.0, H * 0.0022);
         const drawCorner = (x, y, dx, dy) => {
           ctxFore.beginPath();
@@ -8932,19 +9247,18 @@ function drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, 
 
         ctxFore.shadowColor = 'transparent';
         ctxFore.font = eyFn(eySz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.22em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${eyTrk}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'middle';
-        ctxFore.fillStyle = '#D6A87C';
+        ctxFore.fillStyle = pickHi('#D6A87C');
         const eyY = Math.round(cy0 + H * 0.028 + eySz * 0.5);
         ctxFore.fillText(rawEy, heroX, eyY);
 
         ctxFore.font = hFn(hSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
-        ctxFore.fillStyle = '#F8F5EE';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctxFore.shadowBlur = 6;
-        const firstLineY = Math.round(eyY + eySz * 1.3 + rowGap * 0.45);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${hTrk}em`;
+        ctxFore.fillStyle = pickBase('#F8F5EE');
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 6, 1);
+        const firstLineY = Math.round(eyY + eySz * 1.3 * lineSpacingMult + rowGap * 0.45);
         headLines.forEach((hl, i) => ctxFore.fillText(hl, heroX, Math.round(firstLineY + i * rowGap)));
       } finally {
         ctxFore.restore();
@@ -8968,7 +9282,18 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   const rt = initEditorialSceneRuntime(ctxFore, null, capArg, words, t, st, W, H, false, []);
   if (rt.exitFade <= 0.005) return;
 
-  const { isSampleCard, capStart, fullInstant, exitFade, capIdx, userCase, heroX, fontScale, cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont, roundRectPath, pickHeroIdx } = rt;
+  const {
+    isSampleCard, capStart, fullInstant, exitFade, capIdx, userCase, heroX, fontScale,
+    cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont, roundRectPath, pickHeroIdx,
+    lineSpacingMult, customHighlight, pickHi, pickBase, pickFontFam, trackEmWith, applyGlow, recordSceneBox
+  } = rt;
+  const applyCase = (s) => {
+    const v = String(s || '');
+    if (userCase === 'lower') return v.toLowerCase();
+    if (userCase === 'asIs') return v;
+    if (userCase === 'title') return v.replace(/\b\w/g, (ch) => ch.toUpperCase());
+    return v.toUpperCase();
+  };
 
   // Prefer user-selected gold word chip (w.key), otherwise auto-score hero word
   let heroIdx = words.findIndex(w => Boolean(w && w.key));
@@ -9048,33 +9373,38 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   };
 
   if (presetKey === 'chrome') {
-    const beforeTxt = (isSampleCard ? 'STOP SCROLLING TO' : split.beforeTxt).toUpperCase();
-    const heroTxt = (isSampleCard ? 'UPGRADE' : (split.heroTxt || 'UPGRADE')).toUpperCase();
-    const afterTxt = (isSampleCard ? '' : split.afterTxt).toUpperCase();
-    const sFn = (sz) => `700 ${sz}px "Inter", "Poppins", sans-serif`;
-    const hFn = (sz) => `900 ${sz}px "Montserrat", "Outfit", sans-serif`;
-    const bSz = beforeTxt ? fitFont(ctxFore, beforeTxt, sFn, H * 0.025 * fontScale, H * 0.014, W * 0.80, 0.09) : 0;
-    const hSz = fitFont(ctxFore, heroTxt, hFn, H * 0.068 * fontScale, H * 0.032, W * 0.84, -0.02);
-    const aSz = afterTxt ? fitFont(ctxFore, afterTxt, sFn, H * 0.025 * fontScale, H * 0.014, W * 0.80, 0.09) : 0;
+    const beforeTxt = applyCase(isSampleCard ? 'STOP SCROLLING TO' : split.beforeTxt);
+    const heroTxt = applyCase(isSampleCard ? 'UPGRADE' : (split.heroTxt || 'UPGRADE'));
+    const afterTxt = applyCase(isSampleCard ? '' : split.afterTxt);
+    const sFam = pickFontFam('"Inter", "Poppins", sans-serif');
+    const hFam = pickFontFam('"Montserrat", "Outfit", sans-serif');
+    const sFn = (sz) => `700 ${sz}px ${sFam}`;
+    const hFn = (sz) => `900 ${sz}px ${hFam}`;
+    const sTrk = trackEmWith(0.09);
+    const hTrk = trackEmWith(-0.02);
+    const bSz = beforeTxt ? fitFont(ctxFore, beforeTxt, sFn, H * 0.025 * fontScale, H * 0.014, W * 0.80, sTrk) : 0;
+    const hSz = fitFont(ctxFore, heroTxt, hFn, H * 0.068 * fontScale, H * 0.032, W * 0.84, hTrk);
+    const aSz = afterTxt ? fitFont(ctxFore, afterTxt, sFn, H * 0.025 * fontScale, H * 0.014, W * 0.80, sTrk) : 0;
 
     ctxFore.save();
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.09em';
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrk}em`;
     ctxFore.font = sFn(bSz || 12);
-    const bw = beforeTxt ? measureW(ctxFore, beforeTxt, bSz, 0.09) : 0;
+    const bw = beforeTxt ? measureW(ctxFore, beforeTxt, bSz, sTrk) : 0;
     ctxFore.font = sFn(aSz || 12);
-    const aw = afterTxt ? measureW(ctxFore, afterTxt, aSz, 0.09) : 0;
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+    const aw = afterTxt ? measureW(ctxFore, afterTxt, aSz, sTrk) : 0;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${hTrk}em`;
     ctxFore.font = hFn(hSz);
-    const hw = measureW(ctxFore, heroTxt, hSz, -0.02);
+    const hw = measureW(ctxFore, heroTxt, hSz, hTrk);
     ctxFore.restore();
 
     const maxTextW = Math.max(bw, hw, aw);
     const boxW = Math.min(Math.round(W * 0.90), Math.round(maxTextW + H * 0.065));
-    const afterSlotH = aSz ? (aSz * 1.45 + H * 0.010) : 0;
-    const boxH = Math.round((bSz ? bSz * 1.45 : 0) + hSz * 1.32 + afterSlotH + H * 0.036);
+    const afterSlotH = aSz ? (aSz * 1.45 * lineSpacingMult + H * 0.010) : 0;
+    const boxH = Math.round((bSz ? bSz * 1.45 * lineSpacingMult : 0) + hSz * 1.32 + afterSlotH + H * 0.036);
     const bx = Math.round(heroX - boxW * 0.5);
     const by = Math.round(cy - boxH * 0.5);
     const ep = easeOutCubic(Math.max(beforeP, heroP, afterP));
+    recordSceneBox(bx, by, boxW, boxH);
 
     ctxFore.save();
     try {
@@ -9090,23 +9420,23 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.fill();
 
       ctxFore.shadowColor = 'transparent';
-      ctxFore.strokeStyle = 'rgba(186, 230, 253, 0.28)';
+      ctxFore.strokeStyle = customHighlight || 'rgba(186, 230, 253, 0.28)';
       ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
       ctxFore.stroke();
 
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'alphabetic';
       let cursorY = by + Math.round(H * 0.016);
+      const baseTextCol = pickBase('#F8FAFC');
       if (beforeTxt) {
         cursorY += Math.round(bSz * 1.05);
         if (fullInstant || beforeP > 0.01) {
           ctxFore.font = sFn(bSz);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.09em';
-          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-          ctxFore.shadowBlur = 4;
-          drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, heroX, cursorY, bSz, 0.09, '#F8FAFC', (v) => v.toUpperCase(), true, beforeEnterStart);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrk}em`;
+          applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 4, 1);
+          drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, heroX, cursorY, bSz, sTrk, baseTextCol, applyCase, true, beforeEnterStart);
         }
-        cursorY += Math.round(bSz * 0.35);
+        cursorY += Math.round(bSz * 0.35 * lineSpacingMult);
       }
 
       const heroBaseY = cursorY + Math.round(hSz * 0.96);
@@ -9119,7 +9449,7 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         ctxFore.scale(sc, sc);
         ctxFore.translate(-heroX, -(heroBaseY - hSz * 0.38));
         ctxFore.font = hFn(hSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${hTrk}em`;
 
         const cg = ctxFore.createLinearGradient(0, heroBaseY - hSz * 0.85, 0, heroBaseY + hSz * 0.12);
         cg.addColorStop(0.00, '#FFFFFF');
@@ -9128,9 +9458,8 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         cg.addColorStop(0.76, '#F8FAFC');
         cg.addColorStop(1.00, '#94A3B8');
 
-        ctxFore.shadowColor = 'rgba(56, 189, 248, 0.62)';
-        ctxFore.shadowBlur = Math.max(8, Math.round(H * 0.014));
-        ctxFore.fillStyle = cg;
+        applyGlow(ctxFore, 'rgba(56, 189, 248, 0.62)', Math.max(8, Math.round(H * 0.014)), 1);
+        ctxFore.fillStyle = customHighlight || cg;
         ctxFore.fillText(heroTxt, heroX, heroBaseY);
 
         ctxFore.shadowColor = 'transparent';
@@ -9145,20 +9474,18 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         bgBar.addColorStop(0.0, 'rgba(56, 189, 248, 0.15)');
         bgBar.addColorStop(0.5, '#67E8F9');
         bgBar.addColorStop(1.0, 'rgba(56, 189, 248, 0.15)');
-        ctxFore.shadowColor = 'rgba(56, 189, 248, 0.85)';
-        ctxFore.shadowBlur = 8;
-        ctxFore.fillStyle = bgBar;
+        applyGlow(ctxFore, customHighlight || 'rgba(56, 189, 248, 0.85)', 8, 1);
+        ctxFore.fillStyle = customHighlight || bgBar;
         roundRectPath(ctxFore, Math.round(heroX - barW * 0.5), barY, barW, Math.max(2.5, Math.round(H * 0.003)), 2);
         ctxFore.fill();
       }
 
       if (afterTxt && (fullInstant || afterP > 0.01)) {
-        const afterBaseY = Math.round(heroBaseY + hSz * 0.34 + aSz * 1.15);
+        const afterBaseY = Math.round(heroBaseY + hSz * 0.34 * lineSpacingMult + aSz * 1.15);
         ctxFore.font = sFn(aSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.09em';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctxFore.shadowBlur = 4;
-        drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, heroX, afterBaseY, aSz, 0.09, '#F8FAFC', (v) => v.toUpperCase(), true, afterEnterStart);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sTrk}em`;
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 4, 1);
+        drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, heroX, afterBaseY, aSz, sTrk, baseTextCol, applyCase, true, afterEnterStart);
       }
     } finally {
       ctxFore.restore();
@@ -9167,22 +9494,28 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   }
 
   if (presetKey === 'zine') {
-    const zFn = (sz) => `700 ${sz}px "Anton", "Impact", sans-serif`;
+    const zFam = pickFontFam('"Anton", "Impact", sans-serif');
+    const zFn = (sz) => `700 ${sz}px ${zFam}`;
+    const zTrkHero = trackEmWith(0.015);
+    const zTrkBody = trackEmWith(0.02);
+    const zHi = pickHi('#EA4C1D');
+    const zBase = pickBase('#111827');
     const strips = [];
     if (isSampleCard) {
-      strips.push({ txt: 'REAL CREATORS', isHero: false, tilt: -0.024, segWords: null, pFactor: 1.0, fStart: capStart });
-      strips.push({ txt: 'NEVER BLEND IN', isHero: true, tilt: 0.017, segWords: null, pFactor: 1.0, fStart: capStart });
+      strips.push({ txt: applyCase('REAL CREATORS'), isHero: false, tilt: -0.024, segWords: null, pFactor: 1.0, fStart: capStart });
+      strips.push({ txt: applyCase('NEVER BLEND IN'), isHero: true, tilt: 0.017, segWords: null, pFactor: 1.0, fStart: capStart });
     } else {
-      if (split.beforeTxt) strips.push({ txt: split.beforeTxt.toUpperCase(), isHero: false, tilt: -0.024, segWords: split.beforeWords, pFactor: beforeP, fStart: beforeEnterStart });
-      if (split.heroTxt) strips.push({ txt: split.heroTxt.toUpperCase(), isHero: true, tilt: split.beforeTxt ? 0.017 : -0.020, segWords: split.heroWord ? [split.heroWord] : null, pFactor: heroP, fStart: heroEnterStart });
-      if (split.afterTxt) strips.push({ txt: split.afterTxt.toUpperCase(), isHero: false, tilt: -0.015, segWords: split.afterWords, pFactor: afterP, fStart: afterEnterStart });
+      if (split.beforeTxt) strips.push({ txt: applyCase(split.beforeTxt), isHero: false, tilt: -0.024, segWords: split.beforeWords, pFactor: beforeP, fStart: beforeEnterStart });
+      if (split.heroTxt) strips.push({ txt: applyCase(split.heroTxt), isHero: true, tilt: split.beforeTxt ? 0.017 : -0.020, segWords: split.heroWord ? [split.heroWord] : null, pFactor: heroP, fStart: heroEnterStart });
+      if (split.afterTxt) strips.push({ txt: applyCase(split.afterTxt), isHero: false, tilt: -0.015, segWords: split.afterWords, pFactor: afterP, fStart: afterEnterStart });
     }
     if (!strips.length) return;
 
     const baseMaxSz = strips.length >= 3 ? H * 0.040 : H * 0.046;
     strips.forEach((s) => {
-      s.sz = fitFont(ctxFore, s.txt, zFn, baseMaxSz * fontScale, H * 0.020, W * 0.76, s.isHero ? 0.015 : 0.02);
+      s.sz = fitFont(ctxFore, s.txt, zFn, baseMaxSz * fontScale, H * 0.020, W * 0.76, s.isHero ? zTrkHero : zTrkBody);
     });
+    recordSceneBox(heroX - W * 0.44, cy - H * 0.14 * lineSpacingMult, W * 0.88, H * 0.28 * lineSpacingMult);
 
     const drawTornStrip = (strip, stripCy) => {
       if (!strip.txt || (!fullInstant && strip.pFactor <= 0.01)) return;
@@ -9193,8 +9526,8 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.save();
       try {
         ctxFore.font = zFn(sz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.02em';
-        const tw = measureW(ctxFore, strip.txt, sz, 0.02);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${zTrkBody}em`;
+        const tw = measureW(ctxFore, strip.txt, sz, zTrkBody);
         const padX = Math.round(sz * 0.65);
         const pw = Math.min(Math.round(W * 0.88), Math.round(tw + padX * 2));
         const ph = Math.round(sz * 1.48);
@@ -9231,7 +9564,7 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
           ctxFore.fillStyle = '#F9F5EB';
           ctxFore.fill();
           ctxFore.shadowColor = 'transparent';
-          ctxFore.strokeStyle = '#EA4C1D';
+          ctxFore.strokeStyle = zHi;
           ctxFore.lineWidth = Math.max(1.8, H * 0.0022);
           roundRectPath(ctxFore, x0 + 4, y0 + 4, pw - 8, ph - 8, Math.round(H * 0.003));
           ctxFore.stroke();
@@ -9239,13 +9572,13 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
           const hlW = Math.round(tw * 0.62);
           const hlX = Math.round(-hlW * 0.35);
           const hlH = Math.round(sz * 0.92);
-          ctxFore.fillStyle = 'rgba(250, 232, 20, 0.85)';
+          ctxFore.fillStyle = customHighlight ? 'rgba(255, 255, 255, 0.35)' : 'rgba(250, 232, 20, 0.85)';
           ctxFore.fillRect(hlX, Math.round(-hlH * 0.48), hlW, hlH);
         }
 
-        ctxFore.shadowColor = 'transparent';
+        applyGlow(ctxFore, 'transparent', 0, 1);
         ctxFore.textBaseline = 'middle';
-        drawTimedSegment(ctxFore, strip.segWords, strip.txt, 0, Math.round(sz * 0.04), sz, 0.02, isHighlight ? '#EA4C1D' : '#111827', (v) => v.toUpperCase(), true, strip.fStart);
+        drawTimedSegment(ctxFore, strip.segWords, strip.txt, 0, Math.round(sz * 0.04), sz, zTrkBody, isHighlight ? zHi : zBase, applyCase, true, strip.fStart);
       } finally {
         ctxFore.restore();
       }
@@ -9254,10 +9587,10 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     if (strips.length === 1) {
       drawTornStrip(strips[0], cy);
     } else if (strips.length === 2) {
-      drawTornStrip(strips[0], Math.round(cy - strips[0].sz * 0.78));
-      drawTornStrip(strips[1], Math.round(cy + strips[1].sz * 0.84));
+      drawTornStrip(strips[0], Math.round(cy - strips[0].sz * 0.78 * lineSpacingMult));
+      drawTornStrip(strips[1], Math.round(cy + strips[1].sz * 0.84 * lineSpacingMult));
     } else {
-      const stepY = Math.round(Math.max(strips[0].sz, strips[1].sz, strips[2].sz) * 1.62);
+      const stepY = Math.round(Math.max(strips[0].sz, strips[1].sz, strips[2].sz) * 1.62 * lineSpacingMult);
       drawTornStrip(strips[0], cy - stepY);
       drawTornStrip(strips[1], cy);
       drawTornStrip(strips[2], cy + stepY);
@@ -9266,23 +9599,27 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   }
 
   if (presetKey === 'volt') {
-    const beforeTxt = (isSampleCard ? 'BUILT' : split.beforeTxt).toUpperCase();
-    const pillTxt = (isSampleCard ? 'DIFFERENT' : (split.heroTxt || 'DIFFERENT')).toUpperCase();
-    const afterTxt = (isSampleCard ? '' : split.afterTxt).toUpperCase();
+    const beforeTxt = applyCase(isSampleCard ? 'BUILT' : split.beforeTxt);
+    const pillTxt = applyCase(isSampleCard ? 'DIFFERENT' : (split.heroTxt || 'DIFFERENT'));
+    const afterTxt = applyCase(isSampleCard ? '' : split.afterTxt);
     const tagTxt = `[FOCUS // ${String(capIdx + 1).padStart(2, '0')}]`;
     const mFn = (sz) => `700 ${sz}px "Space Mono", monospace`;
-    const wFn = (sz) => `italic 900 ${sz}px "Montserrat", "Inter", sans-serif`;
+    const wFam = pickFontFam('"Montserrat", "Inter", sans-serif');
+    const wFn = (sz) => `italic 900 ${sz}px ${wFam}`;
+    const vTrk = trackEmWith(-0.02);
+    const vHi = pickHi('#D4FF00');
+    const vBase = pickBase('#FFFFFF');
 
     const tagSz = Math.round(H * 0.017 * fontScale);
     const fullStr = [beforeTxt, pillTxt, afterTxt].filter(Boolean).join('  ');
-    const rowSz = fitFont(ctxFore, fullStr, wFn, H * 0.044 * fontScale, H * 0.015, W * 0.76, -0.02);
+    const rowSz = fitFont(ctxFore, fullStr, wFn, H * 0.044 * fontScale, H * 0.015, W * 0.76, vTrk);
 
     ctxFore.save();
     ctxFore.font = wFn(rowSz);
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
-    const bw = beforeTxt ? measureW(ctxFore, beforeTxt, rowSz, -0.02) : 0;
-    const pwTxt = measureW(ctxFore, pillTxt, rowSz, -0.02);
-    const aw = afterTxt ? measureW(ctxFore, afterTxt, rowSz, -0.02) : 0;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${vTrk}em`;
+    const bw = beforeTxt ? measureW(ctxFore, beforeTxt, rowSz, vTrk) : 0;
+    const pwTxt = measureW(ctxFore, pillTxt, rowSz, vTrk);
+    const aw = afterTxt ? measureW(ctxFore, afterTxt, rowSz, vTrk) : 0;
     ctxFore.restore();
 
     const pillPadX = Math.round(rowSz * 0.56);
@@ -9292,10 +9629,11 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     const gap2 = afterTxt ? Math.round(rowSz * 0.34) : 0;
     const contentW = bw + gap1 + pillW + gap2 + aw;
     const frameW = Math.min(Math.round(W * 0.92), Math.round(Math.max(contentW + H * 0.05, H * 0.24)));
-    const frameH = Math.round(pillH + tagSz * 2.0 + H * 0.018);
+    const frameH = Math.round(pillH + tagSz * 2.0 * lineSpacingMult + H * 0.018);
     const fx0 = Math.round(heroX - frameW * 0.5);
     const fy0 = Math.round(cy - frameH * 0.5);
     const ep = easeOutCubic(Math.max(beforeP, heroP, afterP));
+    recordSceneBox(fx0, fy0, frameW, frameH);
 
     ctxFore.save();
     try {
@@ -9305,7 +9643,7 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.fill();
 
       const bLen = Math.round(Math.min(frameW, frameH) * 0.16);
-      ctxFore.strokeStyle = '#D4FF00';
+      ctxFore.strokeStyle = vHi;
       ctxFore.lineWidth = Math.max(2.0, H * 0.0022);
       const corner = (x, y, dx, dy) => {
         ctxFore.beginPath();
@@ -9324,16 +9662,15 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.font = mFn(tagSz);
       ctxFore.textAlign = 'left';
       ctxFore.textBaseline = 'middle';
-      ctxFore.fillStyle = '#CBD5E1';
+      ctxFore.fillStyle = pickBase('#CBD5E1');
       ctxFore.fillText(tagTxt, Math.round(fx0 + H * 0.018), tagY);
 
       const rowCy = Math.round(fy0 + frameH - pillH * 0.5 - H * 0.012);
       if (beforeTxt && (fullInstant || beforeP > 0.01)) {
         ctxFore.font = wFn(rowSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctxFore.shadowBlur = 6;
-        drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, startX, rowCy, rowSz, -0.02, '#FFFFFF', (v) => v.toUpperCase(), false, beforeEnterStart);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${vTrk}em`;
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 6, 1);
+        drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, startX, rowCy, rowSz, vTrk, vBase, applyCase, false, beforeEnterStart);
       }
 
       const px = Math.round(startX + bw + gap1);
@@ -9343,15 +9680,14 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         ctxFore.globalAlpha = exitFade * ep * hep;
         ctxFore.translate(px + pillW * 0.5, rowCy);
         ctxFore.transform(1, 0, -0.10, 1, 0, 0);
-        ctxFore.shadowColor = 'rgba(212, 255, 0, 0.55)';
-        ctxFore.shadowBlur = 10;
+        applyGlow(ctxFore, customHighlight || 'rgba(212, 255, 0, 0.55)', 10, 1);
         roundRectPath(ctxFore, -pillW * 0.5, -pillH * 0.5, pillW, pillH, Math.round(pillH * 0.24));
-        ctxFore.fillStyle = '#D4FF00';
+        ctxFore.fillStyle = vHi;
         ctxFore.fill();
 
         ctxFore.shadowColor = 'transparent';
         ctxFore.font = wFn(rowSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${vTrk}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'middle';
         ctxFore.fillStyle = '#0A0D14';
@@ -9362,10 +9698,9 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       if (afterTxt && (fullInstant || afterP > 0.01)) {
         const ax = Math.round(px + pillW + gap2);
         ctxFore.font = wFn(rowSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
-        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctxFore.shadowBlur = 6;
-        drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, ax, rowCy, rowSz, -0.02, '#FFFFFF', (v) => v.toUpperCase(), false, afterEnterStart);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${vTrk}em`;
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 6, 1);
+        drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, ax, rowCy, rowSz, vTrk, vBase, applyCase, false, afterEnterStart);
       }
     } finally {
       ctxFore.restore();
@@ -9374,22 +9709,28 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   }
 
   if (presetKey === 'porcelain') {
-    const beforeTxt = (isSampleCard ? '' : split.beforeTxt).toUpperCase();
-    const heroWord = isSampleCard ? 'effortless' : (split.heroTxt ? (userCase === 'upper' ? split.heroTxt.toUpperCase() : split.heroTxt.toLowerCase()) : 'effortless');
-    const afterTxt = (isSampleCard ? 'LUXURY HABITS' : split.afterTxt).toUpperCase();
-    const hFn = (sz) => `italic 700 ${sz}px "Playfair Display", Georgia, serif`;
-    const tFn = (sz) => `600 ${sz}px "Inter", "Poppins", sans-serif`;
+    const beforeTxt = applyCase(isSampleCard ? '' : split.beforeTxt);
+    const heroWord = isSampleCard ? 'effortless' : (split.heroTxt ? (userCase === 'upper' ? split.heroTxt.toUpperCase() : (userCase === 'title' ? applyCase(split.heroTxt) : split.heroTxt.toLowerCase())) : 'effortless');
+    const afterTxt = applyCase(isSampleCard ? 'LUXURY HABITS' : split.afterTxt);
+    const pHFam = pickFontFam('"Playfair Display", Georgia, serif');
+    const pTFam = pickFontFam('"Inter", "Poppins", sans-serif');
+    const hFn = (sz) => `italic 700 ${sz}px ${pHFam}`;
+    const tFn = (sz) => `600 ${sz}px ${pTFam}`;
+    const pHTrk = trackEmWith(-0.015);
+    const pTTrk = trackEmWith(0.10);
+    const pHi = pickHi('#C59B5F');
+    const pBase = pickBase('#292524');
 
     let hSz = Math.round(H * 0.036 * fontScale);
     let tSz = Math.round(H * 0.024 * fontScale);
     const measurePorcelain = (hs, ts) => {
       ctxFore.save();
       ctxFore.font = hFn(hs);
-      const hw = measureW(ctxFore, heroWord, hs, -0.015);
+      const hw = measureW(ctxFore, heroWord, hs, pHTrk);
       ctxFore.font = tFn(ts);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.10em';
-      const bw = beforeTxt ? measureW(ctxFore, beforeTxt, ts, 0.10) : 0;
-      const aw = afterTxt ? measureW(ctxFore, afterTxt, ts, 0.10) : 0;
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${pTTrk}em`;
+      const bw = beforeTxt ? measureW(ctxFore, beforeTxt, ts, pTTrk) : 0;
+      const aw = afterTxt ? measureW(ctxFore, afterTxt, ts, pTTrk) : 0;
       ctxFore.restore();
       const s1 = beforeTxt ? Math.round(hs * 0.85) : 0;
       const s2 = afterTxt ? Math.round(hs * 0.85) : 0;
@@ -9404,14 +9745,15 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     }
 
     const cardW = Math.min(Math.round(W * 0.92), Math.round(dims.total + H * 0.056));
-    const cardH = Math.round(Math.max(hSz, tSz) * 2.1);
+    const cardH = Math.round(Math.max(hSz, tSz) * 2.1 * lineSpacingMult);
     const cx0 = Math.round(heroX - cardW * 0.5);
     const cy0 = Math.round(cy - cardH * 0.5);
     const ep = easeOutCubic(Math.max(beforeP, heroP, afterP));
+    recordSceneBox(cx0, cy0, cardW, cardH);
 
     const drawGoldDiamond = (dx) => {
       const dr = Math.max(3, Math.round(hSz * 0.14));
-      ctxFore.fillStyle = '#C59B5F';
+      ctxFore.fillStyle = pHi;
       ctxFore.beginPath();
       ctxFore.moveTo(dx, cy - dr);
       ctxFore.lineTo(dx + dr, cy);
@@ -9435,7 +9777,7 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.fill();
 
       ctxFore.shadowColor = 'transparent';
-      ctxFore.strokeStyle = 'rgba(197, 155, 95, 0.72)';
+      ctxFore.strokeStyle = customHighlight || 'rgba(197, 155, 95, 0.72)';
       ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
       ctxFore.stroke();
 
@@ -9445,8 +9787,9 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       if (beforeTxt) {
         if (fullInstant || beforeP > 0.01) {
           ctxFore.font = tFn(tSz);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.10em';
-          drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, curX, cy + Math.round(tSz * 0.04), tSz, 0.10, '#292524', (v) => v.toUpperCase(), false, beforeEnterStart);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${pTTrk}em`;
+          applyGlow(ctxFore, 'transparent', 0, 1);
+          drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, curX, cy + Math.round(tSz * 0.04), tSz, pTTrk, pBase, applyCase, false, beforeEnterStart);
         }
         curX += dims.bw;
         if (fullInstant || heroP > 0.01) drawGoldDiamond(Math.round(curX + dims.s1 * 0.5));
@@ -9459,8 +9802,9 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         ctxFore.globalAlpha = exitFade * ep * hep;
         ctxFore.textAlign = 'left';
         ctxFore.font = hFn(hSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
-        ctxFore.fillStyle = '#1C1917';
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${pHTrk}em`;
+        applyGlow(ctxFore, 'transparent', 0, 1);
+        ctxFore.fillStyle = customHighlight || '#1C1917';
         ctxFore.fillText(heroWord, Math.round(curX), cy);
         ctxFore.restore();
       }
@@ -9470,8 +9814,9 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         if (fullInstant || afterP > 0.01) {
           drawGoldDiamond(Math.round(curX + dims.s2 * 0.5));
           ctxFore.font = tFn(tSz);
-          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.10em';
-          drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, Math.round(curX + dims.s2), cy + Math.round(tSz * 0.04), tSz, 0.10, '#292524', (v) => v.toUpperCase(), false, afterEnterStart);
+          if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${pTTrk}em`;
+          applyGlow(ctxFore, 'transparent', 0, 1);
+          drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, Math.round(curX + dims.s2), cy + Math.round(tSz * 0.04), tSz, pTTrk, pBase, applyCase, false, afterEnterStart);
         }
       }
     } finally {
@@ -9481,19 +9826,22 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   }
 
   if (presetKey === 'holo') {
-    const beforeTxt = (isSampleCard ? 'ONE IDEA' : split.beforeTxt).toUpperCase();
-    const pillStr = (isSampleCard ? 'CHANGES ALL' : (split.heroTxt || 'CHANGES')).toUpperCase();
-    const afterTxt = (isSampleCard ? '' : split.afterTxt).toUpperCase();
-    const oFn = (sz) => `800 ${sz}px "Outfit", "Poppins", sans-serif`;
+    const beforeTxt = applyCase(isSampleCard ? 'ONE IDEA' : split.beforeTxt);
+    const pillStr = applyCase(isSampleCard ? 'CHANGES ALL' : (split.heroTxt || 'CHANGES'));
+    const afterTxt = applyCase(isSampleCard ? '' : split.afterTxt);
+    const oFam = pickFontFam('"Outfit", "Poppins", sans-serif');
+    const oFn = (sz) => `800 ${sz}px ${oFam}`;
+    const oTrk = trackEmWith(-0.015);
+    const hBase = pickBase('#F8FAFC');
     const combinedStr = [beforeTxt, pillStr, afterTxt].filter(Boolean).join('  ');
-    const tSz = fitFont(ctxFore, combinedStr, oFn, H * 0.032 * fontScale, H * 0.014, W * 0.72, -0.015);
+    const tSz = fitFont(ctxFore, combinedStr, oFn, H * 0.032 * fontScale, H * 0.014, W * 0.72, oTrk);
 
     ctxFore.save();
     ctxFore.font = oFn(tSz);
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
-    const bw = beforeTxt ? measureW(ctxFore, beforeTxt, tSz, -0.015) : 0;
-    const pwTxt = measureW(ctxFore, pillStr, tSz, -0.015);
-    const aw = afterTxt ? measureW(ctxFore, afterTxt, tSz, -0.015) : 0;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${oTrk}em`;
+    const bw = beforeTxt ? measureW(ctxFore, beforeTxt, tSz, oTrk) : 0;
+    const pwTxt = measureW(ctxFore, pillStr, tSz, oTrk);
+    const aw = afterTxt ? measureW(ctxFore, afterTxt, tSz, oTrk) : 0;
     ctxFore.restore();
 
     const pPadX = Math.round(tSz * 0.72);
@@ -9503,10 +9851,11 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     const gap2 = afterTxt ? Math.round(tSz * 0.42) : 0;
     const innerW = bw + gap1 + pillW + gap2 + aw;
     const barW = Math.min(Math.round(W * 0.92), Math.round(innerW + H * 0.046));
-    const barH = Math.round(pillH + H * 0.022);
+    const barH = Math.round(pillH * lineSpacingMult + H * 0.022);
     const bx = Math.round(heroX - barW * 0.5);
     const by = Math.round(cy - barH * 0.5);
     const ep = easeOutCubic(Math.max(beforeP, heroP, afterP));
+    recordSceneBox(bx, by, barW, barH);
 
     ctxFore.save();
     try {
@@ -9518,7 +9867,7 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.fillStyle = 'rgba(18, 22, 36, 0.84)';
       ctxFore.fill();
       ctxFore.shadowColor = 'transparent';
-      ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.24)';
+      ctxFore.strokeStyle = customHighlight || 'rgba(255, 255, 255, 0.24)';
       ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
       ctxFore.stroke();
 
@@ -9526,8 +9875,9 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.textBaseline = 'middle';
       if (beforeTxt && (fullInstant || beforeP > 0.01)) {
         ctxFore.font = oFn(tSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
-        drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, startX, cy, tSz, -0.015, '#F8FAFC', (v) => v.toUpperCase(), false, beforeEnterStart);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${oTrk}em`;
+        applyGlow(ctxFore, 'transparent', 0, 1);
+        drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, startX, cy, tSz, oTrk, hBase, applyCase, false, beforeEnterStart);
       }
 
       const px = Math.round(startX + bw + gap1);
@@ -9541,10 +9891,9 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         hg.addColorStop(0.45, '#F5D0FE');
         hg.addColorStop(0.80, '#DDD6FE');
         hg.addColorStop(1.00, '#BAE6FD');
-        ctxFore.shadowColor = 'rgba(165, 243, 252, 0.55)';
-        ctxFore.shadowBlur = 10;
+        applyGlow(ctxFore, customHighlight || 'rgba(165, 243, 252, 0.55)', 10, 1);
         roundRectPath(ctxFore, px, py, pillW, pillH, Math.round(pillH * 0.5));
-        ctxFore.fillStyle = hg;
+        ctxFore.fillStyle = customHighlight || hg;
         ctxFore.fill();
 
         ctxFore.shadowColor = 'transparent';
@@ -9553,6 +9902,7 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         ctxFore.stroke();
 
         ctxFore.font = oFn(tSz);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${oTrk}em`;
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'middle';
         ctxFore.fillStyle = '#0F172A';
@@ -9566,8 +9916,9 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       if (afterTxt && (fullInstant || afterP > 0.01)) {
         const ax = Math.round(px + pillW + gap2);
         ctxFore.font = oFn(tSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.015em';
-        drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, ax, cy, tSz, -0.015, '#F8FAFC', (v) => v.toUpperCase(), false, afterEnterStart);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${oTrk}em`;
+        applyGlow(ctxFore, 'transparent', 0, 1);
+        drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, ax, cy, tSz, oTrk, hBase, applyCase, false, afterEnterStart);
       }
     } finally {
       ctxFore.restore();
@@ -9577,12 +9928,18 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
 
   // 'film' — Espresso Analog Film Strip: strictly chronological [before serif] -> [hero amber badge] -> [after serif]
   const stampTxt = `24FPS • ${isSampleCard ? 'GOLDEN HOUR' : `REEL ${String(capIdx + 1).padStart(2, '0')}`}`;
-  const beforeSerif = (isSampleCard ? 'CHASING LIGHT' : split.beforeTxt).toUpperCase();
-  const badgeStr = (isSampleCard ? 'EVERY DAY' : (split.heroTxt || 'GOLDEN')).toUpperCase();
-  const afterSerif = (isSampleCard ? '' : split.afterTxt).toUpperCase();
+  const beforeSerif = applyCase(isSampleCard ? 'CHASING LIGHT' : split.beforeTxt);
+  const badgeStr = applyCase(isSampleCard ? 'EVERY DAY' : (split.heroTxt || 'GOLDEN'));
+  const afterSerif = applyCase(isSampleCard ? '' : split.afterTxt);
   const mFn = (sz) => `700 ${sz}px "Space Mono", monospace`;
-  const sFn = (sz) => `700 ${sz}px "Playfair Display", Georgia, serif`;
-  const bFn = (sz) => `700 ${sz}px "Inter", "Poppins", sans-serif`;
+  const sFam = pickFontFam('"Playfair Display", Georgia, serif');
+  const bFam = pickFontFam('"Inter", "Poppins", sans-serif');
+  const sFn = (sz) => `700 ${sz}px ${sFam}`;
+  const bFn = (sz) => `700 ${sz}px ${bFam}`;
+  const fSTrk = trackEmWith(-0.01);
+  const fBTrk = trackEmWith(0.06);
+  const fHi = pickHi('#F59E0B');
+  const fBase = pickBase('#FFF7E6');
 
   const stampSz = Math.round(H * 0.016 * fontScale);
   let sSz = Math.round(H * 0.042 * fontScale);
@@ -9590,11 +9947,11 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   const measureFilm = (ss, bs) => {
     ctxFore.save();
     ctxFore.font = sFn(ss);
-    const bw = beforeSerif ? measureW(ctxFore, beforeSerif, ss, -0.01) : 0;
-    const aw = afterSerif ? measureW(ctxFore, afterSerif, ss, -0.01) : 0;
+    const bw = beforeSerif ? measureW(ctxFore, beforeSerif, ss, fSTrk) : 0;
+    const aw = afterSerif ? measureW(ctxFore, afterSerif, ss, fSTrk) : 0;
     ctxFore.font = bFn(bs);
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.06em';
-    const bTxtW = badgeStr ? measureW(ctxFore, badgeStr, bs, 0.06) : 0;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fBTrk}em`;
+    const bTxtW = badgeStr ? measureW(ctxFore, badgeStr, bs, fBTrk) : 0;
     ctxFore.restore();
     const pW = badgeStr ? Math.round(bTxtW + bs * 1.4) : 0;
     const pH = badgeStr ? Math.round(bs * 1.95) : 0;
@@ -9611,10 +9968,11 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   }
 
   const cardW = Math.min(Math.round(W * 0.92), Math.round(Math.max(fDims.rowW + H * 0.054, H * 0.25)));
-  const cardH = Math.round(stampSz * 1.8 + Math.max(sSz, fDims.pH) * 1.42 + H * 0.026);
+  const cardH = Math.round(stampSz * 1.8 * lineSpacingMult + Math.max(sSz, fDims.pH) * 1.42 + H * 0.026);
   const fx0 = Math.round(heroX - cardW * 0.5);
   const fy0 = Math.round(cy - cardH * 0.5);
   const ep = easeOutCubic(Math.max(beforeP, heroP, afterP));
+  recordSceneBox(fx0, fy0, cardW, cardH);
 
   ctxFore.save();
   try {
@@ -9627,7 +9985,7 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     ctxFore.fill();
 
     ctxFore.shadowColor = 'transparent';
-    ctxFore.strokeStyle = 'rgba(217, 119, 6, 0.36)';
+    ctxFore.strokeStyle = customHighlight || 'rgba(217, 119, 6, 0.36)';
     ctxFore.lineWidth = Math.max(1.1, H * 0.0013);
     ctxFore.stroke();
 
@@ -9635,9 +9993,8 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     ctxFore.font = mFn(stampSz);
     ctxFore.textAlign = 'center';
     ctxFore.textBaseline = 'middle';
-    ctxFore.fillStyle = '#F59E0B';
-    ctxFore.shadowColor = 'rgba(245, 158, 11, 0.45)';
-    ctxFore.shadowBlur = 5;
+    ctxFore.fillStyle = fHi;
+    applyGlow(ctxFore, customHighlight || 'rgba(245, 158, 11, 0.45)', 5, 1);
     ctxFore.fillText(stampTxt, heroX, stampY);
 
     const rowCy = Math.round(fy0 + cardH - Math.max(sSz, fDims.pH) * 0.68 - H * 0.010);
@@ -9645,10 +10002,10 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
 
     if (beforeSerif && (fullInstant || beforeP > 0.01)) {
       ctxFore.font = sFn(sSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fSTrk}em`;
       ctxFore.textBaseline = 'middle';
-      ctxFore.shadowColor = 'rgba(253, 230, 138, 0.45)';
-      ctxFore.shadowBlur = 8;
-      drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeSerif, startX, rowCy, sSz, -0.01, '#FFF7E6', (v) => v.toUpperCase(), false, beforeEnterStart);
+      applyGlow(ctxFore, 'rgba(253, 230, 138, 0.45)', 8, 1);
+      drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeSerif, startX, rowCy, sSz, fSTrk, fBase, applyCase, false, beforeEnterStart);
     }
 
     const bx = Math.round(startX + fDims.bw + fDims.g1);
@@ -9660,10 +10017,9 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       const ag = ctxFore.createLinearGradient(bx, by, bx + fDims.pW, by + fDims.pH);
       ag.addColorStop(0.0, '#B45309');
       ag.addColorStop(1.0, '#78350F');
-      ctxFore.shadowColor = 'rgba(245, 158, 11, 0.40)';
-      ctxFore.shadowBlur = 8;
+      applyGlow(ctxFore, customHighlight || 'rgba(245, 158, 11, 0.40)', 8, 1);
       roundRectPath(ctxFore, bx, by, fDims.pW, fDims.pH, Math.round(fDims.pH * 0.5));
-      ctxFore.fillStyle = ag;
+      ctxFore.fillStyle = customHighlight || ag;
       ctxFore.fill();
 
       ctxFore.shadowColor = 'transparent';
@@ -9672,10 +10028,10 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.stroke();
 
       ctxFore.font = bFn(bSz);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.06em';
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fBTrk}em`;
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'middle';
-      ctxFore.fillStyle = '#FFF7E6';
+      ctxFore.fillStyle = customHighlight ? '#0F172A' : '#FFF7E6';
       ctxFore.fillText(badgeStr, Math.round(bx + fDims.pW * 0.5), rowCy + Math.round(bSz * 0.03));
       ctxFore.restore();
     }
@@ -9683,10 +10039,10 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     if (afterSerif && (fullInstant || afterP > 0.01)) {
       const ax = Math.round(bx + fDims.pW + fDims.g2);
       ctxFore.font = sFn(sSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fSTrk}em`;
       ctxFore.textBaseline = 'middle';
-      ctxFore.shadowColor = 'rgba(253, 230, 138, 0.45)';
-      ctxFore.shadowBlur = 8;
-      drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterSerif, ax, rowCy, sSz, -0.01, '#FFF7E6', (v) => v.toUpperCase(), false, afterEnterStart);
+      applyGlow(ctxFore, 'rgba(253, 230, 138, 0.45)', 8, 1);
+      drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterSerif, ax, rowCy, sSz, fSTrk, fBase, applyCase, false, afterEnterStart);
     }
   } finally {
     ctxFore.restore();
@@ -9705,7 +10061,11 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
   const rt = initEditorialSceneRuntime(ctxFore, null, capArg, words, t, st, W, H, false, []);
   if (rt.exitFade <= 0.005) return;
 
-  const { isSampleCard, capStart, capEnd, evalT, fullInstant, exitFade, capIdx, heroX, fontScale, cleanTok, wordStart, easeOutCubic, measureW, roundRectPath, pickHeroIdx } = rt;
+  const {
+    isSampleCard, capStart, capEnd, evalT, fullInstant, exitFade, capIdx, heroX, fontScale,
+    cleanTok, wordStart, easeOutCubic, measureW, roundRectPath, pickHeroIdx,
+    lineSpacingMult, customHighlight, pickHi, pickBase, pickFontFam, trackEmWith, applyGlow, recordSceneBox
+  } = rt;
   const anchorRatio = Math.max(0.20, Math.min(0.86, Number(st && (st.posY ?? st.position)) || 0.73));
   const cy = Math.round(H * anchorRatio);
 
@@ -9734,9 +10094,9 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
 
   const isTiles = styleKey === 'prismTiles';
   const isRise = styleKey === 'wordRise';
-  const fontFam = isTiles ? '"Outfit", "Montserrat", sans-serif' : (styleKey === 'spotlight' ? '"Poppins", "Inter", sans-serif' : '"Montserrat", "Poppins", sans-serif');
+  const fontFam = pickFontFam(isTiles ? '"Outfit", "Montserrat", sans-serif' : (styleKey === 'spotlight' ? '"Poppins", "Inter", sans-serif' : '"Montserrat", "Poppins", sans-serif'));
   const fontWeight = isTiles ? 900 : (isRise ? 800 : 700);
-  const trackEm = isTiles ? 0.02 : -0.01;
+  const trackEm = trackEmWith(isTiles ? 0.02 : -0.01);
   const maxBoxW = Math.round(W * 0.90);
   const padX = isTiles ? Math.round(H * 0.014) : 0;
   const gapX = isTiles ? Math.round(H * 0.010) : Math.round(H * 0.014);
@@ -9776,10 +10136,11 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
   }
 
   const lineH = Math.round(fontSize * (isTiles ? 1.56 : 1.36));
-  const rowGap = Math.round(fontSize * 0.24);
+  const rowGap = Math.round(fontSize * 0.24 * lineSpacingMult);
   const totalH = lines.length * lineH + Math.max(0, lines.length - 1) * rowGap;
   const maxLineW = lines.reduce((m, l) => Math.max(m, l.width), 0);
   const topY = Math.round(cy - totalH * 0.5);
+  recordSceneBox(heroX - maxLineW * 0.5 - H * 0.024, topY - H * 0.016, maxLineW + H * 0.048, totalH + H * 0.032);
 
   const easeOutBack = (x) => {
     const c1 = 1.35;
@@ -9810,7 +10171,7 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
     // Shared atmospheric container strip for wordRise & velvetSpotlight
     if (isRise || styleKey === 'spotlight') {
       const stripPadX = Math.round(H * 0.024);
-      const stripPadY = Math.round(H * 0.015);
+      const stripPadY = Math.round(H * 0.015 * lineSpacingMult);
       const sx = Math.round(heroX - maxLineW * 0.5 - stripPadX);
       const sy = Math.round(topY - stripPadY);
       const sw = Math.round(maxLineW + stripPadX * 2);
@@ -9824,7 +10185,7 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
       ctxFore.fillStyle = styleKey === 'spotlight' ? 'rgba(10, 12, 18, 0.78)' : 'rgba(8, 12, 22, 0.62)';
       ctxFore.fill();
       ctxFore.shadowColor = 'transparent';
-      ctxFore.strokeStyle = styleKey === 'spotlight' ? 'rgba(252, 211, 77, 0.24)' : 'rgba(56, 189, 248, 0.28)';
+      ctxFore.strokeStyle = customHighlight || (styleKey === 'spotlight' ? 'rgba(252, 211, 77, 0.24)' : 'rgba(56, 189, 248, 0.28)');
       ctxFore.lineWidth = Math.max(1.0, H * 0.0012);
       ctxFore.stroke();
 
@@ -9838,7 +10199,7 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
         beamG.addColorStop(0.0, 'rgba(56, 189, 248, 0.20)');
         beamG.addColorStop(0.5, '#38BDF8');
         beamG.addColorStop(1.0, 'rgba(125, 211, 252, 0.25)');
-        ctxFore.fillStyle = beamG;
+        ctxFore.fillStyle = customHighlight || beamG;
         roundRectPath(ctxFore, beamX, beamY, beamW, Math.max(2.5, Math.round(H * 0.003)), 2);
         ctxFore.fill();
       }
@@ -9861,7 +10222,6 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
         const rawP = fullInstant ? 1.0 : (evalT >= wObj.s - 0.02 ? Math.min(1, Math.max(0, (evalT - wObj.s) / enterDur)) : 0);
 
         if (isRise) {
-          // Each word rises from below (+Y) through its baseline slot clip mask into the full line
           if (rawP > 0.01) {
             const clipPadX = Math.max(6, Math.round(fontSize * 0.22));
             const clipTop = Math.round(rowCy - lineH * 0.62);
@@ -9876,9 +10236,8 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
             ctxFore.clip();
 
             ctxFore.globalAlpha = exitFade * Math.min(1, rawP * 2.2);
-            ctxFore.shadowColor = isCurrent ? 'rgba(56, 189, 248, 0.72)' : 'rgba(0, 0, 0, 0.78)';
-            ctxFore.shadowBlur = isCurrent ? Math.max(10, Math.round(fontSize * 0.36)) : 6;
-            ctxFore.fillStyle = isCurrent ? '#7DD3FC' : '#FFFFFF';
+            applyGlow(ctxFore, isCurrent ? (customHighlight || 'rgba(56, 189, 248, 0.72)') : 'rgba(0, 0, 0, 0.78)', isCurrent ? Math.max(10, Math.round(fontSize * 0.36)) : 6, 1);
+            ctxFore.fillStyle = isCurrent ? pickHi('#7DD3FC') : pickBase('#FFFFFF');
             ctxFore.fillText(wObj.text, wCx, rowCy + yShift);
             ctxFore.restore();
           }
@@ -9886,10 +10245,9 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
           const isSpoken = fullInstant ? (wObj.idx <= activeIdx) : (evalT >= wObj.s - 0.02);
           ctxFore.save();
           if (isCurrent) {
-            // Warm champagne radial spotlight behind active word
             const orbR = Math.max(wObj.boxW * 0.78, fontSize * 1.45);
             const rg = ctxFore.createRadialGradient(wCx, rowCy, 2, wCx, rowCy, orbR);
-            rg.addColorStop(0.0, 'rgba(252, 211, 77, 0.36)');
+            rg.addColorStop(0.0, customHighlight || 'rgba(252, 211, 77, 0.36)');
             rg.addColorStop(0.65, 'rgba(251, 191, 36, 0.10)');
             rg.addColorStop(1.0, 'rgba(251, 191, 36, 0.0)');
             ctxFore.fillStyle = rg;
@@ -9902,22 +10260,19 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
             ctxFore.translate(wCx, rowCy);
             ctxFore.scale(sc, sc);
             ctxFore.translate(-wCx, -rowCy);
-            ctxFore.shadowColor = 'rgba(251, 191, 36, 0.72)';
-            ctxFore.shadowBlur = Math.max(10, Math.round(fontSize * 0.35));
-            ctxFore.fillStyle = '#FEF08A';
+            applyGlow(ctxFore, customHighlight || 'rgba(251, 191, 36, 0.72)', Math.max(10, Math.round(fontSize * 0.35)), 1);
+            ctxFore.fillStyle = pickHi('#FEF08A');
           } else if (isSpoken) {
-            ctxFore.shadowColor = 'rgba(0, 0, 0, 0.70)';
-            ctxFore.shadowBlur = 5;
-            ctxFore.fillStyle = 'rgba(248, 250, 252, 0.96)';
+            applyGlow(ctxFore, 'rgba(0, 0, 0, 0.70)', 5, 1);
+            ctxFore.fillStyle = pickBase('rgba(248, 250, 252, 0.96)');
           } else {
             ctxFore.shadowColor = 'rgba(0, 0, 0, 0.45)';
             ctxFore.shadowBlur = 4;
-            ctxFore.fillStyle = 'rgba(248, 250, 252, 0.34)';
+            ctxFore.fillStyle = customHighlight ? 'rgba(248, 250, 252, 0.40)' : 'rgba(248, 250, 252, 0.34)';
           }
           ctxFore.fillText(wObj.text, wCx, rowCy);
           ctxFore.restore();
         } else {
-          // 'prismTiles': Individual tilted frosted obsidian cards with prism violet->cyan active tile
           if (rawP > 0.01) {
             const tileH = Math.round(fontSize * 1.44);
             const tileX = Math.round(cursorX);
@@ -9933,8 +10288,7 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
             ctxFore.scale(sc, sc);
             ctxFore.translate(-wCx, -rowCy);
 
-            ctxFore.shadowColor = isCurrent ? 'rgba(139, 92, 246, 0.65)' : 'rgba(0, 0, 0, 0.62)';
-            ctxFore.shadowBlur = isCurrent ? Math.max(12, Math.round(fontSize * 0.42)) : 8;
+            applyGlow(ctxFore, isCurrent ? (customHighlight || 'rgba(139, 92, 246, 0.65)') : 'rgba(0, 0, 0, 0.62)', isCurrent ? Math.max(12, Math.round(fontSize * 0.42)) : 8, 1);
             ctxFore.shadowOffsetY = 4;
 
             roundRectPath(ctxFore, tileX, tileY, wObj.boxW, tileH, Math.round(H * 0.011));
@@ -9942,7 +10296,7 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
               const pg = ctxFore.createLinearGradient(tileX, tileY, tileX + wObj.boxW, tileY + tileH);
               pg.addColorStop(0.0, '#7C3AED');
               pg.addColorStop(1.0, '#06B6D4');
-              ctxFore.fillStyle = pg;
+              ctxFore.fillStyle = customHighlight || pg;
             } else {
               ctxFore.fillStyle = 'rgba(15, 18, 30, 0.88)';
             }
@@ -9953,9 +10307,8 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
             ctxFore.lineWidth = Math.max(1.0, H * 0.0013);
             ctxFore.stroke();
 
-            ctxFore.fillStyle = '#FFFFFF';
-            ctxFore.shadowColor = 'rgba(0, 0, 0, 0.55)';
-            ctxFore.shadowBlur = 4;
+            ctxFore.fillStyle = pickBase('#FFFFFF');
+            applyGlow(ctxFore, isCurrent ? (customHighlight || 'rgba(0, 0, 0, 0.55)') : 'rgba(0, 0, 0, 0.55)', isCurrent ? 8 : 4, 1);
             ctxFore.fillText(wObj.text, wCx, rowCy + Math.round(fontSize * 0.03));
             ctxFore.restore();
           }
@@ -11124,7 +11477,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.22.0';
+    const CURRENT_PRESET_VER = 'v7.23.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -12807,7 +13160,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
   }
 
-  function openDrawerTab(targetId) {
+  function openDrawerTab(targetId, opts = {}) {
     if (targetId === 'tabTimeline') {
       closeDrawer();
       const btnNavTimeline = $('btnNavTimeline');
@@ -12824,6 +13177,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (iconChevron) iconChevron.style.transform = 'rotate(0deg)';
     S.activeTab = targetId;
     S.drawerOpen = true;
+    const isInstant = Boolean(opts && opts.instant);
+    drawerPanel.classList.toggle('drawer-instant', isInstant);
     drawerPanel.classList.remove('collapsed');
     drawerPanel.removeAttribute('hidden');
     const targetSheetH = S.drawerFullscreen ? 'var(--sheet-full)' : 'var(--sheet-half)';
@@ -12853,7 +13208,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     });
 
     const dc = drawerPanel.querySelector('.drawer-content');
-    if (dc && prevTab !== targetId) {
+    if (dc && (prevTab !== targetId || isInstant)) {
       dc.scrollTop = 0;
     }
 
@@ -12893,7 +13248,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     S.drawerOpen = false;
     S.drawerFullscreen = false;
     drawerPanel.classList.add('collapsed');
-    drawerPanel.classList.remove('fullscreen');
+    drawerPanel.classList.remove('fullscreen', 'drawer-instant');
     drawerPanel.setAttribute('hidden', '');
     drawerPanel.style.setProperty('--sheet-h', '0dvh');
     const eb = $('editorBody') || $('.editor-body');
@@ -13456,17 +13811,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
 
     const clonedRoles = preset.roles ? JSON.parse(JSON.stringify(preset.roles)) : undefined;
+    const defaultPos = Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75;
+    const defaultFont = preset.roles?.accent?.font || preset.key?.font || preset.fontFamily || 'Poppins';
+    const defaultHi = preset.highlightColor || preset.roles?.accent?.color || preset.key?.color || '#FFE600';
+    const defaultBase = preset.baseColor || preset.roles?.base?.color || '#FFFFFF';
     S.style = Object.assign({}, preset, {
       roles: clonedRoles || preset.roles,
       fontScale: 1.0,
-      position: Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75,
-      posY: Number.isFinite(Number(preset.position)) ? Number(preset.position) : 0.75,
+      position: defaultPos,
+      posY: defaultPos,
+      _defaultPosY: defaultPos,
       behindPerson: isBehind,
       depthAccent: Boolean(preset.depthAccent || isBehind),
-      highlightColor: preset.highlightColor || preset.roles?.accent?.color || preset.key?.color || '#FFE600',
-      fontFamily: S.style?.fontFamily || S.font || preset.roles?.accent?.font || preset.key?.font || 'Poppins',
-      textCase: S.style?.textCase || S.textCase || 'upper',
-      heroLook: S.heroLook || S.style?.heroLook || 'solid'
+      highlightColor: defaultHi,
+      baseColor: defaultBase,
+      fontFamily: defaultFont,
+      textCase: S.textCase || preset.textCase || 'upper',
+      heroLook: S.heroLook || S.style?.heroLook || 'solid',
+      lineSpacing: 1.2,
+      letterSpacing: 0,
+      _customColorActive: false,
+      _customBaseColorActive: false,
+      _customGlowActive: false,
+      _customFontActive: false
     });
 
     if (isBehind) {
@@ -13532,7 +13899,25 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         const c = sw.getAttribute('data-color');
         sw.classList.toggle('active', c && c.toLowerCase() === (S.style.highlightColor || '').toLowerCase());
       });
+      $$('#baseColorSwatches .swatch').forEach(sw => {
+        const c = sw.getAttribute('data-color');
+        sw.classList.toggle('active', c && c.toLowerCase() === (S.style.baseColor || '#FFFFFF').toLowerCase());
+      });
     }
+    const vBase = $('valBaseColor');
+    if (vBase && S.style.baseColor) {
+      vBase.textContent = S.style.baseColor;
+      vBase.style.background = S.style.baseColor;
+      vBase.style.color = (S.style.baseColor === '#FFFFFF' || S.style.baseColor.toLowerCase() === '#fffdd0' || S.style.baseColor.toLowerCase() === '#f8fafc') ? '#000' : '#fff';
+    }
+    const iBase = $('inputCustomBaseColor');
+    if (iBase && S.style.baseColor && S.style.baseColor.startsWith('#') && S.style.baseColor.length === 7) {
+      iBase.value = S.style.baseColor;
+    }
+    const vLs = $('valLineSpacing');
+    if (vLs) vLs.textContent = '120%';
+    const vLtr = $('valLetterSpacing');
+    if (vLtr) vLtr.textContent = '0%';
 
     renderCanvas();
     renderTimeline();
@@ -13902,6 +14287,41 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
     }
 
+    // Letter Spacing Stepper
+    const valLetterSpacing = $('valLetterSpacing');
+    const btnStepLetterSpacingDown = $('btnStepLetterSpacingDown');
+    const btnStepLetterSpacingUp = $('btnStepLetterSpacingUp');
+    const btnResetLetterSpacing = $('btnResetLetterSpacing');
+    const updateLetterSpacingUI = () => {
+      if (!S.style) S.style = {};
+      const ls = typeof S.style.letterSpacing === 'number' ? S.style.letterSpacing : 0;
+      if (valLetterSpacing) valLetterSpacing.textContent = `${ls >= 0 ? '+' : ''}${Math.round(ls * 100)}%`;
+    };
+    if (btnStepLetterSpacingDown) {
+      btnStepLetterSpacingDown.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.letterSpacing = Math.max(-0.06, Math.round(((S.style.letterSpacing || 0) - 0.02) * 100) / 100);
+        updateLetterSpacingUI();
+        renderCanvas();
+      });
+    }
+    if (btnStepLetterSpacingUp) {
+      btnStepLetterSpacingUp.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.letterSpacing = Math.min(0.24, Math.round(((S.style.letterSpacing || 0) + 0.02) * 100) / 100);
+        updateLetterSpacingUI();
+        renderCanvas();
+      });
+    }
+    if (btnResetLetterSpacing) {
+      btnResetLetterSpacing.addEventListener('click', () => {
+        if (!S.style) S.style = {};
+        S.style.letterSpacing = 0;
+        updateLetterSpacingUI();
+        renderCanvas();
+      });
+    }
+
     // Glow Bloom Stepper
     const valGlowBlur = $('valGlowBlur');
     const btnStepGlowDown = $('btnStepGlowDown');
@@ -13918,6 +14338,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (btnStepGlowDown) {
       btnStepGlowDown.addEventListener('click', () => {
         if (!S.style) S.style = {};
+        S.style._customGlowActive = true;
+        S.style.glowEnabled = true;
         S.style.glowBlur = Math.max(4, (typeof S.style.glowBlur === 'number' ? S.style.glowBlur : 18) - 3);
         updateGlowBlurUI();
         renderCanvas();
@@ -13926,6 +14348,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (btnStepGlowUp) {
       btnStepGlowUp.addEventListener('click', () => {
         if (!S.style) S.style = {};
+        S.style._customGlowActive = true;
+        S.style.glowEnabled = true;
         S.style.glowBlur = Math.min(45, (typeof S.style.glowBlur === 'number' ? S.style.glowBlur : 18) + 3);
         updateGlowBlurUI();
         renderCanvas();
@@ -13934,6 +14358,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (btnResetGlow) {
       btnResetGlow.addEventListener('click', () => {
         if (!S.style) S.style = {};
+        S.style._customGlowActive = false;
         S.style.glowBlur = 18;
         updateGlowBlurUI();
         renderCanvas();
@@ -14106,6 +14531,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     function setBaseColor(color) {
       if (!S.style) S.style = {};
       S.style.baseColor = color;
+      S.style._customBaseColorActive = true;
       if (!S.style.roles) S.style.roles = {};
       if (!S.style.roles.base) S.style.roles.base = {};
       S.style.roles.base.color = color;
@@ -14205,6 +14631,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (!font) return;
       if (!S.style) S.style = {};
       S.style.fontFamily = font;
+      S.style._customFontActive = true;
       S.font = font;
       if (!S.style.key) S.style.key = {};
       S.style.key.font = font;
@@ -14322,6 +14749,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     function setGlowColor(color) {
       if (!S.style) S.style = {};
       S.style.glowColor = color;
+      S.style._customGlowActive = true;
+      S.style.glowEnabled = true;
       if (!S.style.key) S.style.key = {};
       S.style.key.glow = color;
       if (!S.style.roles) S.style.roles = {};
@@ -14340,6 +14769,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         $$('#glowToggleGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
         const isOn = btn.getAttribute('data-glow') === 'on';
         if (!S.style) S.style = {};
+        S.style._customGlowActive = true;
         S.style.glowEnabled = isOn;
         if (glowOptionsBox) glowOptionsBox.classList.toggle('is-disabled', !isOn);
         if (valGlowBadge) valGlowBadge.textContent = isOn ? 'Glow: ON' : 'Off';
@@ -14366,6 +14796,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       inputGlowBlur.addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10);
         if (!S.style) S.style = {};
+        S.style._customGlowActive = true;
+        S.style.glowEnabled = true;
         S.style.glowBlur = val;
         if (valGlowBlur) {
           const label = val <= 10 ? `Soft (${val}px)` : (val <= 25 ? `Medium (${val}px)` : `Ultra (${val}px)`);
@@ -14561,13 +14993,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     const btnStageSettings = $('btnStageSettings');
     if (btnStageSettings) {
-      btnStageSettings.addEventListener('click', () => {
-        openDrawerTab('tabStyle');
-        const zoomBlock = $('zoomOptionsBlock');
-        if (zoomBlock) {
-          zoomBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        showToast('⚙️ Adjust Auto-Zoom & Stage settings');
+      btnStageSettings.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+      btnStageSettings.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openDrawerTab('tabStyle', { instant: true });
+        const dc = document.querySelector('#drawerPanel .drawer-content');
+        if (dc) dc.scrollTop = 0;
       });
     }
 
@@ -19410,7 +19841,7 @@ function updateVideoEditOverlay() {
  * Handle tap on video preview to select caption or word
  */
 function handleStageTapToEdit(e) {
-  if (e.target.closest('#videoEditMiniToolbar') || e.target.closest('.box-handle') || e.target.closest('#timelineClipActionBar')) {
+  if (e.target.closest('#videoEditMiniToolbar') || e.target.closest('.box-handle') || e.target.closest('#timelineClipActionBar') || e.target.closest('#btnStageSettings')) {
     return;
   }
   const stage = $('stage');
@@ -19800,6 +20231,16 @@ function setupVideoOverlayInteractions() {
     btnMiniEditText.addEventListener('click', (e) => {
       e.stopPropagation();
       openCaptionEditSheet(S.selectedCaptionId);
+    });
+  }
+
+  const btnMiniStyle = $('btnMiniStyle');
+  if (btnMiniStyle) {
+    btnMiniStyle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDrawerTab('tabStyle', { instant: true });
+      const dc = document.querySelector('#drawerPanel .drawer-content');
+      if (dc) dc.scrollTop = 0;
     });
   }
 

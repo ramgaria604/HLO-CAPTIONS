@@ -13,8 +13,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bangers&family=Bebas+Neue&family=Bowlby+One&family=Bungee&family=Cinzel:wght@700;900&family=Cormorant+Garamond:wght@700&family=DM+Serif+Display&family=Fredoka:wght@600;700&family=Great+Vibes&family=Inter:wght@400;500;600;700;800;900&family=Lobster&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Outfit:wght@700;800&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,700;0,900;1,600;1,700&family=Poppins:ital,wght@0,500;0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Raleway:wght@700;800&family=Righteous&family=Rubik:wght@700;800;900&family=Shrikhand&family=Space+Mono:wght@700&family=Syne:wght@700;800&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=7.21.0">
-  <link rel="stylesheet" href="/static/layout.css?v=7.21.0">
+  <link rel="stylesheet" href="/static/style.css?v=7.23.0">
+  <link rel="stylesheet" href="/static/layout.css?v=7.23.0">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -293,6 +293,9 @@
                 <button type="button" class="btn-mini-tool" id="btnMiniApplyAll" title="Copy this position to all captions" aria-label="Apply to all captions">
                   <span>Sync All</span>
                 </button>
+                <button type="button" class="btn-mini-tool btn-mini-style" id="btnMiniStyle" title="Colors, Font & Spacing" aria-label="Style settings">
+                  <span>Style</span>
+                </button>
                 <button type="button" class="btn-mini-tool btn-mini-done" id="btnMiniDone" title="Done" aria-label="Done editing">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                   <span>Done</span>
@@ -315,11 +318,12 @@
             <canvas id="captionCanvas" class="stage-canvas-layer stage-layer-fore"></canvas>
             <div id="previewDebugBadge" class="preview-debug-badge hidden"></div>
             <span id="stagePresetName" style="display:none;"></span>
-            <!-- Moonshot Floating Stage Settings Icon -->
-            <button type="button" id="btnStageSettings" class="btn-stage-settings" title="Stage & Zoom Settings" style="display:none !important;">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- Floating Caption Settings Trigger (opens Customize Style instantly) -->
+            <button type="button" id="btnStageSettings" class="btn-stage-settings" title="Caption Settings (Colors, Font, Spacing)" aria-label="Caption Settings">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
               </svg>
+              <span>Style</span>
             </button>
           </div>
         </div>
@@ -1053,6 +1057,22 @@
                 </div>
               </div>
 
+              <!-- 3b. Letter & Word Spacing Stepper -->
+              <div class="stepper-card" data-style-group="text">
+                <div class="stepper-header-row">
+                  <div class="stepper-label-col">
+                    <label class="stepper-label">↔️ Letter Spacing</label>
+                    <span class="stepper-sub">Horizontal tracking between characters</span>
+                  </div>
+                  <button type="button" class="btn-step-reset" id="btnResetLetterSpacing">Reset</button>
+                </div>
+                <div class="stepper-control-row">
+                  <button type="button" class="btn-step" id="btnStepLetterSpacingDown">−</button>
+                  <span class="stepper-value" id="valLetterSpacing">0%</span>
+                  <button type="button" class="btn-step" id="btnStepLetterSpacingUp">+</button>
+                </div>
+              </div>
+
               <!-- 4. Text Glow Bloom Stepper & Color Swatches -->
               <div class="stepper-card glow-stepper-card" data-style-group="color">
                 <div class="stepper-header-row">
@@ -1216,6 +1236,30 @@
                   </div>
                   <label class="custom-color-wrap" title="Pick any custom color">
                     <input type="color" id="inputCustomHighlight" class="custom-color-input" value="#FFE600">
+                    <span class="custom-color-label">Custom</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 7b. Base Text Color -->
+              <div class="control-card" data-style-group="color">
+                <div class="control-header">
+                  <label>🖋️ Base Text Color</label>
+                  <span id="valBaseColor" class="val-badge" style="background:#FFFFFF; color:#000;">#FFFFFF</span>
+                </div>
+                <div class="color-picker-row">
+                  <div class="color-swatches" id="baseColorSwatches">
+                    <button type="button" class="swatch active" style="--c:#FFFFFF" data-color="#FFFFFF" title="Pure White"></button>
+                    <button type="button" class="swatch" style="--c:#F8FAFC" data-color="#F8FAFC" title="Porcelain"></button>
+                    <button type="button" class="swatch" style="--c:#FFFDD0" data-color="#FFFDD0" title="Warm Cream"></button>
+                    <button type="button" class="swatch" style="--c:#E2E8F0" data-color="#E2E8F0" title="Silver Mist"></button>
+                    <button type="button" class="swatch" style="--c:#FFE600" data-color="#FFE600" title="Yellow"></button>
+                    <button type="button" class="swatch" style="--c:#00F0FF" data-color="#00F0FF" title="Ice Cyan"></button>
+                    <button type="button" class="swatch" style="--c:#FF9A8B" data-color="#FF9A8B" title="Rose Peach"></button>
+                    <button type="button" class="swatch" style="--c:#0F172A" data-color="#0F172A" title="Ink Black"></button>
+                  </div>
+                  <label class="custom-color-wrap" title="Pick any custom base color">
+                    <input type="color" id="inputCustomBaseColor" class="custom-color-input" value="#FFFFFF">
                     <span class="custom-color-label">Custom</span>
                   </label>
                 </div>
@@ -2049,6 +2093,6 @@
     window.MediaPipeVision = { FilesetResolver, ImageSegmenter };
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=7.22.0"></script>
+  <script src="/static/app.js?v=7.23.0"></script>
 </body>
 </html>
