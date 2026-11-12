@@ -10239,7 +10239,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       document.body.classList.add('editor-active');
       document.body.classList.remove('view-upload-active');
       const eb = $('editorBody') || $('.editor-body');
-      if (eb && S.drawerOpen) eb.classList.add('drawer-open');
+      if (eb && S.drawerOpen) {
+        openDrawerTab(S.activeTab || 'tabTemplates');
+      }
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try { fitCanvas(); } catch (_) {}
@@ -11596,7 +11598,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     $$('#categoryPills .cat-pill').forEach(pill => {
       pill.addEventListener('click', () => {
         $$('#categoryPills .cat-pill').forEach(p => p.classList.toggle('active', p === pill));
-        renderPresetsTab(pill.getAttribute('data-cat'));
+        renderPresetsTab(pill.getAttribute('data-cat'), _activePresetSearch);
       });
     });
 
@@ -11834,38 +11836,105 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   // TAB 1: PRESETS / TEMPLATES (Visual Distinction on every card)
   // ==========================================================================
-  function renderPresetsTab(filterCat) {
-    presetsGrid.innerHTML = '';
-    const filtered = filterCat === 'all'
-      ? S.presets
-      : S.presets.filter(p => {
-          const cat = (p.category || '').toLowerCase();
-          const name = (p.name || '').toLowerCase();
-          const id = (p.id || '').toLowerCase();
-          if (filterCat === 'duo') return cat === 'duo' || name.startsWith('Duo ·') || Boolean(p.isDuo);
-          if (filterCat === 'viral') return cat.includes('viral') || name.includes('viral') || name.includes('pop') || id.includes('hype');
-          if (filterCat === 'neon') return cat.includes('neon') || name.includes('neon') || name.includes('ice') || name.includes('electric') || name.includes('glow');
-          if (filterCat === 'box') return name.includes('box') || cat.includes('box') || Boolean(p.pill);
-          if (filterCat === 'real-estate') return cat.includes('real-estate') || id.includes('estate');
-          if (filterCat === 'colourful') return cat.includes('colourful') || cat.includes('color') || name.includes('fire') || name.includes('sunset') || name.includes('aurora');
-          if (filterCat === 'minimal') return cat.includes('minimal') || cat.includes('classic') || name.includes('clean') || name.includes('sub');
-          if (filterCat === 'special') return cat.includes('special') || id.includes('special') || Boolean(p.isSpecial);
-          return true;
-        });
+  let _activePresetCat = 'all';
+  let _activePresetSearch = '';
+  let _presetRenderSeq = 0;
 
-    // Render first 12 cards immediately (STEP 4)
-    const initialCount = Math.min(12, filtered.length);
+  function matchesPresetFilter(preset, filterCat, searchQuery) {
+    if (!preset) return false;
+    const cat = (preset.category || '').toLowerCase();
+    const name = (preset.name || '').toLowerCase();
+    const id = (preset.id || '').toLowerCase();
+    const badge = (preset.badge || '').toLowerCase();
+    const preview = (preset.previewWord || '').toLowerCase();
+
+    if (filterCat && filterCat !== 'all') {
+      let catMatch = true;
+      if (filterCat === 'duo') catMatch = cat === 'duo' || name.startsWith('duo ·') || Boolean(preset.isDuo);
+      else if (filterCat === 'viral') catMatch = cat.includes('viral') || name.includes('viral') || name.includes('pop') || id.includes('hype');
+      else if (filterCat === 'neon') catMatch = cat.includes('neon') || name.includes('neon') || name.includes('ice') || name.includes('electric') || name.includes('glow');
+      else if (filterCat === 'box') catMatch = name.includes('box') || cat.includes('box') || Boolean(preset.pill);
+      else if (filterCat === 'real-estate') catMatch = cat.includes('real-estate') || id.includes('estate');
+      else if (filterCat === 'colourful') catMatch = cat.includes('colourful') || cat.includes('color') || name.includes('fire') || name.includes('sunset') || name.includes('aurora');
+      else if (filterCat === 'minimal') catMatch = cat.includes('minimal') || cat.includes('classic') || name.includes('clean') || name.includes('sub');
+      else if (filterCat === 'special') catMatch = cat.includes('special') || id.includes('special') || Boolean(preset.isSpecial);
+      if (!catMatch) return false;
+    }
+
+    const q = (searchQuery || '').toLowerCase().trim();
+    if (!q) return true;
+    const terms = q.split(/\s+/).filter(Boolean);
+    const haystack = `${name} ${id} ${cat} ${badge} ${preview}`.trim();
+    return terms.every(term => haystack.includes(term));
+  }
+
+  function renderPresetsTab(filterCat, searchQuery) {
+    if (!presetsGrid) return;
+    if (typeof filterCat === 'string' && filterCat.length > 0) {
+      _activePresetCat = filterCat;
+    }
+    if (typeof searchQuery === 'string') {
+      _activePresetSearch = searchQuery.toLowerCase().trim();
+    } else {
+      const searchEl = $('templateSearchInput');
+      if (searchEl && typeof searchEl.value === 'string') {
+        _activePresetSearch = searchEl.value.toLowerCase().trim();
+      }
+    }
+
+    const seq = ++_presetRenderSeq;
+    const scrollBody = $('.drawer-content') || presetsGrid.parentElement;
+    if (scrollBody && presetsGrid._onLazyScroll) {
+      scrollBody.removeEventListener('scroll', presetsGrid._onLazyScroll);
+      presetsGrid._onLazyScroll = null;
+    }
+
+    presetsGrid.innerHTML = '';
+    const filtered = (S.presets || []).filter(p => matchesPresetFilter(p, _activePresetCat, _activePresetSearch));
+
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'presets-empty-state';
+      const label = document.createElement('div');
+      label.textContent = _activePresetSearch
+        ? `No templates match "${_activePresetSearch}"`
+        : 'No templates in this category.';
+      const resetBtn = document.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.className = 'presets-empty-reset';
+      resetBtn.textContent = 'Show All Templates';
+      resetBtn.addEventListener('click', () => {
+        const searchEl = $('templateSearchInput');
+        if (searchEl) searchEl.value = '';
+        _activePresetSearch = '';
+        _activePresetCat = 'all';
+        $$('#categoryPills .cat-pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-cat') === 'all'));
+        renderPresetsTab('all', '');
+      });
+      empty.appendChild(label);
+      empty.appendChild(resetBtn);
+      presetsGrid.appendChild(empty);
+      return;
+    }
+
+    // When searching, show every match immediately; otherwise render first 16 and lazy-load the rest cleanly
+    const initialCount = _activePresetSearch ? filtered.length : Math.min(16, filtered.length);
+    const initialFrag = document.createDocumentFragment();
     for (let i = 0; i < initialCount; i++) {
-      presetsGrid.appendChild(createPresetCard(filtered[i], false, i));
+      initialFrag.appendChild(createPresetCard(filtered[i], false, i));
+    }
+    presetsGrid.appendChild(initialFrag);
+
+    if (scrollBody && (_activePresetSearch || filterCat)) {
+      scrollBody.scrollTop = 0;
     }
 
     // Lazy-render remainder as user scrolls the sheet body
     if (filtered.length > initialCount) {
       let nextIdx = initialCount;
-      const scrollBody = $('.drawer-content') || presetsGrid.parentElement;
       const renderNextBatch = () => {
-        if (nextIdx >= filtered.length) return;
-        const chunk = Math.min(nextIdx + 16, filtered.length);
+        if (seq !== _presetRenderSeq || nextIdx >= filtered.length) return;
+        const chunk = Math.min(nextIdx + 24, filtered.length);
         const frag = document.createDocumentFragment();
         for (let i = nextIdx; i < chunk; i++) {
           frag.appendChild(createPresetCard(filtered[i], false, i));
@@ -11875,21 +11944,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       };
 
       const onScroll = () => {
+        if (seq !== _presetRenderSeq) {
+          if (scrollBody) scrollBody.removeEventListener('scroll', onScroll);
+          return;
+        }
         if (scrollBody && (scrollBody.scrollTop + scrollBody.clientHeight >= scrollBody.scrollHeight - 350)) {
           renderNextBatch();
           if (nextIdx >= filtered.length) {
             scrollBody.removeEventListener('scroll', onScroll);
+            if (presetsGrid._onLazyScroll === onScroll) presetsGrid._onLazyScroll = null;
           }
         }
       };
 
       if (scrollBody) {
+        presetsGrid._onLazyScroll = onScroll;
         scrollBody.addEventListener('scroll', onScroll, { passive: true });
       }
       if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(() => { if (nextIdx < filtered.length) renderNextBatch(); });
+        requestIdleCallback(() => { if (seq === _presetRenderSeq && nextIdx < filtered.length) renderNextBatch(); });
       } else {
-        setTimeout(renderNextBatch, 150);
+        setTimeout(() => { if (seq === _presetRenderSeq && nextIdx < filtered.length) renderNextBatch(); }, 150);
       }
     }
   }
@@ -12044,11 +12119,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const card = document.createElement('div');
     card.className = 'preset-card' + (S.style && S.style.id === preset.id ? ' active' : '');
     card.setAttribute('data-id', preset.id);
-    card.style.display = 'flex';
-    card.style.flexDirection = 'column';
-    card.style.minHeight = '130px';
-    card.style.height = 'auto';
-    card.style.aspectRatio = '4 / 5';
     card.style.overflow = 'hidden';
     card.style.boxSizing = 'border-box';
 
@@ -15962,7 +16032,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       }
     });
 
-    const modalSearch = $('modalTemplateSearchInput') || $('templateSearchInput');
+    const modalSearch = $('modalTemplateSearchInput');
     if (modalSearch) {
       modalSearch.addEventListener('input', (e) => {
         renderFullTemplatesGrid(e.target.value.toLowerCase().trim());
@@ -16295,13 +16365,10 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   }
 
   function renderFullTemplatesGrid(query) {
+    if (!fullTemplatesGrid) return;
     fullTemplatesGrid.innerHTML = '';
-    const filtered = S.presets.filter(p => {
-      if (!query) return true;
-      return (p.name || '').toLowerCase().includes(query) ||
-             (p.category || '').toLowerCase().includes(query) ||
-             (p.badge || '').toLowerCase().includes(query);
-    });
+    const q = (query || '').toLowerCase().trim();
+    const filtered = (S.presets || []).filter(p => matchesPresetFilter(p, 'all', q));
 
     filtered.forEach(preset => {
       const card = createPresetCard(preset, true);
@@ -18728,38 +18795,42 @@ function setupCaptionEditSheet() {
  */
 function setupTemplateSearch() {
   const searchToggle = $('btnTemplateSearchToggle');
-  const searchInputs = Array.from(document.querySelectorAll('#templateSearchInput, .template-search-input, .search-input'));
-  
-  if (searchToggle) {
+  const toolbarInput = $('templateSearchInput');
+
+  const applyTemplateSearch = (raw) => {
+    const q = (raw || '').toLowerCase().trim();
+    renderPresetsTab(_activePresetCat, q);
+  };
+
+  if (searchToggle && toolbarInput) {
     searchToggle.addEventListener('click', () => {
-      const input = $('templateSearchInput');
-      if (input) {
-        input.classList.toggle('hidden');
-        if (!input.classList.contains('hidden')) {
-          input.focus();
-        }
+      const willOpen = toolbarInput.classList.contains('hidden');
+      toolbarInput.classList.toggle('hidden', !willOpen);
+      if (willOpen) {
+        toolbarInput.focus();
+        applyTemplateSearch(toolbarInput.value);
+      } else {
+        toolbarInput.value = '';
+        applyTemplateSearch('');
+      }
+    });
+
+    toolbarInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        toolbarInput.value = '';
+        toolbarInput.classList.add('hidden');
+        applyTemplateSearch('');
       }
     });
   }
 
-  const doFilter = (q) => {
-    const cards = $$('#presetsGrid .preset-card, #fullTemplatesGrid .preset-card');
-    cards.forEach(c => {
-      const name = (c.querySelector('.preset-name')?.textContent || '').toLowerCase();
-      const tag = (c.querySelector('.preset-card-tag')?.textContent || '').toLowerCase();
-      const id = (c.getAttribute('data-id') || '').toLowerCase();
-      if (!q || name.includes(q) || tag.includes(q) || id.includes(q)) {
-        c.style.display = 'flex';
-      } else {
-        c.style.display = 'none';
-      }
-    });
-  };
-
+  const searchInputs = Array.from(document.querySelectorAll('#templateSearchInput, .template-search-input, .search-input'));
   searchInputs.forEach(input => {
-    input.addEventListener('input', (e) => {
-      doFilter((e.target.value || '').toLowerCase().trim());
-    });
+    const handler = (e) => {
+      applyTemplateSearch(e.target.value);
+    };
+    input.addEventListener('input', handler);
+    input.addEventListener('search', handler);
   });
 }
 
