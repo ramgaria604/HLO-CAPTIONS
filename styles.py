@@ -635,6 +635,7 @@ def load_presets():
                     "cobaltArchive", "celestialMonolith", "adaptiveEstateFlex",
                     "chromeLiquid", "tornZine", "acidVoltTicker",
                     "porcelainRibbon", "holoAuraPill", "analogFilmStrip",
+                    "wordRiseCascade", "velvetSpotlight", "prismTileKinetic",
                 ):
                     if p.get(_flag):
                         duo_item[_flag] = True

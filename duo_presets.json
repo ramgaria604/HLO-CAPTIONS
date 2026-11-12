@@ -690,6 +690,406 @@
     }
   },
   {
+    "id": "word_rise_cascade",
+    "name": "Word Rise Line",
+    "category": "special",
+    "badge": "⬆️ WORD RISE",
+    "previewWord": "WORD BY WORD",
+    "isDuo": true,
+    "isSpecial": true,
+    "behindPerson": false,
+    "depthAccent": false,
+    "wordRiseCascade": true,
+    "layout": "stack",
+    "mode": "emphasis",
+    "position": 0.73,
+    "posY": 0.73,
+    "posX": 0.5,
+    "inkGap": 0.012,
+    "leading": 0.94,
+    "fontScale": 1,
+    "wordsPerPage": 5,
+    "wordsPerCaption": 5,
+    "maxKeys": 1,
+    "animation": "slide-up",
+    "outlineMode": "none",
+    "glowEnabled": false,
+    "highlightColor": "#38BDF8",
+    "baseColor": "#FFFFFF",
+    "key": {
+      "font": "Montserrat",
+      "size": 0.056,
+      "weight": 900,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "color": "#38BDF8",
+      "outline": 0,
+      "shadow": 10,
+      "shadowColor": "rgba(0, 0, 0, 0.85)",
+      "track": -0.01
+    },
+    "accent2": {
+      "font": "Montserrat",
+      "size": 0.052,
+      "weight": 800,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "color": "#FFFFFF",
+      "outline": 0,
+      "shadow": 8,
+      "shadowColor": "rgba(0, 0, 0, 0.78)",
+      "track": -0.01
+    },
+    "filler": {
+      "font": "Montserrat",
+      "size": 0.048,
+      "weight": 700,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "color": "#E2E8F0",
+      "outline": 0,
+      "shadow": 6,
+      "shadowColor": "rgba(0, 0, 0, 0.72)",
+      "track": 0
+    },
+    "roles": {
+      "base": {
+        "font": "Montserrat",
+        "size": 56,
+        "weight": 800,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "color": "#FFFFFF",
+        "outline": 0,
+        "shadow": 8,
+        "shadowColor": "rgba(0, 0, 0, 0.72)",
+        "track": 0,
+        "enter": "slide-up",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#FFFFFF"
+          ]
+        }
+      },
+      "accent": {
+        "font": "Montserrat",
+        "size": 62,
+        "weight": 900,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "color": "#38BDF8",
+        "outline": 0,
+        "shadow": 8,
+        "shadowColor": "rgba(0, 0, 0, 0.72)",
+        "track": -0.01,
+        "enter": "slide-up",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#38BDF8"
+          ]
+        }
+      },
+      "accent2": {
+        "font": "Montserrat",
+        "size": 56,
+        "weight": 800,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "color": "#E2E8F0",
+        "outline": 0,
+        "shadow": 8,
+        "shadowColor": "rgba(0, 0, 0, 0.72)",
+        "track": 0,
+        "enter": "slide-up",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#E2E8F0"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "velvet_spotlight_line",
+    "name": "Velvet Spotlight",
+    "category": "special",
+    "badge": "✨ SPOTLIGHT",
+    "previewWord": "SPOTLIGHT",
+    "isDuo": true,
+    "isSpecial": true,
+    "behindPerson": false,
+    "depthAccent": false,
+    "velvetSpotlight": true,
+    "layout": "stack",
+    "mode": "emphasis",
+    "position": 0.73,
+    "posY": 0.73,
+    "posX": 0.5,
+    "inkGap": 0.012,
+    "leading": 0.96,
+    "fontScale": 1,
+    "wordsPerPage": 5,
+    "wordsPerCaption": 5,
+    "maxKeys": 1,
+    "animation": "fade",
+    "outlineMode": "none",
+    "glowEnabled": true,
+    "highlightColor": "#FCD34D",
+    "baseColor": "#F8FAFC",
+    "key": {
+      "font": "Poppins",
+      "size": 0.056,
+      "weight": 800,
+      "bold": true,
+      "italic": false,
+      "upper": false,
+      "color": "#FCD34D",
+      "glow": "#FBBF24",
+      "outline": 0,
+      "shadow": 10,
+      "shadowColor": "rgba(0, 0, 0, 0.85)",
+      "track": -0.01
+    },
+    "accent2": {
+      "font": "Poppins",
+      "size": 0.052,
+      "weight": 700,
+      "bold": true,
+      "italic": false,
+      "upper": false,
+      "color": "#F8FAFC",
+      "outline": 0,
+      "shadow": 8,
+      "shadowColor": "rgba(0, 0, 0, 0.75)",
+      "track": 0
+    },
+    "filler": {
+      "font": "Poppins",
+      "size": 0.048,
+      "weight": 600,
+      "bold": false,
+      "italic": false,
+      "upper": false,
+      "color": "#CBD5E1",
+      "outline": 0,
+      "shadow": 6,
+      "shadowColor": "rgba(0, 0, 0, 0.65)",
+      "track": 0
+    },
+    "roles": {
+      "base": {
+        "font": "Poppins",
+        "size": 54,
+        "weight": 700,
+        "bold": true,
+        "italic": false,
+        "upper": false,
+        "color": "#F8FAFC",
+        "outline": 0,
+        "shadow": 8,
+        "shadowColor": "rgba(0, 0, 0, 0.72)",
+        "track": 0,
+        "enter": "fade",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#F8FAFC"
+          ]
+        }
+      },
+      "accent": {
+        "font": "Poppins",
+        "size": 60,
+        "weight": 800,
+        "bold": true,
+        "italic": false,
+        "upper": false,
+        "color": "#FCD34D",
+        "outline": 0,
+        "shadow": 8,
+        "shadowColor": "rgba(0, 0, 0, 0.72)",
+        "track": -0.01,
+        "enter": "pop",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#FEF08A",
+            "#FBBF24"
+          ]
+        }
+      },
+      "accent2": {
+        "font": "Poppins",
+        "size": 54,
+        "weight": 700,
+        "bold": true,
+        "italic": false,
+        "upper": false,
+        "color": "#CBD5E1",
+        "outline": 0,
+        "shadow": 8,
+        "shadowColor": "rgba(0, 0, 0, 0.72)",
+        "track": 0,
+        "enter": "fade",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#CBD5E1"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "id": "prism_tile_kinetic",
+    "name": "Prism Kinetic Tiles",
+    "category": "special",
+    "badge": "💎 PRISM TILES",
+    "previewWord": "NEXT LEVEL",
+    "pill": "linear-gradient(135deg, #7C3AED, #06B6D4)",
+    "isDuo": true,
+    "isSpecial": true,
+    "behindPerson": false,
+    "depthAccent": false,
+    "prismTileKinetic": true,
+    "layout": "stack",
+    "mode": "emphasis",
+    "position": 0.73,
+    "posY": 0.73,
+    "posX": 0.5,
+    "inkGap": 0.014,
+    "leading": 0.96,
+    "fontScale": 1,
+    "wordsPerPage": 4,
+    "wordsPerCaption": 4,
+    "maxKeys": 1,
+    "animation": "pop",
+    "outlineMode": "none",
+    "glowEnabled": true,
+    "highlightColor": "#A855F7",
+    "baseColor": "#F8FAFC",
+    "key": {
+      "font": "Outfit",
+      "size": 0.054,
+      "weight": 900,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "color": "#FFFFFF",
+      "outline": 0,
+      "shadow": 8,
+      "shadowColor": "rgba(0, 0, 0, 0.75)",
+      "track": 0.02
+    },
+    "accent2": {
+      "font": "Outfit",
+      "size": 0.05,
+      "weight": 800,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "color": "#E2E8F0",
+      "outline": 0,
+      "shadow": 6,
+      "shadowColor": "rgba(0, 0, 0, 0.70)",
+      "track": 0.02
+    },
+    "filler": {
+      "font": "Outfit",
+      "size": 0.048,
+      "weight": 700,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "color": "#E2E8F0",
+      "outline": 0,
+      "shadow": 6,
+      "shadowColor": "rgba(0, 0, 0, 0.68)",
+      "track": 0.02
+    },
+    "roles": {
+      "base": {
+        "font": "Outfit",
+        "size": 52,
+        "weight": 800,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "color": "#E2E8F0",
+        "outline": 0,
+        "shadow": 8,
+        "shadowColor": "rgba(0, 0, 0, 0.72)",
+        "track": 0.02,
+        "enter": "pop",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#E2E8F0"
+          ]
+        }
+      },
+      "accent": {
+        "font": "Outfit",
+        "size": 56,
+        "weight": 900,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "color": "#FFFFFF",
+        "outline": 0,
+        "shadow": 8,
+        "shadowColor": "rgba(0, 0, 0, 0.72)",
+        "track": 0.02,
+        "enter": "pop",
+        "layer": "front",
+        "fill": {
+          "type": "linear-gradient",
+          "colors": [
+            "#7C3AED",
+            "#06B6D4"
+          ]
+        }
+      },
+      "accent2": {
+        "font": "Outfit",
+        "size": 52,
+        "weight": 800,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "color": "#F8FAFC",
+        "outline": 0,
+        "shadow": 8,
+        "shadowColor": "rgba(0, 0, 0, 0.72)",
+        "track": 0.02,
+        "enter": "pop",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#F8FAFC"
+          ]
+        }
+      }
+    }
+  },
+  {
     "id": "crazy_sunset_stack",
     "name": "Crazy Sunset Stack",
     "category": "viral",
