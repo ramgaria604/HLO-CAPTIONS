@@ -79,57 +79,13 @@ def register_razorpay_routes(app, WORK):
             }
             rzp_order = rzp_client.order.create(data=order_data)
 
-            # 2. Official Hosted Payment Link (rzp.io)
-            # Completely bypasses all mobile iframe & Google Pay intent drop issues!
-            payment_link_url = None
-            try:
-                callback_base = request.host_url.rstrip("/")
-                proto = request.headers.get("X-Forwarded-Proto", "").lower()
-                if proto == "https" or "onrender.com" in callback_base or request.is_secure:
-                    if callback_base.startswith("http://"):
-                        callback_base = "https://" + callback_base[7:]
-
-                user_email = (data.get("email") or "").strip()
-                user_name = (data.get("name") or "Creator").strip()
-                user_phone = (data.get("phone") or "").replace("+91", "").replace(" ", "").strip()
-
-                plink_data = {
-                    "amount": amount_paise,
-                    "currency": "INR",
-                    "accept_partial": False,
-                    "description": pack["title"],
-                    "customer": {
-                        "name": user_name or "Creator",
-                        "email": user_email if "@" in user_email else "creator@hlocaptions.com"
-                    },
-                    "notify": {"sms": False, "email": False},
-                    "reminder_enable": False,
-                    "upi_link": True,
-                    "notes": {
-                        "pack_id": pack_id,
-                        "device_id": str(data.get("device_id") or ""),
-                        "email": user_email,
-                        "name": user_name
-                    },
-                    "callback_url": f"{callback_base}/api/payment/callback",
-                    "callback_method": "get"
-                }
-                if user_phone and len(user_phone) == 10:
-                    plink_data["customer"]["contact"] = f"+91{user_phone}"
-
-                plink = rzp_client.payment_link.create(plink_data)
-                payment_link_url = plink.get("short_url")
-            except Exception as pl_err:
-                print("Payment link generation fallback notice:", pl_err)
-
             return jsonify({
                 "ok": True,
                 "order_id": rzp_order.get("id"),
                 "amount": amount_paise,
                 "currency": "INR",
                 "key_id": RAZORPAY_KEY_ID,
-                "pack": pack,
-                "payment_url": payment_link_url
+                "pack": pack
             })
         except Exception as e:
             return jsonify(ok=False, error=f"Razorpay order creation failed: {str(e)}"), 500

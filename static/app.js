@@ -11478,7 +11478,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
     }
 
-    // Razorpay Integration Handlers
+    // Razorpay Integration Handlers (In-App Modal Checkout - 100% matched to working implementation)
     const launchRazorpayCheckout = async (packId) => {
       try {
         if (typeof window.Razorpay === 'undefined') {
@@ -11487,16 +11487,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         }
 
         const devId = getPersistentDeviceId();
-
         const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
         const userName = S.user ? (S.user.name || '') : '';
-
-        const inputPhone = $('inputPaymentPhone');
-        const phoneVal = inputPhone ? inputPhone.value.trim().replace(/\D/g, '') : '';
-        const savedPhone = phoneVal || (localStorage.getItem('cs_user_phone') || '').replace(/\D/g, '');
-        if (savedPhone && savedPhone.length === 10) {
-          try { localStorage.setItem('cs_user_phone', savedPhone); } catch (_) {}
-        }
 
         // 1. Create Order on backend
         const orderRes = await fetch('/api/payment/create-order', {
@@ -11506,8 +11498,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             pack_id: packId,
             device_id: devId,
             email: userEmail,
-            name: userName,
-            phone: savedPhone
+            name: userName
           })
         });
 
@@ -11516,24 +11507,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           throw new Error(orderData.error || 'Failed to initialize payment');
         }
 
-        // Direct 100% reliable redirect to official Razorpay Hosted Checkout
-        // Completely eliminates mobile Chrome iframe intent blocking for Google Pay, PhonePe, Paytm, and UPI QR!
-        if (orderData.payment_url) {
-          showToast('Opening secure UPI & payment options... 🚀', 2500);
-          setTimeout(() => {
-            window.location.href = orderData.payment_url;
-          }, 250);
-          return;
-        }
-
-        // 2. Open official Razorpay Checkout Modal
-        const prefill = {};
-        if (userName && userName.trim()) prefill.name = userName.trim();
-        if (userEmail && userEmail.includes('@')) prefill.email = userEmail.trim();
-        if (savedPhone && savedPhone.length === 10) {
-          prefill.contact = savedPhone;
-        }
-
+        // 2. Open official in-app Razorpay Checkout Modal
         const options = {
           key: orderData.key_id,
           amount: orderData.amount,
@@ -11544,22 +11518,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           theme: {
             color: '#7c3aed'
           },
-          send_sms_hash: true,
-          retry: {
-            enabled: true,
-            max_count: 3
+          prefill: {
+            name: userName || '',
+            email: userEmail || '',
+            contact: ''
           },
-          prefill: prefill,
-          modal: {
-            confirm_close: true,
-            ondismiss: function () {
-              console.log('Razorpay modal dismissed by user');
-            }
-          },
-          callback_url: window.location.origin + '/api/payment/callback',
-          redirect: (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '')),
           handler: async function (response) {
-            // 3. Verify Payment Signature on Backend
+            // STEP 1: Immediately close modal windows
+            const modalUpgrade = $('modalUpgrade');
+            if (modalUpgrade) modalUpgrade.classList.remove('active');
+            const modalCoupon = $('modalCoupon');
+            if (modalCoupon) modalCoupon.classList.add('hidden');
+
+            // STEP 2: Verify Payment on Backend
             try {
               showToast('Verifying payment... ⏳');
               const verifyRes = await fetch('/api/payment/verify', {
@@ -11587,22 +11558,27 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               saveUserCredits(newBalance);
               updateCreditsUI();
 
-              showToast(`🎉 Payment Successful! ${verifyData.credits_added} Video Exports unlocked.`);
+              showToast(`🎉 Payment Successful! ${verifyData.credits_added || 1} Video Export unlocked!`, 5000);
 
-              if (modalCoupon) modalCoupon.classList.add('hidden');
-
-              // Automatically continue export if user was waiting
-              if (S.pendingExportAfterCoupon) {
-                S.pendingExportAfterCoupon = false;
-                setTimeout(() => startExport(), 500);
+              if (window.__syncCreditsFromServer) {
+                window.__syncCreditsFromServer(true);
               }
 
+              // Automatically continue export if user was waiting
+              if (S.videoFile || (vid && vid.duration > 0)) {
+                setTimeout(() => {
+                  if (typeof startExport === 'function') {
+                    startExport();
+                  }
+                }, 500);
+              }
             } catch (err) {
               console.error('Payment verify error:', err);
-              showToast('Verification failed: ' + err.message);
+              showToast('Verification notice: ' + err.message);
             }
           },
           modal: {
+            confirm_close: true,
             ondismiss: function () {
               console.log('Razorpay modal dismissed by user');
             }
@@ -11611,13 +11587,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
         const rzp = new window.Razorpay(options);
         rzp.on('payment.failed', function (response) {
-          showToast('Payment failed: ' + (response.error.description || 'Transaction cancelled'));
+          console.warn('Payment failed notice:', response.error);
+          showToast('Payment notice: ' + (response.error.description || 'Payment was not completed.'));
         });
         rzp.open();
 
       } catch (err) {
         console.error('Razorpay launch error:', err);
-        showToast('Payment error: ' + err.message);
+        showToast('Payment error: ' + (err.message || 'Could not start payment'));
       }
     };
 
@@ -11626,17 +11603,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     if (btnPay10) btnPay10.addEventListener('click', () => launchRazorpayCheckout('pack10'));
     if (btnPay50) btnPay50.addEventListener('click', () => launchRazorpayCheckout('pack50'));
-
-    const inputPaymentPhone = $('inputPaymentPhone');
-    if (inputPaymentPhone) {
-      inputPaymentPhone.addEventListener('input', (e) => {
-        const clean = e.target.value.replace(/\D/g, '').slice(0, 10);
-        e.target.value = clean;
-        if (clean.length === 10) {
-          try { localStorage.setItem('cs_user_phone', clean); } catch (_) {}
-        }
-      });
-    }
   }
 
   function checkPaymentRedirectReturn() {
