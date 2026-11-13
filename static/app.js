@@ -11516,6 +11516,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           throw new Error(orderData.error || 'Failed to initialize payment');
         }
 
+        // Direct 100% reliable redirect to official Razorpay Hosted Checkout
+        // Completely eliminates mobile Chrome iframe intent blocking for Google Pay, PhonePe, Paytm, and UPI QR!
+        if (orderData.payment_url) {
+          showToast('Opening secure UPI & payment options... 🚀', 2500);
+          setTimeout(() => {
+            window.location.href = orderData.payment_url;
+          }, 250);
+          return;
+        }
+
         // 2. Open official Razorpay Checkout Modal
         const prefill = {};
         if (userName && userName.trim()) prefill.name = userName.trim();
@@ -11636,15 +11646,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         const added = parseInt(urlParams.get('credits') || '1', 10);
         safeLSSet('cs_has_paid', 'true');
         const curCred = parseInt(localStorage.getItem('cs_credits') || '0', 10);
-        saveUserCredits(curCred + added);
+        saveUserCredits(Math.max(curCred + added, added));
         updateCreditsUI();
-        showToast(`🎉 Payment Successful! ${added} Video Export unlocked!`, 4000);
+        showToast(`🎉 Payment Successful! ${added} Video Export unlocked!`, 5000);
+
+        const modalUpgrade = $('modalUpgrade');
+        if (modalUpgrade) modalUpgrade.classList.remove('active');
+        const modalCoupon = $('modalCoupon');
+        if (modalCoupon) modalCoupon.classList.add('hidden');
+
+        if (window.__syncCreditsFromServer) {
+          window.__syncCreditsFromServer(true);
+        }
+
         window.history.replaceState({}, document.title, window.location.pathname);
-        setTimeout(() => {
-          if (typeof startExport === 'function') {
-            startExport();
-          }
-        }, 600);
+
+        // Resume export only if a video file is currently loaded
+        if (S.videoFile || (vid && vid.duration > 0)) {
+          setTimeout(() => {
+            if (typeof startExport === 'function') {
+              startExport();
+            }
+          }, 600);
+        }
       } else if (urlParams.get('payment_error')) {
         showToast('❌ Payment: ' + decodeURIComponent(urlParams.get('payment_error')), 5000);
         window.history.replaceState({}, document.title, window.location.pathname);

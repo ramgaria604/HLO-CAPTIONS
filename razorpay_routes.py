@@ -61,6 +61,7 @@ def register_razorpay_routes(app, WORK):
             return jsonify(ok=False, error="Razorpay SDK not initialized on server"), 500
 
         try:
+            # 1. Standard Order
             order_data = {
                 "amount": amount_paise,
                 "currency": "INR",
@@ -77,13 +78,58 @@ def register_razorpay_routes(app, WORK):
                 }
             }
             rzp_order = rzp_client.order.create(data=order_data)
+
+            # 2. Official Hosted Payment Link (rzp.io)
+            # Completely bypasses all mobile iframe & Google Pay intent drop issues!
+            payment_link_url = None
+            try:
+                callback_base = request.host_url.rstrip("/")
+                proto = request.headers.get("X-Forwarded-Proto", "").lower()
+                if proto == "https" or "onrender.com" in callback_base or request.is_secure:
+                    if callback_base.startswith("http://"):
+                        callback_base = "https://" + callback_base[7:]
+
+                user_email = (data.get("email") or "").strip()
+                user_name = (data.get("name") or "Creator").strip()
+                user_phone = (data.get("phone") or "").replace("+91", "").replace(" ", "").strip()
+
+                plink_data = {
+                    "amount": amount_paise,
+                    "currency": "INR",
+                    "accept_partial": False,
+                    "description": pack["title"],
+                    "customer": {
+                        "name": user_name or "Creator",
+                        "email": user_email if "@" in user_email else "creator@hlocaptions.com"
+                    },
+                    "notify": {"sms": False, "email": False},
+                    "reminder_enable": False,
+                    "upi_link": True,
+                    "notes": {
+                        "pack_id": pack_id,
+                        "device_id": str(data.get("device_id") or ""),
+                        "email": user_email,
+                        "name": user_name
+                    },
+                    "callback_url": f"{callback_base}/api/payment/callback",
+                    "callback_method": "get"
+                }
+                if user_phone and len(user_phone) == 10:
+                    plink_data["customer"]["contact"] = f"+91{user_phone}"
+
+                plink = rzp_client.payment_link.create(plink_data)
+                payment_link_url = plink.get("short_url")
+            except Exception as pl_err:
+                print("Payment link generation fallback notice:", pl_err)
+
             return jsonify({
                 "ok": True,
                 "order_id": rzp_order.get("id"),
                 "amount": amount_paise,
                 "currency": "INR",
                 "key_id": RAZORPAY_KEY_ID,
-                "pack": pack
+                "pack": pack,
+                "payment_url": payment_link_url
             })
         except Exception as e:
             return jsonify(ok=False, error=f"Razorpay order creation failed: {str(e)}"), 500
@@ -235,52 +281,73 @@ def register_razorpay_routes(app, WORK):
 
     @app.route("/api/payment/callback", methods=["GET", "POST"])
     def payment_callback():
-        """Handles browser-level redirect callback from Razorpay for 100% reliable mobile UPI intent."""
-        if request.method == "POST":
-            razorpay_payment_id = request.form.get("razorpay_payment_id")
-            razorpay_order_id = request.form.get("razorpay_order_id")
-            razorpay_signature = request.form.get("razorpay_signature")
-            error_code = request.form.get("error[code]")
-            if error_code:
-                err_desc = request.form.get("error[description]", "Payment was cancelled or could not be completed.")
-                return redirect(f"/?payment_error={urllib.parse.quote(err_desc)}")
-        else:
-            razorpay_payment_id = request.args.get("razorpay_payment_id")
-            razorpay_order_id = request.args.get("razorpay_order_id")
-            razorpay_signature = request.args.get("razorpay_signature")
-            error_code = request.args.get("error[code]")
-            if error_code:
-                err_desc = request.args.get("error[description]", "Payment was cancelled.")
-                return redirect(f"/?payment_error={urllib.parse.quote(err_desc)}")
+        """Handles browser-level redirect callback from Razorpay for 100% reliable mobile UPI intent & hosted checkout."""
+        data = request.form if request.method == "POST" else request.args
+        razorpay_payment_id = data.get("razorpay_payment_id")
+        razorpay_order_id = data.get("razorpay_order_id")
+        razorpay_payment_link_id = data.get("razorpay_payment_link_id")
+        razorpay_signature = data.get("razorpay_signature")
+        error_code = data.get("error[code]") or data.get("error_code")
+        if error_code:
+            err_desc = data.get("error[description]") or data.get("error_description") or "Payment was cancelled or could not be completed."
+            return redirect(f"/?payment_error={urllib.parse.quote(err_desc)}")
 
-        if not (razorpay_order_id and razorpay_payment_id and razorpay_signature):
-            return redirect("/?payment_error=Missing+payment+verification+parameters")
-
-        # Cryptographic verification
-        msg = f"{razorpay_order_id}|{razorpay_payment_id}"
-        expected_sig = hmac.new(
-            RAZORPAY_KEY_SECRET.encode("utf-8"),
-            msg.encode("utf-8"),
-            hashlib.sha256
-        ).hexdigest()
-
-        if not hmac.compare_digest(expected_sig, razorpay_signature):
-            return redirect("/?payment_error=Invalid+payment+signature")
+        if not razorpay_payment_id:
+            return redirect("/?payment_error=Missing+payment+id")
 
         pack_id = "pack10"
         device_id = ""
         user_email = ""
         user_name = ""
-        try:
-            if rzp_client:
-                ord_info = rzp_client.order.fetch(razorpay_order_id)
-                notes = ord_info.get("notes", {})
-                pack_id = notes.get("pack_id", "pack10")
-                device_id = notes.get("device_id", "")
-                user_email = notes.get("email", "")
-                user_name = notes.get("user_id", "")
-        except Exception as _fetch_err:
-            print("Order fetch in callback warning:", _fetch_err)
+        payment_verified = False
+
+        # Method 1: Fetch directly from Razorpay API (tamper-proof live check)
+        if rzp_client:
+            try:
+                payment_info = rzp_client.payment.fetch(razorpay_payment_id)
+                pay_status = payment_info.get("status")
+                if pay_status == "authorized":
+                    try:
+                        rzp_client.payment.capture(razorpay_payment_id, payment_info.get("amount"))
+                        pay_status = "captured"
+                    except Exception as _cap_err:
+                        print("Capture notice:", _cap_err)
+
+                if pay_status == "captured":
+                    payment_verified = True
+                    notes = payment_info.get("notes") or {}
+                    pack_id = notes.get("pack_id") or ("pack50" if payment_info.get("amount") == 5000 else "pack10")
+                    device_id = notes.get("device_id") or ""
+                    user_email = notes.get("email") or ""
+                    user_name = notes.get("name") or notes.get("user_id") or ""
+            except Exception as _fetch_err:
+                print("Live payment fetch warning in callback:", _fetch_err)
+
+        # Method 2: Cryptographic HMAC signature check (fallback validation)
+        if not payment_verified and razorpay_signature:
+            if razorpay_order_id:
+                msg = f"{razorpay_order_id}|{razorpay_payment_id}"
+                expected_sig = hmac.new(
+                    RAZORPAY_KEY_SECRET.encode("utf-8"),
+                    msg.encode("utf-8"),
+                    hashlib.sha256
+                ).hexdigest()
+                if hmac.compare_digest(expected_sig, razorpay_signature):
+                    payment_verified = True
+            elif razorpay_payment_link_id:
+                ref_id = data.get("razorpay_payment_link_reference_id") or ""
+                pl_status = data.get("razorpay_payment_link_status") or "paid"
+                msg = f"{razorpay_payment_link_id}|{ref_id}|{pl_status}|{razorpay_payment_id}"
+                expected_sig = hmac.new(
+                    RAZORPAY_KEY_SECRET.encode("utf-8"),
+                    msg.encode("utf-8"),
+                    hashlib.sha256
+                ).hexdigest()
+                if hmac.compare_digest(expected_sig, razorpay_signature):
+                    payment_verified = True
+
+        if not payment_verified:
+            return redirect("/?payment_error=Payment+verification+failed")
 
         pack = PACKS.get(pack_id, PACKS["pack10"])
         credits_to_add = pack["credits"]
@@ -297,7 +364,7 @@ def register_razorpay_routes(app, WORK):
                 except Exception: pass
 
             payment_record = {
-                "order_id": razorpay_order_id,
+                "order_id": razorpay_order_id or razorpay_payment_link_id or "",
                 "payment_id": razorpay_payment_id,
                 "pack_id": pack_id,
                 "amount_inr": pack["amount_inr"],
@@ -318,6 +385,7 @@ def register_razorpay_routes(app, WORK):
 
         # Update device credits
         try:
+            import cloud_storage
             dev_file = (WORK.parent / "data") / "device_credits.json"
             dev_data = {}
             if dev_file.exists():
@@ -331,19 +399,42 @@ def register_razorpay_routes(app, WORK):
                     dev_data[key]["has_paid"] = True
                     if expires_at: dev_data[key]["expires_at"] = expires_at
                     if user_email: dev_data[key]["email"] = user_email
+                    if user_name: dev_data[key]["name"] = user_name
                 else:
                     dev_data[key] = {
                         "credits": credits_to_add,
                         "used": 0,
                         "has_paid": True,
                         "created_at": time.time(),
-                        "email": user_email
+                        "email": user_email,
+                        "name": user_name
                     }
                     if expires_at: dev_data[key]["expires_at"] = expires_at
 
             dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
             if cloud_storage.storage.is_enabled():
                 cloud_storage.storage.upload_file(dev_file, "device_credits.json")
+
+            if user_email:
+                try:
+                    import re
+                    u_id = re.sub(r"\W", "_", user_email)
+                    u_dir = (WORK.parent / "data") / "users"
+                    u_dir.mkdir(parents=True, exist_ok=True)
+                    u_file = u_dir / f"{u_id}.json"
+                    u_data = {}
+                    if u_file.exists():
+                        try: u_data = json.loads(u_file.read_text(encoding="utf-8"))
+                        except Exception: pass
+                    u_data["credits"] = dev_data.get(user_email, {}).get("credits", credits_to_add)
+                    u_data["email"] = user_email
+                    u_data["has_paid"] = True
+                    if user_name: u_data["name"] = user_name
+                    u_file.write_text(json.dumps(u_data, indent=2), encoding="utf-8")
+                    if cloud_storage.storage.is_enabled():
+                        cloud_storage.storage.upload_file(u_file, f"users/{u_id}.json")
+                except Exception:
+                    pass
         except Exception as _dev_err:
             print("Device credits save error in callback:", _dev_err)
 
