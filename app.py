@@ -513,6 +513,48 @@ def ping():
     }
 
 
+def _start_keep_alive_daemon():
+    def _pinger():
+        time.sleep(15)  # initial wait for server to start
+        while True:
+            try:
+                from datetime import datetime, timezone, timedelta
+                now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+                # Active only between 8:00 AM (08:00) and 11:00 PM (23:00) IST
+                if 8 <= now_ist.hour < 23:
+                    target_urls = []
+                    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+                    if render_url:
+                        target_urls.append(f"{render_url.rstrip('/')}/api/ping")
+                    custom_url = os.environ.get("PING_URL") or os.environ.get("PUBLIC_URL") or os.environ.get("APP_URL")
+                    if custom_url:
+                        target_urls.append(f"{custom_url.rstrip('/')}/api/ping")
+
+                    port = os.environ.get("PORT", "5000")
+                    target_urls.append(f"http://127.0.0.1:{port}/api/ping")
+
+                    for url in target_urls:
+                        try:
+                            req = urllib.request.Request(
+                                url,
+                                headers={"User-Agent": "CaptionStudio-KeepAlive/1.0"}
+                            )
+                            with urllib.request.urlopen(req, timeout=15) as resp:
+                                if resp.status == 200:
+                                    break
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+            # Sleep 10 minutes (600s), well before Render's 15m inactivity threshold
+            time.sleep(600)
+
+    t = threading.Thread(target=_pinger, name="ScheduledKeepAliveDaemon", daemon=True)
+    t.start()
+
+
+_start_keep_alive_daemon()
 
 
 LAST_MASK_ERROR = None
