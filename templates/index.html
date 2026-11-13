@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bangers&family=Bebas+Neue&family=Bowlby+One&family=Bungee&family=Cinzel:wght@700;900&family=Cormorant+Garamond:wght@700&family=DM+Serif+Display&family=Fredoka:wght@600;700&family=Great+Vibes&family=Inter:wght@400;500;600;700;800;900&family=Lobster&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Outfit:wght@700;800&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,700;0,900;1,600;1,700&family=Poppins:ital,wght@0,500;0,600;0,700;0,800;0,900;1,700;1,800;1,900&family=Raleway:wght@700;800&family=Righteous&family=Rubik:wght@700;800;900&family=Shrikhand&family=Space+Mono:wght@700&family=Syne:wght@700;800&family=Yellowtail&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=7.26.0">
+  <link rel="stylesheet" href="/static/style.css?v=7.31.0">
   <link rel="stylesheet" href="/static/layout.css?v=7.24.0">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -1849,9 +1849,14 @@
               <span class="upi-badge">Paytm</span>
               <span class="upi-badge">UPI</span>
             </div>
-            <button type="button" class="btn-pay-upi btn-pay-weekly" id="btnPayPack50">
-              <span>⚡ Pay ₹50 via UPI / Card (7 Exports)</span>
-            </button>
+            <div class="pay-btn-group" style="display: flex; flex-direction: column; gap: 7px; margin-top: 10px;">
+              <button type="button" class="btn-pay-upi btn-pay-weekly" id="btnPayPack50" style="margin: 0; width: 100%;">
+                <span>⚡ Pay ₹50 (UPI Apps &amp; Cards)</span>
+              </button>
+              <button type="button" class="btn-pay-qr" id="btnQRPack50">
+                <span>📷 Scan UPI QR Code (₹50)</span>
+              </button>
+            </div>
           </div>
 
           <!-- ₹10 SINGLE EXPORT PASS -->
@@ -1870,9 +1875,14 @@
               <span class="upi-badge">Paytm</span>
               <span class="upi-badge">BHIM</span>
             </div>
-            <button type="button" class="btn-pay-upi" id="btnPayPack10">
-              <span>📲 Pay ₹10 via UPI / Card (Instant)</span>
-            </button>
+            <div class="pay-btn-group" style="display: flex; flex-direction: column; gap: 7px; margin-top: 10px;">
+              <button type="button" class="btn-pay-upi" id="btnPayPack10" style="margin: 0; width: 100%;">
+                <span>📲 Pay ₹10 (UPI Apps &amp; Cards)</span>
+              </button>
+              <button type="button" class="btn-pay-qr" id="btnQRPack10">
+                <span>📷 Scan UPI QR Code (₹10)</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -2205,6 +2215,6 @@
     window.MediaPipeVision = { FilesetResolver, ImageSegmenter };
   </script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="/static/app.js?v=7.30.0"></script>
+  <script src="/static/app.js?v=7.31.0"></script>
 </body>
 </html>
