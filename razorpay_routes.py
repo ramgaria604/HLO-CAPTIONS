@@ -64,12 +64,14 @@ def register_razorpay_routes(app, WORK):
                 "amount": amount_paise,
                 "currency": "INR",
                 "receipt": receipt_id,
+                "payment_capture": 1,
                 "notes": {
                     "pack_id": pack_id,
                     "credits": pack["credits"],
                     "days": str(pack["days"]),
                     "user_id": str(data.get("user_id") or ""),
                     "email": str(data.get("email") or ""),
+                    "phone": str(data.get("phone") or ""),
                     "device_id": str(data.get("device_id") or "")
                 }
             }
