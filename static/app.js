@@ -11221,7 +11221,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const input = $('inputCouponCode');
       if (input) {
         input.value = '';
-        setTimeout(() => input.focus(), 100);
+      }
+      const pInput = $('inputPaymentPhone');
+      if (pInput) {
+        const savedPhone = (localStorage.getItem('cs_user_phone') || '').replace(/\D/g, '');
+        if (savedPhone) pInput.value = savedPhone;
       }
       const msg = $('couponMsg');
       if (msg) msg.classList.add('hidden');
@@ -11487,6 +11491,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
         const userName = S.user ? (S.user.name || '') : '';
 
+        const inputPhone = $('inputPaymentPhone');
+        const phoneVal = inputPhone ? inputPhone.value.trim().replace(/\D/g, '') : '';
+        const savedPhone = phoneVal || (localStorage.getItem('cs_user_phone') || '').replace(/\D/g, '');
+        if (savedPhone && savedPhone.length === 10) {
+          try { localStorage.setItem('cs_user_phone', savedPhone); } catch (_) {}
+        }
+
         // 1. Create Order on backend
         const orderRes = await fetch('/api/payment/create-order', {
           method: 'POST',
@@ -11495,7 +11506,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             pack_id: packId,
             device_id: devId,
             email: userEmail,
-            name: userName
+            name: userName,
+            phone: savedPhone
           })
         });
 
@@ -11505,6 +11517,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         }
 
         // 2. Open official Razorpay Checkout Modal
+        const prefill = {};
+        if (userName && userName.trim()) prefill.name = userName.trim();
+        if (userEmail && userEmail.includes('@')) prefill.email = userEmail.trim();
+        if (savedPhone && savedPhone.length === 10) {
+          prefill.contact = savedPhone;
+        }
+
         const options = {
           key: orderData.key_id,
           amount: orderData.amount,
@@ -11513,12 +11532,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           description: orderData.pack ? orderData.pack.title : 'Video Export Pass',
           order_id: orderData.order_id,
           theme: {
-            color: '#a855f7'
+            color: '#7c3aed'
           },
-          prefill: {
-            name: userName || '',
-            email: userEmail || '',
-            contact: ''
+          send_sms_hash: true,
+          retry: {
+            enabled: true,
+            max_count: 3
+          },
+          prefill: prefill,
+          modal: {
+            confirm_close: true,
+            ondismiss: function () {
+              console.log('Razorpay modal dismissed by user');
+            }
           },
           handler: async function (response) {
             // 3. Verify Payment Signature on Backend
@@ -11588,6 +11614,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     if (btnPay10) btnPay10.addEventListener('click', () => launchRazorpayCheckout('pack10'));
     if (btnPay50) btnPay50.addEventListener('click', () => launchRazorpayCheckout('pack50'));
+
+    const inputPaymentPhone = $('inputPaymentPhone');
+    if (inputPaymentPhone) {
+      inputPaymentPhone.addEventListener('input', (e) => {
+        const clean = e.target.value.replace(/\D/g, '').slice(0, 10);
+        e.target.value = clean;
+        if (clean.length === 10) {
+          try { localStorage.setItem('cs_user_phone', clean); } catch (_) {}
+        }
+      });
+    }
   }
 
   async function init() {
@@ -11861,7 +11898,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.26.0';
+    const CURRENT_PRESET_VER = 'v7.27.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
