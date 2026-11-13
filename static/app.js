@@ -11580,54 +11580,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
     };
 
-    const launchRazorpayQRCheckout = async (packId) => {
-      try {
-        const devId = getPersistentDeviceId();
-        const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
-        const userName = S.user ? (S.user.name || '') : '';
-
-        showToast('Generating official UPI QR Code... ⏳', 2000);
-
-        const orderRes = await fetch('/api/payment/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pack_id: packId,
-            device_id: devId,
-            email: userEmail,
-            name: userName
-          })
-        });
-
-        const orderData = await orderRes.json();
-        if (!orderRes.ok || !orderData.ok) {
-          throw new Error(orderData.error || 'Failed to create QR code');
-        }
-
-        if (orderData.payment_url) {
-          showToast('Opening UPI QR Code Scanner... 📷', 2000);
-          setTimeout(() => {
-            window.location.href = orderData.payment_url;
-          }, 300);
-        } else {
-          showToast('Opening standard checkout...');
-          launchRazorpayCheckout(packId);
-        }
-      } catch (err) {
-        console.error('QR checkout error:', err);
-        showToast('QR error: ' + (err.message || 'Could not load QR code'));
-      }
-    };
-
     const btnPay10 = $('btnPayPack10');
     const btnPay50 = $('btnPayPack50');
-    const btnQRPack10 = $('btnQRPack10');
-    const btnQRPack50 = $('btnQRPack50');
 
     if (btnPay10) btnPay10.addEventListener('click', () => launchRazorpayCheckout('pack10'));
     if (btnPay50) btnPay50.addEventListener('click', () => launchRazorpayCheckout('pack50'));
-    if (btnQRPack10) btnQRPack10.addEventListener('click', () => launchRazorpayQRCheckout('pack10'));
-    if (btnQRPack50) btnQRPack50.addEventListener('click', () => launchRazorpayQRCheckout('pack50'));
   }
 
   function checkPaymentRedirectReturn() {
