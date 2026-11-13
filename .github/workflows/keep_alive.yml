@@ -1,0 +1,37 @@
+name: Scheduled Keep Alive Ping (8 AM - 11 PM IST)
+
+on:
+  schedule:
+    # Runs every 12 minutes. The job verifies if current IST is between 8:00 AM and 11:00 PM
+    - cron: '*/12 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping Service Keep-Alive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Time & Send Keep-Alive Ping
+        run: |
+          # Calculate current Indian Standard Time (IST = UTC + 5:30)
+          CURRENT_IST_HOUR=$(python3 -c "from datetime import datetime, timezone, timedelta; print((datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).hour)")
+          echo "Current Indian Standard Time (IST) Hour: $CURRENT_IST_HOUR:00"
+
+          # Active window: 8:00 AM to 11:00 PM IST (8 <= hour < 23)
+          if [ "$CURRENT_IST_HOUR" -ge 8 ] && [ "$CURRENT_IST_HOUR" -lt 23 ]; then
+            echo "🟢 ACTIVE WINDOW (08:00 - 23:00 IST): Pinging service to keep it awake..."
+            URL="${{ secrets.RENDER_URL }}"
+            if [ -z "$URL" ]; then
+              URL="https://hlo-captions.onrender.com"
+            fi
+            echo "Target keep-alive endpoint: $URL/api/ping"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 25 "$URL/api/ping" || echo "000")
+            echo "HTTP response status: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Successfully pinged service! (200 OK - Server is awake & ready)"
+            else
+              echo "⚠️ Ping dispatched (Status: $STATUS)"
+            fi
+          else
+            echo "🌙 OFF-HOURS (11:00 PM - 08:00 AM IST): Sleeping to save server free tier quota. Ping omitted."
+          fi

@@ -11604,10 +11604,21 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     runBlock('modalHandlers', setupModalHandlers);
     runBlock('canvasSizing', setupCanvasSizing);
     runBlock('captionDragging', setupCaptionDragging);
+    runBlock('keepAliveHeartbeat', startKeepAliveHeartbeat);
     runBlock('authHandlers', setupAuthHandlers);
     runBlock('projectHandlers', setupProjectHandlers);
     runBlock('couponHandlers', setupCouponHandlers);
     runBlock('layoutDebugHelper', setupLayoutDebugHelper);
+  }
+
+  function startKeepAliveHeartbeat() {
+    // Keep-alive heartbeat: ping server every 8 minutes while tab is open between 8:00 AM and 11:00 PM local time
+    setInterval(() => {
+      const hr = new Date().getHours();
+      if (hr >= 8 && hr < 23) {
+        fetch('/api/ping', { cache: 'no-store' }).catch(() => {});
+      }
+    }, 8 * 60 * 1000);
   }
 
 
