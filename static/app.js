@@ -4880,6 +4880,18 @@ function drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
   }
 }
 
+function findLatestLingerCaption(captions, t, maxSec = 0.85) {
+  if (!Array.isArray(captions) || !captions.length) return null;
+  let best = null;
+  for (let i = captions.length - 1; i >= 0; i--) {
+    const c = captions[i];
+    if (c && typeof c.end === 'number' && t >= c.end && (t - c.end) <= maxSec) {
+      if (!best || c.end > best.end) best = c;
+    }
+  }
+  return best;
+}
+
 function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
   const ov = resolveSceneStyleOverrides(st, H);
@@ -5147,6 +5159,14 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     : capEnd;
   const fullInstant = typeof t !== 'number';
 
+  const captionsArr2 = (typeof S !== 'undefined' && Array.isArray(S.captions)) ? S.captions : null;
+  const nextCap = (captionsArr2 && capIdx >= 0 && capIdx + 1 < captionsArr2.length) ? captionsArr2[capIdx + 1] : null;
+  const prevCap = (captionsArr2 && capIdx > 0) ? captionsArr2[capIdx - 1] : null;
+  const nextCapStart = (nextCap && typeof nextCap.start === 'number') ? nextCap.start : Infinity;
+  // Hold captions ~0.55s longer (at least ~1.4s for short beats), clamped cleanly before the next caption starts
+  const desiredEnd = Math.max(capEnd + 0.55, capStart + 1.40);
+  const effCapEnd = Math.max(capEnd, Math.min(desiredEnd, nextCapStart - 0.03));
+
   // Single long caption (>= 6 words): split naturally into paired Top + Waist scene
   if (normWords.length >= 6) {
     let splitAt = Math.ceil(normWords.length / 2);
@@ -5158,7 +5178,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     }
     const topSlice = normWords.slice(0, splitAt);
     const waistSlice = normWords.slice(splitAt);
-    const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+    const timeRem = fullInstant ? 1.0 : Math.max(0, effCapEnd - evalT);
     const exitFade = fullInstant ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.24));
 
     drawEditorialPair(
@@ -5184,8 +5204,6 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
 
   // Standard <= 5 word caption cadence: Even captions render at Top; Odd captions render at Waist while lingering prev Top smoothly fades out
   const isOddWaist = (capIdx % 2 === 1);
-  const nextCap = (captionsArr && capIdx >= 0 && capIdx + 1 < captionsArr.length) ? captionsArr[capIdx + 1] : null;
-  const prevCap = (captionsArr && capIdx > 0) ? captionsArr[capIdx - 1] : null;
 
   if (isOddWaist && prevCap) {
     const prevGap = capStart - (typeof prevCap.end === 'number' ? prevCap.end : capStart);
@@ -5194,10 +5212,10 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       const pEnd = typeof prevCap.end === 'number' ? prevCap.end : capStart;
       const prevWords = normalizeWords(prevCap.words || (prevCap.text || '').split(/\s+/).map(tx => ({ t: tx })), pStart, pEnd);
       if (prevWords.length > 0) {
-        // Hold Top at 100% until 60% into Waist caption so both sit crisp together (like 2.60s), then fade cleanly out
-        const waistDur = Math.max(0.5, capEnd - capStart);
+        // Hold Top at 100% until 78% through Waist caption (including linger) so both sit comfortably longer, then fade cleanly out
+        const waistDur = Math.max(0.65, effCapEnd - capStart);
         const waistProg = fullInstant ? 0.3 : Math.max(0, (evalT - capStart) / waistDur);
-        const topCarryFade = waistProg <= 0.60 ? 1.0 : Math.max(0, 1.0 - (waistProg - 0.60) / 0.28);
+        const topCarryFade = waistProg <= 0.78 ? 1.0 : Math.max(0, 1.0 - (waistProg - 0.78) / 0.22);
         if (topCarryFade > 0.01) {
           drawEditorialPair(
             prevWords.slice(0, -1),
@@ -5215,8 +5233,8 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
 
   // Exit fade for current caption ("how it goes")
   const holdIntoWaist = !isOddWaist && nextCap && ((nextCap.start - capEnd) <= 0.85);
-  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
-  const currExitFade = (fullInstant || holdIntoWaist) ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.22));
+  const timeRem = fullInstant ? 1.0 : Math.max(0, effCapEnd - evalT);
+  const currExitFade = (fullInstant || holdIntoWaist) ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.24));
 
   drawEditorialPair(
     normWords.slice(0, -1),
@@ -17218,8 +17236,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           if (vid.paused || t <= 1.2) {
             activeCap = S.captions.find(c => t <= c.end) || S.captions[0];
           } else {
-            // Keep recent caption on screen during brief speech pauses (< 0.8s) so captions do not flash off
-            const recentCap = S.captions.find(c => t >= c.end && (t - c.end) <= 0.8);
+            // Keep most recently finished caption on screen during brief speech pauses (< 0.8s) so captions do not flash off
+            const recentCap = findLatestLingerCaption(S.captions, t, 0.8);
             if (recentCap) {
               activeCap = recentCap;
             } else {
@@ -18994,8 +19012,11 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         }
         lastExportTimestampMs = frameMs;
 
-        // Binary/fast caption lookup by time
-        const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+        // Binary/fast caption lookup by time (for Editorial Depth Stack, linger up to +0.55s in pauses so short captions sit longer)
+        let activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+        if (!activeCap && S.style && S.style.id === 'editorial_depth_stack') {
+          activeCap = findLatestLingerCaption(S.captions, t, 0.85);
+        }
 
         // Dynamic Auto-Zoom calculation (optimized)
         const az = S.autoZoom;
