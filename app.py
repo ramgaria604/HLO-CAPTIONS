@@ -1340,6 +1340,43 @@ def check_device_credits():
         if user_profile.get("expires_at") and not expires_at:
             expires_at = user_profile.get("expires_at")
 
+    # Live Razorpay payment verification fallback (guarantees credits are NEVER lost even on redirect drop)
+    if recorded_credits == 0 and (user_email or device_id):
+        try:
+            import razorpay
+            from razorpay_routes import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, PACKS
+            _rzp = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+            _pays = _rzp.payment.all({'count': 15})
+            _norm_em = (user_email or "").strip().lower()
+            _norm_dev = (device_id or "").strip()
+            _found_credits = 0
+            for _p in _pays.get('items', []):
+                if _p.get('status') == 'captured':
+                    _notes = _p.get('notes') or {}
+                    _pe = (_notes.get('email') or _p.get('email') or '').strip().lower()
+                    _pd = (_notes.get('device_id') or '').strip()
+                    if (_norm_em and _pe == _norm_em) or (_norm_dev and _pd == _norm_dev):
+                        _pk = _notes.get('pack_id') or ('pack50' if _p.get('amount') == 5000 else 'pack10')
+                        _cr = PACKS.get(_pk, PACKS['pack10'])['credits']
+                        _found_credits += _cr
+            if _found_credits > 0:
+                recorded_credits = _found_credits
+                has_record = True
+                _target = user_email or device_id
+                if _target:
+                    if _target in data:
+                        data[_target]['credits'] = max(data[_target].get('credits', 0), recorded_credits)
+                        data[_target]['has_paid'] = True
+                    else:
+                        data[_target] = {'credits': recorded_credits, 'used': 0, 'has_paid': True, 'email': user_email}
+                    save_device_credits_data(data)
+                if user_file:
+                    user_profile['credits'] = max(user_profile.get('credits', 0), recorded_credits)
+                    user_profile['has_paid'] = True
+                    save_user_profile(user_id, user_profile)
+        except Exception as _live_chk_err:
+            print("Live payment check warning:", _live_chk_err)
+
     # Verify if user or device has a genuine payment or coupon redemption (persisted in DATA_DIR + cloud)
     has_legit_payment = has_verified_credit_proof(
         user_email=user_email,
