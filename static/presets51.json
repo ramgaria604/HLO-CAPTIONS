@@ -1,81 +1,7 @@
 {
-  "estate_signature": {
-    "id": "estate_signature",
-    "name": "Estate Signature",
-    "colors": [
-      "#FFF9ED",
-      "#F4CE83",
-      "#D8A84D"
-    ],
-    "key": 0,
-    "shadow": "#4A3820",
-    "blend": "screen",
-    "layout": "stack",
-    "pos": 0.76,
-    "category": "real-estate",
-    "anim": "pop",
-    "reveal": "cumulative",
-    "wordsPerCaption": 3,
-    "keyWords": 1,
-    "behind": "all",
-    "gap": 0.03,
-    "opacity": 0.94,
-    "highlightColor": "#FFF9ED",
-    "tagline": "Oversized Montserrat keyword behind the speaker, with a clean colorful subtitle in front below.",
-    "big": {
-      "font": "Montserrat",
-      "weight": 900,
-      "size": 0.084,
-      "track": -0.018,
-      "fill": {
-        "colors": [
-          "#FFF9ED",
-          "#F4CE83",
-          "#D8A84D"
-        ],
-        "angle": 90
-      },
-      "stroke": {
-        "w": 0.026,
-        "color": "#101820"
-      },
-      "shadow": {
-        "dy": 0.017,
-        "color": "#4A3820"
-      },
-      "glow": {
-        "color": "#FFF9ED",
-        "blur": 0.014
-      },
-      "fallback": "Poppins"
-    },
-    "small": {
-      "font": "Montserrat",
-      "weight": 700,
-      "size": 0.039,
-      "fill": {
-        "colors": [
-          "#FFFFFF"
-        ]
-      },
-      "shadow": {
-        "dy": 0.012,
-        "color": "rgba(0,0,0,.65)"
-      },
-      "fallback": "Poppins"
-    },
-    "badge": "ESTATE SIGNATURE",
-    "badgeTextColor": "#101820",
-    "depthAccent": true,
-    "depthAccentSize": 0.22,
-    "depthAccentY": 0.41,
-    "subtitlePosition": 0.76,
-    "subtitleSize": 0.058,
-    "previewWord": "LUXURY LIVING"
-  },
   "electric_blue_blend": {
     "id": "electric_blue_blend",
-    "name": "Electric Blue Blend (Reference \ud83c\udf0a)",
+    "name": "Electric Blue Blend (Reference 🌊)",
     "layout": "stack",
     "anim": "pop",
     "reveal": "cumulative",
@@ -122,7 +48,7 @@
   },
   "orange_pop": {
     "id": "orange_pop",
-    "name": "Orange Grunge (Reference \ud83c\udf4a)",
+    "name": "Orange Grunge (Reference 🍊)",
     "layout": "scatter",
     "anim": "pop",
     "reveal": "cumulative",
@@ -166,7 +92,7 @@
   },
   "fire_gradient": {
     "id": "fire_gradient",
-    "name": "Fire \ud83d\udd25",
+    "name": "Fire 🔥",
     "layout": "stack",
     "anim": "bounce",
     "reveal": "cumulative",
@@ -218,7 +144,7 @@
   },
   "retro_sunset": {
     "id": "retro_sunset",
-    "name": "Retro Sunset \ud83c\udf05",
+    "name": "Retro Sunset 🌅",
     "layout": "stack",
     "anim": "bounce",
     "reveal": "cumulative",
@@ -263,7 +189,7 @@
   },
   "gold_luxury": {
     "id": "gold_luxury",
-    "name": "Gold Luxury \ud83d\udc51",
+    "name": "Gold Luxury 👑",
     "layout": "stack",
     "anim": "slide",
     "reveal": "cumulative",
@@ -492,61 +418,6 @@
     "highlightColor": "#F4B6A6",
     "opacity": 0.9
   },
-  "fire_ice": {
-    "id": "fire_ice",
-    "name": "Fire & Ice",
-    "layout": "line",
-    "anim": "pop",
-    "reveal": "cumulative",
-    "pos": 0.78,
-    "wordsPerCaption": 3,
-    "keyWords": 0,
-    "small": {
-      "weight": 400,
-      "size": 0.05,
-      "fill": {
-        "colors": [
-          "#FF3D00",
-          "#FFB300",
-          "#FFFFFF",
-          "#00B0FF",
-          "#2979FF"
-        ],
-        "angle": 90
-      },
-      "font": "Anton",
-      "upper": true,
-      "shadow": {
-        "dy": 0.04,
-        "blur": 0.06,
-        "color": "rgba(0,0,0,.55)"
-      }
-    },
-    "big": {
-      "weight": 400,
-      "size": 0.066,
-      "fill": {
-        "colors": [
-          "#FF3D00",
-          "#FFB300",
-          "#FFFFFF",
-          "#00B0FF",
-          "#2979FF"
-        ],
-        "angle": 90
-      },
-      "font": "Anton",
-      "upper": true,
-      "shadow": {
-        "dy": 0.04,
-        "blur": 0.06,
-        "color": "rgba(0,0,0,.55)"
-      }
-    },
-    "category": "colourful",
-    "highlightColor": "#FF3D00",
-    "opacity": 0.9
-  },
   "neon_tube": {
     "id": "neon_tube",
     "name": "Neon Tube",
@@ -645,102 +516,6 @@
     "highlightColor": "#FF3B6B",
     "opacity": 0.9
   },
-  "golden_hour": {
-    "id": "golden_hour",
-    "name": "Golden Hour",
-    "layout": "stack",
-    "anim": "slide",
-    "reveal": "cumulative",
-    "pos": 0.78,
-    "wordsPerCaption": 3,
-    "keyWords": 1,
-    "small": {
-      "weight": 300,
-      "size": 0.055,
-      "fill": {
-        "colors": [
-          "#FFFFFF"
-        ]
-      },
-      "font": "Inter",
-      "italic": true,
-      "shadow": {
-        "dy": 0.05,
-        "blur": 0.08,
-        "color": "rgba(0,0,0,.6)"
-      }
-    },
-    "big": {
-      "weight": 400,
-      "size": 0.078,
-      "fill": {
-        "colors": [
-          "#FFF1C1",
-          "#FFC875",
-          "#FF8F6B",
-          "#E85D9F"
-        ],
-        "angle": 160
-      },
-      "font": "Lobster",
-      "glow": {
-        "color": "#FF9E6B",
-        "blur": 0.04
-      }
-    },
-    "category": "colourful",
-    "highlightColor": "#FFF1C1",
-    "opacity": 0.9
-  },
-  "sunset_blaze": {
-    "id": "sunset_blaze",
-    "name": "Sunset Blaze",
-    "layout": "stack",
-    "anim": "bounce",
-    "reveal": "cumulative",
-    "pos": 0.78,
-    "wordsPerCaption": 3,
-    "keyWords": 1,
-    "small": {
-      "weight": 500,
-      "size": 0.04,
-      "fill": {
-        "colors": [
-          "#FFFFFF"
-        ]
-      },
-      "font": "Inter",
-      "upper": true,
-      "track": 0.3,
-      "shadow": {
-        "dy": 0.05,
-        "blur": 0.1,
-        "color": "rgba(0,0,0,.6)"
-      }
-    },
-    "big": {
-      "weight": 400,
-      "size": 0.084,
-      "fill": {
-        "colors": [
-          "#FFD452",
-          "#FF8A3D",
-          "#FF3D7F",
-          "#7A2BFF"
-        ],
-        "angle": 180
-      },
-      "font": "Archivo Black",
-      "shadow": {
-        "dy": 0.03,
-        "blur": 0,
-        "color": "#2A0B4D"
-      }
-    },
-    "category": "colourful",
-    "highlightColor": "#FFD452",
-    "opacity": 0.9
-  },
   "holo_chrome": {
     "id": "holo_chrome",
     "name": "Holo Chrome",
@@ -798,73 +573,6 @@
     },
     "category": "colourful",
     "highlightColor": "#FF5EDF",
-    "opacity": 0.9
-  },
-  "cyber_neon": {
-    "id": "cyber_neon",
-    "name": "Cyber Neon",
-    "layout": "line",
-    "anim": "glitch",
-    "reveal": "cumulative",
-    "pos": 0.78,
-    "wordsPerCaption": 3,
-    "keyWords": 0,
-    "small": {
-      "weight": 900,
-      "size": 0.046,
-      "fill": {
-        "colors": [
-          "#00F0FF",
-          "#FF2DAA"
-        ]
-      },
-      "font": "Rubik",
-      "upper": true,
-      "fx": {
-        "kind": "flow",
-        "stops": [
-          "#00F0FF",
-          "#7A5CFF",
-          "#FF2DAA"
-        ],
-        "hi": "#FFFFFF",
-        "lo": "#000000",
-        "speed": 1.4
-      },
-      "glow": {
-        "color": "#00F0FF",
-        "blur": 0.045
-      }
-    },
-    "big": {
-      "weight": 900,
-      "size": 0.08,
-      "fill": {
-        "colors": [
-          "#00F0FF",
-          "#FF2DAA"
-        ]
-      },
-      "font": "Rubik",
-      "upper": true,
-      "fx": {
-        "kind": "flow",
-        "stops": [
-          "#00F0FF",
-          "#7A5CFF",
-          "#FF2DAA"
-        ],
-        "hi": "#FFFFFF",
-        "lo": "#000000",
-        "speed": 1.4
-      },
-      "glow": {
-        "color": "#00F0FF",
-        "blur": 0.045
-      }
-    },
-    "category": "colourful",
-    "highlightColor": "#00F0FF",
     "opacity": 0.9
   },
   "vapor_wave": {
@@ -984,240 +692,9 @@
     "highlightColor": "#FFB6E1",
     "opacity": 0.9
   },
-  "aurora_flow": {
-    "id": "aurora_flow",
-    "name": "Aurora Flow",
-    "layout": "line",
-    "anim": "rise",
-    "reveal": "cumulative",
-    "pos": 0.78,
-    "wordsPerCaption": 3,
-    "keyWords": 0,
-    "small": {
-      "weight": 800,
-      "size": 0.049,
-      "fill": {
-        "colors": [
-          "#00F5A0",
-          "#7B61FF"
-        ]
-      },
-      "font": "Poppins",
-      "fx": {
-        "kind": "flow",
-        "stops": [
-          "#00F5A0",
-          "#00D9F5",
-          "#7B61FF",
-          "#FF4ECD"
-        ],
-        "hi": "#FFFFFF",
-        "lo": "#000000",
-        "speed": 1
-      },
-      "glow": {
-        "color": "#00D9F5",
-        "blur": 0.025
-      },
-      "shadow": {
-        "dy": 0.03,
-        "blur": 0.05,
-        "color": "rgba(0,0,0,.35)"
-      }
-    },
-    "big": {
-      "weight": 800,
-      "size": 0.085,
-      "fill": {
-        "colors": [
-          "#00F5A0",
-          "#7B61FF"
-        ]
-      },
-      "font": "Poppins",
-      "fx": {
-        "kind": "flow",
-        "stops": [
-          "#00F5A0",
-          "#00D9F5",
-          "#7B61FF",
-          "#FF4ECD"
-        ],
-        "hi": "#FFFFFF",
-        "lo": "#000000",
-        "speed": 1
-      },
-      "glow": {
-        "color": "#00D9F5",
-        "blur": 0.025
-      },
-      "shadow": {
-        "dy": 0.03,
-        "blur": 0.05,
-        "color": "rgba(0,0,0,.35)"
-      }
-    },
-    "category": "colourful",
-    "highlightColor": "#00F5A0",
-    "opacity": 0.9
-  },
-  "screen_glow": {
-    "id": "screen_glow",
-    "name": "Screen Glow",
-    "layout": "line",
-    "anim": "rise",
-    "reveal": "cumulative",
-    "pos": 0.78,
-    "wordsPerCaption": 3,
-    "keyWords": 0,
-    "small": {
-      "weight": 800,
-      "size": 0.049,
-      "fill": {
-        "colors": [
-          "#FFFFFF",
-          "#B5F5FF",
-          "#FFB5F0"
-        ],
-        "angle": 100
-      },
-      "font": "Poppins",
-      "glow": {
-        "color": "#FFFFFF",
-        "blur": 0.05
-      }
-    },
-    "blend": "screen",
-    "big": {
-      "weight": 800,
-      "size": 0.085,
-      "fill": {
-        "colors": [
-          "#FFFFFF",
-          "#B5F5FF",
-          "#FFB5F0"
-        ],
-        "angle": 100
-      },
-      "font": "Poppins",
-      "glow": {
-        "color": "#FFFFFF",
-        "blur": 0.05
-      }
-    },
-    "category": "blend",
-    "highlightColor": "#FFFFFF",
-    "opacity": 0.9
-  },
-  "rainbow_wipe": {
-    "id": "rainbow_wipe",
-    "name": "Rainbow Wipe",
-    "layout": "line",
-    "anim": "fade",
-    "reveal": "all",
-    "pos": 0.78,
-    "wordsPerCaption": 3,
-    "keyWords": 0,
-    "small": {
-      "weight": 800,
-      "size": 0.046,
-      "fill": {
-        "colors": [
-          "#FFFFFF"
-        ]
-      },
-      "font": "Poppins",
-      "shadow": {
-        "dy": 0.04,
-        "blur": 0.08,
-        "color": "rgba(0,0,0,.5)"
-      }
-    },
-    "highlight": {
-      "mode": "wipe",
-      "color": "#FF4ECD",
-      "wipe": [
-        "#FFFFFF",
-        "#FF4ECD"
-      ]
-    },
-    "big": {
-      "weight": 800,
-      "size": 0.08,
-      "fill": {
-        "colors": [
-          "#FFFFFF"
-        ]
-      },
-      "font": "Poppins",
-      "shadow": {
-        "dy": 0.04,
-        "blur": 0.08,
-        "color": "rgba(0,0,0,.5)"
-      }
-    },
-    "category": "colourful",
-    "highlightColor": "#FF4ECD",
-    "opacity": 0.9
-  },
-  "script_duo": {
-    "id": "script_duo",
-    "name": "Script + Chrome",
-    "layout": "stack",
-    "anim": "pop",
-    "reveal": "cumulative",
-    "pos": 0.78,
-    "wordsPerCaption": 3,
-    "keyWords": 1,
-    "small": {
-      "weight": 400,
-      "size": 0.05,
-      "fill": {
-        "colors": [
-          "#FFFFFF"
-        ]
-      },
-      "font": "Great Vibes",
-      "glow": {
-        "color": "#FFD98A",
-        "blur": 0.045
-      }
-    },
-    "big": {
-      "weight": 800,
-      "size": 0.078,
-      "fill": {
-        "colors": [
-          "#FFFFFF",
-          "#7C8AA3"
-        ]
-      },
-      "font": "Poppins",
-      "fx": {
-        "kind": "chrome",
-        "stops": [
-          "#FFFFFF",
-          "#C9D3E3",
-          "#7C8AA3",
-          "#E6ECF7"
-        ],
-        "hi": "#FFFFFF",
-        "lo": "#000000",
-        "speed": 1
-      },
-      "shadow": {
-        "dy": 0.03,
-        "blur": 0.05,
-        "color": "rgba(0,0,0,.5)"
-      }
-    },
-    "category": "colourful",
-    "highlightColor": "#FFFFFF",
-    "opacity": 0.9
-  },
   "box_pop": {
     "id": "box_pop",
-    "name": "Box Pop \u2b50",
+    "name": "Box Pop ⭐",
     "layout": "line",
     "anim": "pop",
     "reveal": "all",
@@ -1269,7 +746,7 @@
   },
   "mono_echo": {
     "id": "mono_echo",
-    "name": "Mono Echo \ud83d\udda4",
+    "name": "Mono Echo 🖤",
     "layout": "echo",
     "anim": "pop",
     "reveal": "cumulative",
@@ -1356,7 +833,7 @@
   },
   "comic_pow": {
     "id": "comic_pow",
-    "name": "Comic Pow \ud83d\udca5",
+    "name": "Comic Pow 💥",
     "layout": "stack",
     "anim": "bounce",
     "reveal": "cumulative",
@@ -1402,7 +879,7 @@
   },
   "terminal_type": {
     "id": "terminal_type",
-    "name": "Terminal \ud83d\udcbb",
+    "name": "Terminal 💻",
     "layout": "line",
     "anim": "type",
     "reveal": "cumulative",
@@ -1436,7 +913,7 @@
   },
   "glitch_rgb": {
     "id": "glitch_rgb",
-    "name": "Glitch RGB \ud83d\udc7e",
+    "name": "Glitch RGB 👾",
     "layout": "line",
     "anim": "glitch",
     "reveal": "all",
