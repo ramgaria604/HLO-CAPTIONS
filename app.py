@@ -2583,17 +2583,23 @@ def export_worker(job_id, d):
 
             # Aspect ratio support
             aspect = d.get("aspect", "original")
-            W, H = out_dims_aspect(info["width"], info["height"], aspect)
+            quality = str(d.get("quality", "high")).lower()
+            if quality in ("high", "1080p", "1080"):
+                max_short = 1080
+            elif quality in ("fast", "480p", "480"):
+                max_short = 480
+            else:
+                max_short = 720
+            W, H = out_dims_aspect(info["width"], info["height"], aspect, max_short=max_short)
 
             fps = info["fps"]
             duration = info["duration"]
             sync_fonts()
 
-            # Quality settings
-            quality = d.get("quality", "balanced")
-            crf_map = {"high": "18", "balanced": "20", "fast": "24"}
-            preset_map = {"high": "veryfast", "balanced": "ultrafast", "fast": "ultrafast"}
-            crf = crf_map.get(quality, "20")
+            # Quality settings (supports up to 1080p Full HD)
+            crf_map = {"high": "18", "1080p": "18", "balanced": "20", "720p": "20", "fast": "24", "480p": "24"}
+            preset_map = {"high": "veryfast", "1080p": "veryfast", "balanced": "ultrafast", "720p": "ultrafast", "fast": "ultrafast", "480p": "ultrafast"}
+            crf = crf_map.get(quality, "18" if max_short == 1080 else ("20" if max_short == 720 else "24"))
             preset = preset_map.get(quality, "ultrafast")
 
             # Speed setting

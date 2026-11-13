@@ -63,8 +63,7 @@
       return saved !== null ? (saved === 'true') : isPhone;
     })(),
     exportQuality: (() => {
-      const isPhone = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768 && !/iPad/i.test(navigator.userAgent));
-      return localStorage.getItem('captionstudio_export_quality') || (isPhone ? 'balanced' : 'high');
+      return localStorage.getItem('captionstudio_export_quality') || 'high';
     })(),
   autoSfx: true,
   sfxVolume: 0.7,
@@ -11844,7 +11843,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.25.0';
+    const CURRENT_PRESET_VER = 'v7.26.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -18142,7 +18141,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       restoreEditorAfterExport();
     });
 
-    btnRetryExport.addEventListener('click', startExport);
+    btnRetryExport.addEventListener('click', () => startExport(true));
 
     const btnCancelExportAction = $('btnCancelExportAction');
     if (btnCancelExportAction) {
@@ -18296,21 +18295,21 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   initHeroLookUI();
   ensureHeroFontsLoaded();
   setupQualityPills();
-    setupPreviewPerfModeToggle();
+  setupExportQualityModal();
+  setupPreviewPerfModeToggle();
   }
 
-  
   function updateQualityPillsUI() {
-    const curQ = S.exportQuality || 'balanced';
+    const curQ = S.exportQuality || 'high';
     $$('.btn-quality-pill').forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-quality') === curQ);
     });
 
     const stepFinalizeTitle = $('stepFinalizeTitle');
     if (stepFinalizeTitle) {
-      if (curQ === 'fast') stepFinalizeTitle.textContent = '960p MP4';
-      else if (curQ === 'high') stepFinalizeTitle.textContent = '1080p MP4';
-      else stepFinalizeTitle.textContent = '720p MP4';
+      if (curQ === 'fast' || curQ === '480p') stepFinalizeTitle.textContent = '480p MP4';
+      else if (curQ === 'high' || curQ === '1080p') stepFinalizeTitle.textContent = '1080p Full HD MP4';
+      else stepFinalizeTitle.textContent = '720p HD MP4';
     }
   }
 
@@ -18321,7 +18320,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     try { localStorage.setItem('captionstudio_export_quality', q); } catch (_) {}
     updateQualityPillsUI();
 
-    const qLabel = q === 'fast' ? 'Fast (960p)' : (q === 'high' ? 'High (1080p)' : 'Balanced (720p)');
+    const qLabel = (q === 'fast' || q === '480p') ? 'Standard (480p)' : ((q === 'high' || q === '1080p') ? 'Full HD (1080p)' : 'HD Ready (720p)');
     showToast('⚡ Quality: ' + qLabel, 1500);
 
     const modalExp = $('modalExport');
@@ -18344,10 +18343,103 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         S._restartingExport = false;
         S.exportAbortSignal = false;
         if (!modalExp.classList.contains('hidden')) {
-          startExport();
+          startExport(true);
         }
       }, 120);
     }
+  }
+
+  function updateConfirmQualityBtnText(q) {
+    const btn = $('btnConfirmExportQuality');
+    if (!btn) return;
+    const labelSpan = btn.querySelector('span');
+    let label = 'Export in 1080p Full HD';
+    if (q === 'fast' || q === '480p') {
+      label = 'Export in 480p Standard (Fast)';
+    } else if (q === 'balanced' || q === '720p') {
+      label = 'Export in 720p HD Ready';
+    } else {
+      label = 'Export in 1080p Full HD';
+    }
+    if (labelSpan) {
+      labelSpan.textContent = label;
+    } else {
+      btn.textContent = label;
+    }
+  }
+
+  function openExportQualityModal() {
+    const modal = $('modalExportQuality');
+    if (!modal) {
+      startExport(true);
+      return;
+    }
+    const curQ = S.exportQuality || 'high';
+    $$('.quality-option-card').forEach(card => {
+      card.classList.toggle('active', card.getAttribute('data-quality') === curQ);
+    });
+    updateConfirmQualityBtnText(curQ);
+    modal.classList.remove('hidden');
+  }
+
+  function closeExportQualityModal() {
+    const modal = $('modalExportQuality');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  }
+
+  function setupExportQualityModal() {
+    const modal = $('modalExportQuality');
+    if (!modal) return;
+
+    $$('.quality-option-card').forEach(card => {
+      const selectCard = (e) => {
+        if (e) {
+          try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+        }
+        $$('.quality-option-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const q = card.getAttribute('data-quality') || 'high';
+        S.exportQuality = q;
+        try { localStorage.setItem('captionstudio_export_quality', q); } catch (_) {}
+        updateConfirmQualityBtnText(q);
+        updateQualityPillsUI();
+      };
+      card.onclick = selectCard;
+      card.ontouchend = selectCard;
+    });
+
+    const btnConfirm = $('btnConfirmExportQuality');
+    if (btnConfirm) {
+      btnConfirm.onclick = (e) => {
+        if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (_) {} }
+        closeExportQualityModal();
+        startExport(true);
+      };
+    }
+
+    const btnClose = $('btnCloseQualityModal');
+    if (btnClose) {
+      btnClose.onclick = (e) => {
+        if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (_) {} }
+        closeExportQualityModal();
+      };
+    }
+
+    const btnCancel = $('btnCancelQualityModal');
+    if (btnCancel) {
+      btnCancel.onclick = (e) => {
+        if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (_) {} }
+        closeExportQualityModal();
+      };
+    }
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeExportQualityModal();
+      }
+    });
   }
 
   
@@ -18732,20 +18824,25 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       let targetW = rawW;
       let targetH = rawH;
 
-      const isMobileDeviceCheck = /Android|iPhone|Mobile/i.test(navigator.userAgent || '');
-      let maxLongSide = isMobileDeviceCheck ? 960 : 1280;
-      const curQ = S.exportQuality || (isMobileDeviceCheck ? 'fast' : 'balanced');
-      if (curQ === 'fast') {
-        maxLongSide = 960;
-      } else if (curQ === 'high') {
-        maxLongSide = 1920;
-      } else {
+      let maxLongSide = 1920;
+      const curQ = S.exportQuality || 'high';
+      if (curQ === 'fast' || curQ === '480p') {
+        maxLongSide = 854;
+      } else if (curQ === 'balanced' || curQ === '720p') {
         maxLongSide = 1280;
+      } else {
+        // High / 1080p (supports up to 1080p Full HD)
+        maxLongSide = 1920;
       }
 
       const currentLongSide = Math.max(targetW, targetH);
       if (currentLongSide > maxLongSide) {
         const scale = maxLongSide / currentLongSide;
+        targetW = Math.round(targetW * scale);
+        targetH = Math.round(targetH * scale);
+      } else if ((curQ === 'high' || curQ === '1080p') && currentLongSide < 1920 && currentLongSide >= 720) {
+        // Crisp 1080p render for 720p/HD source clips
+        const scale = 1920 / currentLongSide;
         targetW = Math.round(targetW * scale);
         targetH = Math.round(targetH * scale);
       }
@@ -18754,16 +18851,16 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       targetW = Math.max(2, targetW);
       targetH = Math.max(2, targetH);
 
-      // Streamlined mobile bitrate for fast software/hardware encoding passes
+      // Streamlined bitrate based on resolution
       const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-      let targetBitrate = isMobileDevice ? 2200000 : 3500000;
+      let targetBitrate = isMobileDevice ? 2500000 : 3800000;
       const chosenLong = Math.max(targetW, targetH);
-      if (chosenLong <= 960) {
-        targetBitrate = isMobileDevice ? 1800000 : 2500000;
+      if (chosenLong <= 854) {
+        targetBitrate = isMobileDevice ? 1600000 : 2200000;
       } else if (chosenLong <= 1280) {
-        targetBitrate = isMobileDevice ? 2200000 : 3500000;
+        targetBitrate = isMobileDevice ? 2500000 : 3800000;
       } else {
-        targetBitrate = isMobileDevice ? 3200000 : 5000000;
+        targetBitrate = isMobileDevice ? 4500000 : 6000000;
       }
 
       const isBehind = Boolean(
@@ -19516,7 +19613,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
     await finishExportPromise;
   }
 
-  async function startExport() {
+  async function startExport(skipQualityPrompt = false) {
     // 1. Mandatory Sign In Check: User must sign in with Google/Email to export!
     if (!S.user || !S.user.id) {
       S.pendingExportAfterLogin = true;
@@ -19537,7 +19634,14 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       return;
     }
 
+    // 3. Ask for Export Quality Before Starting Render (Supports up to 1080p)
+    if (!skipQualityPrompt) {
+      openExportQualityModal();
+      return;
+    }
+
     vid.pause();
+    updateQualityPillsUI();
     // Hide complex underlying video and editor DOM to give 100% GPU to video encoder
     const editorMain = document.querySelector('.editor-main') || $('editorMain') || document.body;
     document.body.classList.add('export-mode-active');
@@ -19775,7 +19879,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       const videoDur = Math.round(vid.duration || S.probe?.duration || 0);
       const speedMultiplier = videoDur > 0 ? (videoDur / Math.max(1, totalSec)).toFixed(1) + 'x speed' : '';
       const speedPart = speedMultiplier ? (' • ' + speedMultiplier) : '';
-      doneMeta.textContent = 'Completed in ' + timeStr + speedPart + ' • High quality with synced audio.';
+      const qPart = (S.exportQuality === 'high' || S.exportQuality === '1080p') ? '1080p Full HD' : ((S.exportQuality === 'fast' || S.exportQuality === '480p') ? '480p Standard' : '720p HD Ready');
+      doneMeta.textContent = 'Completed in ' + timeStr + speedPart + ' • ' + qPart + ' with synced audio.';
     }
 
     const isBlob = String(filename || '').startsWith('blob:');
