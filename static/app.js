@@ -11546,6 +11546,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
               console.log('Razorpay modal dismissed by user');
             }
           },
+          callback_url: window.location.origin + '/api/payment/callback',
+          redirect: (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '')),
           handler: async function (response) {
             // 3. Verify Payment Signature on Backend
             try {
@@ -11627,6 +11629,29 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
   }
 
+  function checkPaymentRedirectReturn() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('payment_success') === 'true') {
+        const added = parseInt(urlParams.get('credits') || '1', 10);
+        safeLSSet('cs_has_paid', 'true');
+        const curCred = parseInt(localStorage.getItem('cs_credits') || '0', 10);
+        saveUserCredits(curCred + added);
+        updateCreditsUI();
+        showToast(`🎉 Payment Successful! ${added} Video Export unlocked!`, 4000);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setTimeout(() => {
+          if (typeof startExport === 'function') {
+            startExport();
+          }
+        }, 600);
+      } else if (urlParams.get('payment_error')) {
+        showToast('❌ Payment: ' + decodeURIComponent(urlParams.get('payment_error')), 5000);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch (_) {}
+  }
+
   async function init() {
     const runBlock = (blockName, fn) => {
       try {
@@ -11635,6 +11660,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         console.error('[INIT]', blockName, err);
       }
     };
+
+    runBlock('checkPaymentRedirectReturn', checkPaymentRedirectReturn);
 
     // Load presets and templates early so screen is never blank
     try {
@@ -11898,7 +11925,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.27.0';
+    const CURRENT_PRESET_VER = 'v7.28.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
