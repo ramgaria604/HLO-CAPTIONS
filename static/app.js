@@ -1128,8 +1128,11 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        const isBoxMode = wo.isKey && st.highlight && st.highlight.mode === 'box';
-        ctx.font = `${wo.isKey ? (kRole.italic ? 'italic ' : '') + '900' : (fRole.italic ? 'italic ' : '') + '800'} ${fs}px ${fontFam}`;
+        // Word-by-word active pop box: pops on the currently spoken word, or key/hero word in preview
+        const isSpokenActive = (typeof t === 'number' && !isNaN(t) && t >= (wo.w.s || 0) - 0.02 && t <= (wo.w.e || (wo.w.s || 0) + 0.25) + 0.04);
+        const isCurrentSpoken = isSpokenActive || (!showAll && anim.visible && anim.scale > 1.01);
+        const isBoxMode = Boolean(st.highlight && st.highlight.mode === 'box' && (isCurrentSpoken || (showAll && (wo.isKey || !mLine.wordObjs.some(o => o.isKey)))));
+        ctx.font = `${(isBoxMode || wo.isKey) ? (kRole.italic ? 'italic ' : '') + '900' : (fRole.italic ? 'italic ' : '') + '800'} ${fs}px ${fontFam}`;
         if (stdTrackStr && 'letterSpacing' in ctx) ctx.letterSpacing = stdTrackStr;
 
         if (isBoxMode) {
@@ -9895,9 +9898,18 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   }
 
   if (presetKey === 'volt') {
-    const beforeTxt = applyCase(isSampleCard ? 'BUILT' : split.beforeTxt);
-    const pillTxt = applyCase(isSampleCard ? 'DIFFERENT' : (split.heroTxt || 'DIFFERENT'));
-    const afterTxt = applyCase(isSampleCard ? '' : split.afterTxt);
+    const sampleWords = [
+      { text: applyCase('BUILT'), s: capStart, e: capStart + 0.35, isKey: false },
+      { text: applyCase('DIFFERENT'), s: capStart + 0.35, e: capStart + 0.75, isKey: true }
+    ];
+    const tokens = isSampleCard ? sampleWords : words.map((w, idx) => {
+      const txt = applyCase(cleanTok(w && (w.t || w.word) || '', false));
+      const ws = wordTime(w, capStart + idx * 0.18);
+      const we = (w && typeof w.e === 'number') ? w.e : (ws + 0.25);
+      return { text: txt, w, s: ws, e: we, isKey: Boolean(w && w.key), idx };
+    }).filter(it => it.text.length > 0);
+    if (!tokens.length) return;
+
     const tagTxt = `[FOCUS // ${String(capIdx + 1).padStart(2, '0')}]`;
     const mFn = (sz) => `700 ${sz}px "Space Mono", monospace`;
     const wFam = pickFontFam('"Montserrat", "Inter", sans-serif');
@@ -9905,30 +9917,59 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     const vTrk = trackEmWith(-0.02);
     const vHi = pickHi('#D4FF00');
     const vBase = pickBase('#FFFFFF');
-
     const tagSz = Math.round(H * 0.017 * fontScale);
-    const fullStr = [beforeTxt, pillTxt, afterTxt].filter(Boolean).join('  ');
-    const rowSz = fitFont(ctxFore, fullStr, wFn, H * 0.044 * fontScale, H * 0.015, W * 0.76, vTrk);
+
+    // Active word tracking: the neon box hops word-by-word across spoken words in real time
+    let activeIdx = -1;
+    if (fullInstant) {
+      activeIdx = isSampleCard ? 1 : (tokens.findIndex(it => it.isKey) >= 0 ? tokens.findIndex(it => it.isKey) : tokens.length - 1);
+    } else {
+      for (let i = 0; i < tokens.length; i++) {
+        if (evalT >= tokens[i].s - 0.02 && evalT <= tokens[i].e + 0.04) {
+          activeIdx = i;
+          break;
+        }
+      }
+      if (activeIdx < 0) {
+        for (let i = tokens.length - 1; i >= 0; i--) {
+          if (evalT >= tokens[i].s - 0.02) {
+            activeIdx = i;
+            break;
+          }
+        }
+      }
+      if (activeIdx < 0) activeIdx = 0;
+    }
+
+    const fullStr = tokens.map(it => it.text).join('  ');
+    let rowSz = fitFont(ctxFore, fullStr, wFn, H * 0.044 * fontScale, H * 0.015, W * 0.76, vTrk);
+    const pillPadX = Math.round(rowSz * 0.46);
+    const pillH = Math.round(rowSz * 1.48);
+    const wordGap = Math.round(rowSz * 0.38);
 
     ctxFore.save();
     ctxFore.font = wFn(rowSz);
     if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${vTrk}em`;
-    const bw = beforeTxt ? measureW(ctxFore, beforeTxt, rowSz, vTrk) : 0;
-    const pwTxt = measureW(ctxFore, pillTxt, rowSz, vTrk);
-    const aw = afterTxt ? measureW(ctxFore, afterTxt, rowSz, vTrk) : 0;
+    let measuredW = tokens.map(it => measureW(ctxFore, it.text, rowSz, vTrk));
     ctxFore.restore();
 
-    const pillPadX = Math.round(rowSz * 0.56);
-    const pillW = Math.round(pwTxt + pillPadX * 2);
-    const pillH = Math.round(rowSz * 1.48);
-    const gap1 = beforeTxt ? Math.round(rowSz * 0.34) : 0;
-    const gap2 = afterTxt ? Math.round(rowSz * 0.34) : 0;
-    const contentW = bw + gap1 + pillW + gap2 + aw;
-    const frameW = Math.min(Math.round(W * 0.92), Math.round(Math.max(contentW + H * 0.05, H * 0.24)));
+    let contentW = measuredW.reduce((sum, w) => sum + w, 0) + (tokens.length - 1) * wordGap + pillPadX * 2;
+    if (contentW > W * 0.88) {
+      const sc = (W * 0.88) / contentW;
+      rowSz = Math.max(Math.round(H * 0.015), Math.floor(rowSz * sc));
+      ctxFore.save();
+      ctxFore.font = wFn(rowSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${vTrk}em`;
+      measuredW = tokens.map(it => measureW(ctxFore, it.text, rowSz, vTrk));
+      ctxFore.restore();
+      contentW = measuredW.reduce((sum, w) => sum + w, 0) + (tokens.length - 1) * Math.round(rowSz * 0.38) + Math.round(rowSz * 0.46) * 2;
+    }
+
+    const frameW = Math.min(Math.round(W * 0.94), Math.round(Math.max(contentW + H * 0.06, H * 0.24)));
     const frameH = Math.round(pillH + tagSz * 2.0 * lineSpacingMult + H * 0.018);
     const fx0 = Math.round(heroX - frameW * 0.5);
     const fy0 = Math.round(cy - frameH * 0.5);
-    const ep = easeOutCubic(Math.max(beforeP, heroP, afterP));
+    const ep = fullInstant ? 1.0 : easeOutCubic(progFactor(tokens[0].s, 0.16));
     recordSceneBox(fx0, fy0, frameW, frameH);
 
     ctxFore.save();
@@ -9953,7 +9994,6 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       corner(fx0, fy0 + frameH, 1, -1);
       corner(fx0 + frameW, fy0 + frameH, -1, -1);
 
-      const startX = Math.round(heroX - contentW * 0.5);
       const tagY = Math.round(fy0 + H * 0.012 + tagSz * 0.5);
       ctxFore.font = mFn(tagSz);
       ctxFore.textAlign = 'left';
@@ -9962,21 +10002,50 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.fillText(tagTxt, Math.round(fx0 + H * 0.018), tagY);
 
       const rowCy = Math.round(fy0 + frameH - pillH * 0.5 - H * 0.012);
-      if (beforeTxt && (fullInstant || beforeP > 0.01)) {
-        ctxFore.font = wFn(rowSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${vTrk}em`;
-        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 6, 1);
-        drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, startX, rowCy, rowSz, vTrk, vBase, applyCase, false, beforeEnterStart);
+      let curX = Math.round(heroX - contentW * 0.5 + pillPadX);
+      const wordPositions = [];
+      for (let i = 0; i < tokens.length; i++) {
+        const tw = measuredW[i];
+        const wCx = Math.round(curX + tw * 0.5);
+        wordPositions.push({ wCx, tw, leftX: curX });
+        curX += tw + wordGap;
       }
 
-      const px = Math.round(startX + bw + gap1);
-      if (fullInstant || heroP > 0.01) {
-        const hep = fullInstant ? 1.0 : easeOutCubic(heroP);
+      // 1. Draw non-active words
+      for (let i = 0; i < tokens.length; i++) {
+        if (i === activeIdx) continue;
+        const it = tokens[i];
+        const enterP = fullInstant ? 1.0 : progFactor(it.s, 0.14);
+        if (!fullInstant && enterP <= 0.01) continue;
+        const isSpoken = fullInstant || (evalT >= it.s - 0.02);
+
+        ctxFore.save();
+        ctxFore.font = wFn(rowSz);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${vTrk}em`;
+        ctxFore.textAlign = 'center';
+        ctxFore.textBaseline = 'middle';
+        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 6, 1);
+        ctxFore.globalAlpha = exitFade * ep * (isSpoken ? 1.0 : 0.60) * (fullInstant ? 1.0 : easeOutCubic(enterP));
+        ctxFore.fillStyle = vBase;
+        ctxFore.fillText(it.text, wordPositions[i].wCx, rowCy + Math.round(rowSz * 0.04));
+        ctxFore.restore();
+      }
+
+      // 2. Draw active spoken word with animated slanted neon volt ticker box
+      if (activeIdx >= 0 && activeIdx < tokens.length) {
+        const actTok = tokens[activeIdx];
+        const actPos = wordPositions[activeIdx];
+        const enterP = fullInstant ? 1.0 : progFactor(actTok.s, 0.14);
+        const hep = fullInstant ? 1.0 : easeOutCubic(enterP);
+        const pillW = Math.round(actPos.tw + pillPadX * 2);
+        const sc = fullInstant ? 1.0 : (0.95 + 0.05 * hep);
+
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * ep * hep;
-        ctxFore.translate(px + pillW * 0.5, rowCy);
+        ctxFore.translate(actPos.wCx, rowCy);
         ctxFore.transform(1, 0, -0.10, 1, 0, 0);
-        applyGlow(ctxFore, customHighlight || 'rgba(212, 255, 0, 0.55)', 10, 1);
+        ctxFore.scale(sc, sc);
+        applyGlow(ctxFore, customHighlight || 'rgba(212, 255, 0, 0.65)', 12, 1);
         roundRectPath(ctxFore, -pillW * 0.5, -pillH * 0.5, pillW, pillH, Math.round(pillH * 0.24));
         ctxFore.fillStyle = vHi;
         ctxFore.fill();
@@ -9987,16 +10056,8 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'middle';
         ctxFore.fillStyle = '#0A0D14';
-        ctxFore.fillText(pillTxt, 0, Math.round(rowSz * 0.04));
+        ctxFore.fillText(actTok.text, 0, Math.round(rowSz * 0.04));
         ctxFore.restore();
-      }
-
-      if (afterTxt && (fullInstant || afterP > 0.01)) {
-        const ax = Math.round(px + pillW + gap2);
-        ctxFore.font = wFn(rowSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${vTrk}em`;
-        applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 6, 1);
-        drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, ax, rowCy, rowSz, vTrk, vBase, applyCase, false, afterEnterStart);
       }
     } finally {
       ctxFore.restore();
@@ -10122,35 +10183,76 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   }
 
   if (presetKey === 'holo') {
-    const beforeTxt = applyCase(isSampleCard ? 'ONE IDEA' : split.beforeTxt);
-    const pillStr = applyCase(isSampleCard ? 'CHANGES ALL' : (split.heroTxt || 'CHANGES'));
-    const afterTxt = applyCase(isSampleCard ? '' : split.afterTxt);
+    const sampleWords = [
+      { text: applyCase('ONE'), s: capStart, e: capStart + 0.30, isKey: false },
+      { text: applyCase('IDEA'), s: capStart + 0.30, e: capStart + 0.60, isKey: false },
+      { text: applyCase('CHANGES'), s: capStart + 0.60, e: capStart + 1.00, isKey: true },
+      { text: applyCase('ALL'), s: capStart + 1.00, e: capStart + 1.30, isKey: false }
+    ];
+    const tokens = isSampleCard ? sampleWords : words.map((w, idx) => {
+      const txt = applyCase(cleanTok(w && (w.t || w.word) || '', false));
+      const ws = wordTime(w, capStart + idx * 0.18);
+      const we = (w && typeof w.e === 'number') ? w.e : (ws + 0.25);
+      return { text: txt, w, s: ws, e: we, isKey: Boolean(w && w.key), idx };
+    }).filter(it => it.text.length > 0);
+    if (!tokens.length) return;
+
     const oFam = pickFontFam('"Outfit", "Poppins", sans-serif');
     const oFn = (sz) => `800 ${sz}px ${oFam}`;
     const oTrk = trackEmWith(-0.015);
     const hBase = pickBase('#F8FAFC');
-    const combinedStr = [beforeTxt, pillStr, afterTxt].filter(Boolean).join('  ');
-    const tSz = fitFont(ctxFore, combinedStr, oFn, H * 0.032 * fontScale, H * 0.014, W * 0.72, oTrk);
+
+    // Active word tracking: the holographic aura pill hops word-by-word across spoken words in real time
+    let activeIdx = -1;
+    if (fullInstant) {
+      activeIdx = isSampleCard ? 2 : (tokens.findIndex(it => it.isKey) >= 0 ? tokens.findIndex(it => it.isKey) : tokens.length - 1);
+    } else {
+      for (let i = 0; i < tokens.length; i++) {
+        if (evalT >= tokens[i].s - 0.02 && evalT <= tokens[i].e + 0.04) {
+          activeIdx = i;
+          break;
+        }
+      }
+      if (activeIdx < 0) {
+        for (let i = tokens.length - 1; i >= 0; i--) {
+          if (evalT >= tokens[i].s - 0.02) {
+            activeIdx = i;
+            break;
+          }
+        }
+      }
+      if (activeIdx < 0) activeIdx = 0;
+    }
+
+    const fullStr = tokens.map(it => it.text).join('  ');
+    let tSz = fitFont(ctxFore, fullStr, oFn, H * 0.034 * fontScale, H * 0.014, W * 0.74, oTrk);
+    const pPadX = Math.round(tSz * 0.52);
+    const pillH = Math.round(tSz * 1.82);
+    const wordGap = Math.round(tSz * 0.42);
 
     ctxFore.save();
     ctxFore.font = oFn(tSz);
     if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${oTrk}em`;
-    const bw = beforeTxt ? measureW(ctxFore, beforeTxt, tSz, oTrk) : 0;
-    const pwTxt = measureW(ctxFore, pillStr, tSz, oTrk);
-    const aw = afterTxt ? measureW(ctxFore, afterTxt, tSz, oTrk) : 0;
+    let measuredW = tokens.map(it => measureW(ctxFore, it.text, tSz, oTrk));
     ctxFore.restore();
 
-    const pPadX = Math.round(tSz * 0.72);
-    const pillW = Math.round(pwTxt + pPadX * 2);
-    const pillH = Math.round(tSz * 1.85);
-    const gap1 = beforeTxt ? Math.round(tSz * 0.42) : 0;
-    const gap2 = afterTxt ? Math.round(tSz * 0.42) : 0;
-    const innerW = bw + gap1 + pillW + gap2 + aw;
-    const barW = Math.min(Math.round(W * 0.92), Math.round(innerW + H * 0.046));
+    let contentW = measuredW.reduce((sum, w) => sum + w, 0) + (tokens.length - 1) * wordGap + pPadX * 2;
+    if (contentW > W * 0.88) {
+      const sc = (W * 0.88) / contentW;
+      tSz = Math.max(Math.round(H * 0.014), Math.floor(tSz * sc));
+      ctxFore.save();
+      ctxFore.font = oFn(tSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${oTrk}em`;
+      measuredW = tokens.map(it => measureW(ctxFore, it.text, tSz, oTrk));
+      ctxFore.restore();
+      contentW = measuredW.reduce((sum, w) => sum + w, 0) + (tokens.length - 1) * Math.round(tSz * 0.42) + Math.round(tSz * 0.52) * 2;
+    }
+
+    const barW = Math.min(Math.round(W * 0.94), Math.round(contentW + H * 0.048));
     const barH = Math.round(pillH * lineSpacingMult + H * 0.022);
     const bx = Math.round(heroX - barW * 0.5);
     const by = Math.round(cy - barH * 0.5);
-    const ep = easeOutCubic(Math.max(beforeP, heroP, afterP));
+    const ep = fullInstant ? 1.0 : easeOutCubic(progFactor(tokens[0].s, 0.16));
     recordSceneBox(bx, by, barW, barH);
 
     ctxFore.save();
@@ -10167,33 +10269,64 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
       ctxFore.stroke();
 
-      const startX = Math.round(heroX - innerW * 0.5);
-      ctxFore.textBaseline = 'middle';
-      if (beforeTxt && (fullInstant || beforeP > 0.01)) {
-        ctxFore.font = oFn(tSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${oTrk}em`;
-        applyGlow(ctxFore, 'transparent', 0, 1);
-        drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeTxt, startX, cy, tSz, oTrk, hBase, applyCase, false, beforeEnterStart);
+      let curX = Math.round(heroX - contentW * 0.5 + pPadX);
+      const wordPositions = [];
+      for (let i = 0; i < tokens.length; i++) {
+        const tw = measuredW[i];
+        const wCx = Math.round(curX + tw * 0.5);
+        wordPositions.push({ wCx, tw, leftX: curX });
+        curX += tw + wordGap;
       }
 
-      const px = Math.round(startX + bw + gap1);
-      const py = Math.round(cy - pillH * 0.5);
-      if (fullInstant || heroP > 0.01) {
-        const hep = fullInstant ? 1.0 : easeOutCubic(heroP);
+      // 1. Draw non-active words
+      for (let i = 0; i < tokens.length; i++) {
+        if (i === activeIdx) continue;
+        const it = tokens[i];
+        const enterP = fullInstant ? 1.0 : progFactor(it.s, 0.14);
+        if (!fullInstant && enterP <= 0.01) continue;
+        const isSpoken = fullInstant || (evalT >= it.s - 0.02);
+
+        ctxFore.save();
+        ctxFore.font = oFn(tSz);
+        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${oTrk}em`;
+        ctxFore.textAlign = 'center';
+        ctxFore.textBaseline = 'middle';
+        applyGlow(ctxFore, 'transparent', 0, 1);
+        ctxFore.globalAlpha = exitFade * ep * (isSpoken ? 1.0 : 0.60) * (fullInstant ? 1.0 : easeOutCubic(enterP));
+        ctxFore.fillStyle = hBase;
+        ctxFore.fillText(it.text, wordPositions[i].wCx, cy);
+        ctxFore.restore();
+      }
+
+      // 2. Draw active spoken word wrapped in rounded holographic gradient aura pill with sparkles
+      if (activeIdx >= 0 && activeIdx < tokens.length) {
+        const actTok = tokens[activeIdx];
+        const actPos = wordPositions[activeIdx];
+        const enterP = fullInstant ? 1.0 : progFactor(actTok.s, 0.14);
+        const hep = fullInstant ? 1.0 : easeOutCubic(enterP);
+        const pillW = Math.round(actPos.tw + pPadX * 2);
+        const px = Math.round(actPos.wCx - pillW * 0.5);
+        const py = Math.round(cy - pillH * 0.5);
+        const sc = fullInstant ? 1.0 : (0.95 + 0.05 * hep);
+
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * ep * hep;
+        ctxFore.translate(actPos.wCx, cy);
+        ctxFore.scale(sc, sc);
+        ctxFore.translate(-actPos.wCx, -cy);
+
         const hg = ctxFore.createLinearGradient(px, py, px + pillW, py + pillH);
         hg.addColorStop(0.00, '#CFFAFE');
         hg.addColorStop(0.45, '#F5D0FE');
         hg.addColorStop(0.80, '#DDD6FE');
         hg.addColorStop(1.00, '#BAE6FD');
-        applyGlow(ctxFore, customHighlight || 'rgba(165, 243, 252, 0.55)', 10, 1);
+        applyGlow(ctxFore, customHighlight || 'rgba(165, 243, 252, 0.65)', 12, 1);
         roundRectPath(ctxFore, px, py, pillW, pillH, Math.round(pillH * 0.5));
         ctxFore.fillStyle = customHighlight || hg;
         ctxFore.fill();
 
         ctxFore.shadowColor = 'transparent';
-        ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.90)';
         ctxFore.lineWidth = Math.max(1.2, H * 0.0014);
         ctxFore.stroke();
 
@@ -10202,19 +10335,11 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
         ctxFore.textAlign = 'center';
         ctxFore.textBaseline = 'middle';
         ctxFore.fillStyle = '#0F172A';
-        ctxFore.fillText(pillStr, Math.round(px + pillW * 0.5), cy);
+        ctxFore.fillText(actTok.text, actPos.wCx, cy);
 
-        drawSparkle(ctxFore, px + Math.round(pillH * 0.16), py + Math.round(pillH * 0.14), Math.max(5, Math.round(tSz * 0.34)), '#FFFFFF');
-        drawSparkle(ctxFore, px + pillW - Math.round(pillH * 0.16), py + pillH - Math.round(pillH * 0.14), Math.max(4, Math.round(tSz * 0.28)), '#FFFFFF');
+        drawSparkle(ctxFore, px + Math.round(pillH * 0.18), py + Math.round(pillH * 0.16), Math.max(5, Math.round(tSz * 0.32)), '#FFFFFF');
+        drawSparkle(ctxFore, px + pillW - Math.round(pillH * 0.18), py + pillH - Math.round(pillH * 0.16), Math.max(4, Math.round(tSz * 0.26)), '#FFFFFF');
         ctxFore.restore();
-      }
-
-      if (afterTxt && (fullInstant || afterP > 0.01)) {
-        const ax = Math.round(px + pillW + gap2);
-        ctxFore.font = oFn(tSz);
-        if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${oTrk}em`;
-        applyGlow(ctxFore, 'transparent', 0, 1);
-        drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterTxt, ax, cy, tSz, oTrk, hBase, applyCase, false, afterEnterStart);
       }
     } finally {
       ctxFore.restore();
@@ -10222,11 +10347,22 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     return;
   }
 
-  // 'film' — Espresso Analog Film Strip: strictly chronological [before serif] -> [hero amber badge] -> [after serif]
+  // 'film' — Espresso Analog Film Strip: amber badge hops word-by-word across spoken words in real time
   const stampTxt = `24FPS • ${isSampleCard ? 'GOLDEN HOUR' : `REEL ${String(capIdx + 1).padStart(2, '0')}`}`;
-  const beforeSerif = applyCase(isSampleCard ? 'CHASING LIGHT' : split.beforeTxt);
-  const badgeStr = applyCase(isSampleCard ? 'EVERY DAY' : (split.heroTxt || 'GOLDEN'));
-  const afterSerif = applyCase(isSampleCard ? '' : split.afterTxt);
+  const sampleWords = [
+    { text: applyCase('CHASING'), s: capStart, e: capStart + 0.30, isKey: false },
+    { text: applyCase('LIGHT'), s: capStart + 0.30, e: capStart + 0.65, isKey: false },
+    { text: applyCase('EVERY'), s: capStart + 0.65, e: capStart + 1.05, isKey: true },
+    { text: applyCase('DAY'), s: capStart + 1.05, e: capStart + 1.40, isKey: false }
+  ];
+  const tokens = isSampleCard ? sampleWords : words.map((w, idx) => {
+    const txt = applyCase(cleanTok(w && (w.t || w.word) || '', false));
+    const ws = wordTime(w, capStart + idx * 0.18);
+    const we = (w && typeof w.e === 'number') ? w.e : (ws + 0.25);
+    return { text: txt, w, s: ws, e: we, isKey: Boolean(w && w.key), idx };
+  }).filter(it => it.text.length > 0);
+  if (!tokens.length) return;
+
   const mFn = (sz) => `700 ${sz}px "Space Mono", monospace`;
   const sFam = pickFontFam('"Playfair Display", Georgia, serif');
   const bFam = pickFontFam('"Inter", "Poppins", sans-serif');
@@ -10236,38 +10372,61 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   const fBTrk = trackEmWith(0.06);
   const fHi = pickHi('#F59E0B');
   const fBase = pickBase('#FFF7E6');
-
   const stampSz = Math.round(H * 0.016 * fontScale);
-  let sSz = Math.round(H * 0.042 * fontScale);
-  let bSz = Math.round(H * 0.022 * fontScale);
-  const measureFilm = (ss, bs) => {
-    ctxFore.save();
-    ctxFore.font = sFn(ss);
-    const bw = beforeSerif ? measureW(ctxFore, beforeSerif, ss, fSTrk) : 0;
-    const aw = afterSerif ? measureW(ctxFore, afterSerif, ss, fSTrk) : 0;
-    ctxFore.font = bFn(bs);
-    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fBTrk}em`;
-    const bTxtW = badgeStr ? measureW(ctxFore, badgeStr, bs, fBTrk) : 0;
-    ctxFore.restore();
-    const pW = badgeStr ? Math.round(bTxtW + bs * 1.4) : 0;
-    const pH = badgeStr ? Math.round(bs * 1.95) : 0;
-    const g1 = (beforeSerif && badgeStr) ? Math.round(ss * 0.30) : 0;
-    const g2 = (afterSerif && badgeStr) ? Math.round(ss * 0.30) : 0;
-    return { bw, pW, pH, aw, g1, g2, rowW: bw + g1 + pW + g2 + aw };
-  };
-  let fDims = measureFilm(sSz, bSz);
-  if (fDims.rowW > W * 0.80 && fDims.rowW > 0) {
-    const sc = (W * 0.80) / fDims.rowW;
-    sSz = Math.max(Math.round(H * 0.017), Math.floor(sSz * sc));
-    bSz = Math.max(Math.round(H * 0.012), Math.floor(bSz * sc));
-    fDims = measureFilm(sSz, bSz);
+
+  // Active word tracking: the amber badge hops word-by-word across spoken words
+  let activeIdx = -1;
+  if (fullInstant) {
+    activeIdx = isSampleCard ? 2 : (tokens.findIndex(it => it.isKey) >= 0 ? tokens.findIndex(it => it.isKey) : tokens.length - 1);
+  } else {
+    for (let i = 0; i < tokens.length; i++) {
+      if (evalT >= tokens[i].s - 0.02 && evalT <= tokens[i].e + 0.04) {
+        activeIdx = i;
+        break;
+      }
+    }
+    if (activeIdx < 0) {
+      for (let i = tokens.length - 1; i >= 0; i--) {
+        if (evalT >= tokens[i].s - 0.02) {
+          activeIdx = i;
+          break;
+        }
+      }
+    }
+    if (activeIdx < 0) activeIdx = 0;
   }
 
-  const cardW = Math.min(Math.round(W * 0.92), Math.round(Math.max(fDims.rowW + H * 0.054, H * 0.25)));
-  const cardH = Math.round(stampSz * 1.8 * lineSpacingMult + Math.max(sSz, fDims.pH) * 1.42 + H * 0.026);
+  const fullStr = tokens.map(it => it.text).join('  ');
+  let sSz = fitFont(ctxFore, fullStr, sFn, H * 0.042 * fontScale, H * 0.016, W * 0.76, fSTrk);
+  let bSz = Math.round(sSz * 0.58);
+  const bPadX = Math.round(bSz * 0.65);
+  const badgeH = Math.round(bSz * 1.95);
+  const wordGap = Math.round(sSz * 0.40);
+
+  ctxFore.save();
+  ctxFore.font = sFn(sSz);
+  if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fSTrk}em`;
+  let measuredW = tokens.map(it => measureW(ctxFore, it.text, sSz, fSTrk));
+  ctxFore.restore();
+
+  let contentW = measuredW.reduce((sum, w) => sum + w, 0) + (tokens.length - 1) * wordGap + bPadX * 2;
+  if (contentW > W * 0.88) {
+    const sc = (W * 0.88) / contentW;
+    sSz = Math.max(Math.round(H * 0.016), Math.floor(sSz * sc));
+    bSz = Math.round(sSz * 0.58);
+    ctxFore.save();
+    ctxFore.font = sFn(sSz);
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fSTrk}em`;
+    measuredW = tokens.map(it => measureW(ctxFore, it.text, sSz, fSTrk));
+    ctxFore.restore();
+    contentW = measuredW.reduce((sum, w) => sum + w, 0) + (tokens.length - 1) * Math.round(sSz * 0.40) + Math.round(bSz * 0.65) * 2;
+  }
+
+  const cardW = Math.min(Math.round(W * 0.94), Math.round(Math.max(contentW + H * 0.054, H * 0.25)));
+  const cardH = Math.round(stampSz * 1.8 * lineSpacingMult + Math.max(sSz, badgeH) * 1.42 + H * 0.026);
   const fx0 = Math.round(heroX - cardW * 0.5);
   const fy0 = Math.round(cy - cardH * 0.5);
-  const ep = easeOutCubic(Math.max(beforeP, heroP, afterP));
+  const ep = fullInstant ? 1.0 : easeOutCubic(progFactor(tokens[0].s, 0.16));
   recordSceneBox(fx0, fy0, cardW, cardH);
 
   ctxFore.save();
@@ -10293,28 +10452,63 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     applyGlow(ctxFore, customHighlight || 'rgba(245, 158, 11, 0.45)', 5, 1);
     ctxFore.fillText(stampTxt, heroX, stampY);
 
-    const rowCy = Math.round(fy0 + cardH - Math.max(sSz, fDims.pH) * 0.68 - H * 0.010);
-    const startX = Math.round(heroX - fDims.rowW * 0.5);
-
-    if (beforeSerif && (fullInstant || beforeP > 0.01)) {
-      ctxFore.font = sFn(sSz);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fSTrk}em`;
-      ctxFore.textBaseline = 'middle';
-      applyGlow(ctxFore, 'rgba(253, 230, 138, 0.45)', 8, 1);
-      drawTimedSegment(ctxFore, isSampleCard ? null : split.beforeWords, beforeSerif, startX, rowCy, sSz, fSTrk, fBase, applyCase, false, beforeEnterStart);
+    const rowCy = Math.round(fy0 + cardH - Math.max(sSz, badgeH) * 0.68 - H * 0.010);
+    let curX = Math.round(heroX - contentW * 0.5 + bPadX);
+    const wordPositions = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const tw = measuredW[i];
+      const wCx = Math.round(curX + tw * 0.5);
+      wordPositions.push({ wCx, tw, leftX: curX });
+      curX += tw + wordGap;
     }
 
-    const bx = Math.round(startX + fDims.bw + fDims.g1);
-    if (badgeStr && (fullInstant || heroP > 0.01)) {
-      const hep = fullInstant ? 1.0 : easeOutCubic(heroP);
-      const by = Math.round(rowCy - fDims.pH * 0.5);
+    // 1. Draw non-active words
+    for (let i = 0; i < tokens.length; i++) {
+      if (i === activeIdx) continue;
+      const it = tokens[i];
+      const enterP = fullInstant ? 1.0 : progFactor(it.s, 0.14);
+      if (!fullInstant && enterP <= 0.01) continue;
+      const isSpoken = fullInstant || (evalT >= it.s - 0.02);
+
       ctxFore.save();
+      ctxFore.font = sFn(sSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fSTrk}em`;
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      applyGlow(ctxFore, 'rgba(253, 230, 138, 0.45)', 8, 1);
+      ctxFore.globalAlpha = exitFade * ep * (isSpoken ? 1.0 : 0.60) * (fullInstant ? 1.0 : easeOutCubic(enterP));
+      ctxFore.fillStyle = fBase;
+      ctxFore.fillText(it.text, wordPositions[i].wCx, rowCy);
+      ctxFore.restore();
+    }
+
+    // 2. Draw active spoken word wrapped in amber gradient badge
+    if (activeIdx >= 0 && activeIdx < tokens.length) {
+      const actTok = tokens[activeIdx];
+      const actPos = wordPositions[activeIdx];
+      const enterP = fullInstant ? 1.0 : progFactor(actTok.s, 0.14);
+      const hep = fullInstant ? 1.0 : easeOutCubic(enterP);
+
+      ctxFore.save();
+      ctxFore.font = bFn(bSz);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fBTrk}em`;
+      const badgeTxtW = measureW(ctxFore, actTok.text, bSz, fBTrk);
+      const pW = Math.round(badgeTxtW + bPadX * 2);
+      const pH = badgeH;
+      const bx = Math.round(actPos.wCx - pW * 0.5);
+      const by = Math.round(rowCy - pH * 0.5);
+      const sc = fullInstant ? 1.0 : (0.95 + 0.05 * hep);
+
       ctxFore.globalAlpha = exitFade * ep * hep;
-      const ag = ctxFore.createLinearGradient(bx, by, bx + fDims.pW, by + fDims.pH);
+      ctxFore.translate(actPos.wCx, rowCy);
+      ctxFore.scale(sc, sc);
+      ctxFore.translate(-actPos.wCx, -rowCy);
+
+      const ag = ctxFore.createLinearGradient(bx, by, bx + pW, by + pH);
       ag.addColorStop(0.0, '#B45309');
       ag.addColorStop(1.0, '#78350F');
       applyGlow(ctxFore, customHighlight || 'rgba(245, 158, 11, 0.40)', 8, 1);
-      roundRectPath(ctxFore, bx, by, fDims.pW, fDims.pH, Math.round(fDims.pH * 0.5));
+      roundRectPath(ctxFore, bx, by, pW, pH, Math.round(pH * 0.5));
       ctxFore.fillStyle = customHighlight || ag;
       ctxFore.fill();
 
@@ -10328,17 +10522,8 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'middle';
       ctxFore.fillStyle = customHighlight ? '#0F172A' : '#FFF7E6';
-      ctxFore.fillText(badgeStr, Math.round(bx + fDims.pW * 0.5), rowCy + Math.round(bSz * 0.03));
+      ctxFore.fillText(actTok.text, actPos.wCx, rowCy + Math.round(bSz * 0.03));
       ctxFore.restore();
-    }
-
-    if (afterSerif && (fullInstant || afterP > 0.01)) {
-      const ax = Math.round(bx + fDims.pW + fDims.g2);
-      ctxFore.font = sFn(sSz);
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fSTrk}em`;
-      ctxFore.textBaseline = 'middle';
-      applyGlow(ctxFore, 'rgba(253, 230, 138, 0.45)', 8, 1);
-      drawTimedSegment(ctxFore, isSampleCard ? null : split.afterWords, afterSerif, ax, rowCy, sSz, fSTrk, fBase, applyCase, false, afterEnterStart);
     }
   } finally {
     ctxFore.restore();

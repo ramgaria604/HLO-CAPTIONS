@@ -1630,7 +1630,27 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 
             cur_x = o["x"] - total_line_w / 2.0
 
-            for m in measured:
+            is_pill_preset = bool(
+                style.get("acidVoltTicker") or style.get("id") == "acid_volt_ticker" or
+                style.get("holoAuraPill") or style.get("id") == "holo_aura_pill" or
+                style.get("analogFilmStrip") or style.get("id") == "espresso_analog_film" or
+                (style.get("pill") and style.get("id") not in ("torn_zine_cutout", "porcelain_editorial_ribbon"))
+            )
+            if is_pill_preset:
+                if style.get("acidVoltTicker") or style.get("id") == "acid_volt_ticker":
+                    pill_bg = style.get("highlightColor") or "#D4FF00"
+                    pill_fg = "#0A0D14"
+                elif style.get("holoAuraPill") or style.get("id") == "holo_aura_pill":
+                    pill_bg = style.get("highlightColor") or "#CFFAFE"
+                    pill_fg = "#0F172A"
+                elif style.get("analogFilmStrip") or style.get("id") == "espresso_analog_film":
+                    pill_bg = style.get("highlightColor") or "#B45309"
+                    pill_fg = "#FFF7E6"
+                else:
+                    pill_bg = style.get("highlightColor") or "#FFE600"
+                    pill_fg = "#111111"
+
+            for m_idx, m in enumerate(measured):
                 w = m["w"]
                 txt = m["txt"]
                 w_w = m["width"]
@@ -1694,7 +1714,58 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     tags.append(r"\shad0")
                 tags += anim_tags
 
-                rows.append(f"Dialogue: {line_idx},{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
+                if is_pill_preset:
+                    # Active Word-by-Word Box / Pill Karaoke:
+                    # Box wraps this specific word during its spoken window, hopping word-by-word
+                    if m_idx + 1 < len(measured):
+                        w_word_end = float(measured[m_idx + 1]["w"].get("s", w_start + 0.35))
+                    else:
+                        w_word_end = float(w.get("e", ev_end))
+                    w_word_end = max(w_start + 0.12, min(ev_end, w_word_end))
+                    box_st_ts = ts(w_start)
+                    box_end_ts = ts(w_word_end)
+
+                    box_cy = o['ass_y'] - o['size'] * 0.42
+                    box_pos_tag = f"\\pos({word_cx:.1f},{box_cy:.1f})"
+                    pad_x = max(8.0, round(o['size'] * 0.28, 1))
+                    bw = round(w_w + pad_x * 2.0, 1)
+                    bh = round(o['size'] * 1.32, 1)
+                    x1 = -round(bw / 2.0, 1)
+                    y1 = -round(bh / 2.0, 1)
+                    x2 = round(bw / 2.0, 1)
+                    y2 = round(bh / 2.0, 1)
+                    box_draw = f"m {x1} {y1} l {x2} {y1} l {x2} {y2} l {x1} {y2}"
+                    box_tags = [
+                        r"\an5",
+                        box_pos_tag,
+                        r"\p1",
+                        f"\\1c{_c(pill_bg)}",
+                        r"\bord0",
+                        r"\shad1.5\4c&H000000&",
+                    ] + anim_tags
+                    # 1. Box background on Layer 0 during word spoken duration
+                    rows.append(f"Dialogue: 0,{box_st_ts},{box_end_ts},Default,,0,0,0,,{{{ ''.join(box_tags) }}}{box_draw}")
+
+                    # 2. Box text on Layer 1 on top of box
+                    pill_tags = [
+                        r"\an2",
+                        pos_tag,
+                        f"\\fn{font_name}",
+                        f"\\fs{ass_fs:.1f}",
+                        f"\\fsp{fsp:.2f}",
+                        f"\\b{bold}",
+                        f"\\i{italic}",
+                        f"\\1c{_c(pill_fg)}",
+                        r"\bord0",
+                        r"\shad0",
+                    ] + anim_tags
+                    rows.append(f"Dialogue: 1,{box_st_ts},{box_end_ts},Default,,0,0,0,,{{{ ''.join(pill_tags) }}}{_esc(txt)}")
+
+                    # 3. Base text after word spoken duration until caption end
+                    if w_word_end < ev_end - 0.02:
+                        rows.append(f"Dialogue: 0,{box_end_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
+                else:
+                    rows.append(f"Dialogue: {line_idx},{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
 
     return header + "\n".join(rows) + "\n"
 def build_depth_ass(captions, style, W, H):
@@ -1889,7 +1960,7 @@ def build_ass(captions, style, W, H):
             else:
                 cur_x = (W - total_line_w) / 2.0
 
-            for m in measured:
+            for m_idx, m in enumerate(measured):
                 w = m["w"]
                 txt = m["txt"]
                 is_key = m["is_key"]
@@ -1969,8 +2040,8 @@ def build_ass(captions, style, W, H):
                 tags.append(f"\\shad{max(1.0, round(fs * 0.03, 1)):.1f}\\4c&H000000&")
                 tags += anim_tags
 
-                # Check if highlight mode is 'box' (e.g. Yellow Box Pop)
-                is_box_mode = is_key and bool(style.get("highlight", {}).get("mode") == "box")
+                # Check if highlight mode is 'box' (e.g. Yellow Box Pop - word-by-word karaoke box)
+                is_box_mode = bool(style.get("highlight", {}).get("mode") == "box")
                 if is_box_mode:
                     box_bg = style.get("highlight", {}).get("color") or highlight_col or "#FFE600"
                     box_fg = style.get("highlight", {}).get("textColor") or "#111111"
@@ -1978,8 +2049,16 @@ def build_ass(captions, style, W, H):
                     pad_y = max(4.0, round(fs * 0.16, 1))
                     bw = round(w_w + pad_x * 2.0, 1)
                     bh = round(fs * 1.25, 1)
-                    
-                    # Box background drawn on Layer 0
+
+                    if m_idx + 1 < len(measured):
+                        w_word_end = float(measured[m_idx + 1]["w"].get("s", w_start + 0.35))
+                    else:
+                        w_word_end = float(w.get("e", ev_end))
+                    w_word_end = max(w_start + 0.10, min(ev_end, w_word_end))
+                    box_st_ts = ts(w_start)
+                    box_end_ts = ts(w_word_end)
+
+                    # Box background drawn on Layer 0 during active word duration
                     x1 = -round(bw / 2.0, 1)
                     y1 = -round(bh / 2.0, 1)
                     x2 = round(bw / 2.0, 1)
@@ -1993,9 +2072,9 @@ def build_ass(captions, style, W, H):
                         r"\bord0",
                         r"\shad1.5\4c&H000000&",
                     ] + anim_tags
-                    rows.append(f"Dialogue: 0,{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(box_tags) }}}{box_draw}")
+                    rows.append(f"Dialogue: 0,{box_st_ts},{box_end_ts},Default,,0,0,0,,{{{ ''.join(box_tags) }}}{box_draw}")
 
-                    # Box text drawn on Layer 1 on top of box
+                    # Box text drawn on Layer 1 on top of box during active word duration
                     txt_tags = [
                         r"\an5",
                         pos_tag,
@@ -2007,7 +2086,11 @@ def build_ass(captions, style, W, H):
                         r"\bord0",
                         r"\shad0",
                     ] + anim_tags
-                    rows.append(f"Dialogue: 1,{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(txt_tags) }}}{_esc(txt)}")
+                    rows.append(f"Dialogue: 1,{box_st_ts},{box_end_ts},Default,,0,0,0,,{{{ ''.join(txt_tags) }}}{_esc(txt)}")
+
+                    # Base text drawn after active word duration until caption end
+                    if w_word_end < ev_end - 0.02:
+                        rows.append(f"Dialogue: 0,{box_end_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
                 else:
                     rows.append(f"Dialogue: 0,{w_st_ts},{w_end_ts},Default,,0,0,0,,{{{ ''.join(tags) }}}{_esc(txt)}")
 
