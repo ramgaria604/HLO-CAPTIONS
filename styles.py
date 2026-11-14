@@ -1258,7 +1258,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             ("(behind)" in str(style.get("name", "")).lower())
         )
 
-        if style.get("id") == "editorial_depth_stack":
+        if style.get("id") in ("editorial_depth_stack", "spatial_sandwich_syne"):
             # Editorial Depth Stack: Big Anchor Word comes first (or user-marked key word),
             # starts immediately at card start so it never disappears fast,
             # and alternates Top (even captions) & Waist (odd captions).
@@ -1581,7 +1581,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             user_base = style.get("baseColor")
             grad_colors = get_gradient_colors(r, style)
 
-            if style.get("id") == "editorial_depth_stack" and is_hero:
+            if style.get("id") == "spatial_sandwich_syne" and is_hero:
+                col = r.get("color") or user_hl or "#0052FF"
+            elif style.get("id") == "editorial_depth_stack" and is_hero:
                 col = r.get("color") or user_hl or "#3828D6"
             elif is_hero:
                 col = user_hl or r.get("color") or (grad_colors[-1] if grad_colors else "#FFE600")
@@ -1698,7 +1700,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     f"\\i{italic}",
                     f"\\1c{_c(word_color)}",
                 ]
-                if style.get("id") == "editorial_depth_stack" and is_hero:
+                if style.get("id") in ("editorial_depth_stack", "spatial_sandwich_syne") and is_hero:
                     # Translucent organic texture blend (~85% fill opacity so background video bleeds through)
                     tags.append(r"\1a&H24&")
                 if outline_px > 0:

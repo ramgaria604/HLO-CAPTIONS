@@ -3878,8 +3878,10 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
     st.id === 'special_03' ||
     st.id === 'duo_03' ||
     st.id === 'editorial_depth_stack' ||
+    st.id === 'spatial_sandwich_syne' ||
     (st.name && st.name.toLowerCase().includes('real estate clr')) ||
     (st.name && st.name.toLowerCase().includes('editorial')) ||
+    (st.name && st.name.toLowerCase().includes('spatial sandwich')) ||
     st.heroPalette
   );
 
@@ -4897,7 +4899,8 @@ function findLatestLingerCaption(captions, t, maxSec = 0.85) {
 function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
   const ov = resolveSceneStyleOverrides(st, H);
-  const edFam = ov.pickFontFam('"Poppins", "Montserrat", sans-serif');
+  const preferredFam = st?.fontFamily || st?.key?.font || (st?.id === 'spatial_sandwich_syne' ? 'Syne' : 'Poppins');
+  const edFam = ov.pickFontFam(`"${preferredFam}", "Montserrat", sans-serif`);
   const edFontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
   const edCase = st && st.textCase;
   const edHTrk = ov.trackEmWith(-0.068);
@@ -4915,8 +4918,14 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
   }
 
-  // Exact 8-palette left-to-right jewel gradients sampled directly from reference video (Purple "Videos", Cyan "chahte", Neon Lime "AI", Magenta "samajh", Royal Blue "video")
-  const palettes = [
+  // Exact jewel gradients: for spatial_sandwich_syne use electric cobalt, liquid chrome, neon plasma, acid cyber
+  const palettes = (st && st.id === 'spatial_sandwich_syne') ? [
+    { left: '#0052FF', mid: '#0088FF', right: '#00D2FF' }, // 0 Electric Cobalt / Cyan
+    { left: '#E2E8F0', mid: '#94A3B8', right: '#475569' }, // 1 Liquid Chrome / Silver
+    { left: '#00F0FF', mid: '#0099FF', right: '#7928CA' }, // 2 Cyber Ice / Violet
+    { left: '#00FF66', mid: '#00D2FF', right: '#0052FF' }, // 3 Neon Acid / Aqua
+    { left: '#FF007A', mid: '#C026D3', right: '#7928CA' }  // 4 Neon Plasma
+  ] : [
     { left: '#3828D6', mid: '#25159E', right: '#150A68' }, // 0 Purple / Indigo ("Videos")
     { left: '#00D2FF', mid: '#0099CC', right: '#006699' }, // 1 Vibrant Cyan / Teal ("chahte")
     { left: '#00FF66', mid: '#00CC44', right: '#008822' }, // 2 Neon Lime Green ("AI")
@@ -10890,7 +10899,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, kineticLineKey);
       } else if (st.adaptiveEstateFlex || st.id === 'adaptive_estate_flex') {
         drawAdaptiveEstateFlexPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
-      } else if (st.id === 'editorial_depth_stack') {
+      } else if (st.id === 'editorial_depth_stack' || st.id === 'spatial_sandwich_syne') {
         drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.id === 'real_estate_depth_split') {
         drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
@@ -19407,7 +19416,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
         // Binary/fast caption lookup by time (for Editorial Depth Stack, linger up to +0.55s in pauses so short captions sit longer)
         let activeCap = S.captions.find(c => t >= c.start && t <= c.end);
-        if (!activeCap && S.style && S.style.id === 'editorial_depth_stack') {
+        if (!activeCap && S.style && (S.style.id === 'editorial_depth_stack' || S.style.id === 'spatial_sandwich_syne')) {
           activeCap = findLatestLingerCaption(S.captions, t, 0.85);
         }
 
