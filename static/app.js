@@ -1091,7 +1091,38 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     ctx.restore();
   }
 
-  // 5. Render words line by line with left-to-right fade-in animation
+  // 5. Gather all words to determine exactly which word has the active karaoke box
+  const allWordObjs = [];
+  measuredLines.forEach(l => {
+    (l.wordObjs || []).forEach(wo => allWordObjs.push(wo));
+  });
+
+  let activeBoxWord = null;
+  if (st.highlight && st.highlight.mode === 'box' && allWordObjs.length > 0) {
+    if (showAll || typeof t !== 'number' || isNaN(t)) {
+      activeBoxWord = allWordObjs.find(o => o.isKey) || allWordObjs[0];
+    } else {
+      const firstS = (allWordObjs[0].w && typeof allWordObjs[0].w.s === 'number') ? allWordObjs[0].w.s : 0;
+      const lastS = (allWordObjs[allWordObjs.length - 1].w && typeof allWordObjs[allWordObjs.length - 1].w.s === 'number') ? allWordObjs[allWordObjs.length - 1].w.s : 0;
+      if (t < firstS) {
+        activeBoxWord = allWordObjs[0];
+      } else if (t >= lastS) {
+        activeBoxWord = allWordObjs[allWordObjs.length - 1];
+      } else {
+        for (let i = 0; i < allWordObjs.length - 1; i++) {
+          const curS = (allWordObjs[i].w && typeof allWordObjs[i].w.s === 'number') ? allWordObjs[i].w.s : 0;
+          const nextS = (allWordObjs[i + 1].w && typeof allWordObjs[i + 1].w.s === 'number') ? allWordObjs[i + 1].w.s : curS + 0.35;
+          if (t >= curS && t < nextS) {
+            activeBoxWord = allWordObjs[i];
+            break;
+          }
+        }
+        if (!activeBoxWord) activeBoxWord = allWordObjs[0];
+      }
+    }
+  }
+
+  // 6. Render words line by line with left-to-right fade-in animation
   measuredLines.forEach((mLine, lineIdx) => {
     const lineY = startY + lineIdx * lineH;
 
@@ -1115,23 +1146,21 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 
     mLine.wordObjs.forEach(wo => {
       const anim = getWordPop(wo.w, t, showAll, st.animation);
+      const isBoxMode = Boolean(activeBoxWord ? (wo === activeBoxWord) : (wo.isKey && st.highlight && st.highlight.mode === 'box'));
+      const isVisible = (anim.visible && anim.opacity > 0.01) || (isBoxMode && !showAll);
 
-      // Only draw if word has started fading in or showAll
-      if (anim.visible && anim.opacity > 0.01) {
+      // Only draw if word has started fading in or is active box word or showAll
+      if (isVisible) {
         ctx.save();
         const wordCenterX = curX + wo.width / 2;
         const wDx = (Number(wo.w && wo.w.dx) || 0) * W;
         const wDy = (Number(wo.w && wo.w.dy) || 0) * H;
         ctx.translate(wordCenterX + (anim.dx || 0) + wDx, lineY + (anim.dy || 0) + wDy);
         ctx.scale(anim.scale || 1, anim.scale || 1);
-        ctx.globalAlpha = Math.max(0, Math.min(1, anim.opacity));
+        ctx.globalAlpha = Math.max(0, Math.min(1, anim.opacity || 1.0));
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // Word-by-word active pop box: pops on the currently spoken word, or key/hero word in preview
-        const isSpokenActive = (typeof t === 'number' && !isNaN(t) && t >= (wo.w.s || 0) - 0.02 && t <= (wo.w.e || (wo.w.s || 0) + 0.25) + 0.04);
-        const isCurrentSpoken = isSpokenActive || (!showAll && anim.visible && anim.scale > 1.01);
-        const isBoxMode = Boolean(st.highlight && st.highlight.mode === 'box' && (isCurrentSpoken || (showAll && (wo.isKey || !mLine.wordObjs.some(o => o.isKey)))));
         ctx.font = `${(isBoxMode || wo.isKey) ? (kRole.italic ? 'italic ' : '') + '900' : (fRole.italic ? 'italic ' : '') + '800'} ${fs}px ${fontFam}`;
         if (stdTrackStr && 'letterSpacing' in ctx) ctx.letterSpacing = stdTrackStr;
 
@@ -9947,25 +9976,24 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     const tagSz = Math.round(H * 0.017 * fontScale);
 
     // Active word tracking: the neon box hops word-by-word across spoken words in real time
-    let activeIdx = -1;
+    let activeIdx = 0;
     if (fullInstant) {
       activeIdx = isSampleCard ? 1 : (tokens.findIndex(it => it.isKey) >= 0 ? tokens.findIndex(it => it.isKey) : tokens.length - 1);
-    } else {
-      for (let i = 0; i < tokens.length; i++) {
-        if (evalT >= tokens[i].s - 0.02 && evalT <= tokens[i].e + 0.04) {
-          activeIdx = i;
-          break;
-        }
-      }
-      if (activeIdx < 0) {
-        for (let i = tokens.length - 1; i >= 0; i--) {
-          if (evalT >= tokens[i].s - 0.02) {
+    } else if (typeof evalT === 'number' && !isNaN(evalT)) {
+      if (evalT < tokens[0].s) {
+        activeIdx = 0;
+      } else if (evalT >= tokens[tokens.length - 1].s) {
+        activeIdx = tokens.length - 1;
+      } else {
+        for (let i = 0; i < tokens.length - 1; i++) {
+          if (evalT >= tokens[i].s && evalT < tokens[i + 1].s) {
             activeIdx = i;
             break;
           }
         }
       }
-      if (activeIdx < 0) activeIdx = 0;
+    } else {
+      activeIdx = tokens.findIndex(it => it.isKey) >= 0 ? tokens.findIndex(it => it.isKey) : 0;
     }
 
     const fullStr = tokens.map(it => it.text).join('  ');
@@ -10230,25 +10258,24 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
     const hBase = pickBase('#F8FAFC');
 
     // Active word tracking: the holographic aura pill hops word-by-word across spoken words in real time
-    let activeIdx = -1;
+    let activeIdx = 0;
     if (fullInstant) {
       activeIdx = isSampleCard ? 2 : (tokens.findIndex(it => it.isKey) >= 0 ? tokens.findIndex(it => it.isKey) : tokens.length - 1);
-    } else {
-      for (let i = 0; i < tokens.length; i++) {
-        if (evalT >= tokens[i].s - 0.02 && evalT <= tokens[i].e + 0.04) {
-          activeIdx = i;
-          break;
-        }
-      }
-      if (activeIdx < 0) {
-        for (let i = tokens.length - 1; i >= 0; i--) {
-          if (evalT >= tokens[i].s - 0.02) {
+    } else if (typeof evalT === 'number' && !isNaN(evalT)) {
+      if (evalT < tokens[0].s) {
+        activeIdx = 0;
+      } else if (evalT >= tokens[tokens.length - 1].s) {
+        activeIdx = tokens.length - 1;
+      } else {
+        for (let i = 0; i < tokens.length - 1; i++) {
+          if (evalT >= tokens[i].s && evalT < tokens[i + 1].s) {
             activeIdx = i;
             break;
           }
         }
       }
-      if (activeIdx < 0) activeIdx = 0;
+    } else {
+      activeIdx = tokens.findIndex(it => it.isKey) >= 0 ? tokens.findIndex(it => it.isKey) : 0;
     }
 
     const fullStr = tokens.map(it => it.text).join('  ');
@@ -10402,25 +10429,24 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   const stampSz = Math.round(H * 0.016 * fontScale);
 
   // Active word tracking: the amber badge hops word-by-word across spoken words
-  let activeIdx = -1;
+  let activeIdx = 0;
   if (fullInstant) {
     activeIdx = isSampleCard ? 2 : (tokens.findIndex(it => it.isKey) >= 0 ? tokens.findIndex(it => it.isKey) : tokens.length - 1);
-  } else {
-    for (let i = 0; i < tokens.length; i++) {
-      if (evalT >= tokens[i].s - 0.02 && evalT <= tokens[i].e + 0.04) {
-        activeIdx = i;
-        break;
-      }
-    }
-    if (activeIdx < 0) {
-      for (let i = tokens.length - 1; i >= 0; i--) {
-        if (evalT >= tokens[i].s - 0.02) {
+  } else if (typeof evalT === 'number' && !isNaN(evalT)) {
+    if (evalT < tokens[0].s) {
+      activeIdx = 0;
+    } else if (evalT >= tokens[tokens.length - 1].s) {
+      activeIdx = tokens.length - 1;
+    } else {
+      for (let i = 0; i < tokens.length - 1; i++) {
+        if (evalT >= tokens[i].s && evalT < tokens[i + 1].s) {
           activeIdx = i;
           break;
         }
       }
     }
-    if (activeIdx < 0) activeIdx = 0;
+  } else {
+    activeIdx = tokens.findIndex(it => it.isKey) >= 0 ? tokens.findIndex(it => it.isKey) : 0;
   }
 
   const fullStr = tokens.map(it => it.text).join('  ');

@@ -1719,12 +1719,13 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 if is_pill_preset:
                     # Active Word-by-Word Box / Pill Karaoke:
                     # Box wraps this specific word during its spoken window, hopping word-by-word
+                    box_start = ev_start if m_idx == 0 else w_start
                     if m_idx + 1 < len(measured):
                         w_word_end = float(measured[m_idx + 1]["w"].get("s", w_start + 0.35))
                     else:
-                        w_word_end = float(w.get("e", ev_end))
-                    w_word_end = max(w_start + 0.12, min(ev_end, w_word_end))
-                    box_st_ts = ts(w_start)
+                        w_word_end = ev_end
+                    w_word_end = max(box_start + 0.12, min(ev_end, w_word_end))
+                    box_st_ts = ts(box_start)
                     box_end_ts = ts(w_word_end)
 
                     box_cy = o['ass_y'] - o['size'] * 0.42
@@ -2052,12 +2053,13 @@ def build_ass(captions, style, W, H):
                     bw = round(w_w + pad_x * 2.0, 1)
                     bh = round(fs * 1.25, 1)
 
+                    box_start = ev_start if m_idx == 0 else w_start
                     if m_idx + 1 < len(measured):
                         w_word_end = float(measured[m_idx + 1]["w"].get("s", w_start + 0.35))
                     else:
-                        w_word_end = float(w.get("e", ev_end))
-                    w_word_end = max(w_start + 0.10, min(ev_end, w_word_end))
-                    box_st_ts = ts(w_start)
+                        w_word_end = ev_end
+                    w_word_end = max(box_start + 0.10, min(ev_end, w_word_end))
+                    box_st_ts = ts(box_start)
                     box_end_ts = ts(w_word_end)
 
                     # Box background drawn on Layer 0 during active word duration
