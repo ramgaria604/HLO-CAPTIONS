@@ -4900,16 +4900,16 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
   }
 
-  // Exact 8-palette left-to-right jewel gradients sampled directly from reference video (19u9oQHSraYLhZowNFfRH1qsMad22SovD)
+  // Exact 8-palette left-to-right jewel gradients sampled directly from reference video (Purple "Videos", Cyan "chahte", Neon Lime "AI", Magenta "samajh", Royal Blue "video")
   const palettes = [
-    { left: '#2E208E', mid: '#191054', right: '#0A062E' }, // 0 Top: Deep Indigo-Navy ("seen")
-    { left: '#1AAAE8', mid: '#0B70B0', right: '#043356' }, // 1 Waist: Glossy Sky-Blue ("remembered")
-    { left: '#2E9F4A', mid: '#156130', right: '#072413' }, // 2 Top: Emerald Green ("difference")
-    { left: '#8230C4', mid: '#5C1D8F', right: '#280946' }, // 3 Waist: Violet Purple ("story")
-    { left: '#2E52CC', mid: '#192F88', right: '#09133C' }, // 4 Top: Royal Cobalt ("detail")
-    { left: '#80B548', mid: '#568432', right: '#294418' }, // 5 Waist: Olive Chartreuse ("meaning")
-    { left: '#1D9885', mid: '#0E5A53', right: '#042422' }, // 6 Top: Deep Teal ("imagining")
-    { left: '#DD6B48', mid: '#9F422C', right: '#541F13' }  // 7 Waist: Warm Terracotta ("home")
+    { left: '#3828D6', mid: '#25159E', right: '#150A68' }, // 0 Purple / Indigo ("Videos")
+    { left: '#00D2FF', mid: '#0099CC', right: '#006699' }, // 1 Vibrant Cyan / Teal ("chahte")
+    { left: '#00FF66', mid: '#00CC44', right: '#008822' }, // 2 Neon Lime Green ("AI")
+    { left: '#FF0099', mid: '#CC0077', right: '#880044' }, // 3 Hot Pink / Magenta ("samajh")
+    { left: '#0066FF', mid: '#0044CC', right: '#002288' }, // 4 Royal Blue ("video")
+    { left: '#FF8800', mid: '#CC5500', right: '#883300' }, // 5 Sunset Orange
+    { left: '#9933FF', mid: '#7711CC', right: '#440088' }, // 6 Deep Violet
+    { left: '#00E5FF', mid: '#00B4D8', right: '#0077B6' }  // 7 Ocean Blue
   ];
 
   const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
@@ -5032,9 +5032,11 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         horizGrad.addColorStop(0.52, pal.mid);
         horizGrad.addColorStop(1.00, pal.right);
 
-        ov.applyGlow(heroCtx, 'rgba(0, 0, 0, 0.22)', 8, 1);
+        ov.applyGlow(heroCtx, 'rgba(0, 0, 0, 0.45)', 12, 1);
+        heroCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+        heroCtx.shadowBlur = 12;
         heroCtx.shadowOffsetX = 0;
-        heroCtx.shadowOffsetY = 2;
+        heroCtx.shadowOffsetY = 4;
 
         heroCtx.fillStyle = ov.customHighlight || horizGrad;
         heroCtx.fillText(heroText, heroX, heroBaselineY);
@@ -5044,7 +5046,8 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       }
     }
 
-    // 2. Small White Lead Line sitting RIGHT along top rim of Hero word (ctxFore Layer 4)
+    // 2. Small White Lead Line sitting along Hero word (ctxFore Layer 4)
+    // In 'top' slot: sits directly above Hero word. In 'waist' slot: sits directly below Hero word (matching viral video reference)
     const cleanTokens = (leadList || [])
       .map(w => ({ txt: cleanLeadWord(w.t || w.word || ''), s: w.s }))
       .filter(w => w.txt);
@@ -5066,10 +5069,18 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       }
 
       const leadGap = Math.round((ov.lineSpacingMult - 1.0) * heroFontSize * 0.26);
-      const leadBaselineY = Math.max(
-        Math.round(H * 0.025 + leadFontSize * 0.80),
-        Math.round(Math.min(heroBaselineY - heroFontSize * 0.54, heroInkTopY - Math.round(H * 0.004)) - leadGap)
-      );
+      let leadBaselineY;
+      if (slot === 'top') {
+        leadBaselineY = Math.max(
+          Math.round(H * 0.025 + leadFontSize * 0.80),
+          Math.round(Math.min(heroBaselineY - heroFontSize * 0.54, heroInkTopY - Math.round(H * 0.004)) - leadGap)
+        );
+      } else {
+        leadBaselineY = Math.min(
+          Math.round(H * 0.95 - leadFontSize * 0.3),
+          Math.round(heroBaselineY + leadFontSize * 1.25 + leadGap)
+        );
+      }
 
       ctxFore.save();
       try {
@@ -5113,11 +5124,28 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     }
   };
 
-  // Sample Thumbnail / Showcase Fallback Card (matches ref frame 2.60s pairing)
+  // Helper to split words into Big Anchor Hero Word (first word or key word) + Companion Lead Words
+  const pickHeroAndLead = (wordList) => {
+    if (!wordList || wordList.length === 0) return { hero: null, lead: [] };
+    if (wordList.length === 1) return { hero: Object.assign({}, wordList[0], { s: wordList[0].s }), lead: [] };
+
+    let keyIdx = wordList.findIndex(w => Boolean(w.key));
+    if (keyIdx === -1) {
+      // Big word comes first by default!
+      keyIdx = 0;
+    }
+    // Anchor hero word to the very start of the phrase so it enters immediately and holds for the full duration
+    const cardStart = typeof wordList[0].s === 'number' ? wordList[0].s : 0;
+    const hero = Object.assign({}, wordList[keyIdx], { s: cardStart });
+    const lead = wordList.filter((_, idx) => idx !== keyIdx);
+    return { hero, lead };
+  };
+
+  // Sample Thumbnail / Showcase Fallback Card (matches ref frame pairing)
   if (isSampleCard) {
     drawEditorialPair(
-      [{ t: 'Some' }, { t: 'homes' }, { t: 'get' }],
-      { t: 'seen' },
+      [{ t: 'ko' }, { t: 'edit' }, { t: 'karna' }],
+      { t: 'Videos', s: 0 },
       'top',
       palettes[0],
       1.0,
@@ -5125,8 +5153,8 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       true
     );
     drawEditorialPair(
-      [{ t: 'A' }, { t: 'few' }, { t: 'get' }],
-      { t: 'remembered' },
+      [{ t: 'hain' }, { t: 'par' }, { t: 'kaun' }],
+      { t: 'chahte', s: 0 },
       'waist',
       palettes[1],
       1.0,
@@ -5160,9 +5188,12 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
     const exitFade = fullInstant ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.24));
 
+    const topPair = pickHeroAndLead(topSlice);
+    const waistPair = pickHeroAndLead(waistSlice);
+
     drawEditorialPair(
-      topSlice.slice(0, -1),
-      topSlice[topSlice.length - 1],
+      topPair.lead,
+      topPair.hero,
       'top',
       palettes[(capIdx * 2) % palettes.length],
       exitFade,
@@ -5170,8 +5201,8 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       fullInstant
     );
     drawEditorialPair(
-      waistSlice.slice(0, -1),
-      waistSlice[waistSlice.length - 1],
+      waistPair.lead,
+      waistPair.hero,
       'waist',
       palettes[(capIdx * 2 + 1) % palettes.length],
       exitFade,
@@ -5198,9 +5229,10 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         const waistProg = fullInstant ? 0.3 : Math.max(0, (evalT - capStart) / waistDur);
         const topCarryFade = waistProg <= 0.60 ? 1.0 : Math.max(0, 1.0 - (waistProg - 0.60) / 0.28);
         if (topCarryFade > 0.01) {
+          const prevPair = pickHeroAndLead(prevWords);
           drawEditorialPair(
-            prevWords.slice(0, -1),
-            prevWords[prevWords.length - 1],
+            prevPair.lead,
+            prevPair.hero,
             'top',
             palettes[(capIdx - 1) % palettes.length],
             topCarryFade,
@@ -5217,9 +5249,10 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
   const currExitFade = (fullInstant || holdIntoWaist) ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.22));
 
+  const currPair = pickHeroAndLead(normWords);
   drawEditorialPair(
-    normWords.slice(0, -1),
-    normWords[normWords.length - 1],
+    currPair.lead,
+    currPair.hero,
     isOddWaist ? 'waist' : 'top',
     palettes[capIdx % palettes.length],
     currExitFade,
@@ -17164,9 +17197,8 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       ctx.scale(dpr, dpr);
 
       if (behindCanvas) {
-        const isEditorialBlend = Boolean(S.style && S.style.id === 'editorial_depth_stack');
-        behindCanvas.style.mixBlendMode = isEditorialBlend ? 'multiply' : '';
-        behindCanvas.style.opacity = isEditorialBlend ? '0.92' : '';
+        behindCanvas.style.mixBlendMode = '';
+        behindCanvas.style.opacity = '';
       }
       if (behindCtx) {
         behindCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -19267,15 +19299,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
             if (!maskOk) {
               // Person not detected in this frame: safely draw captions in front without aborting export
-              if (S.style && S.style.id === 'editorial_depth_stack') {
-                ctx.save();
-                ctx.globalCompositeOperation = 'multiply';
-                ctx.globalAlpha = 0.92;
-                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
-                ctx.restore();
-              } else {
-                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
-              }
+              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
               ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
               drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
             } else {
@@ -19284,15 +19308,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
               // PROBLEM A Point 3: Per-frame order:
               // a) video frame (already drawn to ctx)
               // b) behind captions/graphics
-              if (S.style && S.style.id === 'editorial_depth_stack') {
-                ctx.save();
-                ctx.globalCompositeOperation = 'multiply';
-                ctx.globalAlpha = 0.92;
-                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
-                ctx.restore();
-              } else {
-                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
-              }
+              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
 
               // Special Real Estate: Person Glow behind person cutout
               if (((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) && maskCanvas) {
