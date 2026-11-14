@@ -1678,6 +1678,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     f"\\i{italic}",
                     f"\\1c{_c(word_color)}",
                 ]
+                if style.get("id") == "editorial_depth_stack" and is_hero:
+                    # Translucent organic texture blend (~85% fill opacity so background video bleeds through)
+                    tags.append(r"\1a&H24&")
                 if outline_px > 0:
                     tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
                 else:
