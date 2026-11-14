@@ -2198,6 +2198,8 @@
     "isSpecial": true,
     "behindPerson": true,
     "depthAccent": true,
+    "blend": "screen",
+    "blendMode": "screen",
     "depthAccentY": 0.2,
     "subtitlePosition": 0.62,
     "topY": 0.11,

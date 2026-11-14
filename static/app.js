@@ -5032,14 +5032,28 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         horizGrad.addColorStop(0.52, pal.mid);
         horizGrad.addColorStop(1.00, pal.right);
 
+        // 1. Drop shadow & glow anchor pass (ensures deep contrast on any background)
         ov.applyGlow(heroCtx, 'rgba(0, 0, 0, 0.45)', 12, 1);
         heroCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-        heroCtx.shadowBlur = 12;
+        heroCtx.shadowBlur = 14;
         heroCtx.shadowOffsetX = 0;
         heroCtx.shadowOffsetY = 4;
 
+        // 2. Translucent Texture Bleed Pass (85% fill opacity so background video/curtain/clothes bleed through)
+        heroCtx.globalAlpha = heroAlpha * 0.85;
         heroCtx.fillStyle = ov.customHighlight || horizGrad;
         heroCtx.fillText(heroText, heroX, heroBaselineY);
+
+        // 3. Luminous Studio Optical Sheen (Screen blend for vibrant, lit-from-within jewel look matching reference video)
+        heroCtx.save();
+        try {
+          heroCtx.globalCompositeOperation = 'screen';
+          heroCtx.globalAlpha = heroAlpha * 0.35;
+          heroCtx.shadowColor = 'transparent';
+          heroCtx.shadowBlur = 0;
+          heroCtx.fillText(heroText, heroX, heroBaselineY);
+        } catch (_) {}
+        heroCtx.restore();
       } finally {
         if ('filter' in heroCtx) heroCtx.filter = 'none';
         heroCtx.restore();
