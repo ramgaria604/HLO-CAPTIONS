@@ -1258,7 +1258,88 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             ("(behind)" in str(style.get("name", "")).lower())
         )
 
-        if is_behind:
+        if style.get("id") == "editorial_depth_stack":
+            # Editorial Depth Stack: Big Anchor Word comes first (or user-marked key word),
+            # starts immediately at card start so it never disappears fast,
+            # and alternates Top (even captions) & Waist (odd captions).
+            key_idx = -1
+            for ki, kw in enumerate(words):
+                if kw.get("key"):
+                    key_idx = ki
+                    break
+            if key_idx == -1:
+                key_idx = 0  # Big word comes first!
+
+            hero_word_data = dict(words[key_idx])
+            hero_word_data["s"] = ev_start
+            hero_w = [hero_word_data]
+            supp_w = [words[i] for i in range(len(words)) if i != key_idx]
+
+            slot_is_top = (cap_idx % 2 == 0)
+            if slot_is_top:
+                hero_pos_y = 0.22
+                lead_pos_y = max(0.06, hero_pos_y - (big_size + small_size) * 0.46 / H)
+                lead_above = True
+            else:
+                hero_pos_y = 0.62
+                lead_pos_y = min(0.88, hero_pos_y + (big_size + small_size) * 0.46 / H)
+                lead_above = False
+
+            editorial_palettes = [
+                "#3828D6", # 0 Purple ("Videos")
+                "#00D2FF", # 1 Cyan / Teal ("chahte")
+                "#00FF66", # 2 Neon Lime Green ("AI")
+                "#FF0099", # 3 Magenta ("samajh")
+                "#0066FF", # 4 Royal Blue ("video")
+                "#FF8800", # 5 Orange
+                "#9933FF", # 6 Violet
+                "#00E5FF", # 7 Ocean Blue
+            ]
+            pal_col = editorial_palettes[cap_idx % len(editorial_palettes)]
+            ed_hero_role = {**accent_role, "color": pal_col}
+
+            lay = []
+            if lead_above and supp_w:
+                top_txt = " ".join(up(w["t"]) for w in supp_w)
+                desc_top = {
+                    "text": top_txt,
+                    "font_file": base_font_file,
+                    "size": small_size * 0.92,
+                    "track": float(base_role.get("track", 0.0)),
+                    "words": supp_w,
+                    "role": base_role,
+                    "is_hero": False,
+                    "is_top": True
+                }
+                lay += ink_layout.layout_stack([desc_top], W, H, pos_x=pos_x, pos_y=lead_pos_y, ink_gap=ink_gap)
+
+            hero_txt = up(hero_w[0]["t"])
+            desc_hero = {
+                "text": hero_txt,
+                "font_file": accent_font_file,
+                "size": big_size,
+                "track": float(accent_role.get("track", 0.0)),
+                "words": hero_w,
+                "role": ed_hero_role,
+                "is_hero": True,
+                "is_top": False
+            }
+            lay += ink_layout.layout_stack([desc_hero], W, H, pos_x=pos_x, pos_y=hero_pos_y, ink_gap=ink_gap)
+
+            if not lead_above and supp_w:
+                bottom_txt = " ".join(up(w["t"]) for w in supp_w)
+                desc_bottom = {
+                    "text": bottom_txt,
+                    "font_file": base_font_file,
+                    "size": small_size * 0.92,
+                    "track": float(base_role.get("track", 0.0)),
+                    "words": supp_w,
+                    "role": base_role,
+                    "is_hero": False,
+                    "is_top": False
+                }
+                lay += ink_layout.layout_stack([desc_bottom], W, H, pos_x=pos_x, pos_y=lead_pos_y, ink_gap=ink_gap)
+        elif is_behind:
             hero_y = float(style.get("depthAccentY", 0.25))
             font_span = (big_size + small_size) * 0.5 / H + 0.008
             default_top = round(hero_y - font_span, 3)
@@ -1500,7 +1581,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             user_base = style.get("baseColor")
             grad_colors = get_gradient_colors(r, style)
 
-            if is_hero:
+            if style.get("id") == "editorial_depth_stack" and is_hero:
+                col = r.get("color") or user_hl or "#3828D6"
+            elif is_hero:
                 col = user_hl or r.get("color") or (grad_colors[-1] if grad_colors else "#FFE600")
             else:
                 col = user_base or r.get("color") or style.get("color") or "#FFFFFF"
