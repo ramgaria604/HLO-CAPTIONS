@@ -696,6 +696,67 @@ def load_presets():
         except Exception as de:
             print("Warning: could not load duo_presets.json:", de)
 
+    # Divine Sufi Calligraphy & Behind-Person Glitter Depth Preset
+    sufi_item = {
+        "id": "sufi_divine_depth",
+        "name": "Divine Sufi Calligraphy 🌙",
+        "category": "behind",
+        "mode": "emphasis",
+        "layout": "stack",
+        "animation": "pop",
+        "wordsPerCaption": 2,
+        "maxKeys": 1,
+        "position": 0.52,
+        "behindPerson": True,
+        "depthAccent": True,
+        "sufiDivineDepth": True,
+        "highlightColor": "#FFF8EE",
+        "textColor": "#FFF8EE",
+        "baseColor": "#F5EBD7",
+        "fontFamily": "Rozha One",
+        "fontScale": 1.15,
+        "previewWord": "छले छले",
+        "badge": "👑 SUFI DEPTH",
+        "roles": {
+            "accent": {
+                "font": "Rozha One",
+                "color": "#FFF8EE",
+                "layer": "behind",
+                "bold": True,
+                "shadow": 0.08,
+                "shadowColor": "#000000"
+            },
+            "body": {
+                "font": "Rozha One",
+                "color": "#FFF8EE",
+                "bold": True,
+                "shadow": 0.08,
+                "shadowColor": "#000000"
+            }
+        },
+        "key": {
+            "font": "Rozha One",
+            "size": 0.14,
+            "color": "#FFF8EE",
+            "bold": True,
+            "italic": False,
+            "shadow": 0.08,
+            "shadowColor": "#000000",
+            "glow": "#FFF8EE",
+            "glowSize": 0.04
+        },
+        "filler": {
+            "font": "Rozha One",
+            "size": 0.08,
+            "color": "#FFF8EE",
+            "bold": True,
+            "italic": False,
+            "shadow": 0.08,
+            "shadowColor": "#000000"
+        }
+    }
+    out.insert(0, sufi_item)
+
     return out
 
 
