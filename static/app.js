@@ -18148,6 +18148,148 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   return resultMaskCanvas;
 }
 
+/**
+ * AI Laser Scanner Cutout Overlay (Option A)
+ * Rendered when a behind-the-person preset is loading its neural segmentation model or first mask.
+ * Prevents wrong placement / glitchy foreground flashes by holding behind text and displaying
+ * a high-tech cyan laser scanner beam with a floating glassmorphic cutout pill.
+ */
+function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
+  if (!ctx || w <= 0 || h <= 0) return;
+
+  ctx.save();
+
+  // 1. Vertical Laser Sweep (smooth sinusoidal motion between 16% and 84% of video height)
+  const cycle = (tNow * 0.0024) % (Math.PI * 2);
+  const sweepP = (Math.sin(cycle) + 1) * 0.5;
+  const laserY = Math.round(h * 0.16 + h * 0.68 * sweepP);
+
+  // 2. Cyan Scanning Aura trailing the beam
+  const auraH = Math.round(h * 0.12);
+  const auraGrad = ctx.createLinearGradient(0, laserY - auraH, 0, laserY + auraH);
+  auraGrad.addColorStop(0.0, 'rgba(0, 240, 255, 0.0)');
+  auraGrad.addColorStop(0.35, 'rgba(0, 240, 255, 0.08)');
+  auraGrad.addColorStop(0.50, 'rgba(56, 189, 248, 0.22)');
+  auraGrad.addColorStop(0.65, 'rgba(0, 240, 255, 0.08)');
+  auraGrad.addColorStop(1.0, 'rgba(0, 240, 255, 0.0)');
+  ctx.fillStyle = auraGrad;
+  ctx.fillRect(0, laserY - auraH, w, auraH * 2);
+
+  // 3. Dual-Layer Neon Laser Line
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 240, 255, 0.95)';
+  ctx.shadowBlur = 16;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(0, laserY);
+  ctx.lineTo(w, laserY);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.moveTo(0, laserY);
+  ctx.lineTo(w, laserY);
+  ctx.stroke();
+  ctx.restore();
+
+  // 4. Gliding Micro Sparkles along the laser line
+  for (let i = 0; i < 5; i++) {
+    const sparkX = ((tNow * 0.14 + i * (w / 5)) % w);
+    const sparkSize = 2.4 + 1.2 * Math.sin(tNow * 0.01 + i);
+    ctx.save();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = '#00F0FF';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(sparkX, laserY, sparkSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 5. Glassmorphism Floating Pill Badge
+  const badgeW = Math.min(Math.round(w * 0.84), 272);
+  const badgeH = 56;
+  const badgeX = Math.round((w - badgeW) * 0.5);
+  const badgeY = Math.round(h * 0.44);
+  const rad = 16;
+
+  // Dark frosted glass backdrop
+  ctx.save();
+  ctx.fillStyle = 'rgba(10, 15, 26, 0.86)';
+  ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
+  ctx.shadowBlur = 22;
+
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, rad);
+  } else {
+    ctx.rect(badgeX, badgeY, badgeW, badgeH);
+  }
+  ctx.fill();
+
+  // Electric cyan subtle neon border
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+
+  // 6. Left Icon: Pulsing AI Scissors Beacon
+  const iconX = badgeX + 26;
+  const iconY = badgeY + badgeH * 0.5;
+
+  ctx.save();
+  const pulseR = 10 + 3 * Math.sin(tNow * 0.008);
+  ctx.strokeStyle = 'rgba(0, 240, 255, 0.50)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(iconX, iconY, pulseR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('✂️', iconX, iconY);
+  ctx.restore();
+
+  // 7. Typography inside badge
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  // Title: "Cutting out subject..."
+  ctx.font = '700 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText('Cutting out subject...', badgeX + 48, badgeY + 24);
+
+  // Subtitle: "AI Depth Isolating (1–2s)"
+  ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillStyle = '#38BDF8';
+  ctx.fillText('AI Depth Isolating (1–2s)', badgeX + 48, badgeY + 42);
+  ctx.restore();
+
+  // 8. Animated Shimmer Progress Bar at bottom of pill
+  ctx.save();
+  const barW = badgeW - 32;
+  const barX = badgeX + 16;
+  const barY = badgeY + badgeH - 4;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.fillRect(barX, barY, barW, 2);
+
+  const shimW = 48;
+  const shimPos = ((tNow * 0.14) % (barW + shimW)) - shimW;
+  const shimGrad = ctx.createLinearGradient(barX + shimPos, 0, barX + shimPos + shimW, 0);
+  shimGrad.addColorStop(0.0, 'rgba(0, 240, 255, 0)');
+  shimGrad.addColorStop(0.5, '#00F0FF');
+  shimGrad.addColorStop(1.0, 'rgba(0, 240, 255, 0)');
+  ctx.fillStyle = shimGrad;
+  ctx.fillRect(Math.max(barX, barX + shimPos), barY, Math.min(shimW, barX + barW - (barX + shimPos)), 2);
+  ctx.restore();
+
+  ctx.restore();
+}
+
   function renderCanvas(isPreview = true) {
     const drawStart = performance.now();
     let dpr = 1;
@@ -18309,67 +18451,123 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       );
 
       const isShowAll = Boolean(vid.paused || !vid.duration);
-      // Requirement 8: Stacked canvases - hero text (behindCanvas) -> personCutout (personCanvas) -> front text (captionCanvas)
-      if (isBehind && activeCap && segmenterInstance && vid.readyState >= 2) {
-        // Compute segmentation mask before typography so dynamic head-crown tracking applies on frame 0
-        if (!vid.paused) {
-          const minInterval = cfg.minMaskInterval;
-          const now = performance.now();
-          if (now - lastLiveSegTime >= minInterval) {
-            lastLiveSegTime = now;
-            const tMs = Math.round(t * 1000);
-            const mask = getLivePersonMask(vid, tMs, w, h, false, cfg.maskDownscaleTarget, cfg.enableFilterBlur);
-            if (mask) {
-              lastLiveMaskCanvas = mask;
-              _maskRunsInLastSec++;
-            }
+
+      // Behind-Person Segmentation vs Foreground Typography Dispatch
+      if (isBehind && activeCap) {
+        if (!segmenterLoadFailed) {
+          // If segmenter not yet loaded, kick off loader immediately
+          if (!segmenterInstance && !segmenterLoadingPromise) {
+            ensureSegmenterLoaded().catch(() => {});
           }
-        } else {
-          // Paused: compute 1 high-quality mask and stop
-          if (Math.abs(t - lastPausedSegTime) > 0.02 || !lastLiveMaskCanvas) {
-            lastPausedSegTime = t;
+
+          // If segmenter instance is ready, compute first mask immediately if not yet present
+          if (segmenterInstance && vid.readyState >= 2 && !lastLiveMaskCanvas) {
             const tMs = Math.round(t * 1000);
             const mask = getLivePersonMask(vid, tMs, w, h, true, 192, true);
             if (mask) lastLiveMaskCanvas = mask;
           }
-        }
 
-        // Draw typography: front lines to ctx, behind words to behindCtx
-        drawCanvasTypography(ctx, behindCtx || ctx, activeCap, words, t, S.style || {}, w, h, true, isShowAll, isPreview);
+          const isCutoutReady = Boolean(segmenterInstance && lastLiveMaskCanvas && vid.readyState >= 2);
 
-        if (lastLiveMaskCanvas && personCtx) {
-          // Person glow (only if level enables glow)
-          if (cfg.enableGlow && ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate'))) {
-            const capIdxGlow = S.captions.indexOf(activeCap) !== -1 ? S.captions.indexOf(activeCap) : 0;
-            const dataGlow = analyzeRealEstateCaption(activeCap, words, capIdxGlow);
-            const glowColor = (dataGlow && dataGlow.palette && dataGlow.palette.accent) || '#00f5d4';
-            personCtx.save();
-            personCtx.shadowColor = glowColor;
-            personCtx.shadowBlur = 8;
-            personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
-            personCtx.restore();
-          }
-
-          // Person cutout directly drawn onto personCanvas (layer 3)
-          if (vid && vid.readyState >= 2) {
-            try {
-              personCtx.save();
-              personCtx.drawImage(vid, 0, 0, w, h);
-              personCtx.globalCompositeOperation = 'destination-in';
-              personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
-              personCtx.restore();
-            } catch (cutoutErr) {
-              try { personCtx.restore(); } catch (_) {}
+          if (!isCutoutReady) {
+            // Cutout is initializing (downloading neural weights or computing first mask)
+            // 1. Hold behind text: Clear behindCtx & personCtx so no misplaced text is shown in front of speaker
+            if (behindCtx) {
+              behindCtx.setTransform(1, 0, 0, 1, 0, 0);
+              behindCtx.clearRect(0, 0, behindCanvas.width, behindCanvas.height);
+              behindCtx.scale(dpr, dpr);
             }
-          }
-        }
+            if (personCtx) {
+              personCtx.setTransform(1, 0, 0, 1, 0, 0);
+              personCtx.clearRect(0, 0, personCanvas.width, personCanvas.height);
+              personCtx.scale(dpr, dpr);
+            }
 
-        drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
-      } else {
-        if (isBehind && activeCap && !segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
-          ensureSegmenterLoaded().catch(() => {});
+            // 2. Render Option A: AI Laser Scanner Cutout Overlay
+            drawAiCutoutLaserScanner(ctx, w, h, performance.now());
+
+            // 3. Keep animation frame looping on paused video so the laser scanner sweeps smoothly
+            if (vid.paused && !window._aiCutoutScannerRaf) {
+              window._aiCutoutScannerRaf = requestAnimationFrame(() => {
+                window._aiCutoutScannerRaf = null;
+                renderCanvas(true);
+              });
+            }
+
+            drawRealEstateOverlays(ctx, w, h, t);
+            drawWatermark(ctx, w, h);
+
+            if (isPreview) {
+              const elapsed = performance.now() - drawStart;
+              recordPreviewDrawTime(elapsed);
+              updateDebugBadge(elapsed, effQuality);
+            }
+            return;
+          } else {
+            // Cutout is ready! Cancel any pending scanner RAF
+            if (window._aiCutoutScannerRaf) {
+              cancelAnimationFrame(window._aiCutoutScannerRaf);
+              window._aiCutoutScannerRaf = null;
+            }
+
+            // Compute ongoing video playback masks
+            if (!vid.paused) {
+              const minInterval = cfg.minMaskInterval;
+              const now = performance.now();
+              if (now - lastLiveSegTime >= minInterval) {
+                lastLiveSegTime = now;
+                const tMs = Math.round(t * 1000);
+                const mask = getLivePersonMask(vid, tMs, w, h, false, cfg.maskDownscaleTarget, cfg.enableFilterBlur);
+                if (mask) {
+                  lastLiveMaskCanvas = mask;
+                  _maskRunsInLastSec++;
+                }
+              }
+            } else if (Math.abs(t - lastPausedSegTime) > 0.02) {
+              lastPausedSegTime = t;
+              const tMs = Math.round(t * 1000);
+              const mask = getLivePersonMask(vid, tMs, w, h, true, 192, true);
+              if (mask) lastLiveMaskCanvas = mask;
+            }
+
+            // Draw behind typography onto behindCtx
+            drawCanvasTypography(ctx, behindCtx || ctx, activeCap, words, t, S.style || {}, w, h, true, isShowAll, isPreview);
+
+            // Draw person cutout onto personCanvas
+            if (personCtx && vid && vid.readyState >= 2 && lastLiveMaskCanvas) {
+              // Person glow (if enabled)
+              if (cfg.enableGlow && ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate'))) {
+                const capIdxGlow = S.captions.indexOf(activeCap) !== -1 ? S.captions.indexOf(activeCap) : 0;
+                const dataGlow = analyzeRealEstateCaption(activeCap, words, capIdxGlow);
+                const glowColor = (dataGlow && dataGlow.palette && dataGlow.palette.accent) || '#00f5d4';
+                personCtx.save();
+                personCtx.shadowColor = glowColor;
+                personCtx.shadowBlur = 8;
+                personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
+                personCtx.restore();
+              }
+
+              try {
+                personCtx.save();
+                personCtx.drawImage(vid, 0, 0, w, h);
+                personCtx.globalCompositeOperation = 'destination-in';
+                personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
+                personCtx.restore();
+              } catch (cutoutErr) {
+                try { personCtx.restore(); } catch (_) {}
+              }
+            }
+
+            drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+          }
+        } else {
+          // Fallback if segmenter failed on device
+          drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
+          drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
         }
-        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, isBehind, isShowAll, isPreview);
+      } else {
+        // Normal foreground preset rendering
+        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
         drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
       }
 
