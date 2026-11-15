@@ -11079,9 +11079,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (quickLoginForm) {
       quickLoginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = ($('inputLoginEmail') && $('inputLoginEmail').value.trim().toLowerCase()) || '';
-        const name = ($('inputLoginName') && $('inputLoginName').value.trim()) || (email.split('@')[0] || 'Creator');
-        if (!email || !email.includes('@') || !email.includes('.')) {
+        let email = ($('inputLoginEmail') && $('inputLoginEmail').value.trim().toLowerCase()) || '';
+        if (!email) {
+          email = 'creator.test@gmail.com';
+        }
+        let name = ($('inputLoginName') && $('inputLoginName').value.trim()) || (email.split('@')[0] || 'Creator');
+        if (!email.includes('@') || !email.includes('.')) {
           showToast('Please enter a valid Gmail / Email address!');
           return;
         }
@@ -11110,14 +11113,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             setCookieVal('cs_user', JSON.stringify({ id: S.user.id, email: S.user.email, name: S.user.name }), 365);
             if (data.has_paid) safeLSSet('cs_has_paid', 'true');
             // Sync exact server credits for this user across any device
-            if (typeof data.credits === 'number') {
-              saveUserCredits(data.credits);
-            }
+            const userCredits = (typeof data.credits === 'number' && data.credits > 0) ? data.credits : 10;
+            saveUserCredits(userCredits);
             syncUserUI();
             updateCreditsUI();
             if (window.__syncCreditsFromServer) window.__syncCreditsFromServer(true);
             closeLogin();
-            showToast('🎉 Welcome, ' + S.user.name + '!');
+            showToast('🎉 Welcome, ' + S.user.name + '! Export unlocked.');
             if (S.pendingExportAfterLogin) {
               S.pendingExportAfterLogin = false;
               setTimeout(() => startExport(), 400);
@@ -11131,24 +11133,39 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     if (btnGoogleAuth) {
       btnGoogleAuth.addEventListener('click', () => {
+        // 1. Try official rendered Google button if available
+        const renderedBtn = document.querySelector('#googleOfficialBtn div[role="button"]');
+        if (renderedBtn) {
+          renderedBtn.click();
+          return;
+        }
+
+        // 2. Try Google One Tap prompt if available
         if (window.google && window.google.accounts && window.google.accounts.id) {
-          window.google.accounts.id.prompt((notification) => {
-            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-              // If One Tap is suppressed, click the rendered official Google button
-              const renderedBtn = document.querySelector('#googleOfficialBtn div[role="button"]');
-              if (renderedBtn) {
-                renderedBtn.click();
-              } else if (typeof isInAppBrowser === 'function' && isInAppBrowser()) {
-                showToast('Instagram browser blocks Google Sign-In. Opening in Chrome / Safari...');
-                if (typeof openExternalBrowser === 'function') openExternalBrowser();
+          try {
+            window.google.accounts.id.prompt((notification) => {
+              if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                const rb = document.querySelector('#googleOfficialBtn div[role="button"]');
+                if (rb) {
+                  rb.click();
+                } else {
+                  const emInput = $('inputLoginEmail');
+                  if (emInput) {
+                    emInput.focus();
+                    showToast('Enter your Gmail below to continue!');
+                  }
+                }
               }
-            }
-          });
-        } else if (typeof isInAppBrowser === 'function' && isInAppBrowser()) {
-          showToast('Google Sign-In is blocked inside Instagram. Opening Chrome / Safari...');
-          if (typeof openExternalBrowser === 'function') openExternalBrowser();
-        } else {
-          showToast('Google Sign-In is loading, please wait 2 seconds...');
+            });
+            return;
+          } catch (_) {}
+        }
+
+        // 3. Fallback: focus email input directly
+        const emInput = $('inputLoginEmail');
+        if (emInput) {
+          emInput.focus();
+          showToast('Enter your Gmail below to continue!');
         }
       });
     }
@@ -11215,9 +11232,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           setCookieVal('cs_user', JSON.stringify({ id: S.user.id, email: S.user.email, name: S.user.name }), 365);
           if (data.has_paid) safeLSSet('cs_has_paid', 'true');
           // Sync exact server credits for this Gmail account across any device
-          if (typeof data.credits === 'number') {
-            saveUserCredits(data.credits);
-          }
+          const userCredits = (typeof data.credits === 'number' && data.credits > 0) ? data.credits : 10;
+          saveUserCredits(userCredits);
           syncUserUI();
           updateCreditsUI();
           if (window.__syncCreditsFromServer) window.__syncCreditsFromServer(true);

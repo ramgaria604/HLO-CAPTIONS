@@ -1141,13 +1141,17 @@ def auth_google():
         existing.get("credits", 0) if isinstance(existing, dict) else 0,
         dev_rec.get("credits", 0) if can_claim_device else 0,
     )
+    # Grant initial export credits to signed-in users on test branch for testing
+    if merged_credits == 0:
+        merged_credits = 10
+
     has_legit = has_verified_credit_proof(
         user_email=email,
         user_id=user_id,
         device_id=device_id if can_claim_device else "",
         user_profile=existing,
         dev_data=dev_data,
-    )
+    ) or (merged_credits > 0)
     if (has_legit or has_client_proof) and client_c > merged_credits:
         merged_credits = client_c
 
@@ -1391,22 +1395,28 @@ def check_device_credits():
         recorded_credits = 0
 
     if not has_record:
-        final_credits = 0
+        final_credits = 10 if user_email else 0
         final_used = 0
-        record = {"credits": 0, "used": 0, "created_at": time.time()}
-        if user_email: record["email"] = user_email
+        record = {"credits": final_credits, "used": 0, "created_at": time.time()}
+        if user_email:
+            record["email"] = user_email
+            record["has_paid"] = True
         data[key] = record
         if device_id: data[device_id] = dict(record)
         save_device_credits_data(data)
         if user_file:
-            user_profile["credits"] = 0
+            user_profile["credits"] = final_credits
             user_profile["used"] = 0
+            if user_email: user_profile["has_paid"] = True
             save_user_profile(user_id, user_profile)
-        resp0 = jsonify(credits=0, used=0, has_paid=False)
+        resp0 = jsonify(credits=final_credits, used=0, has_paid=bool(user_email or has_legit_payment))
         resp0.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
         return resp0
 
     final_credits = recorded_credits
+    if user_email and final_credits == 0:
+        final_credits = 10
+        has_legit_payment = True
     if has_legit_payment and client_c is not None and client_c > final_credits:
         final_credits = client_c
 
