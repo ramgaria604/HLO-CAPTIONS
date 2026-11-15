@@ -659,19 +659,28 @@ html, body {
   display: none !important;
 }
 
-/* Category tabs horizontal scroll (STEP 4) */
+/* Sticky Category Toolbar Always Visible Above (Unified Presets Drawer) */
 .templates-toolbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 25 !important;
   flex-shrink: 0 !important;
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
   padding: 8px 12px !important;
   box-sizing: border-box !important;
+  background: rgba(12, 15, 23, 0.96) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
 }
 .category-pills {
   display: flex !important;
   flex-wrap: nowrap !important;
   overflow-x: auto !important;
+  scroll-behavior: smooth !important;
   -webkit-overflow-scrolling: touch !important;
   gap: 6px !important;
   height: 36px !important;
@@ -679,16 +688,32 @@ html, body {
   min-width: 0 !important;
   box-sizing: border-box !important;
   align-items: center !important;
+  scrollbar-width: none !important;
+}
+.category-pills::-webkit-scrollbar {
+  display: none !important;
 }
 .category-pills .cat-pill {
   flex-shrink: 0 !important;
   height: 32px !important;
   min-width: 44px !important;
-  padding: 0 12px !important;
+  padding: 0 13px !important;
   border-radius: 16px !important;
-  font-size: 13px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
   white-space: nowrap !important;
   touch-action: manipulation !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  color: #94a3b8 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.category-pills .cat-pill.active {
+  background: #8b5cf6 !important;
+  border-color: #a78bfa !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.45) !important;
 }
 
 /* Compact video templates row (STEP 4) */
@@ -701,20 +726,72 @@ html, body {
   display: none !important;
 }
 
-/* All templates grid (clean normal layout) */
+/* Unified Presets Drawer Layout */
 .presets-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+  padding: 12px 12px calc(28px + env(safe-area-inset-bottom, 16px)) 12px !important;
+  box-sizing: border-box !important;
+  flex: 0 0 auto !important;
+  height: auto !important;
+  width: 100% !important;
+}
+.preset-section-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  width: 100% !important;
+  scroll-margin-top: 54px !important;
+}
+.preset-section-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 4px 2px 2px 2px !important;
+  user-select: none !important;
+}
+.preset-section-title-wrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.preset-section-title {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: #f8fafc !important;
+}
+.preset-section-badge {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  padding: 1px 6px !important;
+  border-radius: 6px !important;
+  background: rgba(139, 92, 246, 0.20) !important;
+  color: #c4b5fd !important;
+  border: 1px solid rgba(139, 92, 246, 0.35) !important;
+}
+.preset-section-count {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+}
+.preset-section-cards {
   display: grid !important;
   grid-template-columns: repeat(2, 1fr) !important;
   grid-auto-rows: max-content !important;
   align-content: start !important;
   align-items: start !important;
   gap: 8px !important;
-  padding: 10px 12px calc(24px + env(safe-area-inset-bottom, 16px)) 12px !important;
-  box-sizing: border-box !important;
-  flex: 0 0 auto !important;
-  height: auto !important;
   width: 100% !important;
+  box-sizing: border-box !important;
 }
+.preset-section-cards .preset-card,
 .presets-grid .preset-card {
   aspect-ratio: auto !important;
   height: 144px !important;

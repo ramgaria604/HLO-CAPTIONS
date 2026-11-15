@@ -8425,8 +8425,9 @@ button {
   align-items: center !important;
   gap: 8px !important;
   padding: 8px 12px !important;
-  position: relative !important;
-  overflow: hidden !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 25 !important;
   flex-shrink: 0 !important;
 }
 
