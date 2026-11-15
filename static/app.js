@@ -9197,16 +9197,20 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
 
 /**
  * SUFI DIVINE CALLIGRAPHY & 3D GLITTER DEPTH PASS
- * Features:
- * - Devanagari calligraphy script in warm luminous ivory-gold (#FFF8EE) with soft drop shadow
- * - Behind-person 3D spatial glitter stars occluded by subject's shoulders/arms
- * - Foreground animated cyan/teal and silver glitter stars + glowing crescent moon
- * - Drifting stardust particle field
+ * Exact aesthetic match to the Osho reel reference ("छल्ले छल्ले", "काला", "हथ हथ मारे"):
+ * - 3D Faceted Sequin Stars (5-pointed beveled metallic/glitter cyan & silver stars with specular facets)
+ * - 4-Pointed Glitter Diamond Starbursts (✦) with radiant cyan halos and diagonal flares
+ * - Golden Crescent Moon 🌙 with luminous warm bloom
+ * - Stardust particle cloud floating behind the subject
+ * - Calligraphic typography in Google Font "Amita" (warm luminous ivory cream #FFFDF7, 18px atmospheric drop shadow)
+ * - Hinglish Latin script support with matching calligraphic flourishes
+ * - Text rendered on targetBehind canvas (BEHIND the person segmentation mask)
+ * - Fully movable: responds to drag (cap.dx / cap.dy) and position slider (st.position / st.posY)
  */
 function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!ctxFore || !words || !words.length) return;
   const capArg = (showAll && cap) ? Object.assign({}, cap, { _forceInstant: typeof t !== 'number' || isNaN(t) || t <= (cap.start || 0) + 0.04 }) : cap;
-  const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind, ['छले', 'काला', 'हथ', 'तोरिया']);
+  const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind, ['छल्ले', 'छले', 'काला', 'हथ', 'तोरिया']);
   if (rt.exitFade <= 0.005) return;
 
   const {
@@ -9222,25 +9226,144 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
   const shimmer2 = 0.85 + 0.15 * Math.cos(timeSec * 4.2 + 1.2);
   const shimmer3 = 0.88 + 0.12 * Math.sin(timeSec * 6.0 + 2.5);
 
-  // Helper to draw a 4-point glitter diamond star
-  const drawGlitterStar4 = (ctx, cx, cy, radius, rot, color1, color2, alpha = 1.0) => {
+  // Position coordinates: responsive to position slider (st.position / st.posY) & posDeltaY
+  const basePosRatio = (st && Number.isFinite(Number(st.position ?? st.posY))) ? Number(st.position ?? st.posY) : 0.52;
+  const centerY = Math.round(H * basePosRatio + posDeltaY);
+  const centerX = Math.round(W * 0.5);
+
+  // =========================================================================
+  // CELESTIAL STAR RENDERERS
+  // =========================================================================
+
+  // 1. Helper to draw a 3D Faceted Sequin Star (5-point puffy metallic star with specular light & shadow facets)
+  const drawFacetedStar5 = (ctx, cx, cy, radius, rot, theme = 'cyan', alpha = 1.0) => {
+    if (!ctx) return;
     ctx.save();
     ctx.globalAlpha = exitFade * alpha;
     ctx.translate(cx, cy);
     if (rot) ctx.rotate(rot);
 
-    // Star core gradient
-    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-    grad.addColorStop(0.0, '#FFFFFF');
-    grad.addColorStop(0.35, color1);
-    grad.addColorStop(0.75, color2);
-    grad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
-
-    ctx.fillStyle = grad;
+    // Soft atmospheric aura bloom behind star
+    const glowR = radius * 1.5;
+    const auraGrad = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, glowR);
+    auraGrad.addColorStop(0.0, theme === 'gold' ? 'rgba(252, 211, 77, 0.45)' : 'rgba(56, 189, 248, 0.45)');
+    auraGrad.addColorStop(0.5, theme === 'gold' ? 'rgba(245, 158, 11, 0.18)' : 'rgba(2, 132, 199, 0.18)');
+    auraGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = auraGrad;
     ctx.beginPath();
-    const innerR = radius * 0.18;
-    for (let i = 0; i < 8; i++) {
+    ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Compute 10 star vertices (5 outer tips, 5 inner valleys)
+    const innerR = radius * 0.40;
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
       const r = (i % 2 === 0) ? radius : innerR;
+      const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+      pts.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+    }
+
+    // Render 10 beveled triangular facets radiating from center (0, 0)
+    for (let i = 0; i < 10; i++) {
+      const nextI = (i + 1) % 10;
+      const p1 = pts[i];
+      const p2 = pts[nextI];
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.closePath();
+
+      const fGrad = ctx.createLinearGradient(0, 0, (p1.x + p2.x) * 0.5, (p1.y + p2.y) * 0.5);
+      if (theme === 'gold') {
+        if (i % 2 === 0) {
+          fGrad.addColorStop(0.0, '#FFFFFF');
+          fGrad.addColorStop(0.4, '#FEF08A');
+          fGrad.addColorStop(1.0, '#F59E0B');
+        } else {
+          fGrad.addColorStop(0.0, '#F59E0B');
+          fGrad.addColorStop(0.5, '#D97706');
+          fGrad.addColorStop(1.0, '#78350F');
+        }
+      } else if (theme === 'silver') {
+        if (i % 2 === 0) {
+          fGrad.addColorStop(0.0, '#FFFFFF');
+          fGrad.addColorStop(0.4, '#F1F5F9');
+          fGrad.addColorStop(1.0, '#94A3B8');
+        } else {
+          fGrad.addColorStop(0.0, '#94A3B8');
+          fGrad.addColorStop(0.5, '#64748B');
+          fGrad.addColorStop(1.0, '#334155');
+        }
+      } else { // 'cyan' default
+        if (i % 2 === 0) {
+          fGrad.addColorStop(0.0, '#FFFFFF');
+          fGrad.addColorStop(0.35, '#BAE6FD');
+          fGrad.addColorStop(1.0, '#38BDF8');
+        } else {
+          fGrad.addColorStop(0.0, '#0284C7');
+          fGrad.addColorStop(0.55, '#0369A1');
+          fGrad.addColorStop(1.0, '#0C4A6E');
+        }
+      }
+      ctx.fillStyle = fGrad;
+      ctx.fill();
+    }
+
+    // Delicate metallic rim outline
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const p = pts[i];
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = theme === 'gold' ? 'rgba(255, 255, 230, 0.75)' : 'rgba(224, 242, 254, 0.85)';
+    ctx.lineWidth = Math.max(1.0, radius * 0.04);
+    ctx.stroke();
+
+    // Specular apex gleam dot
+    const gleamGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, innerR * 0.6);
+    gleamGrad.addColorStop(0.0, '#FFFFFF');
+    gleamGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.7)');
+    gleamGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = gleamGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, innerR * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  };
+
+  // 2. Helper to draw a 4-point glitter diamond starburst (✦)
+  const drawGlitterStar4 = (ctx, cx, cy, radius, rot, color1, color2, alpha = 1.0) => {
+    if (!ctx) return;
+    ctx.save();
+    ctx.globalAlpha = exitFade * alpha;
+    ctx.translate(cx, cy);
+    if (rot) ctx.rotate(rot);
+
+    // Radiant core glow
+    const glowR = radius * 1.5;
+    const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+    aura.addColorStop(0.0, 'rgba(255, 255, 255, 0.95)');
+    aura.addColorStop(0.3, color1);
+    aura.addColorStop(0.7, color2);
+    aura.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Diamond 4-point needle starburst
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    const innerR = radius * 0.16;
+    for (let i = 0; i < 8; i++) {
+      const isTip = (i % 2 === 0);
+      const isPrimaryTip = (i === 0 || i === 4);
+      const r = isTip ? (isPrimaryTip ? radius * 1.15 : radius * 0.90) : innerR;
       const angle = (i * Math.PI) / 4;
       const x = Math.cos(angle) * r;
       const y = Math.sin(angle) * r;
@@ -9250,17 +9373,29 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     ctx.closePath();
     ctx.fill();
 
+    // Subtle diagonal cross flare rays
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.lineWidth = Math.max(1.0, radius * 0.05);
+    const diagR = radius * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(-diagR, -diagR);
+    ctx.lineTo(diagR, diagR);
+    ctx.moveTo(-diagR, diagR);
+    ctx.lineTo(diagR, -diagR);
+    ctx.stroke();
+
     // Center bright sparkle dot
     ctx.fillStyle = '#FFFFFF';
     ctx.beginPath();
-    ctx.arc(0, 0, innerR * 0.7, 0, Math.PI * 2);
+    ctx.arc(0, 0, innerR * 0.9, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
   };
 
-  // Helper to draw a glowing crescent moon
+  // 3. Helper to draw a glowing Golden Crescent Moon 🌙
   const drawCrescentMoon = (ctx, cx, cy, radius, alpha = 1.0) => {
+    if (!ctx) return;
     ctx.save();
     ctx.globalAlpha = exitFade * alpha;
     ctx.translate(cx, cy);
@@ -9273,66 +9408,104 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     goldGrad.addColorStop(1.0, '#D4AF37');
 
     ctx.fillStyle = goldGrad;
-    ctx.shadowColor = 'rgba(246, 211, 101, 0.6)';
-    ctx.shadowBlur = radius * 0.45;
+    ctx.shadowColor = 'rgba(246, 211, 101, 0.7)';
+    ctx.shadowBlur = radius * 0.55;
 
     ctx.beginPath();
     ctx.arc(0, 0, radius, -Math.PI * 0.5, Math.PI * 0.5, false);
     ctx.bezierCurveTo(radius * 0.35, radius * 0.5, radius * 0.35, -radius * 0.5, 0, -radius);
     ctx.closePath();
     ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255, 255, 235, 0.8)';
+    ctx.lineWidth = Math.max(1.0, radius * 0.05);
+    ctx.stroke();
+
     ctx.restore();
   };
 
-  // 1. BEHIND-PERSON LAYER (occluded by subject's shoulders / arms)
-  if (targetBehind) {
-    // Large Silver Sequin Star behind right shoulder
-    drawGlitterStar4(targetBehind, W * 0.26, H * 0.36 + posDeltaY * 0.5, W * 0.11 * shimmer, 0.2, '#E0F2FE', '#38BDF8', 0.95);
-    // Secondary Cyan/Silver Star behind left shoulder
-    drawGlitterStar4(targetBehind, W * 0.76, H * 0.32 + posDeltaY * 0.5, W * 0.08 * shimmer2, -0.25, '#BAE6FD', '#0284C7', 0.90);
-  }
+  // =========================================================================
+  // LAYER 1: BEHIND-PERSON CELESTIAL STARS (occluded by subject's silhouette)
+  // Rendered on targetBehind (ctxBehind when segmentation is active)
+  // Anchored to (centerX, centerY) so they move seamlessly with the text!
+  // =========================================================================
+  const behindLayer = targetBehind || ctxFore;
 
-  // 2. FOREGROUND LAYER: Glitter Stars & Crescent Moon
-  // Foreground glitter star near lower left chest
-  drawGlitterStar4(ctxFore, W * 0.20, H * 0.72 + posDeltaY, W * 0.12 * shimmer, -0.15, '#22D3EE', '#0891B2', 0.95);
-  // Small electric cyan star near left
-  drawGlitterStar4(ctxFore, W * 0.12, H * 0.82 + posDeltaY, W * 0.05 * shimmer3, 0.4, '#67E8F9', '#06B6D4', 0.85);
-  // Foreground star near right
-  drawGlitterStar4(ctxFore, W * 0.88, H * 0.66 + posDeltaY, W * 0.065 * shimmer2, 0.3, '#A5F3FC', '#0891B2', 0.90);
-  // Silver sparkle near text right
-  drawGlitterStar4(ctxFore, W * 0.82, H * 0.59 + posDeltaY, W * 0.05 * shimmer, -0.1, '#F1F5F9', '#94A3B8', 0.90);
-  // Golden Crescent Moon
-  drawCrescentMoon(ctxFore, W * 0.76, H * 0.71 + posDeltaY, W * 0.08 * shimmer2, 0.95);
+  // Star 1: Large 3D Faceted Sequin Star behind right shoulder/head
+  drawFacetedStar5(behindLayer, centerX + W * 0.28, centerY - H * 0.20, W * 0.095 * shimmer, 0.15 + timeSec * 0.05, 'cyan', 0.95);
 
-  // Subtle stardust particles floating around center
-  ctxFore.save();
-  ctxFore.globalAlpha = exitFade * 0.75;
+  // Star 2: Medium-Large 3D Faceted Sequin Star behind left shoulder/head
+  drawFacetedStar5(behindLayer, centerX - W * 0.28, centerY - H * 0.17, W * 0.080 * shimmer2, -0.20 - timeSec * 0.04, 'cyan', 0.92);
+
+  // Star 3: Radiant 4-point Diamond Starburst behind right shoulder
+  drawGlitterStar4(behindLayer, centerX + W * 0.32, centerY - H * 0.07, W * 0.075 * shimmer3, 0.25, '#BAE6FD', '#0284C7', 0.95);
+
+  // Star 4: Radiant 4-point Diamond Starburst behind left shoulder
+  drawGlitterStar4(behindLayer, centerX - W * 0.32, centerY - H * 0.05, W * 0.070 * shimmer, -0.18, '#E0F2FE', '#38BDF8', 0.95);
+
+  // Star 5: Golden Crescent Moon glowing behind upper right celestial field
+  drawCrescentMoon(behindLayer, centerX + W * 0.18, centerY - H * 0.25, W * 0.065 * shimmer2, 0.95);
+
+  // Star 6: Mid-size 3D Silver Sequin Star behind lower left
+  drawFacetedStar5(behindLayer, centerX - W * 0.36, centerY + H * 0.10, W * 0.055 * shimmer2, 0.35, 'silver', 0.85);
+
+  // Star 7: Small Electric Diamond Sparkle behind lower right
+  drawGlitterStar4(behindLayer, centerX + W * 0.36, centerY + H * 0.09, W * 0.060 * shimmer, 0.10, '#67E8F9', '#06B6D4', 0.88);
+
+  // Star 8: Floating diamond sparkle behind neck / upper center
+  drawGlitterStar4(behindLayer, centerX, centerY - H * 0.22, W * 0.045 * shimmer3, 0.45, '#FFFFFF', '#38BDF8', 0.90);
+
+  // Star 9 & 10: Calligraphy flank sparkles (frame the text left and right)
+  drawGlitterStar4(behindLayer, centerX - W * 0.24, centerY, W * 0.038 * shimmer, -0.15, '#FFFFFF', '#BAE6FD', 0.85);
+  drawGlitterStar4(behindLayer, centerX + W * 0.24, centerY, W * 0.038 * shimmer2, 0.20, '#FFFFFF', '#BAE6FD', 0.85);
+
+  // Floating Stardust Particle Field behind subject
+  behindLayer.save();
+  behindLayer.globalAlpha = exitFade * 0.80;
   const particles = [
-    { x: 0.35, y: 0.48, r: 2.2, sp: 1.0 },
-    { x: 0.64, y: 0.44, r: 1.8, sp: 1.4 },
-    { x: 0.42, y: 0.66, r: 2.5, sp: 0.8 },
-    { x: 0.58, y: 0.62, r: 1.6, sp: 1.2 },
-    { x: 0.70, y: 0.52, r: 2.0, sp: 1.1 },
-    { x: 0.28, y: 0.58, r: 1.5, sp: 0.9 }
+    { x: -0.16, y: -0.12, r: 2.2, sp: 1.0 },
+    { x: 0.18, y: -0.15, r: 1.8, sp: 1.4 },
+    { x: -0.09, y: 0.08, r: 2.5, sp: 0.8 },
+    { x: 0.12, y: 0.07, r: 1.6, sp: 1.2 },
+    { x: 0.22, y: -0.04, r: 2.0, sp: 1.1 },
+    { x: -0.21, y: 0.02, r: 1.5, sp: 0.9 },
+    { x: -0.05, y: -0.22, r: 2.0, sp: 1.3 },
+    { x: 0.07, y: -0.20, r: 1.7, sp: 0.95 }
   ];
   particles.forEach(p => {
-    const px = W * p.x;
-    const driftY = (timeSec * 22 * p.sp) % (H * 0.25);
-    const py = H * p.y - driftY + posDeltaY;
-    const pAlpha = 0.4 + 0.6 * Math.sin(timeSec * 4 + p.x * 10);
-    ctxFore.fillStyle = `rgba(255, 248, 220, ${Math.max(0, pAlpha)})`;
-    ctxFore.beginPath();
-    ctxFore.arc(px, py, p.r, 0, Math.PI * 2);
-    ctxFore.fill();
+    const px = centerX + W * p.x;
+    const driftY = (timeSec * 20 * p.sp) % (H * 0.20);
+    const py = centerY + H * p.y - driftY;
+    const pAlpha = 0.35 + 0.65 * Math.sin(timeSec * 4 + p.x * 10);
+    behindLayer.fillStyle = `rgba(255, 248, 220, ${Math.max(0, pAlpha)})`;
+    behindLayer.beginPath();
+    behindLayer.arc(px, py, p.r, 0, Math.PI * 2);
+    behindLayer.fill();
   });
-  ctxFore.restore();
+  behindLayer.restore();
 
-  // 3. DEVANAGARI CALLIGRAPHIC TYPOGRAPHY
-  const fontFam = '"Rozha One", "Yatra One", "Kalam", "Cinzel", "Playfair Display", serif';
-  const lines = [];
+  // =========================================================================
+  // LAYER 2: FOREGROUND DEPTH ACCENTS (Spatial Sandwich Layer)
+  // 2 subtle foreground sparkles in ctxFore to sandwich the person in true 3D depth
+  // =========================================================================
+  drawGlitterStar4(ctxFore, centerX - W * 0.26, centerY + H * 0.22, W * 0.055 * shimmer, -0.15, '#22D3EE', '#0891B2', 0.90);
+  drawGlitterStar4(ctxFore, centerX + W * 0.26, centerY + H * 0.24, W * 0.048 * shimmer2, 0.30, '#A5F3FC', '#0891B2', 0.85);
+
+  // =========================================================================
+  // LAYER 3: MOVABLE CALLIGRAPHIC TYPOGRAPHY BEHIND THE PERSON
+  // Rendered directly on behindLayer (targetBehind) so it sits behind the subject!
+  // Google Font "Amita" matches the exact looping calligraphy of the reference reel.
+  // Full Hinglish Latin script support with matching calligraphic flourishes.
+  // =========================================================================
   const wordsTexts = words.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean);
-
   if (wordsTexts.length === 0) return;
+
+  const hasLatin = /[A-Za-z]/.test(wordsTexts.join(' '));
+  const fontFam = hasLatin
+    ? '"Amita", "Playfair Display", "Cinzel", "Georgia", serif'
+    : '"Amita", "Rozha One", "Yatra One", "Kalam", serif';
+
+  const lines = [];
   if (wordsTexts.length <= 2) {
     lines.push(wordsTexts.join(' '));
   } else if (wordsTexts.length <= 4) {
@@ -9346,59 +9519,87 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 
   const baseFontSize = Math.round(H * 0.088 * fontScale);
   const totalHeight = lines.length * baseFontSize * 1.22;
-  const centerY = H * 0.52 + posDeltaY;
-  let startY = centerY - (totalHeight * 0.5) + (baseFontSize * 0.85);
+  const startY = centerY - (totalHeight * 0.5) + (baseFontSize * 0.85);
 
   const pFactor = progFactor(capStart, 0.22);
   const enterScale = fullInstant ? 1.0 : (0.92 + 0.08 * easeOutCubic(pFactor));
 
-  ctxFore.save();
+  behindLayer.save();
   try {
-    ctxFore.globalAlpha = exitFade * (fullInstant ? 1.0 : easeOutCubic(pFactor));
-    ctxFore.translate(W * 0.5, centerY);
-    ctxFore.scale(enterScale, enterScale);
-    ctxFore.translate(-W * 0.5, -centerY);
+    behindLayer.globalAlpha = exitFade * (fullInstant ? 1.0 : easeOutCubic(pFactor));
+    behindLayer.translate(centerX, centerY);
+    behindLayer.scale(enterScale, enterScale);
+    behindLayer.translate(-centerX, -centerY);
 
-    ctxFore.textAlign = 'center';
-    ctxFore.textBaseline = 'alphabetic';
-    ctxFore.font = `700 ${baseFontSize}px ${fontFam}`;
+    behindLayer.textAlign = 'center';
+    behindLayer.textBaseline = 'alphabetic';
+    behindLayer.font = `700 ${baseFontSize}px ${fontFam}`;
+
+    let maxMeasuredW = 0;
 
     lines.forEach((lineText, idx) => {
       const lineY = startY + idx * (baseFontSize * 1.22);
+      const measuredW = behindLayer.measureText(lineText).width;
+      if (measuredW > maxMeasuredW) maxMeasuredW = measuredW;
 
-      // Deep rich ambient drop shadow for perfect contrast over light/dark scenes
-      ctxFore.save();
-      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.90)';
-      ctxFore.shadowBlur = Math.round(H * 0.022);
-      ctxFore.shadowOffsetX = 0;
-      ctxFore.shadowOffsetY = Math.round(H * 0.006);
-      ctxFore.fillStyle = 'rgba(10, 10, 10, 0.75)';
-      ctxFore.fillText(lineText, W * 0.5, lineY);
-      ctxFore.restore();
+      // Deep rich ambient drop shadow for absolute contrast over light & dark backgrounds
+      behindLayer.save();
+      behindLayer.shadowColor = 'rgba(0, 0, 0, 0.95)';
+      behindLayer.shadowBlur = Math.round(H * 0.024);
+      behindLayer.shadowOffsetX = 0;
+      behindLayer.shadowOffsetY = Math.round(H * 0.007);
+      behindLayer.fillStyle = 'rgba(10, 10, 10, 0.85)';
+      behindLayer.fillText(lineText, centerX, lineY);
+      behindLayer.restore();
 
-      // Delicate golden edge outline for crisp calligraphic definition
-      ctxFore.save();
-      ctxFore.strokeStyle = 'rgba(255, 235, 180, 0.40)';
-      ctxFore.lineWidth = Math.max(1.5, Math.round(H * 0.0028));
-      ctxFore.strokeText(lineText, W * 0.5, lineY);
-      ctxFore.restore();
+      // Delicate golden edge outline defining the calligraphic loops of "ह", "थ", "ल", "क"
+      behindLayer.save();
+      behindLayer.strokeStyle = 'rgba(255, 238, 190, 0.45)';
+      behindLayer.lineWidth = Math.max(1.5, Math.round(H * 0.0028));
+      behindLayer.strokeText(lineText, centerX, lineY);
+      behindLayer.restore();
 
-      // Main luminous ivory cream fill (#FFF8EE) with subtle gradient
-      ctxFore.save();
-      const textGrad = ctxFore.createLinearGradient(0, lineY - baseFontSize, 0, lineY + baseFontSize * 0.2);
+      // Main luminous ivory cream fill (#FFFDF7) with subtle golden gradient
+      behindLayer.save();
+      const textGrad = behindLayer.createLinearGradient(0, lineY - baseFontSize, 0, lineY + baseFontSize * 0.2);
       textGrad.addColorStop(0.0, '#FFFFFF');
-      textGrad.addColorStop(0.35, '#FFFBF0');
+      textGrad.addColorStop(0.35, '#FFFDF7');
       textGrad.addColorStop(0.80, '#FDF6E2');
       textGrad.addColorStop(1.0, '#F5E6C8');
-      ctxFore.fillStyle = textGrad;
+      behindLayer.fillStyle = textGrad;
 
       // Soft ambient golden bloom
-      applyGlow(ctxFore, 'rgba(255, 240, 190, 0.50)', 14, 1);
-      ctxFore.fillText(lineText, W * 0.5, lineY);
-      ctxFore.restore();
+      applyGlow(behindLayer, 'rgba(255, 240, 190, 0.50)', 14, 1);
+      behindLayer.fillText(lineText, centerX, lineY);
+      behindLayer.restore();
     });
+
+    // Record interactive bounding box into S.cachedLayoutBoxes for drag hit-testing
+    if (typeof S !== 'undefined' && Array.isArray(S.cachedLayoutBoxes) && cap && cap.id) {
+      const boxW = Math.max(maxMeasuredW * 1.15, W * 0.35);
+      const boxH = Math.max(totalHeight * 1.35, H * 0.12);
+      const curCapDx = (Number(cap.dx) || 0) * W;
+      const curCapDy = (Number(cap.dy) || 0) * H;
+      const bx0 = (centerX + curCapDx - boxW * 0.5) / W;
+      const by0 = (centerY + curCapDy - boxH * 0.5) / H;
+      const bw = boxW / W;
+      const bh = boxH / H;
+      const existIdx = S.cachedLayoutBoxes.findIndex(b => b.capId === cap.id);
+      const boxEntry = {
+        capId: cap.id,
+        box: {
+          x: Math.max(0.01, Math.min(0.95, bx0)),
+          y: Math.max(0.01, Math.min(0.95, by0)),
+          w: Math.max(0.08, Math.min(0.98, bw)),
+          h: Math.max(0.05, Math.min(0.95, bh))
+        },
+        wordBoxes: []
+      };
+      if (existIdx >= 0) S.cachedLayoutBoxes[existIdx] = boxEntry;
+      else S.cachedLayoutBoxes.push(boxEntry);
+    }
   } finally {
-    ctxFore.restore();
+    behindLayer.restore();
   }
 }
 

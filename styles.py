@@ -713,13 +713,13 @@ def load_presets():
         "highlightColor": "#FFF8EE",
         "textColor": "#FFF8EE",
         "baseColor": "#F5EBD7",
-        "fontFamily": "Rozha One",
+        "fontFamily": "Amita",
         "fontScale": 1.15,
-        "previewWord": "छले छले",
+        "previewWord": "छल्ले Chhalle",
         "badge": "👑 SUFI DEPTH",
         "roles": {
             "accent": {
-                "font": "Rozha One",
+                "font": "Amita",
                 "color": "#FFF8EE",
                 "layer": "behind",
                 "bold": True,
@@ -727,15 +727,16 @@ def load_presets():
                 "shadowColor": "#000000"
             },
             "body": {
-                "font": "Rozha One",
+                "font": "Amita",
                 "color": "#FFF8EE",
+                "layer": "behind",
                 "bold": True,
                 "shadow": 0.08,
                 "shadowColor": "#000000"
             }
         },
         "key": {
-            "font": "Rozha One",
+            "font": "Amita",
             "size": 0.14,
             "color": "#FFF8EE",
             "bold": True,
@@ -746,7 +747,7 @@ def load_presets():
             "glowSize": 0.04
         },
         "filler": {
-            "font": "Rozha One",
+            "font": "Amita",
             "size": 0.08,
             "color": "#FFF8EE",
             "bold": True,
