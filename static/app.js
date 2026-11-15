@@ -11661,6 +11661,31 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (btnEditorProjects) btnEditorProjects.addEventListener('click', openProjectsModal);
     if (btnCloseProjects) btnCloseProjects.addEventListener('click', () => modalProjects.classList.add('hidden'));
 
+    const btnHomePricing = $('btnHomePricing');
+    if (btnHomePricing) {
+      btnHomePricing.addEventListener('click', (e) => {
+        if (e) e.preventDefault();
+        const pricingSec = $('frontPricingSection');
+        if (pricingSec) {
+          pricingSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
+    const btnFrontPay50 = $('btnFrontPayPack50');
+    if (btnFrontPay50) {
+      btnFrontPay50.addEventListener('click', () => {
+        if (typeof startPaymentFlow === 'function') startPaymentFlow('weekly_pass_50');
+        else if (typeof openCouponModal === 'function') openCouponModal();
+      });
+    }
+    const btnFrontPay10 = $('btnFrontPayPack10');
+    if (btnFrontPay10) {
+      btnFrontPay10.addEventListener('click', () => {
+        if (typeof startPaymentFlow === 'function') startPaymentFlow('single_pass_10');
+        else if (typeof openCouponModal === 'function') openCouponModal();
+      });
+    }
+
     if (btnSave) {
       btnSave.addEventListener('click', async () => {
         if (!S.captions || !S.captions.length) {
