@@ -696,6 +696,68 @@ def load_presets():
         except Exception as de:
             print("Warning: could not load duo_presets.json:", de)
 
+    # Divine Sufi Calligraphy & Behind-Person Glitter Depth Preset
+    sufi_item = {
+        "id": "sufi_divine_depth",
+        "name": "Divine Sufi Calligraphy 🌙",
+        "category": "behind",
+        "mode": "emphasis",
+        "layout": "stack",
+        "animation": "pop",
+        "wordsPerCaption": 2,
+        "maxKeys": 1,
+        "position": 0.52,
+        "behindPerson": True,
+        "depthAccent": True,
+        "sufiDivineDepth": True,
+        "highlightColor": "#FFF8EE",
+        "textColor": "#FFF8EE",
+        "baseColor": "#F5EBD7",
+        "fontFamily": "Amita",
+        "fontScale": 1.15,
+        "previewWord": "छल्ले Chhalle",
+        "badge": "👑 SUFI DEPTH",
+        "roles": {
+            "accent": {
+                "font": "Amita",
+                "color": "#FFF8EE",
+                "layer": "behind",
+                "bold": True,
+                "shadow": 0.08,
+                "shadowColor": "#000000"
+            },
+            "body": {
+                "font": "Amita",
+                "color": "#FFF8EE",
+                "layer": "behind",
+                "bold": True,
+                "shadow": 0.08,
+                "shadowColor": "#000000"
+            }
+        },
+        "key": {
+            "font": "Amita",
+            "size": 0.14,
+            "color": "#FFF8EE",
+            "bold": True,
+            "italic": False,
+            "shadow": 0.08,
+            "shadowColor": "#000000",
+            "glow": "#FFF8EE",
+            "glowSize": 0.04
+        },
+        "filler": {
+            "font": "Amita",
+            "size": 0.08,
+            "color": "#FFF8EE",
+            "bold": True,
+            "italic": False,
+            "shadow": 0.08,
+            "shadowColor": "#000000"
+        }
+    }
+    out.insert(0, sufi_item)
+
     return out
 
 
@@ -1258,7 +1320,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             ("(behind)" in str(style.get("name", "")).lower())
         )
 
-        if style.get("id") == "editorial_depth_stack":
+        if style.get("id") in ("editorial_depth_stack", "spatial_sandwich_syne"):
             # Editorial Depth Stack: Big Anchor Word comes first (or user-marked key word),
             # starts immediately at card start so it never disappears fast,
             # and alternates Top (even captions) & Waist (odd captions).
@@ -1581,7 +1643,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             user_base = style.get("baseColor")
             grad_colors = get_gradient_colors(r, style)
 
-            if style.get("id") == "editorial_depth_stack" and is_hero:
+            if style.get("id") == "spatial_sandwich_syne" and is_hero:
+                col = r.get("color") or user_hl or "#0052FF"
+            elif style.get("id") == "editorial_depth_stack" and is_hero:
                 col = r.get("color") or user_hl or "#3828D6"
             elif is_hero:
                 col = user_hl or r.get("color") or (grad_colors[-1] if grad_colors else "#FFE600")
@@ -1702,7 +1766,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     f"\\i{italic}",
                     f"\\1c{_c(word_color)}",
                 ]
-                if style.get("id") == "editorial_depth_stack" and is_hero:
+                if style.get("id") in ("editorial_depth_stack", "spatial_sandwich_syne") and is_hero:
                     # Translucent organic texture blend (~85% fill opacity so background video bleeds through)
                     tags.append(r"\1a&H24&")
                 if outline_px > 0:

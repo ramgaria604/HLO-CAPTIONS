@@ -3,7 +3,7 @@
     "id": "dubai_luxury_stack",
     "name": "Dubai Luxury Stack",
     "category": "real-estate",
-    "badge": "👑 DUBAI REEL",
+    "badge": "\ud83d\udc51 DUBAI REEL",
     "previewWord": "INVESTMENT",
     "isDuo": true,
     "isSpecial": true,
@@ -140,7 +140,7 @@
     "id": "chrome_liquid_mercury",
     "name": "Chrome Liquid",
     "category": "viral",
-    "badge": "💎 FRONT • CHROME",
+    "badge": "\ud83d\udc8e FRONT \u2022 CHROME",
     "previewWord": "UPGRADE",
     "isDuo": true,
     "isSpecial": true,
@@ -245,7 +245,7 @@
     "id": "torn_zine_cutout",
     "name": "Tactile Torn Zine",
     "category": "special",
-    "badge": "📰 FRONT • ZINE",
+    "badge": "\ud83d\udcf0 FRONT \u2022 ZINE",
     "previewWord": "REAL ONES",
     "isDuo": true,
     "isSpecial": true,
@@ -332,7 +332,7 @@
     "id": "acid_volt_ticker",
     "name": "Acid Volt Ticker",
     "category": "viral",
-    "badge": "⚡ FRONT • VOLT",
+    "badge": "\u26a1 FRONT \u2022 VOLT",
     "previewWord": "DIFFERENT",
     "isDuo": true,
     "isSpecial": true,
@@ -424,7 +424,7 @@
     "id": "porcelain_editorial_ribbon",
     "name": "Porcelain Ribbon",
     "category": "minimal",
-    "badge": "🤍 FRONT • LUXURY",
+    "badge": "\ud83e\udd0d FRONT \u2022 LUXURY",
     "previewWord": "effortless",
     "isDuo": true,
     "isSpecial": true,
@@ -509,7 +509,7 @@
     "id": "holo_aura_pill",
     "name": "Holo Aura Pill",
     "category": "neon",
-    "badge": "✨ FRONT • HOLO",
+    "badge": "\u2728 FRONT \u2022 HOLO",
     "previewWord": "CHANGES",
     "isDuo": true,
     "isSpecial": true,
@@ -600,7 +600,7 @@
     "id": "espresso_analog_film",
     "name": "Analog Film Strip",
     "category": "colourful",
-    "badge": "🎞️ FRONT • FILM",
+    "badge": "\ud83c\udf9e\ufe0f FRONT \u2022 FILM",
     "previewWord": "GOLDEN",
     "isDuo": true,
     "isSpecial": true,
@@ -693,7 +693,7 @@
     "id": "word_rise_cascade",
     "name": "Word Rise Line",
     "category": "special",
-    "badge": "⬆️ WORD RISE",
+    "badge": "\u2b06\ufe0f WORD RISE",
     "previewWord": "WORD BY WORD",
     "isDuo": true,
     "isSpecial": true,
@@ -825,7 +825,7 @@
     "id": "velvet_spotlight_line",
     "name": "Velvet Spotlight",
     "category": "special",
-    "badge": "✨ SPOTLIGHT",
+    "badge": "\u2728 SPOTLIGHT",
     "previewWord": "SPOTLIGHT",
     "isDuo": true,
     "isSpecial": true,
@@ -959,7 +959,7 @@
     "id": "prism_tile_kinetic",
     "name": "Prism Kinetic Tiles",
     "category": "special",
-    "badge": "💎 PRISM TILES",
+    "badge": "\ud83d\udc8e PRISM TILES",
     "previewWord": "NEXT LEVEL",
     "pill": "linear-gradient(135deg, #7C3AED, #06B6D4)",
     "isDuo": true,
@@ -1093,7 +1093,7 @@
     "id": "crazy_sunset_stack",
     "name": "Crazy Sunset Stack",
     "category": "viral",
-    "badge": "🔥 VIRAL REEL",
+    "badge": "\ud83d\udd25 VIRAL REEL",
     "previewWord": "Finally",
     "isDuo": true,
     "isSpecial": true,
@@ -1225,7 +1225,7 @@
   {
     "id": "real_estate_depth_split",
     "name": "Real Estate Depth Split",
-    "badge": "👑 REAL ESTATE VIRAL",
+    "badge": "\ud83d\udc51 REAL ESTATE VIRAL",
     "previewWord": "Real Captions",
     "category": "real-estate",
     "mode": "emphasis",
@@ -1337,7 +1337,7 @@
     "id": "electric_kinetic_stack",
     "name": "Electric Kinetic Stack",
     "category": "viral",
-    "badge": "⚡ VIRAL KINETIC",
+    "badge": "\u26a1 VIRAL KINETIC",
     "previewWord": "BUILD INTENT",
     "isDuo": true,
     "isSpecial": true,
@@ -1470,7 +1470,7 @@
   {
     "id": "prism_glass_depth",
     "name": "Prism Glass Depth",
-    "badge": "✨ PRISM GLASS",
+    "badge": "\u2728 PRISM GLASS",
     "previewWord": "LUXURY",
     "category": "real-estate",
     "mode": "emphasis",
@@ -1591,7 +1591,7 @@
   {
     "id": "kinetic_collage",
     "name": "Kinetic Editorial Collage",
-    "badge": "🎨 COLLAGE",
+    "badge": "\ud83c\udfa8 COLLAGE",
     "previewWord": "impossible",
     "category": "viral",
     "mode": "emphasis",
@@ -1705,7 +1705,7 @@
   {
     "id": "obsidian_gold_couture",
     "name": "Obsidian Gold Couture",
-    "badge": "👑 COUTURE",
+    "badge": "\ud83d\udc51 COUTURE",
     "previewWord": "ESTATE",
     "category": "real-estate",
     "mode": "emphasis",
@@ -1824,7 +1824,7 @@
   {
     "id": "aurora_spatial_depth",
     "name": "Aurora Spatial Depth",
-    "badge": "🌌 AURORA 3D",
+    "badge": "\ud83c\udf0c AURORA 3D",
     "previewWord": "EVOLVE",
     "category": "viral",
     "mode": "emphasis",
@@ -1947,7 +1947,7 @@
   {
     "id": "cobalt_archive",
     "name": "Cobalt Archive",
-    "badge": "🔷 COBALT",
+    "badge": "\ud83d\udd37 COBALT",
     "previewWord": "IMPACT",
     "category": "viral",
     "mode": "emphasis",
@@ -2067,7 +2067,7 @@
   {
     "id": "celestial_monolith",
     "name": "Celestial Monolith",
-    "badge": "🏛️ MONOLITH",
+    "badge": "\ud83c\udfdb\ufe0f MONOLITH",
     "previewWord": "EMPIRE",
     "category": "real-estate",
     "mode": "emphasis",
@@ -2189,7 +2189,7 @@
   {
     "id": "editorial_depth_stack",
     "name": "Editorial Depth Stack",
-    "badge": "👑 EDITORIAL DEPTH",
+    "badge": "\ud83d\udc51 EDITORIAL DEPTH",
     "previewWord": "Videos",
     "category": "real-estate",
     "mode": "emphasis",
@@ -2348,7 +2348,7 @@
   {
     "id": "adaptive_estate_flex",
     "name": "Adaptive Estate Multi-Flex",
-    "badge": "💎 ADAPTIVE ESTATE",
+    "badge": "\ud83d\udc8e ADAPTIVE ESTATE",
     "previewWord": "20 lakh",
     "category": "real-estate",
     "mode": "emphasis",
@@ -2457,5 +2457,152 @@
         }
       }
     }
+  },
+  {
+    "id": "spatial_sandwich_syne",
+    "name": "3D Spatial Sandwich",
+    "badge": "\u26a1 3D SPATIAL SANDWICH",
+    "previewWord": "DISRUPT",
+    "category": "viral",
+    "mode": "emphasis",
+    "layout": "stack",
+    "isDuo": true,
+    "isSpecial": true,
+    "behindPerson": true,
+    "depthAccent": true,
+    "blend": "screen",
+    "blendMode": "screen",
+    "depthAccentY": 0.22,
+    "subtitlePosition": 0.68,
+    "topY": 0.12,
+    "position": 0.22,
+    "depthAccentSize": 0.24,
+    "wordsPerPage": 4,
+    "wordsPerCaption": 4,
+    "maxKeys": 1,
+    "inkGap": 0.025,
+    "uppercase": true,
+    "textCase": "upper",
+    "noItalic": true,
+    "allowItalicCycle": false,
+    "removePunct": false,
+    "highlightColor": "#0052FF",
+    "baseColor": "#FFFFFF",
+    "key": {
+      "font": "Syne",
+      "size": 0.22,
+      "weight": 800,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "lower": false,
+      "color": "#0052FF",
+      "keyGradient": "linear-gradient(180deg, #0052FF, #00D2FF)",
+      "outline": 0,
+      "shadow": 8,
+      "shadowColor": "rgba(0, 0, 0, 0.80)",
+      "glow": "#0066FF",
+      "glowSize": 12,
+      "track": -0.04
+    },
+    "filler": {
+      "font": "Inter",
+      "size": 0.065,
+      "weight": 700,
+      "bold": true,
+      "italic": false,
+      "upper": true,
+      "color": "#FFFFFF",
+      "outline": 0,
+      "shadow": 6,
+      "shadowColor": "rgba(0, 0, 0, 0.90)",
+      "glow": "#000000",
+      "glowSize": 0,
+      "track": 0.02
+    },
+    "roles": {
+      "base": {
+        "font": "Inter",
+        "size": 70,
+        "weight": 700,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "color": "#FFFFFF",
+        "outline": 0,
+        "shadow": 6,
+        "shadowColor": "rgba(0, 0, 0, 0.90)",
+        "glow": 0,
+        "glowColor": "#000000",
+        "track": 0.02,
+        "enter": "pop",
+        "layer": "front",
+        "fill": {
+          "type": "solid",
+          "colors": [
+            "#FFFFFF"
+          ],
+          "angle": 90
+        }
+      },
+      "accent": {
+        "font": "Syne",
+        "size": 240,
+        "weight": 800,
+        "bold": true,
+        "italic": false,
+        "upper": true,
+        "lower": false,
+        "color": "#0052FF",
+        "outline": 0,
+        "shadow": 10,
+        "shadowColor": "rgba(0, 0, 0, 0.85)",
+        "glow": 12,
+        "glowColor": "#0066FF",
+        "track": -0.04,
+        "enter": "pop",
+        "layer": "behind",
+        "fill": {
+          "type": "gradient",
+          "colors": [
+            "#0052FF",
+            "#00D2FF"
+          ],
+          "angle": 180
+        }
+      }
+    },
+    "heroPalette": [
+      {
+        "id": "cobalt_cyan",
+        "name": "Cobalt Cyan",
+        "top": "#0052FF",
+        "bottom": "#00D2FF"
+      },
+      {
+        "id": "liquid_chrome",
+        "name": "Liquid Chrome",
+        "top": "#E2E8F0",
+        "bottom": "#64748B"
+      },
+      {
+        "id": "neon_plasma",
+        "name": "Neon Plasma",
+        "top": "#FF007A",
+        "bottom": "#7928CA"
+      },
+      {
+        "id": "acid_cyber",
+        "name": "Acid Cyber",
+        "top": "#00FF66",
+        "bottom": "#008822"
+      },
+      {
+        "id": "fire_amber",
+        "name": "Fire Amber",
+        "top": "#FF5E00",
+        "bottom": "#FFAA00"
+      }
+    ]
   }
 ]
