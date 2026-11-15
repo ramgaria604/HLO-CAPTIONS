@@ -1634,6 +1634,10 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 style.get("acidVoltTicker") or style.get("id") == "acid_volt_ticker" or
                 style.get("holoAuraPill") or style.get("id") == "holo_aura_pill" or
                 style.get("analogFilmStrip") or style.get("id") == "espresso_analog_film" or
+                style.get("id") in ("box_pop", "yellow_box") or
+                style.get("category") == "box" or
+                style.get("box") or
+                (style.get("highlight", {}) and style.get("highlight", {}).get("mode") == "box") or
                 (style.get("pill") and style.get("id") not in ("torn_zine_cutout", "porcelain_editorial_ribbon"))
             )
             if is_pill_preset:
@@ -2042,10 +2046,16 @@ def build_ass(captions, style, W, H):
                 tags += anim_tags
 
                 # Check if highlight mode is 'box' (e.g. Yellow Box Pop - word-by-word karaoke box)
-                is_box_mode = bool(style.get("highlight", {}).get("mode") == "box")
+                is_box_mode = bool(
+                    style.get("id") in ("box_pop", "yellow_box") or
+                    style.get("category") == "box" or
+                    style.get("box") or
+                    style.get("pill") or
+                    (style.get("highlight", {}) and style.get("highlight", {}).get("mode") == "box")
+                )
                 if is_box_mode:
-                    box_bg = style.get("highlight", {}).get("color") or highlight_col or "#FFE600"
-                    box_fg = style.get("highlight", {}).get("textColor") or "#111111"
+                    box_bg = (style.get("highlight", {}) and style.get("highlight", {}).get("color")) or style.get("highlightColor") or highlight_col or style.get("pill") or "#FFE600"
+                    box_fg = (style.get("highlight", {}) and style.get("highlight", {}).get("textColor")) or (style.get("key", {}) and style.get("key", {}).get("textColor")) or "#111111"
                     pad_x = max(6.0, round(fs * 0.24, 1))
                     pad_y = max(4.0, round(fs * 0.16, 1))
                     bw = round(w_w + pad_x * 2.0, 1)

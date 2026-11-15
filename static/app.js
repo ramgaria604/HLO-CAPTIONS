@@ -1097,8 +1097,17 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     (l.wordObjs || []).forEach(wo => allWordObjs.push(wo));
   });
 
+  const isBoxPreset = Boolean(
+    (st.highlight && st.highlight.mode === 'box') ||
+    st.category === 'box' ||
+    st.id === 'box_pop' ||
+    st.id === 'yellow_box' ||
+    st.box ||
+    st.pill
+  );
+
   let activeBoxWord = null;
-  if (st.highlight && st.highlight.mode === 'box' && allWordObjs.length > 0) {
+  if (isBoxPreset && allWordObjs.length > 0) {
     if (showAll || typeof t !== 'number' || isNaN(t)) {
       activeBoxWord = allWordObjs.find(o => o.isKey) || allWordObjs[0];
     } else {
@@ -1146,7 +1155,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 
     mLine.wordObjs.forEach(wo => {
       const anim = getWordPop(wo.w, t, showAll, st.animation);
-      const isBoxMode = Boolean(activeBoxWord ? (wo === activeBoxWord) : (wo.isKey && st.highlight && st.highlight.mode === 'box'));
+      const isBoxMode = Boolean(activeBoxWord ? (wo === activeBoxWord) : (isBoxPreset && wo.isKey));
       const isVisible = (anim.visible && anim.opacity > 0.01) || (isBoxMode && !showAll);
 
       // Only draw if word has started fading in or is active box word or showAll
@@ -1169,7 +1178,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
           const boxW = wo.width + padX * 2;
           const boxH = fs * 1.20;
           ctx.save();
-          ctx.fillStyle = ov.customHighlight || st.highlightColor || st.highlight.color || '#FFE600';
+          ctx.fillStyle = ov.customHighlight || st.highlightColor || (st.highlight && st.highlight.color) || (st.key && st.key.color) || st.pill || '#FFE600';
           ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
           ctx.shadowBlur = 8;
           ctx.beginPath();
@@ -1177,7 +1186,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
           ctx.fill();
           ctx.restore();
 
-          ctx.fillStyle = st.highlight.textColor || '#111111';
+          ctx.fillStyle = (st.highlight && st.highlight.textColor) || (st.key && st.key.textColor) || '#111111';
           ctx.fillText(wo.txt, 0, 0);
         } else {
           const isGlowActive = st.glowEnabled !== false;
@@ -9611,7 +9620,7 @@ function drawFrontSignatureScenePass(ctxFore, cap, words, t, st, W, H, showAll, 
   if (rt.exitFade <= 0.005) return;
 
   const {
-    isSampleCard, capStart, fullInstant, exitFade, capIdx, userCase, heroX, fontScale,
+    isSampleCard, capStart, capEnd, evalT, fullInstant, exitFade, capIdx, userCase, heroX, fontScale,
     cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont, roundRectPath, pickHeroIdx,
     lineSpacingMult, customHighlight, pickHi, pickBase, pickFontFam, trackEmWith, applyGlow, recordSceneBox
   } = rt;
@@ -10918,6 +10927,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.celestialMonolith || st.id === 'celestial_monolith') {
         drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if ((st.highlight && st.highlight.mode === 'box') || st.category === 'box' || presetId === 'box_pop' || presetId === 'yellow_box' || st.box || st.pill) {
+        drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
       } else if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
         drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.isSpecial && st.depthAccent) {
@@ -19197,6 +19208,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
       let lastExportTimestampMs = -1;
       let exportFrameIndex = 0;
       let consecutiveMaskFailures = 0;
+      let consecutiveProcFrameErrors = 0;
 
       if (document.fonts && document.fonts.load) {
         try {
@@ -19582,11 +19594,16 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
         drawRealEstateOverlays(ctx, W, H, t);
         drawWatermark(ctx, W, H);
+        consecutiveProcFrameErrors = 0;
 
         try { if (sample && typeof sample.close === 'function') sample.close(); } catch (_) {}
         return canvas;
         } catch (procFrameErr) {
-          console.warn('[EXPORT] processFrame recovered frame:', procFrameErr);
+          consecutiveProcFrameErrors++;
+          if (consecutiveProcFrameErrors <= 5 || consecutiveProcFrameErrors % 30 === 0) {
+            console.error('[EXPORT] processFrame error at frame', exportFrameIndex, 't=' + t, procFrameErr && (procFrameErr.stack || procFrameErr.message || procFrameErr));
+            try { window._lastProcFrameError = String(procFrameErr && (procFrameErr.stack || procFrameErr.message || procFrameErr)); } catch (_) {}
+          }
           try {
             if (canvas && ctx) {
               ctx.clearRect(0, 0, targetW, targetH);
