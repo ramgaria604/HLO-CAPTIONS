@@ -1124,51 +1124,37 @@ def auth_google():
         user_data["created_at"] = existing.get("created_at", user_data["created_at"])
 
     dev_data = load_device_credits_data()
-    device_id = (d.get("device_id") or "").strip()
-    client_credits = d.get("client_credits")
-    has_client_proof = bool(d.get("has_proof"))
-    client_c = client_credits if isinstance(client_credits, int) and client_credits > 0 else 0
-
     email_rec = dev_data.get(email) if isinstance(dev_data.get(email), dict) else None
-    dev_rec = dev_data.get(device_id) if (device_id and isinstance(dev_data.get(device_id), dict)) else None
 
-    # Only merge guest device_id credits if that device isn't already bound to a different user email
-    dev_rec_email = (dev_rec.get("email") or "").strip().lower() if dev_rec else ""
-    can_claim_device = bool(dev_rec and (not dev_rec_email or dev_rec_email == email))
+    # Credits tied directly to Gmail account
+    credits_candidates = [
+        existing.get("credits") if isinstance(existing, dict) else None,
+        email_rec.get("credits") if email_rec else None,
+    ]
+    valid_credits = [int(c) for c in credits_candidates if isinstance(c, (int, float))]
+    merged_credits = max(0, valid_credits[0]) if valid_credits else 0
 
-    merged_credits = max(
-        email_rec.get("credits", 0) if email_rec else 0,
-        existing.get("credits", 0) if isinstance(existing, dict) else 0,
-        dev_rec.get("credits", 0) if can_claim_device else 0,
+    has_legit = bool(
+        existing.get("has_paid") or
+        (email_rec and email_rec.get("has_paid")) or
+        has_verified_credit_proof(user_email=email, user_id=user_id, dev_data=dev_data)
     )
-
-    has_legit = has_verified_credit_proof(
-        user_email=email,
-        user_id=user_id,
-        device_id=device_id if can_claim_device else "",
-        user_profile=existing,
-        dev_data=dev_data,
-    )
-    if (has_legit or has_client_proof) and client_c > merged_credits:
-        merged_credits = client_c
 
     merged_used = max(
-        email_rec.get("used", 0) if email_rec else 0,
         existing.get("used", 0) if isinstance(existing, dict) else 0,
-        dev_rec.get("used", 0) if can_claim_device else 0,
+        email_rec.get("used", 0) if isinstance(email_rec, dict) else 0,
     )
     expires_candidates = [
         x for x in (
-            email_rec.get("expires_at") if email_rec else None,
+            email_rec.get("expires_at") if isinstance(email_rec, dict) else None,
             existing.get("expires_at") if isinstance(existing, dict) else None,
-            dev_rec.get("expires_at") if can_claim_device else None,
         ) if isinstance(x, (int, float))
     ]
     merged_expires = max(expires_candidates) if expires_candidates else None
     if merged_expires and time.time() > merged_expires:
         merged_credits = 0
 
-    created_at_val = (email_rec.get("created_at") if email_rec else None) or user_data["created_at"]
+    created_at_val = (email_rec.get("created_at") if isinstance(email_rec, dict) else None) or user_data["created_at"]
     user_record = {
         "credits": merged_credits,
         "used": merged_used,
@@ -1176,32 +1162,22 @@ def auth_google():
         "name": name,
         "created_at": created_at_val,
         "last_login": time.time(),
+        "has_paid": has_legit or (merged_credits > 0),
     }
     if merged_expires:
         user_record["expires_at"] = merged_expires
-    if has_legit or has_client_proof or merged_credits > 1 or (merged_credits == 1 and merged_used > 0):
-        user_record["has_paid"] = True
-        user_data["has_paid"] = True
 
     dev_data[email] = dict(user_record)
-    if device_id and can_claim_device:
-        dev_data[device_id] = dict(user_record)
-
     save_device_credits_data(dev_data)
 
-    user_credits = user_record.get("credits", 0)
-    user_used = user_record.get("used", 0)
-    user_data["credits"] = user_credits
-    user_data["used"] = user_used
-    if merged_expires:
-        user_data["expires_at"] = merged_expires
+    user_data.update(user_record)
     save_user_profile(user_id, user_data)
 
     resp = jsonify(
         ok=True,
         user=user_data,
-        credits=user_credits,
-        used=user_used,
+        credits=merged_credits,
+        used=merged_used,
         expires_at=merged_expires,
         has_paid=bool(user_record.get("has_paid")),
     )
@@ -1295,254 +1271,128 @@ def load_coupons():
 
 @app.post("/api/credits/check")
 def check_device_credits():
-    """Checks server-side device export history so refresh or private tab cannot bypass."""
+    """Checks server-side export credits strictly connected to user's Gmail."""
     d = request.get_json(force=True) or {}
-    device_id = (d.get("device_id") or "").strip()
     user_email = (d.get("email") or "").strip().lower()
-    client_credits = d.get("client_credits")
-    free_used = bool(d.get("free_used"))
-    client_c = client_credits if (isinstance(client_credits, int) and client_credits >= 0) else None
-    key = user_email or device_id
-    if not key:
-        return jsonify(credits=0, used=0)
 
-    data = load_device_credits_data()
-
-    user_id = re.sub(r"\W", "_", user_email) if user_email else None
-    user_profile = load_user_profile(user_id) if user_id else {}
-    user_file = (USERS_DIR / f"{user_id}.json") if user_id else None
-
-    recorded_credits = 0
-    has_record = False
-    used_count = 0
-    expires_at = None
-
-    if user_email and user_email in data:
-        has_record = True
-        rec = data[user_email]
-        recorded_credits = max(recorded_credits, rec.get("credits", 0))
-        used_count = max(used_count, rec.get("used", 0))
-        if rec.get("expires_at"): expires_at = rec.get("expires_at")
-
-    if device_id and device_id in data:
-        dev_rec = data[device_id]
-        dev_rec_email = (dev_rec.get("email") or "").strip().lower()
-        # Only pull guest device credits if unbound or bound to this same user email
-        if not user_email or not dev_rec_email or dev_rec_email == user_email:
-            has_record = True
-            recorded_credits = max(recorded_credits, dev_rec.get("credits", 0))
-            used_count = max(used_count, dev_rec.get("used", 0))
-            if dev_rec.get("expires_at"): expires_at = dev_rec.get("expires_at")
-
-    if user_profile and "credits" in user_profile:
-        has_record = True
-        recorded_credits = max(recorded_credits, user_profile.get("credits", 0))
-        used_count = max(used_count, user_profile.get("used", 0))
-        if user_profile.get("expires_at") and not expires_at:
-            expires_at = user_profile.get("expires_at")
-
-    # Live Razorpay payment verification fallback (guarantees credits are NEVER lost even on redirect drop)
-    if recorded_credits == 0 and (user_email or device_id):
-        try:
-            import razorpay
-            from razorpay_routes import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, PACKS
-            _rzp = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-            _pays = _rzp.payment.all({'count': 15})
-            _norm_em = (user_email or "").strip().lower()
-            _norm_dev = (device_id or "").strip()
-            _found_credits = 0
-            for _p in _pays.get('items', []):
-                if _p.get('status') == 'captured':
-                    _notes = _p.get('notes') or {}
-                    _pe = (_notes.get('email') or _p.get('email') or '').strip().lower()
-                    _pd = (_notes.get('device_id') or '').strip()
-                    if (_norm_em and _pe == _norm_em) or (_norm_dev and _pd == _norm_dev):
-                        _pk = _notes.get('pack_id') or ('pack50' if _p.get('amount') == 5000 else 'pack10')
-                        _cr = PACKS.get(_pk, PACKS['pack10'])['credits']
-                        _found_credits += _cr
-            if _found_credits > 0:
-                recorded_credits = max(0, _found_credits - used_count)
-                has_record = True
-                _target = user_email or device_id
-                if _target:
-                    if _target in data:
-                        data[_target]['credits'] = max(data[_target].get('credits', 0), recorded_credits)
-                        data[_target]['has_paid'] = True
-                    else:
-                        data[_target] = {'credits': recorded_credits, 'used': used_count, 'has_paid': True, 'email': user_email}
-                    save_device_credits_data(data)
-                if user_file:
-                    user_profile['credits'] = max(user_profile.get('credits', 0), recorded_credits)
-                    user_profile['has_paid'] = True
-                    save_user_profile(user_id, user_profile)
-        except Exception as _live_chk_err:
-            print("Live payment check warning:", _live_chk_err)
-
-    # Verify if user or device has a genuine payment or coupon redemption (persisted in DATA_DIR + cloud)
-    has_legit_payment = has_verified_credit_proof(
-        user_email=user_email,
-        user_id=user_id or "",
-        device_id=device_id,
-        user_profile=user_profile,
-        dev_data=data,
-    )
-
-    # Strip unverified legacy 1-free-export ONLY on unpaid anonymous device records without prior usage
-    if not has_legit_payment and not user_email and recorded_credits <= 1 and used_count == 0:
-        recorded_credits = 0
-
-    if not has_record:
-        final_credits = 0
-        final_used = 0
-        record = {"credits": 0, "used": 0, "created_at": time.time()}
-        if user_email:
-            record["email"] = user_email
-            if has_legit_payment:
-                record["has_paid"] = True
-        data[key] = record
-        if device_id: data[device_id] = dict(record)
-        save_device_credits_data(data)
-        if user_file:
-            user_profile["credits"] = 0
-            user_profile["used"] = 0
-            if user_email and has_legit_payment:
-                user_profile["has_paid"] = True
-            save_user_profile(user_id, user_profile)
-        resp0 = jsonify(credits=0, used=0, has_paid=bool(has_legit_payment))
+    if not user_email:
+        # Anonymous users without Gmail have 0 export credits
+        resp0 = jsonify(credits=0, used=0, has_paid=False)
         resp0.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
         return resp0
 
-    final_credits = recorded_credits
+    user_id = re.sub(r"\W", "_", user_email)
+    user_profile = load_user_profile(user_id) or {}
+    user_file = USERS_DIR / f"{user_id}.json"
+    data = load_device_credits_data()
+    email_rec = data.get(user_email) if isinstance(data.get(user_email), dict) else {}
 
-    # Check for expiration of pack
+    # Authoritative balance comes directly from user's Gmail profile / database
+    credits_val = user_profile.get("credits")
+    if credits_val is None:
+        credits_val = email_rec.get("credits", 0)
+    try:
+        credits_val = max(0, int(credits_val))
+    except (ValueError, TypeError):
+        credits_val = 0
+
+    used_count = user_profile.get("used", email_rec.get("used", 0))
+    has_paid = bool(user_profile.get("has_paid") or email_rec.get("has_paid") or credits_val > 0)
+    expires_at = user_profile.get("expires_at") or email_rec.get("expires_at")
+
     if expires_at and time.time() > expires_at:
-        final_credits = 0
+        credits_val = 0
 
-    # Sync back the consistent highest credits to both keys in data
-    for k in set(filter(None, [user_email, device_id])):
-        if k in data:
-            data[k]["credits"] = final_credits
-            if expires_at: data[k]["expires_at"] = expires_at
-            if has_legit_payment: data[k]["has_paid"] = True
-            if user_email: data[k]["email"] = user_email
-        else:
-            data[k] = {"credits": final_credits, "used": used_count, "created_at": time.time()}
-            if expires_at: data[k]["expires_at"] = expires_at
-            if has_legit_payment: data[k]["has_paid"] = True
-            if user_email: data[k]["email"] = user_email
+    record = {
+        "credits": credits_val,
+        "used": used_count,
+        "email": user_email,
+        "has_paid": has_paid,
+        "last_check": time.time(),
+    }
+    if expires_at:
+        record["expires_at"] = expires_at
 
+    data[user_email] = {**email_rec, **record}
     save_device_credits_data(data)
 
-    if user_file:
-        user_profile["credits"] = final_credits
-        user_profile["used"] = used_count
-        if expires_at: user_profile["expires_at"] = expires_at
-        if has_legit_payment: user_profile["has_paid"] = True
+    if user_file or user_profile:
+        user_profile.update(record)
         save_user_profile(user_id, user_profile)
 
-    resp = jsonify(credits=final_credits, used=used_count, expires_at=expires_at, has_paid=bool(has_legit_payment))
+    resp = jsonify(credits=credits_val, used=used_count, expires_at=expires_at, has_paid=has_paid)
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return resp
 
 
 @app.post("/api/credits/consume")
 def consume_device_credit():
-    """Deducts credit server-side upon video export and tracks exact user email & usage."""
+    """Deducts 1 credit directly from user's Gmail upon video export."""
     d = request.get_json(force=True) or {}
-    device_id = (d.get("device_id") or "").strip()
     user_email = (d.get("email") or "").strip().lower()
     user_name = (d.get("name") or "").strip()
-    key = user_email or device_id
-    if not key:
-        return jsonify(ok=True)
 
+    if not user_email:
+        return jsonify(ok=False, error="Must be signed in with Gmail to export"), 401
+
+    user_id = re.sub(r"\W", "_", user_email)
+    user_profile = load_user_profile(user_id) or {}
     data = load_device_credits_data()
+    email_rec = data.get(user_email) if isinstance(data.get(user_email), dict) else {}
 
-    record = dict(data.get(key) or (data.get(device_id) if device_id else None) or {"credits": 0, "used": 0})
-    cur_credits = record.get("credits", 0)
-    if user_email and cur_credits <= 0:
-        u_prof = load_user_profile(re.sub(r"\W", "_", user_email))
-        if isinstance(u_prof, dict):
-            cur_credits = max(cur_credits, u_prof.get("credits", 0))
+    cur_credits = user_profile.get("credits")
+    if cur_credits is None:
+        cur_credits = email_rec.get("credits", 0)
+    try:
+        cur_credits = max(0, int(cur_credits))
+    except (ValueError, TypeError):
+        cur_credits = 0
+
     new_credits = max(0, cur_credits - 1)
-    record["credits"] = new_credits
-    record["used"] = record.get("used", 0) + 1
-    record["last_export"] = time.time()
-    if user_email:
-        record["email"] = user_email
-    if user_name:
-        record["name"] = user_name
-    data[key] = dict(record)
-    if device_id:
-        data[device_id] = dict(record)
-    if user_email:
-        data[user_email] = dict(record)
+    new_used = int(user_profile.get("used", email_rec.get("used", 0))) + 1
 
+    user_profile["credits"] = new_credits
+    user_profile["used"] = new_used
+    user_profile["email"] = user_email
+    user_profile["last_export"] = time.time()
+    if user_name: user_profile["name"] = user_name
+    save_user_profile(user_id, user_profile)
+
+    data[user_email] = {
+        **email_rec,
+        "credits": new_credits,
+        "used": new_used,
+        "email": user_email,
+        "last_export": time.time()
+    }
+    if user_name: data[user_email]["name"] = user_name
     save_device_credits_data(data)
-
-    if user_email:
-        user_id = re.sub(r"\W", "_", user_email)
-        u_data = load_user_profile(user_id)
-        u_data["credits"] = new_credits
-        u_data["used"] = record["used"]
-        u_data["email"] = user_email
-        if user_name:
-            u_data["name"] = user_name
-        save_user_profile(user_id, u_data)
 
     return jsonify(ok=True, remaining_credits=new_credits)
 
 
 @app.post("/api/credits/sync")
 def sync_device_credits():
-    """Allows client to sync preserved valid credits if server restarted."""
+    """Returns authoritative server credit balance for the user's Gmail."""
     d = request.get_json(force=True) or {}
-    device_id = (d.get("device_id") or "").strip()
     user_email = (d.get("email") or "").strip().lower()
-    credits = d.get("credits")
-    if not isinstance(credits, int) or credits < 0:
-        return jsonify(ok=False), 400
-    key = user_email or device_id
-    if not key:
-        return jsonify(ok=False), 400
+    if not user_email:
+        return jsonify(ok=True, credits=0)
 
-    # Ensure user has actually paid or redeemed a coupon before accepting positive client credits
+    user_id = re.sub(r"\W", "_", user_email)
+    u_prof = load_user_profile(user_id) or {}
     dev_data = load_device_credits_data()
-    if credits > 0:
-        user_id = re.sub(r"\W", "_", user_email) if user_email else ""
-        u_prof = load_user_profile(user_id) if user_id else {}
-        has_legit_payment = has_verified_credit_proof(
-            user_email=user_email,
-            user_id=user_id,
-            device_id=device_id,
-            user_profile=u_prof,
-            dev_data=dev_data,
-        )
-        if not has_legit_payment:
-            credits = 0
+    email_rec = dev_data.get(user_email) if isinstance(dev_data.get(user_email), dict) else {}
 
-    keys_to_update = set(filter(None, [device_id, user_email]))
-    for k in keys_to_update:
-        if k in dev_data:
-            dev_data[k]["credits"] = max(dev_data[k].get("credits", 0), credits)
-            if user_email: dev_data[k]["email"] = user_email
-            if credits > 0: dev_data[k]["has_paid"] = True
-        else:
-            dev_data[k] = {"credits": credits, "used": 0, "created_at": time.time()}
-            if user_email: dev_data[k]["email"] = user_email
-            if credits > 0: dev_data[k]["has_paid"] = True
+    credits_val = u_prof.get("credits")
+    if credits_val is None:
+        credits_val = email_rec.get("credits", 0)
+    try:
+        credits_val = max(0, int(credits_val))
+    except (ValueError, TypeError):
+        credits_val = 0
 
-    save_device_credits_data(dev_data)
-
-    if user_email:
-        user_id = re.sub(r"\W", "_", user_email)
-        u_data = load_user_profile(user_id)
-        if u_data:
-            u_data["credits"] = max(u_data.get("credits", 0), credits)
-            if credits > 0: u_data["has_paid"] = True
-            save_user_profile(user_id, u_data)
-
-    return jsonify(ok=True, credits=credits)
+    return jsonify(ok=True, credits=credits_val)
 
 
 @app.get("/api/admin/users")
