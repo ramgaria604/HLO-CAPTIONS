@@ -2473,8 +2473,8 @@
   {
     "id": "editorial_depth_stack",
     "name": "Editorial Depth Stack",
-    "badge": "\ud83d\udc51 EDITORIAL DEPTH",
-    "previewWord": "Videos",
+    "badge": "👑 EDITORIAL DEPTH",
+    "previewWord": "EIGHTY",
     "category": "real-estate",
     "mode": "emphasis",
     "layout": "stack",
@@ -2482,10 +2482,10 @@
     "isSpecial": true,
     "behindPerson": true,
     "depthAccent": true,
-    "blend": "screen",
-    "blendMode": "screen",
+    "blend": "normal",
+    "blendMode": "normal",
     "depthAccentY": 0.2,
-    "subtitlePosition": 0.62,
+    "subtitlePosition": 0.2,
     "topY": 0.11,
     "position": 0.2,
     "depthAccentSize": 0.22,
@@ -2493,60 +2493,60 @@
     "wordsPerCaption": 4,
     "maxKeys": 1,
     "inkGap": 0.02,
-    "uppercase": false,
-    "textCase": "asIs",
+    "uppercase": true,
+    "textCase": "upper",
     "noItalic": true,
     "allowItalicCycle": false,
     "removePunct": false,
-    "highlightColor": "#3828D6",
+    "highlightColor": "#22C55E",
     "baseColor": "#FFFFFF",
     "key": {
-      "font": "Poppins",
+      "font": "Montserrat",
       "size": 0.19,
       "weight": 900,
       "bold": true,
       "italic": false,
-      "upper": false,
+      "upper": true,
       "lower": false,
-      "color": "#3828D6",
-      "keyGradient": "linear-gradient(180deg, #3828D6, #150A68)",
+      "color": "#22C55E",
+      "keyGradient": "linear-gradient(180deg, #22C55E, #15803D)",
       "outline": 0,
       "shadow": 6,
-      "shadowColor": "rgba(0, 0, 0, 0.70)",
-      "glow": "#3550B8",
+      "shadowColor": "rgba(0, 0, 0, 0.85)",
+      "glow": "#15803D",
       "glowSize": 0,
       "track": -0.03
     },
     "filler": {
-      "font": "Poppins",
+      "font": "Montserrat",
       "size": 0.062,
       "weight": 700,
       "bold": true,
       "italic": false,
-      "upper": false,
+      "upper": true,
       "color": "#FFFFFF",
       "outline": 0,
       "shadow": 5,
       "shadowColor": "rgba(0, 0, 0, 0.85)",
       "glow": "#000000",
       "glowSize": 0,
-      "track": -0.01
+      "track": 0.02
     },
     "roles": {
       "base": {
-        "font": "Poppins",
+        "font": "Montserrat",
         "size": 66,
         "weight": 700,
         "bold": true,
         "italic": false,
-        "upper": false,
+        "upper": true,
         "color": "#FFFFFF",
         "outline": 0,
         "shadow": 5,
         "shadowColor": "rgba(0, 0, 0, 0.85)",
         "glow": 0,
         "glowColor": "#000000",
-        "track": -0.01,
+        "track": 0.02,
         "enter": "pop",
         "layer": "front",
         "fill": {
@@ -2558,17 +2558,17 @@
         }
       },
       "accent": {
-        "font": "Poppins",
+        "font": "Montserrat",
         "size": 210,
         "weight": 900,
         "bold": true,
         "italic": false,
-        "upper": false,
-        "lower": true,
-        "color": "#3550B8",
+        "upper": true,
+        "lower": false,
+        "color": "#22C55E",
         "outline": 0,
         "shadow": 8,
-        "shadowColor": "rgba(0, 0, 0, 0.75)",
+        "shadowColor": "rgba(0, 0, 0, 0.85)",
         "glow": 0,
         "glowColor": "#ffffff",
         "track": -0.03,
@@ -2577,8 +2577,8 @@
         "fill": {
           "type": "gradient",
           "colors": [
-            "#3550B8",
-            "#121F5C"
+            "#22C55E",
+            "#15803D"
           ],
           "angle": 180
         }
@@ -2586,46 +2586,40 @@
     },
     "heroPalette": [
       {
-        "id": "navy",
-        "name": "Navy",
-        "top": "#3550B8",
-        "bottom": "#121F5C"
-      },
-      {
-        "id": "sky",
-        "name": "Sky",
-        "top": "#4CB8FF",
-        "bottom": "#1D63B8"
-      },
-      {
         "id": "emerald",
-        "name": "Emerald",
-        "top": "#2EE6A6",
-        "bottom": "#0F7A5A"
+        "name": "Emerald Green",
+        "top": "#22C55E",
+        "bottom": "#15803D"
       },
       {
-        "id": "violet",
-        "name": "Violet",
-        "top": "#A66BFF",
-        "bottom": "#5B2BC2"
+        "id": "purple",
+        "name": "Royal Purple",
+        "top": "#7C3AED",
+        "bottom": "#5B21B6"
       },
       {
         "id": "cobalt",
-        "name": "Cobalt",
-        "top": "#2844B8",
-        "bottom": "#101D48"
+        "name": "Cobalt Blue",
+        "top": "#2563EB",
+        "bottom": "#1E40AF"
       },
       {
-        "id": "teal",
-        "name": "Teal",
-        "top": "#22C1A3",
-        "bottom": "#0E3D35"
+        "id": "lime",
+        "name": "Acid Lime",
+        "top": "#84CC16",
+        "bottom": "#4D7C0F"
       },
       {
-        "id": "orange",
-        "name": "Orange",
-        "top": "#FF8A3D",
-        "bottom": "#D1470F"
+        "id": "amber",
+        "name": "Amber Copper",
+        "top": "#EA580C",
+        "bottom": "#9A3412"
+      },
+      {
+        "id": "ruby",
+        "name": "Crimson Ruby",
+        "top": "#E11D48",
+        "bottom": "#9F1239"
       }
     ]
   },

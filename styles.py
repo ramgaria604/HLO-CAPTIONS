@@ -1324,42 +1324,52 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
         if style.get("id") in ("editorial_depth_stack", "spatial_sandwich_syne"):
             # Editorial Depth Stack: Big Anchor Word comes first (or user-marked key word),
             # starts immediately at card start so it never disappears fast,
-            # and alternates Top (even captions) & Waist (odd captions).
+            # and stays Top behind the speaker's head crown (matching reference video).
             key_idx = -1
             for ki, kw in enumerate(words):
                 if kw.get("key"):
                     key_idx = ki
                     break
             if key_idx == -1:
-                key_idx = 0  # Big word comes first!
+                # 1. Check for digits / numbers ($100, 80, 50%) or number words (eighty, million, etc.)
+                for ki, kw in enumerate(words):
+                    wt = str(kw.get("t") or kw.get("word") or "").lower()
+                    if re.search(r"\d+", wt) or re.match(r"^(eighty|eight|nine|ninety|ten|twenty|thirty|forty|fifty|sixty|seventy|hundred|thousand|million|billion|first|second)$", wt):
+                        key_idx = ki
+                        break
+            if key_idx == -1:
+                # 2. Pick longest substantive word (excluding short stop words)
+                stop_words = {"a", "an", "the", "in", "on", "at", "to", "for", "of", "with", "by", "from", "up", "about", "into", "over", "after", "is", "am", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "ko", "ka", "ki", "ke", "par", "se", "hai", "hain", "ho", "aur", "or", "and", "but", "if", "so"}
+                best_idx = -1
+                max_l = 0
+                for ki, kw in enumerate(words):
+                    clean = re.sub(r"[^a-zA-Z0-9]", "", str(kw.get("t") or kw.get("word") or "").lower())
+                    if clean not in stop_words and len(clean) > max_l:
+                        max_l = len(clean)
+                        best_idx = ki
+                key_idx = best_idx if best_idx != -1 else 0
 
             hero_word_data = dict(words[key_idx])
             hero_word_data["s"] = ev_start
             hero_w = [hero_word_data]
             supp_w = [words[i] for i in range(len(words)) if i != key_idx]
 
-            slot_is_top = (cap_idx % 2 == 0)
-            if slot_is_top:
-                hero_pos_y = 0.22
-                lead_pos_y = max(0.06, hero_pos_y - (big_size + small_size) * 0.46 / H)
-                lead_above = True
-            else:
-                hero_pos_y = 0.62
-                lead_pos_y = min(0.88, hero_pos_y + (big_size + small_size) * 0.46 / H)
-                lead_above = False
+            hero_pos_y = 0.20
+            lead_pos_y = max(0.05, hero_pos_y - (big_size + small_size) * 0.46 / H)
+            lead_above = True
 
             editorial_palettes = [
-                "#3828D6", # 0 Purple ("Videos")
-                "#00D2FF", # 1 Cyan / Teal ("chahte")
-                "#00FF66", # 2 Neon Lime Green ("AI")
-                "#FF0099", # 3 Magenta ("samajh")
-                "#0066FF", # 4 Royal Blue ("video")
-                "#FF8800", # 5 Orange
-                "#9933FF", # 6 Violet
-                "#00E5FF", # 7 Ocean Blue
+                "#22C55E", # 0 Emerald Green ("EIGHTY")
+                "#7C3AED", # 1 Royal Purple ("THIS", "AND")
+                "#2563EB", # 2 Cobalt Blue ("DIRECT", "EASIER")
+                "#84CC16", # 3 Acid Lime ("MAKE")
+                "#EA580C", # 4 Amber Copper ("MUCH")
+                "#E11D48", # 5 Crimson Ruby
+                "#14B8A6", # 6 Jade Teal
             ]
             pal_col = editorial_palettes[cap_idx % len(editorial_palettes)]
-            ed_hero_role = {**accent_role, "color": pal_col}
+            ed_hero_role = {**accent_role, "color": pal_col, "layer": "behind"}
+            ed_base_role = {**base_role, "layer": "front"}
 
             lay = []
             if lead_above and supp_w:
@@ -1370,7 +1380,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     "size": small_size * 0.92,
                     "track": float(base_role.get("track", 0.0)),
                     "words": supp_w,
-                    "role": base_role,
+                    "role": ed_base_role,
                     "is_hero": False,
                     "is_top": True
                 }
@@ -1397,7 +1407,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     "size": small_size * 0.92,
                     "track": float(base_role.get("track", 0.0)),
                     "words": supp_w,
-                    "role": base_role,
+                    "role": ed_base_role,
                     "is_hero": False,
                     "is_top": False
                 }
@@ -1647,7 +1657,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             if style.get("id") == "spatial_sandwich_syne" and is_hero:
                 col = r.get("color") or user_hl or "#0052FF"
             elif style.get("id") == "editorial_depth_stack" and is_hero:
-                col = r.get("color") or user_hl or "#3828D6"
+                col = r.get("color") or user_hl or "#22C55E"
             elif is_hero:
                 col = user_hl or r.get("color") or (grad_colors[-1] if grad_colors else "#FFE600")
             else:
@@ -1767,7 +1777,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     f"\\i{italic}",
                     f"\\1c{_c(word_color)}",
                 ]
-                if style.get("id") in ("editorial_depth_stack", "spatial_sandwich_syne") and is_hero:
+                if style.get("id") == "spatial_sandwich_syne" and is_hero:
                     # Translucent organic texture blend (~85% fill opacity so background video bleeds through)
                     tags.append(r"\1a&H24&")
                 if outline_px > 0:
