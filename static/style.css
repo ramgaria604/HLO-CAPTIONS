@@ -1839,11 +1839,11 @@ button {
 
   flex: 0 0 auto;
 
-  height: 48vh;
+  height: 54vh;
 
-  min-height: 280px;
+  min-height: 320px;
 
-  max-height: 52vh;
+  max-height: 58vh;
 
   overflow: hidden;
 
@@ -7394,37 +7394,39 @@ button {
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 6px 0 2px 0;
+  padding: 4px 0 1px 0 !important;
+  flex-shrink: 0 !important;
 }
 .moonshot-drag-pill {
-  width: 36px;
-  height: 4px;
+  width: 32px;
+  height: 3px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.22);
 }
 
 /* Moonshot Transport Bar */
 .moonshot-transport-bar {
-  max-width: 540px;
+  max-width: 520px;
   width: 100%;
-  height: auto;
-  min-height: 44px;
+  height: 38px !important;
+  min-height: 38px !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px;
-  gap: 8px;
-  margin: 0 auto;
+  padding: 0 8px !important;
+  gap: 6px !important;
+  margin: 0 auto !important;
+  flex-shrink: 0 !important;
 }
 .transport-left-group, .transport-right-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .btn-play-circle {
-  width: 42px;
-  height: 42px;
+  width: 36px !important;
+  height: 36px !important;
   border-radius: 50%;
   background: #000000;
   color: #ffffff;
@@ -7580,8 +7582,10 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 10px 8px 10px;
-  margin: 0 auto;
+  padding: 1px 8px 3px 8px !important;
+  margin: 0 auto !important;
+  height: 24px !important;
+  flex-shrink: 0 !important;
 }
 .btn-section-style {
   display: inline-flex;
@@ -7745,33 +7749,41 @@ button {
   transform: translateY(-1px);
 }
 
-/* Drawer Half Split: 50% Top Video Preview, 50% Bottom Drawer Section */
+/* Moonshot Immersive Video Preview: 52-56vh dominant viewport area */
 .editor-body.drawer-open .stage-section {
-  flex: 0 0 46vh !important;
-  height: 46vh !important;
-  min-height: 220px !important;
-  max-height: 48vh !important;
+  flex: 0 0 54vh !important;
+  height: 54vh !important;
+  min-height: 320px !important;
+  max-height: 58vh !important;
   overflow: hidden !important;
-  padding: 4px 6px !important;
+  padding: 2px 6px 0 6px !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
+  justify-content: flex-start !important;
 }
 
 .editor-body.drawer-open .stage-wrapper {
   flex: 1 1 0 !important;
   min-height: 0 !important;
-  max-height: calc(46vh - 84px) !important;
+  max-height: none !important;
+  height: 100% !important;
+  width: 100% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .editor-body.drawer-open .stage {
   max-height: 100% !important;
   height: 100% !important;
+  max-width: 100% !important;
   width: auto !important;
-  aspect-ratio: 9 / 16;
+  aspect-ratio: 9 / 16 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Handled by layout.css
@@ -8283,13 +8295,21 @@ button {
   }
   .editor-header {
     gap: 6px !important;
-    padding: calc(6px + env(safe-area-inset-top, 0px)) 6px 6px 6px !important;
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 6px 4px 6px !important;
+    height: 44px !important;
   }
   .editor-header .header-left {
     gap: 6px !important;
   }
   .editor-header .header-right {
     gap: 6px !important;
+  }
+  .editor-body.drawer-open .stage-section {
+    flex: 0 0 54vh !important;
+    height: 54vh !important;
+    max-height: 57vh !important;
+    min-height: 300px !important;
+    padding: 2px 4px 0 4px !important;
   }
 }
 
