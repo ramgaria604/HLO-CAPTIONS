@@ -1360,7 +1360,7 @@ def check_device_credits():
                         _cr = PACKS.get(_pk, PACKS['pack10'])['credits']
                         _found_credits += _cr
             if _found_credits > 0:
-                recorded_credits = _found_credits
+                recorded_credits = max(0, _found_credits - used_count)
                 has_record = True
                 _target = user_email or device_id
                 if _target:
@@ -1368,7 +1368,7 @@ def check_device_credits():
                         data[_target]['credits'] = max(data[_target].get('credits', 0), recorded_credits)
                         data[_target]['has_paid'] = True
                     else:
-                        data[_target] = {'credits': recorded_credits, 'used': 0, 'has_paid': True, 'email': user_email}
+                        data[_target] = {'credits': recorded_credits, 'used': used_count, 'has_paid': True, 'email': user_email}
                     save_device_credits_data(data)
                 if user_file:
                     user_profile['credits'] = max(user_profile.get('credits', 0), recorded_credits)
@@ -1407,8 +1407,6 @@ def check_device_credits():
         return resp0
 
     final_credits = recorded_credits
-    if has_legit_payment and client_c is not None and client_c > final_credits:
-        final_credits = client_c
 
     # Check for expiration of pack
     if expires_at and time.time() > expires_at:

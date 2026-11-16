@@ -11957,12 +11957,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const savedGlobalVal = safeLSGet('cs_credits');
 
     let savedCredits = null;
-    if (savedUserVal !== null && !isNaN(parseInt(savedUserVal, 10))) {
-      savedCredits = parseInt(savedUserVal, 10);
-    }
-    if (savedGlobalVal !== null && !isNaN(parseInt(savedGlobalVal, 10))) {
-      const gVal = parseInt(savedGlobalVal, 10);
-      savedCredits = (savedCredits !== null) ? Math.max(savedCredits, gVal) : gVal;
+    if (userEmail) {
+      if (savedUserVal !== null && !isNaN(parseInt(savedUserVal, 10))) {
+        savedCredits = Math.max(0, parseInt(savedUserVal, 10));
+      }
+    } else if (savedGlobalVal !== null && !isNaN(parseInt(savedGlobalVal, 10))) {
+      savedCredits = Math.max(0, parseInt(savedGlobalVal, 10));
     }
 
     // One-time cleanup of legacy free 1-export: ensure no unearned free credit persists
@@ -12028,20 +12028,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         if (data && typeof data.credits === 'number') {
           if (data.has_paid) safeLSSet('cs_has_paid', 'true');
           const serverCredits = Math.max(0, data.credits);
-          const hasVerifiedProof = Boolean(data.has_paid) || safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true';
-          if (S.credits > serverCredits && hasVerifiedProof) {
-            saveUserCredits(S.credits);
-            fetch('/api/credits/sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              cache: 'no-store',
-              credentials: 'same-origin',
-              body: JSON.stringify({ device_id: curDevId, email: curEmail, credits: S.credits })
-            }).catch(() => {});
-          } else {
-            S.credits = serverCredits;
-            saveUserCredits(serverCredits);
-          }
+          S.credits = serverCredits;
+          saveUserCredits(serverCredits);
           updateCreditsUI();
         }
       }).catch(e => {
@@ -17731,28 +17719,32 @@ async function ensureSegmenterLoaded() {
       }
 
       const modelPath = '/static/mediapipe/selfie_segmenter.tflite';
+      const cdnModelPath = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+
+      async function tryInitLiveSegmenter(path, delegate) {
+        return await ImageSegmenter.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: path,
+            delegate: delegate
+          },
+          runningMode: 'VIDEO',
+          outputConfidenceMasks: true,
+          outputCategoryMask: false
+        });
+      }
 
       try {
-        segmenterInstance = await ImageSegmenter.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: modelPath,
-            delegate: 'GPU'
-          },
-          runningMode: 'VIDEO',
-          outputConfidenceMasks: true,
-          outputCategoryMask: false
-        });
+        segmenterInstance = await tryInitLiveSegmenter(modelPath, 'GPU');
       } catch (gpuErr) {
-        console.warn('GPU delegate failed, falling back to CPU:', gpuErr);
-        segmenterInstance = await ImageSegmenter.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: modelPath,
-            delegate: 'CPU'
-          },
-          runningMode: 'VIDEO',
-          outputConfidenceMasks: true,
-          outputCategoryMask: false
-        });
+        try {
+          segmenterInstance = await tryInitLiveSegmenter(modelPath, 'CPU');
+        } catch (cpuErr) {
+          try {
+            segmenterInstance = await tryInitLiveSegmenter(cdnModelPath, 'GPU');
+          } catch (cdnGpuErr) {
+            segmenterInstance = await tryInitLiveSegmenter(cdnModelPath, 'CPU');
+          }
+        }
       }
 
       showToast('✨ AI Behind-Person model ready');
@@ -18003,7 +17995,19 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
           data[idx + 3] = alpha;
         }
 
-        if (nonZero === 0) return;
+        if (nonZero === 0) {
+          if (!liveFinalCanvas) {
+            liveFinalCanvas = document.createElement('canvas');
+            liveFinalCtx = liveFinalCanvas.getContext('2d');
+          }
+          if (liveFinalCanvas.width !== outW || liveFinalCanvas.height !== outH) {
+            liveFinalCanvas.width = outW;
+            liveFinalCanvas.height = outH;
+          }
+          liveFinalCtx.clearRect(0, 0, outW, outH);
+          resultMaskCanvas = liveFinalCanvas;
+          return;
+        }
 
         updateEditorialHeadTopRatio(prevLiveMaskFloats, mW, mH);
         liveMaskRawCtx.putImageData(liveImageData, 0, 0);
@@ -18475,7 +18479,10 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             if (mask) lastLiveMaskCanvas = mask;
           }
 
-          const isCutoutReady = Boolean(segmenterInstance && lastLiveMaskCanvas && vid.readyState >= 2);
+          if (!window._aiCutoutInitStart) window._aiCutoutInitStart = performance.now();
+          const cutoutWaitMs = performance.now() - window._aiCutoutInitStart;
+          const isTimedOut = cutoutWaitMs > 2500;
+          const isCutoutReady = isTimedOut || Boolean(segmenterInstance && lastLiveMaskCanvas && vid.readyState >= 2);
 
           if (!isCutoutReady) {
             // Cutout is initializing (downloading neural weights or computing first mask)
@@ -18512,11 +18519,12 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             }
             return;
           } else {
-            // Cutout is ready! Cancel any pending scanner RAF
+            // Cutout is ready or timed out! Cancel any pending scanner RAF
             if (window._aiCutoutScannerRaf) {
               cancelAnimationFrame(window._aiCutoutScannerRaf);
               window._aiCutoutScannerRaf = null;
             }
+            window._aiCutoutInitStart = null;
 
             // Compute ongoing video playback masks
             if (!vid.paused) {
