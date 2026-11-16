@@ -9223,6 +9223,276 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
 }
 
 /**
+ * DUAL-PLANE 3D HERO DEPTH PASS
+ * Implements Concept 1 (Headline Behind + Live Spoken Captions in Front):
+ * - Layer 1 (BEHIND): Giant 3D anchor keyword behind the speaker's head and shoulders.
+ *   Uses computeBehindCrownPlacement, 3D block shadow/extrusion, and soft rim illumination.
+ *   Supports auto-detected key word or custom topic hook from UI (st.customHeroKeyword).
+ * - Layer 2 (IN FRONT): Floating dark glassmorphic caption card in front of the speaker's chest.
+ *   Clean white text with vibrant active-word highlight pill (yellow-gold, amber, or cyan).
+ */
+function drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+  const capArg = (showAll && cap) ? Object.assign({}, cap, { _forceInstant: typeof t !== 'number' || isNaN(t) || t <= (cap.start || 0) + 0.04 }) : cap;
+  const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind);
+  if (rt.exitFade <= 0.005) return;
+
+  const {
+    isSampleCard, capStart, capEnd, evalT, fullInstant, exitFade, targetBehind,
+    heroX, fontScale, cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont,
+    roundRectPath, pickHeroIdx, ov, posDeltaY, customHighlight, pickHi, pickBase, pickFontFam,
+    trackEmWith, applyGlow
+  } = rt;
+
+  // 1. RESOLVE BEHIND KEYWORD
+  const customKey = (st.customHeroKeyword || (typeof S !== 'undefined' && S.customHeroKeyword) || '').trim();
+  let behindTxt = '';
+  let bStart = capStart;
+  let bIdx = -1;
+
+  if (customKey) {
+    behindTxt = customKey.toUpperCase();
+  } else if (isSampleCard) {
+    behindTxt = st.previewWord || 'RETHINK';
+  } else {
+    bIdx = pickHeroIdx(words);
+    const rawHero = bIdx >= 0 && words[bIdx] ? cleanTok(words[bIdx].t || words[bIdx].word || '', false) : '';
+    behindTxt = (rawHero || st.previewWord || 'RETHINK').toUpperCase();
+    bStart = wordStart(words[bIdx], capStart + 0.04);
+  }
+
+  // ------------------------------------------------------------------------
+  // LAYER 1: BEHIND THE SPEAKER'S HEAD & SHOULDERS (3D CINEMATIC TYPOGRAPHY)
+  // ------------------------------------------------------------------------
+  const behindFam = pickFontFam(st.key?.font ? `"${st.key.font}", "Montserrat", sans-serif` : '"Montserrat", "Anton", sans-serif');
+  const bTrack = trackEmWith(st.key?.track != null ? st.key.track : 0.01);
+  const bFontFn = (sz) => `900 ${sz}px ${behindFam}`;
+
+  let bIdealSize = H * (st.depthAccentSize || 0.185) * fontScale;
+  if (behindTxt.length > 8) {
+    bIdealSize = Math.max(H * 0.10, bIdealSize * (8 / behindTxt.length));
+  }
+  const fallbackYRatio = typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.20;
+
+  const bPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+    W, H,
+    fontFn: bFontFn,
+    preferredSize: Math.round(bIdealSize),
+    minSize: Math.round(H * 0.08),
+    trackEm: bTrack,
+    isSampleCard,
+    fallbackCrownRatio: fallbackYRatio
+  });
+
+  const bP = progFactor(bStart, 0.18);
+  if (bP > 0.01) {
+    const bep = easeOutCubic(bP);
+    const bScale = fullInstant ? 1.0 : (0.95 + 0.05 * bep);
+    const bAlpha = exitFade * bep;
+
+    targetBehind.save();
+    try {
+      targetBehind.globalAlpha = bAlpha;
+      targetBehind.translate(heroX, bPlace.centerY);
+      targetBehind.scale(bScale, bScale);
+      targetBehind.translate(-heroX, -bPlace.centerY);
+
+      targetBehind.font = bFontFn(bPlace.size);
+      if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${bTrack}em`;
+      targetBehind.textAlign = 'center';
+      targetBehind.textBaseline = 'alphabetic';
+
+      const bWidth = measureW(targetBehind, behindTxt, bPlace.size, bTrack);
+
+      // Deep drop shadow onto background wall
+      targetBehind.shadowColor = 'rgba(0, 0, 0, 0.80)';
+      targetBehind.shadowBlur = Math.round(H * 0.022);
+      targetBehind.shadowOffsetX = 0;
+      targetBehind.shadowOffsetY = Math.round(H * 0.008);
+
+      // 3D block extrusion / bevel layers (gives physical depth in room)
+      const extrudeSteps = Math.max(2, Math.round(H * 0.004));
+      targetBehind.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      for (let step = extrudeSteps; step >= 1; step--) {
+        targetBehind.fillText(behindTxt, heroX, bPlace.baseY + step * 1.2);
+      }
+
+      // Front face fill
+      targetBehind.shadowColor = 'transparent';
+      const presetId = st.id || '';
+      if (customHighlight) {
+        targetBehind.fillStyle = customHighlight;
+      } else if (presetId.includes('amber') || st.dualPlaneVariant === 'amber') {
+        const ag = targetBehind.createLinearGradient(0, bPlace.inkTopY, 0, bPlace.inkBotY);
+        ag.addColorStop(0.00, '#FFE899');
+        ag.addColorStop(0.40, '#FFB300');
+        ag.addColorStop(1.00, '#D97706');
+        targetBehind.fillStyle = ag;
+      } else if (presetId.includes('cyber') || st.dualPlaneVariant === 'cyber') {
+        const cg = targetBehind.createLinearGradient(heroX - bWidth * 0.5, 0, heroX + bWidth * 0.5, 0);
+        cg.addColorStop(0.00, '#00F0FF');
+        cg.addColorStop(0.50, '#38BDF8');
+        cg.addColorStop(1.00, '#C084FC');
+        targetBehind.fillStyle = cg;
+      } else {
+        // Studio Ivory (warm architectural white with bevel reflection)
+        const ig = targetBehind.createLinearGradient(0, bPlace.inkTopY, 0, bPlace.inkBotY);
+        ig.addColorStop(0.00, '#FFFFFF');
+        ig.addColorStop(0.60, '#FAF7EE');
+        ig.addColorStop(1.00, '#E2DCD2');
+        targetBehind.fillStyle = ig;
+      }
+      targetBehind.fillText(behindTxt, heroX, bPlace.baseY);
+
+      // Specular rim light / light wrap sheen
+      const rimSize = Number(st.behindGlowSize || 12);
+      if (rimSize > 0) {
+        let rimColor = 'rgba(255, 255, 255, 0.45)';
+        if (presetId.includes('amber')) rimColor = 'rgba(255, 179, 0, 0.55)';
+        else if (presetId.includes('cyber')) rimColor = 'rgba(0, 240, 255, 0.60)';
+        applyGlow(targetBehind, rimColor, Math.max(4, Math.round(rimSize * (H / 1080))));
+        targetBehind.strokeStyle = rimColor;
+        targetBehind.lineWidth = Math.max(1.2, Math.round(H * 0.0016));
+        targetBehind.strokeText(behindTxt, heroX, bPlace.baseY);
+      }
+    } finally {
+      targetBehind.restore();
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // LAYER 2: FOREGROUND FLOATING GLASS CARD (IN FRONT OF CHEST / LOWER-THIRD)
+  // ------------------------------------------------------------------------
+  const frontFam = pickFontFam(st.filler?.font ? `"${st.filler.font}", "Inter", sans-serif` : '"Inter", "Poppins", sans-serif');
+  const fTrack = trackEmWith(0.00);
+  const fFontSize = Math.round(H * 0.038 * fontScale);
+  const fFontFn = (sz, weight = '600') => `${weight} ${sz}px ${frontFam}`;
+
+  const spokenWords = words.map(w => ({
+    raw: String(w.t || w.word || ''),
+    txt: cleanTok(w.t || w.word || '', true),
+    s: typeof w.s === 'number' ? w.s : capStart,
+    e: typeof w.e === 'number' ? w.e : capEnd,
+    key: Boolean(w.key || w.isKey)
+  })).filter(w => w.txt);
+
+  if (spokenWords.length === 0) return;
+
+  const fStart = spokenWords[0].s;
+  const fP = progFactor(fStart, 0.14);
+  if (fP <= 0.01) return;
+
+  const fep = easeOutCubic(fP);
+  const fScale = fullInstant ? 1.0 : (0.96 + 0.04 * fep);
+  const fAlpha = exitFade * fep;
+
+  ctxFore.save();
+  try {
+    ctxFore.globalAlpha = fAlpha;
+
+    ctxFore.font = fFontFn(fFontSize, '600');
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fTrack}em`;
+
+    const wordSpaceW = measureW(ctxFore, ' ', fFontSize, fTrack);
+    const measuredWords = spokenWords.map(w => {
+      const wW = measureW(ctxFore, w.raw, fFontSize, fTrack);
+      const isActive = !fullInstant && (evalT >= w.s - 0.01 && evalT < w.e + 0.04);
+      return { ...w, width: wW, isActive };
+    });
+
+    const totalTextW = measuredWords.reduce((sum, w, i) => sum + w.width + (i < measuredWords.length - 1 ? wordSpaceW : 0), 0);
+
+    const padX = Math.round(fFontSize * 0.75);
+    const padY = Math.round(fFontSize * 0.42);
+    const cardW = Math.min(Math.round(W * 0.92), Math.round(totalTextW + padX * 2));
+    const cardH = Math.round(fFontSize + padY * 2);
+
+    const subYRatio = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.66;
+    const cardCy = Math.round(H * subYRatio + posDeltaY);
+    const cardX = Math.round(heroX - cardW * 0.5);
+    const cardY = Math.round(cardCy - cardH * 0.5);
+
+    ov.recordSceneBox(cap, W, H, cardX, cardY, cardW, cardH);
+
+    ctxFore.translate(heroX, cardCy);
+    ctxFore.scale(fScale, fScale);
+    ctxFore.translate(-heroX, -cardCy);
+
+    // Dark Glassmorphic Card Background
+    ctxFore.save();
+    try {
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
+      ctxFore.shadowBlur = Math.round(H * 0.018);
+      ctxFore.shadowOffsetY = Math.round(H * 0.005);
+
+      const glassGrad = ctxFore.createLinearGradient(0, cardY, 0, cardY + cardH);
+      glassGrad.addColorStop(0.00, 'rgba(15, 23, 42, 0.78)');
+      glassGrad.addColorStop(1.00, 'rgba(8, 12, 22, 0.90)');
+
+      roundRectPath(ctxFore, cardX, cardY, cardW, cardH, Math.round(cardH * 0.38));
+      ctxFore.fillStyle = glassGrad;
+      ctxFore.fill();
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctxFore.lineWidth = Math.max(1.0, Math.round(H * 0.0012));
+      ctxFore.stroke();
+    } finally {
+      ctxFore.restore();
+    }
+
+    // Render Spoken Words Inside Card
+    let cursorX = Math.round(heroX - totalTextW * 0.5);
+    const textBaselineY = Math.round(cardCy + fFontSize * 0.34);
+
+    measuredWords.forEach(w => {
+      const hiColor = pickHi(st.highlightColor || '#FACC15');
+
+      if (w.isActive) {
+        ctxFore.save();
+        try {
+          const pillPadX = Math.round(fFontSize * 0.32);
+          const pillPadY = Math.round(fFontSize * 0.20);
+          const pillW = Math.round(w.width + pillPadX * 2);
+          const pillH = Math.round(fFontSize + pillPadY * 2);
+          const pillX = Math.round(cursorX - pillPadX);
+          const pillY = Math.round(cardCy - pillH * 0.5);
+
+          applyGlow(ctxFore, hiColor, Math.max(6, Math.round(H * 0.010)));
+          roundRectPath(ctxFore, pillX, pillY, pillW, pillH, Math.round(pillH * 0.40));
+          ctxFore.fillStyle = hiColor;
+          ctxFore.fill();
+
+          ctxFore.shadowColor = 'transparent';
+          ctxFore.font = fFontFn(fFontSize, '800');
+          ctxFore.fillStyle = '#0B0F19';
+          ctxFore.fillText(w.raw, cursorX, textBaselineY);
+        } finally {
+          ctxFore.restore();
+        }
+      } else {
+        ctxFore.save();
+        try {
+          ctxFore.font = fFontFn(fFontSize, '600');
+          ctxFore.fillStyle = pickBase('#FFFFFF');
+          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.45)';
+          ctxFore.shadowBlur = 4;
+          ctxFore.shadowOffsetY = 1;
+          ctxFore.fillText(w.raw, cursorX, textBaselineY);
+        } finally {
+          ctxFore.restore();
+        }
+      }
+
+      cursorX += Math.round(w.width + wordSpaceW);
+    });
+
+  } finally {
+    ctxFore.restore();
+  }
+}
+
+/**
  * SUFI DIVINE CALLIGRAPHY & 3D GLITTER DEPTH PASS
  * EXACT 1:1 match to the reference reel (Osho: "छल्ले छल्ले", "काला", "हथ हथ मारे"):
  * - Authentic Turquoise Sequin Star filled with sparkling cyan & aquamarine glitter disks
@@ -11414,6 +11684,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.sufiDivineDepth || st.id === 'sufi_divine_depth') {
         drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.dualPlaneHero || st.id === 'dual_plane_hero' || st.id === 'dual_plane_amber' || st.id === 'dual_plane_cyber' || (st.id && st.id.startsWith('dual_plane'))) {
+        drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if ((st.highlight && st.highlight.mode === 'box') || st.category === 'box' || presetId === 'box_pop' || presetId === 'yellow_box' || st.box || st.pill) {
         drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
       } else if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
@@ -15238,8 +15510,44 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     return card;
   }
 
+  function syncDualPlaneUI() {
+    const card = $('cardDualPlaneSettings');
+    if (!card) return;
+    const isBehind = Boolean(
+      S.style && (
+        S.style.dualPlaneHero ||
+        S.style.behindPerson ||
+        S.style.depthAccent ||
+        (S.style.id && S.style.id.startsWith('dual_plane')) ||
+        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind')
+      )
+    );
+    card.classList.toggle('hidden', !isBehind);
+
+    const kwInput = $('inputDualPlaneKeyword');
+    if (kwInput) kwInput.value = S.style?.customHeroKeyword || S.customHeroKeyword || '';
+
+    const behindY = $('inputDualPlaneBehindY');
+    const valBehindY = $('valDualPlaneBehindY');
+    const curBehindY = Math.round((S.style?.depthAccentY != null ? S.style.depthAccentY : 0.20) * 100);
+    if (behindY) behindY.value = String(curBehindY);
+    if (valBehindY) valBehindY.textContent = `${curBehindY}%`;
+
+    const frontY = $('inputDualPlaneFrontY');
+    const valFrontY = $('valDualPlaneFrontY');
+    const curFrontY = Math.round((S.style?.subtitlePosition != null ? S.style.subtitlePosition : 0.66) * 100);
+    if (frontY) frontY.value = String(curFrontY);
+    if (valFrontY) valFrontY.textContent = `${curFrontY}%`;
+
+    const glowSlider = $('inputDualPlaneGlow');
+    const valGlow = $('valDualPlaneGlow');
+    const curGlow = Math.round(S.style?.behindGlowSize != null ? S.style.behindGlowSize : 12);
+    if (glowSlider) glowSlider.value = String(curGlow);
+    if (valGlow) valGlow.textContent = `${curGlow}px`;
+  }
+
   function syncBehindSliders() {
-    // Behind person removed per user request
+    syncDualPlaneUI();
   }
 
   function applyPreset(preset, showGenToast = false) {
@@ -15912,6 +16220,53 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       chkWhiteBloom.addEventListener('change', (e) => {
         if (!S.style) S.style = {};
         S.style.whiteBloom = e.target.checked;
+        renderCanvas();
+      });
+    }
+
+    // Dual-Plane 3D Depth Settings Listeners
+    const inputDualPlaneKeyword = $('inputDualPlaneKeyword');
+    if (inputDualPlaneKeyword) {
+      inputDualPlaneKeyword.addEventListener('input', (e) => {
+        if (!S.style) S.style = {};
+        S.style.customHeroKeyword = e.target.value.trim();
+        S.customHeroKeyword = S.style.customHeroKeyword;
+        renderCanvas();
+      });
+    }
+
+    const inputDualPlaneBehindY = $('inputDualPlaneBehindY');
+    const valDualPlaneBehindY = $('valDualPlaneBehindY');
+    if (inputDualPlaneBehindY) {
+      inputDualPlaneBehindY.addEventListener('input', (e) => {
+        const pct = parseInt(e.target.value, 10) || 20;
+        if (valDualPlaneBehindY) valDualPlaneBehindY.textContent = `${pct}%`;
+        if (!S.style) S.style = {};
+        S.style.depthAccentY = pct / 100;
+        renderCanvas();
+      });
+    }
+
+    const inputDualPlaneFrontY = $('inputDualPlaneFrontY');
+    const valDualPlaneFrontY = $('valDualPlaneFrontY');
+    if (inputDualPlaneFrontY) {
+      inputDualPlaneFrontY.addEventListener('input', (e) => {
+        const pct = parseInt(e.target.value, 10) || 66;
+        if (valDualPlaneFrontY) valDualPlaneFrontY.textContent = `${pct}%`;
+        if (!S.style) S.style = {};
+        S.style.subtitlePosition = pct / 100;
+        renderCanvas();
+      });
+    }
+
+    const inputDualPlaneGlow = $('inputDualPlaneGlow');
+    const valDualPlaneGlow = $('valDualPlaneGlow');
+    if (inputDualPlaneGlow) {
+      inputDualPlaneGlow.addEventListener('input', (e) => {
+        const px = parseInt(e.target.value, 10) || 12;
+        if (valDualPlaneGlow) valDualPlaneGlow.textContent = `${px}px`;
+        if (!S.style) S.style = {};
+        S.style.behindGlowSize = px;
         renderCanvas();
       });
     }

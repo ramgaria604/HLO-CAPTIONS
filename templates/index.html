@@ -1114,6 +1114,48 @@
                 </div>
               </div>
 
+              <!-- Dual-Plane 3D Depth Settings (Behind Head + Front Subtitles) -->
+              <div class="control-card" id="cardDualPlaneSettings" data-style-group="motion" style="background: linear-gradient(135deg, rgba(15,23,42,0.92), rgba(20,28,48,0.85)); border: 1px solid rgba(250, 204, 21, 0.25);">
+                <div class="control-header">
+                  <label style="color: #fde047; font-weight: 700;">👑 Behind Person 3D Controls</label>
+                  <span id="valDualPlaneBadge" class="val-badge badge-green">DUAL-PLANE</span>
+                </div>
+                <p class="voiceover-help">Cinematic 3D title behind the head with live spoken captions in front of the chest.</p>
+                
+                <!-- Keyword Mode: Auto-Detect vs Custom Word -->
+                <div style="margin-top: 10px;">
+                  <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: block; margin-bottom: 4px;">🎯 Behind Keyword / Hook</label>
+                  <input type="text" id="inputDualPlaneKeyword" placeholder="Auto-detect key word (or type e.g. RETHINK)" class="text-input" style="width: 100%; font-size: 13px; padding: 7px 10px; background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff;">
+                </div>
+
+                <!-- Behind Text Height Slider -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>⬆️ Behind Text Height (Head Level)</span>
+                    <span id="valDualPlaneBehindY" style="color: #fde047; font-weight: 600;">20%</span>
+                  </div>
+                  <input type="range" id="inputDualPlaneBehindY" min="10" max="40" value="20" class="styled-slider" style="width: 100%;">
+                </div>
+
+                <!-- Front Caption Height Slider -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>⬇️ Front Captions Height (Chest Level)</span>
+                    <span id="valDualPlaneFrontY" style="color: #fde047; font-weight: 600;">66%</span>
+                  </div>
+                  <input type="range" id="inputDualPlaneFrontY" min="45" max="85" value="66" class="styled-slider" style="width: 100%;">
+                </div>
+
+                <!-- Depth Mask Feather / Rim Glow -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>✨ Rim Glow &amp; Light Wrap</span>
+                    <span id="valDualPlaneGlow" style="color: #fde047; font-weight: 600;">12px</span>
+                  </div>
+                  <input type="range" id="inputDualPlaneGlow" min="0" max="30" value="12" class="styled-slider" style="width: 100%;">
+                </div>
+              </div>
+
 
               <!-- 1. Words per line Stepper (Chunk Pacing) -->
               <div class="stepper-card" data-style-group="text">
