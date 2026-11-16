@@ -8815,19 +8815,25 @@ button {
 
 .caption-bounding-box {
   position: absolute;
-  border: 1.5px solid #a855f7;
-  border-radius: 6px;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.45), 0 0 16px rgba(139, 92, 246, 0.25);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 16px rgba(139, 92, 246, 0.35);
+  background: rgba(139, 92, 246, 0.08);
   pointer-events: auto;
   box-sizing: border-box;
   touch-action: none;
-  cursor: move;
+  cursor: grab;
   transform-origin: center center;
+}
+
+.caption-bounding-box:active {
+  cursor: grabbing;
+  background: rgba(139, 92, 246, 0.16);
 }
 
 .box-transform-hud {
   position: absolute;
-  top: -26px;
+  top: -24px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(15, 23, 42, 0.92);
@@ -8856,102 +8862,127 @@ button {
   pointer-events: none;
 }
 
+/* Single clean resize handle at bottom-right corner */
 .box-handle {
-  width: 12px;
-  height: 12px;
+  display: none;
+}
+
+.box-handle-se {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   background: #ffffff;
   border: 2px solid #8b5cf6;
   border-radius: 50%;
   position: absolute;
+  right: -10px;
+  bottom: -10px;
   pointer-events: auto;
   box-sizing: border-box;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  cursor: nwse-resize;
+  touch-action: none;
+  color: #8b5cf6;
+  transition: transform 0.15s ease;
 }
 
-.box-handle::after {
+.box-handle-se:active {
+  transform: scale(1.2);
+}
+
+.box-handle-se::after {
   content: '';
   position: absolute;
-  inset: -8px;
+  inset: -12px; /* Generous 44px mobile touch hit target */
 }
-
-.box-handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
-.box-handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
-.box-handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
-.box-handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
 
 .box-handle-rot {
-  width: 24px;
-  height: 24px;
-  bottom: -34px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #131522;
-  color: #e9d5ff;
-  border: 1.5px solid #a855f7;
-  font-size: 13px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  line-height: 1;
+  display: none !important;
 }
 
-.box-handle-rot::before {
-  content: '';
-  position: absolute;
-  top: -11px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 1.5px;
-  height: 10px;
-  background: rgba(168, 85, 247, 0.8);
-  pointer-events: none;
-}
-
+/* Sleek Docked Control Bar (Moonshot Style: Pinned at bottom of video player) */
 .video-edit-mini-toolbar {
-  position: absolute;
-  z-index: 14;
-  display: flex;
-  flex-wrap: wrap;
+  position: absolute !important;
+  bottom: 12px !important;
+  left: 50% !important;
+  top: auto !important;
+  transform: translateX(-50%) !important;
+  z-index: 30 !important;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  max-width: calc(100% - 16px);
-  background: rgba(19, 21, 34, 0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 16px;
-  padding: 5px 7px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
-  pointer-events: auto;
-  transform: translateX(-50%);
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+  padding: 4px 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
+  pointer-events: auto !important;
   user-select: none;
   box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .edit-mode-pill-group {
   display: inline-flex;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  border-radius: 9999px;
   padding: 2px;
+  gap: 2px;
 }
 
 .btn-edit-mode {
-  padding: 3px 8px;
+  padding: 4px 11px;
   font-size: 11px;
-  font-weight: 600;
-  border-radius: 12px;
+  font-weight: 700;
+  border-radius: 9999px;
   border: none;
   background: transparent;
   color: #94a3b8;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .btn-edit-mode.active {
   background: #8b5cf6;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.45);
+}
+
+.video-edit-mini-toolbar .btn-mini-tool {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.video-edit-mini-toolbar .btn-mini-tool:hover {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.video-edit-mini-toolbar .btn-mini-done {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+.video-edit-mini-toolbar .btn-mini-done:hover {
+  background: rgba(239, 68, 68, 0.45) !important;
+  color: #fff !important;
 }
 
 .edit-toolbar-icons {

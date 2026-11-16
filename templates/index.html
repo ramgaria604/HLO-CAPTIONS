@@ -337,50 +337,21 @@
 
             <div id="captionBoundingBox" class="caption-bounding-box hidden">
               <span id="boxLabelMode" class="box-label-mode hidden">word</span>
-              <span id="boxTransformHud" class="box-transform-hud hidden">1.00× · 0°</span>
-              <div class="box-handle box-handle-nw" data-handle="nw"></div>
-              <div class="box-handle box-handle-ne" data-handle="ne"></div>
-              <div class="box-handle box-handle-sw" data-handle="sw"></div>
-              <div class="box-handle box-handle-se" data-handle="se"></div>
-              <div class="box-handle box-handle-rot" data-handle="rot" title="Drag to rotate caption" aria-label="Rotate caption">↻</div>
+              <span id="boxTransformHud" class="box-transform-hud hidden">1.00×</span>
+              <div class="box-handle box-handle-se" data-handle="se" title="Drag to resize">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              </div>
             </div>
 
+            <!-- Sleek Docked Control Bar (Moonshot Style: Pinned at bottom of player) -->
             <div id="videoEditMiniToolbar" class="video-edit-mini-toolbar hidden">
-              <div class="edit-mode-pill-group" title="Adjust all captions or only this clip">
-                <button type="button" class="btn-edit-mode active" id="btnAdjustScopeOne" title="Move this caption only">📍 This</button>
-                <button type="button" class="btn-edit-mode" id="btnAdjustScopeAll" title="Move all captions together">🌐 All</button>
+              <div class="edit-mode-pill-group" title="Adjust all captions, this line, or single word">
+                <button type="button" class="btn-edit-mode" id="btnAdjustScopeAll" title="All captions">All</button>
+                <button type="button" class="btn-edit-mode active" id="btnAdjustScopeOne" title="This line only">Line</button>
+                <button type="button" class="btn-edit-mode" id="btnEditModeWord" title="Single word">Words</button>
               </div>
-              <div class="edit-mode-pill-group">
-                <button type="button" class="btn-edit-mode active" id="btnEditModeWhole">Whole</button>
-                <button type="button" class="btn-edit-mode" id="btnEditModeWord">Word</button>
-              </div>
-              <div class="edit-toolbar-icons">
-                <div class="mini-nudge-group" title="Nudge caption position">
-                  <button type="button" class="btn-mini-tool btn-nudge-tool" id="btnMiniNudgeUp" title="Nudge Up" aria-label="Nudge Up">▲</button>
-                  <button type="button" class="btn-mini-tool btn-nudge-tool" id="btnMiniNudgeDown" title="Nudge Down" aria-label="Nudge Down">▼</button>
-                  <button type="button" class="btn-mini-tool btn-nudge-tool" id="btnMiniNudgeLeft" title="Nudge Left" aria-label="Nudge Left">◀</button>
-                  <button type="button" class="btn-mini-tool btn-nudge-tool" id="btnMiniNudgeRight" title="Nudge Right" aria-label="Nudge Right">▶</button>
-                </div>
-                <button type="button" class="btn-mini-tool" id="btnMiniScaleDown" title="Smaller caption" aria-label="Smaller caption">A-</button>
-                <button type="button" class="btn-mini-tool" id="btnMiniScaleUp" title="Larger caption" aria-label="Larger caption">A+</button>
-                <button type="button" class="btn-mini-tool" id="btnMiniCenter" title="Center horizontally & level" aria-label="Center horizontally">⌖</button>
-                <button type="button" class="btn-mini-tool" id="btnMiniEditText" title="Edit text" aria-label="Edit text">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                </button>
-                <button type="button" class="btn-mini-tool" id="btnMiniResetPos" title="Reset position, size & angle" aria-label="Reset position">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                </button>
-                <button type="button" class="btn-mini-tool" id="btnMiniApplyAll" title="Copy this position to all captions" aria-label="Apply to all captions">
-                  <span>Sync All</span>
-                </button>
-                <button type="button" class="btn-mini-tool btn-mini-style" id="btnMiniStyle" title="Colors, Font & Spacing" aria-label="Style settings">
-                  <span>Style</span>
-                </button>
-                <button type="button" class="btn-mini-tool btn-mini-done" id="btnMiniDone" title="Done" aria-label="Done editing">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Done</span>
-                </button>
-              </div>
+              <button type="button" class="btn-mini-tool" id="btnMiniCenter" title="Center horizontally" aria-label="Center horizontally">⌖</button>
+              <button type="button" class="btn-mini-tool btn-mini-done" id="btnMiniDone" title="Done" aria-label="Done editing">✕</button>
             </div>
           </div>
 

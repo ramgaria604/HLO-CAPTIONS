@@ -21632,27 +21632,29 @@ function updateVideoEditOverlay() {
   bbox.classList.remove('hidden');
   miniToolbar.classList.remove('hidden');
 
-  // Update scope & mode pills
+  // Update mode pills in docked mini toolbar: All | Line | Words
   const btnScopeAll = $('btnAdjustScopeAll');
   const btnScopeOne = $('btnAdjustScopeOne');
-  if (btnScopeAll && btnScopeOne) {
-    btnScopeAll.classList.toggle('active', S.adjustScope === 'all');
-    btnScopeOne.classList.toggle('active', S.adjustScope !== 'all');
-  }
-  const btnWhole = $('btnEditModeWhole');
   const btnWord = $('btnEditModeWord');
-  if (btnWhole && btnWord) {
+  if (btnScopeAll && btnScopeOne) {
     if (S.editMode === 'word') {
-      btnWord.classList.add('active');
-      btnWhole.classList.remove('active');
+      if (btnWord) btnWord.classList.add('active');
+      btnScopeAll.classList.remove('active');
+      btnScopeOne.classList.remove('active');
       if (boxLabel) {
         boxLabel.classList.remove('hidden');
         const curWord = (cap.words && S.selectedWordIndex >= 0 && cap.words[S.selectedWordIndex]) ? cap.words[S.selectedWordIndex].t : 'word';
         boxLabel.textContent = `word: "${curWord}"`;
       }
+    } else if (S.adjustScope === 'all') {
+      btnScopeAll.classList.add('active');
+      btnScopeOne.classList.remove('active');
+      if (btnWord) btnWord.classList.remove('active');
+      if (boxLabel) boxLabel.classList.add('hidden');
     } else {
-      btnWhole.classList.add('active');
-      btnWord.classList.remove('active');
+      btnScopeOne.classList.add('active');
+      btnScopeAll.classList.remove('active');
+      if (btnWord) btnWord.classList.remove('active');
       if (boxLabel) boxLabel.classList.add('hidden');
     }
   }
@@ -21700,18 +21702,11 @@ function updateVideoEditOverlay() {
   const rotDeg = S.editMode === 'word' ? 0 : (Number(cap.rot) || 0);
   bbox.style.transform = rotDeg ? `rotate(${rotDeg}deg)` : '';
 
-  // Position mini toolbar centered near the box and safely inside wrapperRect
-  const tbW = miniToolbar.offsetWidth || Math.min(wrapperRect.width - 16, 330);
-  const tbH = miniToolbar.offsetHeight || 42;
-  let toolbarY = boxY + boxH + 40; // leave room for bottom rotation handle
-  if (toolbarY + tbH > wrapperRect.height - 8) {
-    toolbarY = Math.max(8, boxY - tbH - 12);
-  }
-  const halfTb = tbW * 0.5;
-  const toolbarCenterX = Math.max(halfTb + 8, Math.min(wrapperRect.width - halfTb - 8, boxX + boxW * 0.5));
-
-  miniToolbar.style.left = Math.round(toolbarCenterX) + 'px';
-  miniToolbar.style.top = Math.round(toolbarY) + 'px';
+  // Dock control pill cleanly at the bottom edge of the player (Moonshot Style: Never covers faces or captions)
+  miniToolbar.style.left = '50%';
+  miniToolbar.style.bottom = '12px';
+  miniToolbar.style.top = 'auto';
+  miniToolbar.style.transform = 'translateX(-50%)';
 }
 
 /**
@@ -22034,27 +22029,27 @@ function setupVideoOverlayInteractions() {
   window.addEventListener('pointerup', onPointerUp);
   window.addEventListener('pointercancel', onPointerUp);
 
-  // Mini toolbar button handlers
-  const bindScopeBtn = (id, scope) => {
-    const btn = $(id);
-    if (!btn) return;
-    btn.addEventListener('click', (e) => {
+  // Mini toolbar button handlers: All | Line | Words (Moonshot segmented control)
+  const btnScopeAll = $('btnAdjustScopeAll');
+  if (btnScopeAll) {
+    btnScopeAll.addEventListener('click', (e) => {
       e.stopPropagation();
-      S.adjustScope = scope;
-      updateVideoEditOverlay();
-      showToast(scope === 'all' ? 'Editing all captions together' : 'Editing only this caption');
-    });
-  };
-  bindScopeBtn('btnAdjustScopeAll', 'all');
-  bindScopeBtn('btnAdjustScopeOne', 'one');
-
-  const btnWhole = $('btnEditModeWhole');
-  if (btnWhole) {
-    btnWhole.addEventListener('click', (e) => {
-      e.stopPropagation();
+      S.adjustScope = 'all';
       S.editMode = 'whole';
       updateVideoEditOverlay();
-      console.log('[EDIT]', 'mode_whole', S.selectedCaptionId, -1, 'whole');
+      showToast('Editing all captions together');
+    });
+  }
+
+  const btnScopeOne = $('btnAdjustScopeOne');
+  if (btnScopeOne) {
+    btnScopeOne.addEventListener('click', (e) => {
+      e.stopPropagation();
+      S.adjustScope = 'one';
+      S.editMode = 'whole';
+      S.selectedWordIndex = -1;
+      updateVideoEditOverlay();
+      showToast('Editing this caption line');
     });
   }
 
@@ -22065,7 +22060,7 @@ function setupVideoOverlayInteractions() {
       S.editMode = 'word';
       if (S.selectedWordIndex < 0) S.selectedWordIndex = 0;
       updateVideoEditOverlay();
-      console.log('[EDIT]', 'mode_word', S.selectedCaptionId, S.selectedWordIndex, 'word');
+      showToast('Editing individual word');
     });
   }
 
