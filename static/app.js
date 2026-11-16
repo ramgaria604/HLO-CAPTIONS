@@ -18482,8 +18482,13 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           t: pt,
           s: (activeCap.start || 0) + pIdx * step,
           e: (activeCap.start || 0) + (pIdx + 1) * step,
-          key: pIdx === 0
+          key: pIdx === 0,
+          dx: 0,
+          dy: 0
         }));
+        if (!Array.isArray(activeCap.words) || !activeCap.words.length) {
+          activeCap.words = words.map(w => ({ ...w }));
+        }
       }
 
       // Check for Multi-Frame Custom Video Templates (Chrono Vault HUD / Atelier Zine Studio)
@@ -22158,8 +22163,25 @@ function setupVideoOverlayInteractions() {
       e.stopPropagation();
       S.editMode = 'word';
       const found = getSelectedCap();
-      if (found && found.cap && found.cap.words && found.cap.words.length > 0) {
-        if (S.selectedWordIndex < 0 || S.selectedWordIndex >= found.cap.words.length) {
+      if (found && found.cap) {
+        if ((!Array.isArray(found.cap.words) || !found.cap.words.length) && found.cap.text) {
+          const parts = found.cap.text.trim().split(/\s+/).filter(Boolean);
+          const segDur = Math.max(0.5, (found.cap.end || 1) - (found.cap.start || 0));
+          const step = segDur / Math.max(1, parts.length);
+          found.cap.words = parts.map((pt, pIdx) => ({
+            t: pt,
+            s: (found.cap.start || 0) + pIdx * step,
+            e: (found.cap.start || 0) + (pIdx + 1) * step,
+            key: pIdx === 0,
+            dx: 0,
+            dy: 0
+          }));
+        }
+        if (found.cap.words && found.cap.words.length > 0) {
+          if (S.selectedWordIndex < 0 || S.selectedWordIndex >= found.cap.words.length) {
+            S.selectedWordIndex = 0;
+          }
+        } else {
           S.selectedWordIndex = 0;
         }
       } else {
