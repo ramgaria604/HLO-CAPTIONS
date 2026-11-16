@@ -9521,22 +9521,22 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     ? '"Amita", "Playfair Display", "Cinzel", "Georgia", serif'
     : '"Amita", "Rozha One", "Yatra One", "Kalam", serif';
 
-  const lines = [];
-  if (wordsTexts.length <= 2) {
-    lines.push(wordsTexts.join(' '));
-  } else if (wordsTexts.length <= 4) {
-    const half = Math.ceil(wordsTexts.length / 2);
-    lines.push(wordsTexts.slice(0, half).join(' '));
-    lines.push(wordsTexts.slice(half).join(' '));
+  const lineWords = [];
+  if (words.length <= 2) {
+    lineWords.push(words);
+  } else if (words.length <= 4) {
+    const half = Math.ceil(words.length / 2);
+    lineWords.push(words.slice(0, half));
+    lineWords.push(words.slice(half));
   } else {
-    lines.push(wordsTexts.slice(0, 3).join(' '));
-    lines.push(wordsTexts.slice(3).join(' '));
+    lineWords.push(words.slice(0, 3));
+    lineWords.push(words.slice(3));
   }
 
   // Refined 1:1 editorial scale (in close-ups, slightly compact line gap to keep 2 lines tight)
   const lineGapMult = isCloseUp ? 1.10 : 1.20;
   const baseFontSize = Math.round(H * (isCloseUp ? 0.062 : 0.068) * fontScale);
-  const totalHeight = lines.length * baseFontSize * lineGapMult;
+  const totalHeight = lineWords.length * baseFontSize * lineGapMult;
   const startY = centerY - (totalHeight * 0.5) + (baseFontSize * 0.85);
 
   const pFactor = progFactor(capStart, 0.22);
@@ -9554,50 +9554,81 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     behindLayer.font = `700 ${baseFontSize}px ${fontFam}`;
 
     let maxMeasuredW = 0;
+    const computedWordBoxes = [];
+    const curCapDx = (Number(cap && cap.dx) || 0) * W;
+    const curCapDy = (Number(cap && cap.dy) || 0) * H;
 
-    lines.forEach((lineText, idx) => {
+    lineWords.forEach((lWords, idx) => {
       const lineY = startY + idx * (baseFontSize * lineGapMult);
-      const measuredW = behindLayer.measureText(lineText).width;
-      if (measuredW > maxMeasuredW) maxMeasuredW = measuredW;
+      const spaceW = behindLayer.measureText(' ').width;
 
-      // Soft atmospheric drop shadow (blends into video depth)
-      behindLayer.save();
-      behindLayer.shadowColor = 'rgba(0, 0, 0, 0.88)';
-      behindLayer.shadowBlur = Math.round(H * 0.016);
-      behindLayer.shadowOffsetX = 0;
-      behindLayer.shadowOffsetY = Math.round(H * 0.004);
-      behindLayer.fillStyle = 'rgba(10, 10, 10, 0.80)';
-      behindLayer.fillText(lineText, centerX, lineY);
-      behindLayer.restore();
+      const wordMetrics = lWords.map(w => {
+        const text = cleanTok(w.t || w.word || '', false);
+        const wW = behindLayer.measureText(text).width;
+        return { w, text, wW };
+      });
 
-      // Delicate golden edge outline defining the calligraphic loops
-      behindLayer.save();
-      behindLayer.strokeStyle = 'rgba(255, 238, 190, 0.40)';
-      behindLayer.lineWidth = Math.max(1.2, Math.round(H * 0.0022));
-      behindLayer.strokeText(lineText, centerX, lineY);
-      behindLayer.restore();
+      const totalLineW = wordMetrics.reduce((sum, item) => sum + item.wW, 0) + Math.max(0, lWords.length - 1) * spaceW;
+      if (totalLineW > maxMeasuredW) maxMeasuredW = totalLineW;
 
-      // Warm luminous ivory-cream fill (#FFFDF2)
-      behindLayer.save();
-      const textGrad = behindLayer.createLinearGradient(0, lineY - baseFontSize, 0, lineY + baseFontSize * 0.2);
-      textGrad.addColorStop(0.0, '#FFFFFF');
-      textGrad.addColorStop(0.40, '#FFFDF5');
-      textGrad.addColorStop(0.85, '#FDF6E2');
-      textGrad.addColorStop(1.0, '#F5E6C8');
-      behindLayer.fillStyle = textGrad;
+      let currentX = centerX - (totalLineW * 0.5);
 
-      // Soft ambient golden bloom
-      applyGlow(behindLayer, 'rgba(255, 240, 190, 0.45)', 10, 1);
-      behindLayer.fillText(lineText, centerX, lineY);
-      behindLayer.restore();
+      wordMetrics.forEach(item => {
+        const wordGlobalIdx = words.indexOf(item.w);
+        const wDx = (Number(item.w.dx) || 0) * W;
+        const wDy = (Number(item.w.dy) || 0) * H;
+        const drawX = currentX + (item.wW * 0.5) + wDx;
+        const drawY = lineY + wDy;
+
+        // Record accurate word box for interactive single-word dragging
+        computedWordBoxes.push({
+          wordIndex: wordGlobalIdx >= 0 ? wordGlobalIdx : computedWordBoxes.length,
+          word: item.w,
+          box: {
+            x: Math.max(0.01, Math.min(0.95, (currentX + wDx + curCapDx) / W)),
+            y: Math.max(0.01, Math.min(0.95, (lineY - baseFontSize * 0.9 + wDy + curCapDy) / H)),
+            w: Math.max(0.04, Math.min(0.95, item.wW / W)),
+            h: Math.max(0.03, Math.min(0.95, (baseFontSize * 1.1) / H))
+          }
+        });
+
+        // 1. Soft atmospheric drop shadow (blends into video depth)
+        behindLayer.save();
+        behindLayer.shadowColor = 'rgba(0, 0, 0, 0.88)';
+        behindLayer.shadowBlur = Math.round(H * 0.016);
+        behindLayer.shadowOffsetX = 0;
+        behindLayer.shadowOffsetY = Math.round(H * 0.004);
+        behindLayer.fillStyle = 'rgba(10, 10, 10, 0.80)';
+        behindLayer.fillText(item.text, drawX, drawY);
+        behindLayer.restore();
+
+        // 2. Delicate golden edge outline defining the calligraphic loops
+        behindLayer.save();
+        behindLayer.strokeStyle = 'rgba(255, 238, 190, 0.40)';
+        behindLayer.lineWidth = Math.max(1.2, Math.round(H * 0.0022));
+        behindLayer.strokeText(item.text, drawX, drawY);
+        behindLayer.restore();
+
+        // 3. Warm luminous ivory-cream fill (#FFFDF2)
+        behindLayer.save();
+        const textGrad = behindLayer.createLinearGradient(0, drawY - baseFontSize, 0, drawY + baseFontSize * 0.2);
+        textGrad.addColorStop(0.0, '#FFFFFF');
+        textGrad.addColorStop(0.40, '#FFFDF5');
+        textGrad.addColorStop(0.85, '#FDF6E2');
+        textGrad.addColorStop(1.0, '#F5E6C8');
+        behindLayer.fillStyle = textGrad;
+        applyGlow(behindLayer, 'rgba(255, 240, 190, 0.45)', 10, 1);
+        behindLayer.fillText(item.text, drawX, drawY);
+        behindLayer.restore();
+
+        currentX += item.wW + spaceW;
+      });
     });
 
-    // Record interactive bounding box into S.cachedLayoutBoxes for drag hit-testing
+    // Record interactive bounding box and word boxes into S.cachedLayoutBoxes
     if (typeof S !== 'undefined' && Array.isArray(S.cachedLayoutBoxes) && cap && cap.id) {
       const boxW = Math.max(maxMeasuredW * 1.15, W * 0.32);
       const boxH = Math.max(totalHeight * 1.35, H * 0.10);
-      const curCapDx = (Number(cap.dx) || 0) * W;
-      const curCapDy = (Number(cap.dy) || 0) * H;
       const bx0 = (centerX + curCapDx - boxW * 0.5) / W;
       const by0 = (centerY + curCapDy - boxH * 0.5) / H;
       const bw = boxW / W;
@@ -9605,13 +9636,14 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       const existIdx = S.cachedLayoutBoxes.findIndex(b => b.capId === cap.id);
       const boxEntry = {
         capId: cap.id,
+        isExact: true,
         box: {
           x: Math.max(0.01, Math.min(0.95, bx0)),
           y: Math.max(0.01, Math.min(0.95, by0)),
           w: Math.max(0.08, Math.min(0.98, bw)),
           h: Math.max(0.05, Math.min(0.95, bh))
         },
-        wordBoxes: []
+        wordBoxes: computedWordBoxes
       };
       if (existIdx >= 0) S.cachedLayoutBoxes[existIdx] = boxEntry;
       else S.cachedLayoutBoxes.push(boxEntry);
@@ -16837,7 +16869,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (!drag || drag.id !== event.pointerId) return;
       const dX = event.clientX - drag.startX;
       const dY = event.clientY - drag.startY;
-      if (!drag.moved && Math.hypot(dX, dY) < 4) return;
+      if (!drag.moved && Math.hypot(dX, dY) < 10) return;
       if (!drag.moved) {
         try { stage.setPointerCapture(event.pointerId); } catch (e) {}
         if (drag.activeCap && S.selectedCaptionId !== drag.activeCap.id) {
@@ -16888,6 +16920,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           if (typeof updateVideoEditOverlay === 'function') updateVideoEditOverlay();
         }
         renderCanvas();
+      } else {
+        // Immediate 0ms tap execution without holding or waiting for browser click dispatch
+        if (typeof handleStageTapToEdit === 'function') {
+          handleStageTapToEdit(event);
+        }
       }
     };
     stage.addEventListener('pointerup', finish);
@@ -18430,7 +18467,10 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         t: w.t || w.word || '',
         s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
         e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
-        key: Boolean(w.key)
+        key: Boolean(w.key),
+        dx: Number(w.dx) || 0,
+        dy: Number(w.dy) || 0,
+        color: w.color || undefined
       }));
 
       // Fallback: if activeCap text exists but words array is empty, construct words from text
@@ -20529,6 +20569,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
               e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
               key: Boolean(w.key),
+              dx: Number(w.dx) || 0,
+              dy: Number(w.dy) || 0,
               color: w.color || undefined
             }));
           }
@@ -20897,6 +20939,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
           e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
           key: Boolean(w.key),
+          dx: Number(w.dx) || 0,
+          dy: Number(w.dy) || 0,
           color: w.color || undefined
         }));
         drawCanvasTypography(recCtx, null, activeCap, words, targetTime, S.style || {}, W, H, isBehind, false);
@@ -21490,13 +21534,13 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
       const wx = curX + wDx + capDx;
       const wy = lY + wDy + capDy;
       wordBoxes.push({
-        wordIndex: wIdx,
+        wordIndex: wIdx >= 0 ? wIdx : wordBoxes.length,
         word: w,
         box: {
-          x: Math.max(0, Math.min(1, wx / W)),
-          y: Math.max(0, Math.min(1, wy / H)),
+          x: Math.max(0, Math.min(1, (wx - estW * 0.5) / W)),
+          y: Math.max(0, Math.min(1, (wy - estFs * 0.6) / H)),
           w: Math.max(0.04, Math.min(1, (estW * capScale) / W)),
-          h: Math.max(0.02, Math.min(1, (estFs * capScale) / H))
+          h: Math.max(0.03, Math.min(1, (estFs * 1.2 * capScale) / H))
         }
       });
       curX += estW + estFs * 0.25;
@@ -21520,7 +21564,9 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
 
   const existIdx = S.cachedLayoutBoxes.findIndex(b => b.capId === cap.id);
   if (existIdx >= 0) {
-    S.cachedLayoutBoxes[existIdx] = entry;
+    if (!S.cachedLayoutBoxes[existIdx].isExact) {
+      S.cachedLayoutBoxes[existIdx] = entry;
+    }
   } else {
     S.cachedLayoutBoxes.push(entry);
   }
@@ -21540,6 +21586,8 @@ function selectCaption(capId, wordIndex = -1) {
   if (wordIndex >= 0) {
     S.selectedWordIndex = wordIndex;
     S.editMode = 'word';
+  } else if (S.editMode === 'word') {
+    S.selectedWordIndex = (S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]) ? S.selectedWordIndex : 0;
   } else {
     S.selectedWordIndex = -1;
     S.editMode = 'whole';
@@ -21672,8 +21720,27 @@ function updateVideoEditOverlay() {
   const layoutItem = (S.cachedLayoutBoxes || []).find(item => item.capId === cap.id);
   let targetNormBox = layoutItem ? layoutItem.box : null;
 
-  if (S.editMode === 'word' && S.selectedWordIndex >= 0 && layoutItem && layoutItem.wordBoxes && layoutItem.wordBoxes[S.selectedWordIndex]) {
-    targetNormBox = layoutItem.wordBoxes[S.selectedWordIndex].box;
+  if (S.editMode === 'word' && S.selectedWordIndex >= 0) {
+    let matchedWb = null;
+    if (layoutItem && Array.isArray(layoutItem.wordBoxes) && layoutItem.wordBoxes.length > 0) {
+      matchedWb = layoutItem.wordBoxes.find(w => w.wordIndex === S.selectedWordIndex) || layoutItem.wordBoxes[S.selectedWordIndex];
+    }
+    if (matchedWb && matchedWb.box) {
+      targetNormBox = matchedWb.box;
+    } else if (cap.words && cap.words[S.selectedWordIndex]) {
+      const curWord = cap.words[S.selectedWordIndex];
+      const wDx = Number(curWord.dx) || 0;
+      const wDy = Number(curWord.dy) || 0;
+      const cDx = Number(cap.dx) || 0;
+      const cDy = Number(cap.dy) || 0;
+      const cyNorm = (Number(S.style?.position || S.style?.posY) || 0.72);
+      targetNormBox = {
+        x: Math.max(0.02, Math.min(0.88, 0.5 + cDx + wDx - 0.10)),
+        y: Math.max(0.02, Math.min(0.88, cyNorm + cDy + wDy - 0.04)),
+        w: 0.20,
+        h: 0.08
+      };
+    }
   }
 
   if (!targetNormBox) {
@@ -21702,6 +21769,12 @@ function updateVideoEditOverlay() {
   const rotDeg = S.editMode === 'word' ? 0 : (Number(cap.rot) || 0);
   bbox.style.transform = rotDeg ? `rotate(${rotDeg}deg)` : '';
 
+  // Resize handle: hide in word mode so entire box drags the word cleanly
+  const handleSe = bbox.querySelector('.box-handle-se');
+  if (handleSe) {
+    handleSe.style.display = S.editMode === 'word' ? 'none' : 'flex';
+  }
+
   // Dock control pill cleanly at the bottom edge of the player (Moonshot Style: Never covers faces or captions)
   miniToolbar.style.left = '50%';
   miniToolbar.style.bottom = '12px';
@@ -21713,9 +21786,15 @@ function updateVideoEditOverlay() {
  * Handle tap on video preview to select caption or word
  */
 function handleStageTapToEdit(e) {
-  if (e.target.closest('#videoEditMiniToolbar') || e.target.closest('.box-handle') || e.target.closest('#timelineClipActionBar') || e.target.closest('#btnStageSettings')) {
+  if (e.target && (e.target.closest('#videoEditMiniToolbar') || e.target.closest('.box-handle') || e.target.closest('#timelineClipActionBar') || e.target.closest('#btnStageSettings'))) {
     return;
   }
+  const now = performance.now();
+  if (window._lastStageTapHandledTime && (now - window._lastStageTapHandledTime) < 180) {
+    return;
+  }
+  window._lastStageTapHandledTime = now;
+
   const stage = $('stage');
   const stageWrapper = $('stageWrapper');
   if (!stage || !stageWrapper) return;
@@ -21729,7 +21808,7 @@ function handleStageTapToEdit(e) {
     return;
   }
 
-  const t = vid.currentTime || 0;
+  const t = vid ? (vid.currentTime || 0) : 0;
   const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
   const matches = (S.cachedLayoutBoxes || []).filter(item => {
     const b = item.box;
@@ -21739,7 +21818,7 @@ function handleStageTapToEdit(e) {
   });
 
   if (matches.length > 0) {
-    if (!vid.paused) {
+    if (vid && !vid.paused) {
       try { vid.pause(); } catch(_) {}
     }
     let targetItem = matches[0];
@@ -21748,16 +21827,30 @@ function handleStageTapToEdit(e) {
     }
     let matchedWordIdx = -1;
     if (targetItem.wordBoxes && targetItem.wordBoxes.length > 0) {
-      const matchedWord = targetItem.wordBoxes.find(wb => {
+      // 1. Direct hit with generous touch buffer (+6%)
+      let matchedWord = targetItem.wordBoxes.find(wb => {
         const wbBox = wb.box;
-        return normX >= wbBox.x - 0.04 && normX <= wbBox.x + wbBox.w + 0.04 &&
-               normY >= wbBox.y - 0.04 && normY <= wbBox.y + wbBox.h + 0.04;
+        return normX >= wbBox.x - 0.06 && normX <= wbBox.x + wbBox.w + 0.06 &&
+               normY >= wbBox.y - 0.06 && normY <= wbBox.y + wbBox.h + 0.06;
       });
+      // 2. In word mode, find the nearest word by Euclidean distance to center
+      if (!matchedWord && S.editMode === 'word') {
+        let minDist = Infinity;
+        targetItem.wordBoxes.forEach(wb => {
+          const cx = wb.box.x + wb.box.w * 0.5;
+          const cy = wb.box.y + wb.box.h * 0.5;
+          const dist = Math.hypot(normX - cx, normY - cy);
+          if (dist < minDist) {
+            minDist = dist;
+            matchedWord = wb;
+          }
+        });
+      }
       if (matchedWord) matchedWordIdx = matchedWord.wordIndex;
     }
     selectCaption(targetItem.capId, matchedWordIdx);
   } else if (activeCap && normY >= 0.22 && normY <= 0.88) {
-    if (!vid.paused) {
+    if (vid && !vid.paused) {
       try { vid.pause(); } catch(_) {}
     }
     selectCaption(activeCap.id);
@@ -21953,22 +22046,25 @@ function setupVideoOverlayInteractions() {
       if (!drag.moved && Math.hypot(deltaX, deltaY) < 3) return;
       drag.moved = true;
 
-      const snap = snapAndClampDelta(drag.origDx + (deltaX / drag.stageW), drag.origDy + (deltaY / drag.stageH));
-      updateSnapGuidesDOM(snap.snapV, snap.snapH);
-      if ((snap.snapV || snap.snapH) && navigator.vibrate) {
-        try { navigator.vibrate(8); } catch (_) {}
-      }
-
       if (drag.isWordMode) {
-        drag.targetObj.dx = snap.dx;
-        drag.targetObj.dy = snap.dy;
+        const nextDx = Math.round(Math.max(-0.6, Math.min(0.6, drag.origDx + (deltaX / drag.stageW))) * 1000) / 1000;
+        const nextDy = Math.round(Math.max(-0.6, Math.min(0.6, drag.origDy + (deltaY / drag.stageH))) * 1000) / 1000;
+        drag.targetObj.dx = nextDx;
+        drag.targetObj.dy = nextDy;
+        if (drag.cap) drag.cap._cachedExportWords = null;
+        updateTransformHud(`Word: ${Math.round(nextDx * 100)}%, ${Math.round(nextDy * 100)}%`, true);
       } else {
+        const snap = snapAndClampDelta(drag.origDx + (deltaX / drag.stageW), drag.origDy + (deltaY / drag.stageH));
+        updateSnapGuidesDOM(snap.snapV, snap.snapH);
+        if ((snap.snapV || snap.snapH) && navigator.vibrate) {
+          try { navigator.vibrate(8); } catch (_) {}
+        }
         applyCaptionTransform(drag.cap, (c) => {
           c.dx = snap.dx;
           c.dy = snap.dy;
         });
+        updateTransformHud(`${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
       }
-      updateTransformHud(`${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
       commitFrameUpdate();
     }
   };
@@ -21999,8 +22095,11 @@ function setupVideoOverlayInteractions() {
       pushHistoryState('Rotate caption');
       console.log('[EDIT]', 'rotate', d.capIdx, -1, d.cap.rot);
     } else if (d.type === 'move' && d.moved) {
-      pushHistoryState('Move caption position');
+      pushHistoryState(d.isWordMode ? 'Move single word position' : 'Move caption position');
       console.log('[EDIT]', 'move', d.capIdx, d.wordIdx, { dx: d.targetObj.dx, dy: d.targetObj.dy });
+    } else if (d.type === 'move' && !d.moved) {
+      // Tap on bounding box (instant word selection or pause/select)
+      handleStageTapToEdit(e);
     }
     renderCanvas();
     updateVideoEditOverlay();
@@ -22058,9 +22157,16 @@ function setupVideoOverlayInteractions() {
     btnWord.addEventListener('click', (e) => {
       e.stopPropagation();
       S.editMode = 'word';
-      if (S.selectedWordIndex < 0) S.selectedWordIndex = 0;
-      updateVideoEditOverlay();
-      showToast('Editing individual word');
+      const found = getSelectedCap();
+      if (found && found.cap && found.cap.words && found.cap.words.length > 0) {
+        if (S.selectedWordIndex < 0 || S.selectedWordIndex >= found.cap.words.length) {
+          S.selectedWordIndex = 0;
+        }
+      } else {
+        S.selectedWordIndex = 0;
+      }
+      commitFrameUpdate();
+      showToast('Tap any word to select & drag it');
     });
   }
 
@@ -22135,14 +22241,22 @@ function setupVideoOverlayInteractions() {
       e.stopPropagation();
       const found = getSelectedCap();
       if (!found) return;
-      applyCaptionTransform(found.cap, (c) => {
-        c.dx = 0;
-        c.rot = 0;
-      });
-      pushHistoryState('Center caption');
-      renderCanvas();
-      updateVideoEditOverlay();
-      showToast('Centered & leveled caption');
+      if (S.editMode === 'word' && S.selectedWordIndex >= 0 && found.cap.words && found.cap.words[S.selectedWordIndex]) {
+        found.cap.words[S.selectedWordIndex].dx = 0;
+        found.cap.words[S.selectedWordIndex].dy = 0;
+        found.cap._cachedExportWords = null;
+        pushHistoryState('Reset word position');
+        commitFrameUpdate();
+        showToast('Word position reset to original');
+      } else {
+        applyCaptionTransform(found.cap, (c) => {
+          c.dx = 0;
+          c.rot = 0;
+        });
+        pushHistoryState('Center caption');
+        commitFrameUpdate();
+        showToast('Centered & leveled caption');
+      }
     });
   }
 
