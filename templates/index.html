@@ -347,14 +347,20 @@
 
             <div id="videoEditMiniToolbar" class="video-edit-mini-toolbar hidden">
               <div class="edit-mode-pill-group" title="Adjust all captions or only this clip">
-                <button type="button" class="btn-edit-mode active" id="btnAdjustScopeAll">All</button>
-                <button type="button" class="btn-edit-mode" id="btnAdjustScopeOne">This</button>
+                <button type="button" class="btn-edit-mode active" id="btnAdjustScopeOne" title="Move this caption only">📍 This</button>
+                <button type="button" class="btn-edit-mode" id="btnAdjustScopeAll" title="Move all captions together">🌐 All</button>
               </div>
               <div class="edit-mode-pill-group">
                 <button type="button" class="btn-edit-mode active" id="btnEditModeWhole">Whole</button>
                 <button type="button" class="btn-edit-mode" id="btnEditModeWord">Word</button>
               </div>
               <div class="edit-toolbar-icons">
+                <div class="mini-nudge-group" title="Nudge caption position">
+                  <button type="button" class="btn-mini-tool btn-nudge-tool" id="btnMiniNudgeUp" title="Nudge Up" aria-label="Nudge Up">▲</button>
+                  <button type="button" class="btn-mini-tool btn-nudge-tool" id="btnMiniNudgeDown" title="Nudge Down" aria-label="Nudge Down">▼</button>
+                  <button type="button" class="btn-mini-tool btn-nudge-tool" id="btnMiniNudgeLeft" title="Nudge Left" aria-label="Nudge Left">◀</button>
+                  <button type="button" class="btn-mini-tool btn-nudge-tool" id="btnMiniNudgeRight" title="Nudge Right" aria-label="Nudge Right">▶</button>
+                </div>
                 <button type="button" class="btn-mini-tool" id="btnMiniScaleDown" title="Smaller caption" aria-label="Smaller caption">A-</button>
                 <button type="button" class="btn-mini-tool" id="btnMiniScaleUp" title="Larger caption" aria-label="Larger caption">A+</button>
                 <button type="button" class="btn-mini-tool" id="btnMiniCenter" title="Center horizontally & level" aria-label="Center horizontally">⌖</button>
@@ -509,6 +515,22 @@
         <!-- Timeline Clip Selected Action Bar -->
         <div id="timelineClipActionBar" class="timeline-clip-action-bar hidden">
           <div class="clip-actions-scroll">
+            <button type="button" class="btn-clip-action btn-clip-pos" id="btnClipNudgeUp" title="Move caption up" aria-label="Nudge caption up">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="18 15 12 9 6 15"/></svg>
+              <span>▲ Up</span>
+            </button>
+            <button type="button" class="btn-clip-action btn-clip-pos" id="btnClipNudgeDown" title="Move caption down" aria-label="Nudge caption down">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"/></svg>
+              <span>▼ Down</span>
+            </button>
+            <button type="button" class="btn-clip-action btn-clip-pos" id="btnClipResetPos" title="Reset position to default" aria-label="Reset position">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              <span>Reset</span>
+            </button>
+            <button type="button" class="btn-clip-action btn-clip-pos" id="btnClipSyncAll" title="Sync this position to all captions" aria-label="Sync all captions">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              <span>Sync All</span>
+            </button>
             <button type="button" class="btn-clip-action" id="btnClipSplit" title="Split at playhead" aria-label="Split caption">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
               <span>Split</span>

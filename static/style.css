@@ -9709,7 +9709,16 @@ button {
 
 /* 6. Touch, Stage & Overlays */
 .stage, #stageWrapper {
-  touch-action: pan-y !important;
+  touch-action: manipulation !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.stage.is-caption-dragging,
+.video-edit-overlay-container.is-active,
+.caption-bounding-box,
+.video-edit-mini-toolbar {
+  touch-action: none !important;
 }
 
 .video-edit-overlay-container {
@@ -9717,8 +9726,66 @@ button {
 }
 
 .video-edit-overlay-container.is-active,
-.video-edit-overlay-container .video-edit-box {
+.video-edit-overlay-container .caption-bounding-box,
+.video-edit-overlay-container .video-edit-mini-toolbar,
+.video-edit-overlay-container .box-handle {
   pointer-events: auto !important;
+}
+
+.caption-bounding-box {
+  background: rgba(168, 85, 247, 0.08);
+  cursor: grab;
+}
+
+.caption-bounding-box:active {
+  background: rgba(168, 85, 247, 0.16);
+  cursor: grabbing;
+}
+
+.mini-nudge-group {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.btn-nudge-tool {
+  width: 26px !important;
+  height: 26px !important;
+  padding: 0 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #e2e8f0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 6px !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-nudge-tool:hover, .btn-nudge-tool:active {
+  background: rgba(168, 85, 247, 0.35) !important;
+  color: #fff !important;
+}
+
+.btn-clip-pos {
+  color: #c4b5fd !important;
+}
+
+.btn-clip-pos:hover {
+  background: rgba(168, 85, 247, 0.22) !important;
+  color: #fff !important;
+}
+
+#viewEditor .pricing-showcase-section,
+#viewEditor #frontPricingSection {
+  display: none !important;
 }
 
 /* 7. Header & Credits Chip */

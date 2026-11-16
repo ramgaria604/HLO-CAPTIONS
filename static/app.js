@@ -16806,13 +16806,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const hint = $('captionDragHint');
     let drag = null;
     stage.addEventListener('pointerdown', (event) => {
-      if (!S.captions.length || !S.style || event.target.closest('button') || event.target.closest('#captionBoundingBox')) return;
+      if (!S.captions.length || !S.style || event.target.closest('button') || event.target.closest('#captionBoundingBox') || event.target.closest('#videoEditMiniToolbar')) return;
       if (!event.isPrimary) { drag = null; return; }
       const rect = stage.getBoundingClientRect();
       if (!rect.height || !rect.width) return;
 
       const curT = vid ? (vid.currentTime || 0) : 0;
-      const activeCap = S.captions.find(c => curT >= c.start && curT <= c.end) || null;
+      let activeCap = S.captions.find(c => curT >= c.start && curT <= c.end) || null;
+      if (!activeCap && S.selectedCaptionId) {
+        activeCap = S.captions.find(c => c.id === S.selectedCaptionId) || null;
+      }
+      if (!activeCap && S.captions.length) {
+        activeCap = S.captions.reduce((prev, curr) => Math.abs(curr.start - curT) < Math.abs(prev.start - curT) ? curr : prev, S.captions[0]);
+      }
       drag = {
         id: event.pointerId,
         startX: event.clientX,
@@ -16831,7 +16837,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (!drag || drag.id !== event.pointerId) return;
       const dX = event.clientX - drag.startX;
       const dY = event.clientY - drag.startY;
-      if (!drag.moved && Math.hypot(dX, dY) < 5) return;
+      if (!drag.moved && Math.hypot(dX, dY) < 4) return;
       if (!drag.moved) {
         try { stage.setPointerCapture(event.pointerId); } catch (e) {}
         if (drag.activeCap && S.selectedCaptionId !== drag.activeCap.id) {
@@ -16851,14 +16857,17 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           c.dy = snap.dy;
         });
         updateSnapGuidesDOM(snap.snapV, snap.snapH);
-        updateTransformHud(`${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
-        if (hint) hint.textContent = '✥ Dragging caption · snap to center';
+        const scopeBadge = S.adjustScope === 'all' ? '🌐 All' : '📍 This';
+        updateTransformHud(`${scopeBadge}: ${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
+        if (hint) hint.textContent = `${scopeBadge} caption: ${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`;
         renderCanvas();
         updateVideoEditOverlay();
       } else {
         const nextPos = Math.max(0.08, Math.min(0.92, drag.origPos + dY / drag.rectH));
-        S.style.position = nextPos;
-        S.style.posY = nextPos;
+        if (S.style) {
+          S.style.position = nextPos;
+          S.style.posY = nextPos;
+        }
         if (hint) hint.textContent = '↕ Caption Position: ' + Math.round(nextPos * 100) + '%';
         renderCanvas();
       }
@@ -16873,9 +16882,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (typeof updateTransformHud === 'function') updateTransformHud('', false);
       if (hint) hint.textContent = '💡 Tap or drag caption to move · pinch corners to resize';
       if (d.moved) {
-        if (d.activeCap) pushHistoryState('Move caption on screen');
+        if (d.activeCap) {
+          S.selectedCaptionId = d.activeCap.id;
+          pushHistoryState('Move caption on screen');
+          if (typeof updateVideoEditOverlay === 'function') updateVideoEditOverlay();
+        }
         renderCanvas();
-        if (d.activeCap && typeof updateVideoEditOverlay === 'function') updateVideoEditOverlay();
       }
     };
     stage.addEventListener('pointerup', finish);
@@ -21394,7 +21406,7 @@ window._hasScrubbedTimeline = false;
 S.selectedCaptionId = null;
 S.selectedWordIndex = -1;
 S.editMode = 'whole'; // 'whole' | 'word'
-S.adjustScope = 'all'; // 'all' | 'one'
+S.adjustScope = 'one'; // 'one' | 'all' (Default to 'one' so dragging or adjusting moves only the selected caption)
 S.cachedLayoutBoxes = [];
 
 function getTargetCaptionsForEdit(cap) {
@@ -21546,8 +21558,9 @@ function selectCaption(capId, wordIndex = -1) {
   const actionBar = $('timelineClipActionBar');
   if (actionBar) actionBar.classList.remove('hidden');
 
-  // Sync playhead to start of clip
-  if (Math.abs((vid.currentTime || 0) - cap.start) > 0.05) {
+  // Sync playhead to start of clip only if currentTime is strictly outside clip time range
+  const curT = vid ? (vid.currentTime || 0) : 0;
+  if (curT < (cap.start - 0.05) || curT > (cap.end + 0.05)) {
     vid.currentTime = cap.start;
     syncTimelinePlayhead();
   }
@@ -21577,7 +21590,10 @@ function deselectCaption() {
   if (actionBar) actionBar.classList.add('hidden');
 
   const overlay = $('videoEditOverlayContainer');
-  if (overlay) overlay.classList.add('hidden');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('is-active');
+  }
 
   const snapV = $('snapGuideV'); if (snapV) snapV.classList.add('hidden');
   const snapH = $('snapGuideH'); if (snapH) snapH.classList.add('hidden');
@@ -21600,6 +21616,7 @@ function updateVideoEditOverlay() {
   if (!overlay || !bbox || !miniToolbar || !stage || !stageWrapper) return;
   if (!S.selectedCaptionId) {
     overlay.classList.add('hidden');
+    overlay.classList.remove('is-active');
     return;
   }
 
@@ -21611,6 +21628,7 @@ function updateVideoEditOverlay() {
   const cap = S.captions[capIdx];
 
   overlay.classList.remove('hidden');
+  overlay.classList.add('is-active');
   bbox.classList.remove('hidden');
   miniToolbar.classList.remove('hidden');
 
@@ -21720,8 +21738,9 @@ function handleStageTapToEdit(e) {
   const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
   const matches = (S.cachedLayoutBoxes || []).filter(item => {
     const b = item.box;
-    return normX >= b.x - 0.05 && normX <= b.x + b.w + 0.05 &&
-           normY >= b.y - 0.05 && normY <= b.y + b.h + 0.05;
+    // Generous touch buffer (+10% on each side) for mobile fingers
+    return normX >= b.x - 0.10 && normX <= b.x + b.w + 0.10 &&
+           normY >= b.y - 0.10 && normY <= b.y + b.h + 0.10;
   });
 
   if (matches.length > 0) {
@@ -21736,13 +21755,13 @@ function handleStageTapToEdit(e) {
     if (targetItem.wordBoxes && targetItem.wordBoxes.length > 0) {
       const matchedWord = targetItem.wordBoxes.find(wb => {
         const wbBox = wb.box;
-        return normX >= wbBox.x - 0.02 && normX <= wbBox.x + wbBox.w + 0.02 &&
-               normY >= wbBox.y - 0.02 && normY <= wbBox.y + wbBox.h + 0.02;
+        return normX >= wbBox.x - 0.04 && normX <= wbBox.x + wbBox.w + 0.04 &&
+               normY >= wbBox.y - 0.04 && normY <= wbBox.y + wbBox.h + 0.04;
       });
       if (matchedWord) matchedWordIdx = matchedWord.wordIndex;
     }
     selectCaption(targetItem.capId, matchedWordIdx);
-  } else if (activeCap) {
+  } else if (activeCap && normY >= 0.22 && normY <= 0.88) {
     if (!vid.paused) {
       try { vid.pause(); } catch(_) {}
     }
@@ -22063,6 +22082,53 @@ function setupVideoOverlayInteractions() {
     wheelHistoryTimer = setTimeout(() => updateTransformHud('', false), 700);
   };
 
+  const nudgeCaption = (dDx, dDy) => {
+    const curT = vid ? (vid.currentTime || 0) : 0;
+    const found = getSelectedCap();
+    const cap = (found && found.cap) ||
+                S.captions.find(c => curT >= c.start && curT <= c.end) ||
+                (S.captions && S.captions[0]) || null;
+    if (!cap) {
+      showToast('Select or scrub to a caption first');
+      return;
+    }
+    if (S.selectedCaptionId !== cap.id) {
+      selectCaption(cap.id);
+    }
+
+    if (S.adjustScope === 'all') {
+      const curPos = Number(S.style?.position || S.style?.posY || 0.68);
+      const nextPos = Math.max(0.12, Math.min(0.88, Math.round((curPos + dDy) * 100) / 100));
+      if (!S.style) S.style = {};
+      S.style.position = nextPos;
+      S.style.posY = nextPos;
+      if (dDx !== 0) {
+        S.captions.forEach(c => {
+          c.dx = Math.round(Math.max(-0.45, Math.min(0.45, (Number(c.dx) || 0) + dDx)) * 1000) / 1000;
+        });
+      }
+      updateTransformHud(`🌐 All: ${Math.round(nextPos * 100)}% Y`, true);
+    } else {
+      cap.dx = Math.round(Math.max(-0.45, Math.min(0.45, (Number(cap.dx) || 0) + dDx)) * 1000) / 1000;
+      cap.dy = Math.round(Math.max(-0.45, Math.min(0.45, (Number(cap.dy) || 0) + dDy)) * 1000) / 1000;
+      updateTransformHud(`📍 This: ${Math.round(cap.dx * 100)}%, ${Math.round(cap.dy * 100)}%`, true);
+    }
+
+    renderCanvas();
+    updateVideoEditOverlay();
+    pushHistoryState('Nudge caption position');
+  };
+  window.nudgeCaption = nudgeCaption;
+
+  const btnMiniNudgeUp = $('btnMiniNudgeUp');
+  if (btnMiniNudgeUp) btnMiniNudgeUp.addEventListener('click', (e) => { e.stopPropagation(); nudgeCaption(0, -0.02); });
+  const btnMiniNudgeDown = $('btnMiniNudgeDown');
+  if (btnMiniNudgeDown) btnMiniNudgeDown.addEventListener('click', (e) => { e.stopPropagation(); nudgeCaption(0, 0.02); });
+  const btnMiniNudgeLeft = $('btnMiniNudgeLeft');
+  if (btnMiniNudgeLeft) btnMiniNudgeLeft.addEventListener('click', (e) => { e.stopPropagation(); nudgeCaption(-0.02, 0); });
+  const btnMiniNudgeRight = $('btnMiniNudgeRight');
+  if (btnMiniNudgeRight) btnMiniNudgeRight.addEventListener('click', (e) => { e.stopPropagation(); nudgeCaption(0.02, 0); });
+
   const btnScaleDown = $('btnMiniScaleDown');
   if (btnScaleDown) btnScaleDown.addEventListener('click', (e) => { e.stopPropagation(); stepScale(-0.10); });
   const btnScaleUp = $('btnMiniScaleUp');
@@ -22164,6 +22230,60 @@ function setupVideoOverlayInteractions() {
  * Setup Timeline Action Bar Handlers (Split, Edit, Duplicate, Merge, Nudge, Delete, Undo, Redo)
  */
 function setupTimelineActionBar() {
+  const btnClipNudgeUp = $('btnClipNudgeUp');
+  if (btnClipNudgeUp) {
+    btnClipNudgeUp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof window.nudgeCaption === 'function') window.nudgeCaption(0, -0.02);
+    });
+  }
+
+  const btnClipNudgeDown = $('btnClipNudgeDown');
+  if (btnClipNudgeDown) {
+    btnClipNudgeDown.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof window.nudgeCaption === 'function') window.nudgeCaption(0, 0.02);
+    });
+  }
+
+  const btnClipResetPos = $('btnClipResetPos');
+  if (btnClipResetPos) {
+    btnClipResetPos.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      cap.dx = 0;
+      cap.dy = 0;
+      cap.scale = 1.0;
+      cap.rot = 0;
+      pushHistoryState('Reset caption position');
+      renderCanvas();
+      updateVideoEditOverlay();
+      showToast('Position reset to default');
+    });
+  }
+
+  const btnClipSyncAll = $('btnClipSyncAll');
+  if (btnClipSyncAll) {
+    btnClipSyncAll.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      S.captions.forEach((c) => {
+        c.dx = cap.dx || 0;
+        c.dy = cap.dy || 0;
+        c.scale = cap.scale || 1.0;
+        c.rot = cap.rot || 0;
+      });
+      pushHistoryState('Apply position to all captions');
+      renderCanvas();
+      updateVideoEditOverlay();
+      showToast('Synced position to all captions');
+    });
+  }
+
   const btnClipSplit = $('btnClipSplit');
   if (btnClipSplit) {
     btnClipSplit.addEventListener('click', (e) => {
