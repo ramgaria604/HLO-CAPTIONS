@@ -620,12 +620,39 @@ function chooseAdaptiveBehindTarget(ctxFore, ctxBehind, isBehind, xPx, yPx, wPx,
   return { ctx: ctxBehind, promoted: false, coverage: occ.coverage };
 }
 
+/**
+ * Automatically computes a face-safe and chin-safe vertical position ratio.
+ * When the speaker is close to the camera (tight close-up / large head), it ensures
+ * captions and multi-line lower words never collide with or cover their mouth/face.
+ */
+function getFaceSafeVerticalRatio(st, H, defaultRatio = 0.65, numLines = 1) {
+  const customPos = (st && Number.isFinite(Number(st.position ?? st.posY))) ? Number(st.position ?? st.posY) : null;
+  const hasManualPos = customPos !== null && Math.abs(customPos - defaultRatio) > 0.005;
+  if (hasManualPos) return customPos;
+
+  const maskStats = (typeof getSubjectMaskStats === 'function') ? getSubjectMaskStats() : null;
+  const headTop = (maskStats && typeof maskStats.headTopRatio === 'number')
+    ? maskStats.headTopRatio
+    : (typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number' ? window._editorialHeadTopRatio : null);
+
+  const isCloseUp = Boolean(headTop !== null && (headTop < 0.22 || (maskStats && maskStats.centerCoverage > 0.40)));
+  if (isCloseUp && headTop !== null) {
+    // Face crown to chin spans ~0.35 - 0.42 * H in close-up portrait framing
+    const chinRatio = Math.min(0.68, headTop + (headTop < 0.16 ? 0.40 : 0.35));
+    // Safe buffer below chin depends on number of lines so the lowest line is well clear of mouth and chin
+    const lineBuffer = numLines > 1 ? 0.13 : 0.07;
+    const safeCenterRatio = Math.max(defaultRatio, Math.min(0.80, chinRatio + lineBuffer));
+    return safeCenterRatio;
+  }
+  return customPos !== null ? customPos : defaultRatio;
+}
+
 function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll) {
   const kRole = st.key || {}, fRole = st.filler || {};
   const kSize = Math.max(24, Math.round(base * (kRole.size || 0.165)));
   const fSize = Math.max(18, Math.round(base * (fRole.size || 0.115)));
   const leading = st.leading || 0.88;
-  const cY = H * (st.position || 0.38);
+  const cY = H * getFaceSafeVerticalRatio(st, H, 0.38, 2);
 
   // Preserve exact chronological reading order (never scramble words by key)
   let line1 = [], line2 = [];
@@ -731,7 +758,7 @@ function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind
 
 function drawKineticLensPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll) {
   const kRole = st.key || {}, fRole = st.filler || {};
-  const cY = H * (st.position || 0.44);
+  const cY = H * getFaceSafeVerticalRatio(st, H, 0.44, 2);
   const total = words.length;
 
   ctxFore.save();
@@ -818,7 +845,7 @@ function drawCrimson3DPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehin
   if (!words || !words.length) return;
   const kRole = st.key || {}, fRole = st.filler || {};
   const fs = Math.max(26, Math.round(base * (kRole.size || 0.17)));
-  const cY = H * (st.position || 0.46);
+  const cY = H * getFaceSafeVerticalRatio(st, H, 0.46, 2);
   const text = words.map(w => w.t.toLowerCase()).join(' ');
 
   const anim = getWordPop(words[0], t, showAll, st.animation);
@@ -870,7 +897,7 @@ function drawChromeStudioPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBe
   const kRole = st.key || {}, fRole = st.filler || {};
   const kSize = Math.max(26, Math.round(base * (kRole.size || 0.17)));
   const fSize = Math.max(14, Math.round(base * (fRole.size || 0.065)));
-  const cY = H * (st.position || 0.42);
+  const cY = H * getFaceSafeVerticalRatio(st, H, 0.42, 2);
 
   // Preserve exact chronological reading order
   let keyWords = [], subWords = [];
@@ -9221,10 +9248,17 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
   const safeT = typeof evalT === 'number' && !isNaN(evalT) ? evalT : (capStart + 0.1);
   const timeSec = safeT - capStart;
 
-  // Position coordinates: responsive to position slider (st.position / st.posY) & posDeltaY
-  const basePosRatio = (st && Number.isFinite(Number(st.position ?? st.posY))) ? Number(st.position ?? st.posY) : 0.52;
+  // Position coordinates with Automatic Face & Chin Avoidance Guard:
+  // When speaker is close to camera, automatically drop centerY safely below chin so lower words never cover face/mouth!
+  const basePosRatio = getFaceSafeVerticalRatio(st, H, 0.52, 2);
   const centerY = Math.round(H * basePosRatio + posDeltaY);
   const centerX = Math.round(W * 0.5);
+
+  const maskStats = (typeof getSubjectMaskStats === 'function' && !isSampleCard) ? getSubjectMaskStats() : null;
+  const headTop = (maskStats && typeof maskStats.headTopRatio === 'number')
+    ? maskStats.headTopRatio
+    : (typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number' ? window._editorialHeadTopRatio : null);
+  const isCloseUp = Boolean(headTop !== null && (headTop < 0.22 || (maskStats && maskStats.centerCoverage > 0.40)));
 
   // =========================================================================
   // EXACT REFERENCE ASSET RENDERERS
@@ -9499,9 +9533,10 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     lines.push(wordsTexts.slice(3).join(' '));
   }
 
-  // Refined 1:1 editorial scale (0.068 height matches reference reel)
-  const baseFontSize = Math.round(H * 0.068 * fontScale);
-  const totalHeight = lines.length * baseFontSize * 1.20;
+  // Refined 1:1 editorial scale (in close-ups, slightly compact line gap to keep 2 lines tight)
+  const lineGapMult = isCloseUp ? 1.10 : 1.20;
+  const baseFontSize = Math.round(H * (isCloseUp ? 0.062 : 0.068) * fontScale);
+  const totalHeight = lines.length * baseFontSize * lineGapMult;
   const startY = centerY - (totalHeight * 0.5) + (baseFontSize * 0.85);
 
   const pFactor = progFactor(capStart, 0.22);
@@ -9521,7 +9556,7 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     let maxMeasuredW = 0;
 
     lines.forEach((lineText, idx) => {
-      const lineY = startY + idx * (baseFontSize * 1.20);
+      const lineY = startY + idx * (baseFontSize * lineGapMult);
       const measuredW = behindLayer.measureText(lineText).width;
       if (measuredW > maxMeasuredW) maxMeasuredW = measuredW;
 
