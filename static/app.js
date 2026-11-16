@@ -11489,11 +11489,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             credentials: 'same-origin',
             body: JSON.stringify({
               name,
-              email,
-              device_id: getPersistentDeviceId(),
-              client_credits: S.credits,
-              has_proof: safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true',
-              free_used: S.credits === 0 && safeLSGet('cs_free_used') === 'true'
+              email
             })
           });
           const data = await res.json();
@@ -11506,7 +11502,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             setCookieVal('cs_user', JSON.stringify({ id: S.user.id, email: S.user.email, name: S.user.name }), 365);
             if (data.has_paid) safeLSSet('cs_has_paid', 'true');
             // Sync exact server credits for this user across any device
-            const userCredits = (typeof data.credits === 'number' && data.credits > 0) ? data.credits : 10;
+            const userCredits = (typeof data.credits === 'number') ? Math.max(0, data.credits) : 0;
             saveUserCredits(userCredits);
             syncUserUI();
             updateCreditsUI();
@@ -11612,11 +11608,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           id: payload.sub,
           email: payload.email,
           name: payload.name,
-          picture: payload.picture,
-          device_id: getPersistentDeviceId(),
-          client_credits: S.credits,
-          has_proof: safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true',
-          free_used: S.credits === 0 && safeLSGet('cs_free_used') === 'true'
+          picture: payload.picture
         })
       }).then(r => r.json()).then(data => {
         if (data.ok && data.user) {
@@ -11625,7 +11617,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           setCookieVal('cs_user', JSON.stringify({ id: S.user.id, email: S.user.email, name: S.user.name }), 365);
           if (data.has_paid) safeLSSet('cs_has_paid', 'true');
           // Sync exact server credits for this Gmail account across any device
-          const userCredits = (typeof data.credits === 'number' && data.credits > 0) ? data.credits : 10;
+          const userCredits = (typeof data.credits === 'number') ? Math.max(0, data.credits) : 0;
           saveUserCredits(userCredits);
           syncUserUI();
           updateCreditsUI();
@@ -11882,21 +11874,26 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function deductCreditAfterExport() {
-    saveUserCredits(Math.max(0, S.credits - 1));
-    updateCreditsUI();
-
-    const devId = getPersistentDeviceId();
     const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
     const userName = S.user ? (S.user.name || '') : '';
-    if (devId || userEmail) {
+    const updated = Math.max(0, S.credits - 1);
+    saveUserCredits(updated);
+    updateCreditsUI();
+
+    if (userEmail) {
       fetch('/api/credits/consume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          device_id: devId,
           email: userEmail,
           name: userName
         })
+      }).then(r => r.json()).then(data => {
+        if (data && typeof data.remaining_credits === 'number') {
+          const finalBal = Math.max(0, data.remaining_credits);
+          saveUserCredits(finalBal);
+          updateCreditsUI();
+        }
       }).catch(() => {});
     }
   }
@@ -11945,45 +11942,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function setupCouponHandlers() {
-    // Persistent Device Fingerprint (backed by both localStorage & cookie for in-app WebViews)
-    const deviceId = getPersistentDeviceId();
-
     // Load credits strictly linked to Gmail/Account if logged in
     const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
-    const userCreditKey = userEmail ? ('cs_credits_' + userEmail) : 'cs_credits';
-    const freeUsedKey = userEmail ? ('cs_free_used_' + userEmail) : 'cs_free_used';
-
-    const savedUserVal = userEmail ? safeLSGet(userCreditKey) : null;
-    const savedGlobalVal = safeLSGet('cs_credits');
-
-    let savedCredits = null;
+    let savedCredits = 0;
     if (userEmail) {
+      const userCreditKey = 'cs_credits_' + userEmail;
+      const savedUserVal = safeLSGet(userCreditKey);
       if (savedUserVal !== null && !isNaN(parseInt(savedUserVal, 10))) {
         savedCredits = Math.max(0, parseInt(savedUserVal, 10));
       }
-    } else if (savedGlobalVal !== null && !isNaN(parseInt(savedGlobalVal, 10))) {
-      savedCredits = Math.max(0, parseInt(savedGlobalVal, 10));
     }
 
-    // One-time cleanup of legacy free 1-export: ensure no unearned free credit persists
-    try {
-      if (safeLSGet('cs_no_free_v2') !== 'true') {
-        const hasRealPayment = safeLSGet('cs_has_paid') === 'true' || safeLSGet('cs_coupon_used') === 'true';
-        if (!hasRealPayment) {
-          safeLSRemove('cs_credits');
-          if (userEmail) safeLSRemove(userCreditKey);
-          savedCredits = 0;
-        }
-        safeLSSet('cs_no_free_v2', 'true');
-      }
-    } catch (_) {}
-
-    if (savedCredits !== null && savedCredits >= 0) {
-      S.credits = savedCredits;
-    } else {
-      S.credits = 0;
-      saveUserCredits(0);
-    }
+    S.credits = savedCredits;
     updateCreditsUI();
 
     // Authoritative server credit sync with retry backoff, timeout, and no-store cache
@@ -11998,14 +11968,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (_creditSyncInFlight && retryAttempt === 0) return;
       if (!force && retryAttempt === 0 && (now - _lastCreditSyncAt) < 3500) return;
 
-      _creditSyncInFlight = true;
-      const curDevId = getPersistentDeviceId();
       const curEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
+      if (!curEmail) {
+        // Not signed in with Gmail: strictly 0 export credits
+        S.credits = 0;
+        updateCreditsUI();
+        return;
+      }
+
+      _creditSyncInFlight = true;
       const checkPayload = {
-        device_id: curDevId,
         email: curEmail,
-        user_id: S.user ? S.user.id : null,
-        client_credits: S.credits
+        user_id: S.user ? S.user.id : null
       };
 
       const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
