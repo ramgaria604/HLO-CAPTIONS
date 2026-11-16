@@ -5096,9 +5096,8 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     const heroVisible = fullInstant || (evalT >= heroStart - 0.02);
 
     if (heroVisible && fadeAlpha > 0.005) {
-      // Hero word is ALWAYS drawn on targetBehind (behind person cutout / segmentation mask)
-      // Even when placed below at chest level, speaker's torso, suit jacket, and moving hands stay in front!
-      const heroCtx = targetBehind;
+      // Top keyword draws on targetBehind (behind head crown); below keyword draws on ctxFore (in front of chest so it is never hidden by the body)
+      const heroCtx = (slot === 'below' || slot === 'waist') ? ctxFore : targetBehind;
       const heroAlpha = fadeAlpha * Math.min(1, heroP * 1.5);
       const slideX = fullInstant ? 0 : Math.round(-W * 0.10 * (1 - heroP));
       const heroScale = fullInstant ? 1.0 : (0.97 + 0.03 * heroP);
@@ -5106,7 +5105,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
 
       heroCtx.save();
       try {
-        heroCtx.globalAlpha = heroAlpha;
+        heroCtx.globalAlpha = heroAlpha * blendOpacity;
         if (blurPx > 0.2 && 'filter' in heroCtx) {
           heroCtx.filter = `blur(${blurPx.toFixed(1)}px)`;
         }
@@ -5127,40 +5126,20 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         horizGrad.addColorStop(0.50, pal.mid);
         horizGrad.addColorStop(1.00, pal.right);
 
-        // 1. Deep 3D physical drop shadow pass (grounds the giant word into the 3D scene behind speaker)
+        // 1. 3D physical drop shadow pass with see-through jewel gradient
         heroCtx.save();
         heroCtx.shadowColor = 'rgba(0, 0, 0, 0.88)';
         heroCtx.shadowBlur = Math.round(H * 0.015);
         heroCtx.shadowOffsetX = 0;
         heroCtx.shadowOffsetY = Math.round(H * 0.008);
-        heroCtx.fillStyle = 'rgba(0, 0, 0, 0.40)';
-        heroCtx.fillText(heroText, heroX, heroBaselineY);
-        heroCtx.restore();
-
-        // 2. Base subtle tint pass (ensures vibrant color visibility even on pure white/black video backgrounds)
-        heroCtx.save();
-        heroCtx.globalAlpha = heroAlpha * 0.38;
         heroCtx.fillStyle = ov.customHighlight || horizGrad;
         heroCtx.fillText(heroText, heroX, heroBaselineY);
         heroCtx.restore();
 
-        // 3. See-Through Blend Pass (Overlay / Soft Light / Screen / Normal)
-        // Allows background painting/video textures to shine right THROUGH the bold letters!
-        heroCtx.save();
-        try {
-          if (blendMode && blendMode !== 'normal') {
-            heroCtx.globalCompositeOperation = blendMode;
-          }
-          heroCtx.globalAlpha = heroAlpha * blendOpacity;
-          heroCtx.fillStyle = ov.customHighlight || horizGrad;
-          heroCtx.fillText(heroText, heroX, heroBaselineY);
-        } catch (_) {}
-        heroCtx.restore();
-
-        // 4. 3D bevel / bottom extrusion shading pass for solid physical depth
+        // 2. Multi-depth bottom extrusion shading pass for solid physical depth
         heroCtx.save();
         heroCtx.globalCompositeOperation = 'multiply';
-        heroCtx.globalAlpha = heroAlpha * 0.30;
+        heroCtx.globalAlpha = heroAlpha * 0.28;
         heroCtx.fillStyle = pal.right || '#000000';
         heroCtx.fillText(heroText, heroX, heroBaselineY + 2);
         heroCtx.restore();
@@ -18822,8 +18801,10 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       ctx.scale(dpr, dpr);
 
       if (behindCanvas) {
-        behindCanvas.style.mixBlendMode = '';
-        behindCanvas.style.opacity = '';
+        const isEdPreset = Boolean(S.style && (S.style.id === 'editorial_depth_stack' || S.style.id === 'spatial_sandwich_syne'));
+        const edBlend = isEdPreset ? (S.style.editorialBlend || S.style.blendMode || 'overlay') : '';
+        behindCanvas.style.mixBlendMode = (edBlend && edBlend !== 'normal') ? edBlend : '';
+        behindCanvas.style.opacity = isEdPreset ? String(S.style.editorialOpacity != null ? S.style.editorialOpacity : 0.85) : '';
       }
       if (behindCtx) {
         behindCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -21052,9 +21033,29 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               console.log('[BEHIND]', exportFrameIndex, maskOk ? 'mask ok' : 'mask missing');
             }
 
+            const isEdPreset = Boolean(S.style && (S.style.id === 'editorial_depth_stack' || S.style.id === 'spatial_sandwich_syne'));
+            const edBlend = isEdPreset ? (S.style.editorialBlend || S.style.blendMode || 'overlay') : null;
+            const edOpacity = isEdPreset ? Number(S.style.editorialOpacity != null ? S.style.editorialOpacity : 0.85) : 1.0;
+            const drawBehindSegCanvas = () => {
+              if (edBlend && edBlend !== 'normal') {
+                ctx.save();
+                try { ctx.globalCompositeOperation = edBlend; } catch (_) {}
+                if (edOpacity < 1.0) ctx.globalAlpha = edOpacity;
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+                ctx.restore();
+              } else if (edOpacity < 1.0) {
+                ctx.save();
+                ctx.globalAlpha = edOpacity;
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+                ctx.restore();
+              } else {
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              }
+            };
+
             if (!maskOk) {
               // Person not detected in this frame: safely draw captions in front without aborting export
-              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              drawBehindSegCanvas();
               ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
               drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
             } else {
@@ -21063,7 +21064,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               // PROBLEM A Point 3: Per-frame order:
               // a) video frame (already drawn to ctx)
               // b) behind captions/graphics
-              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              drawBehindSegCanvas();
 
               // Special Real Estate: Person Glow behind person cutout
               if (((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) && maskCanvas) {

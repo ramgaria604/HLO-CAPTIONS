@@ -1382,7 +1382,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 "#14B8A6", # 6 Jade Teal
             ]
             pal_col = editorial_palettes[cap_idx % len(editorial_palettes)]
-            ed_hero_role = {**accent_role, "color": pal_col, "layer": "behind"}
+            ed_hero_role = {**accent_role, "color": pal_col, "layer": "behind" if slot_is_top else "front"}
             ed_base_role = {**base_role, "layer": "front"}
 
             lay = []
