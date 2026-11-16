@@ -2,7 +2,7 @@
    Add to the website page:  <script src="/static/duo_presets/duo_presets_loader.js"></script>
    Runs once per version, never removes anything, never duplicates (matches by name). */
 (async function () {
-  const VERSION = 'duo-v3';
+  const VERSION = 'duo-v4';
   try {
     if (localStorage.getItem('cs_duo_installed') === VERSION) return;
     const list = await (await fetch('/static/duo_presets/duo_presets.json')).json();

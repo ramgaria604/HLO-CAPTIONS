@@ -1156,6 +1156,57 @@
                 </div>
               </div>
 
+              <!-- Editorial Depth Stack Controls (See-Through Blend & Above Head / Below Torso) -->
+              <div class="control-card hidden" id="cardEditorialSettings" data-style-group="motion" style="background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(24,24,37,0.90)); border: 1px solid rgba(34, 197, 94, 0.35);">
+                <div class="control-header">
+                  <label style="color: #4ade80; font-weight: 700;">👑 Editorial Depth Stack Controls</label>
+                  <span id="valEditorialBadge" class="val-badge badge-green">SEE-THROUGH BLEND</span>
+                </div>
+                <p class="voiceover-help">Giant 3D see-through keyword behind the speaker with crisp white companion text.</p>
+
+                <!-- 1. Position Mode (Top vs Below vs Alternate) -->
+                <div style="margin-top: 10px;">
+                  <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: block; margin-bottom: 6px;">📍 Placement (Above Head / Below Torso)</label>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;" id="groupEditorialPosition">
+                    <button type="button" class="btn-toggle active" id="btnEditorialPosAlt" data-pos="alternate" style="font-size: 11px; padding: 6px 4px;">⚡ Alternate</button>
+                    <button type="button" class="btn-toggle" id="btnEditorialPosTop" data-pos="top" style="font-size: 11px; padding: 6px 4px;">⬆️ Above Head</button>
+                    <button type="button" class="btn-toggle" id="btnEditorialPosBelow" data-pos="below" style="font-size: 11px; padding: 6px 4px;">⬇️ Behind Torso</button>
+                  </div>
+                </div>
+
+                <!-- 2. Blend Mode (Overlay / Screen / Soft Light / Normal) -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>🎨 Blend Type (See-Through Style)</span>
+                    <span id="valEditorialBlend" style="color: #4ade80; font-weight: 600;">Overlay</span>
+                  </div>
+                  <select id="selectEditorialBlend" class="text-input" style="width: 100%; font-size: 12px; padding: 6px 10px; background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff;">
+                    <option value="overlay" selected>Overlay (Reference Video Texture Bleed)</option>
+                    <option value="soft-light">Soft Light (Subtle Ambient Bleed)</option>
+                    <option value="screen">Screen (Luminous Jewel Glow)</option>
+                    <option value="normal">Normal (Translucent Clean Tint)</option>
+                  </select>
+                </div>
+
+                <!-- 3. See-Through Opacity Slider -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>👁️ See-Through Opacity</span>
+                    <span id="valEditorialOpacity" style="color: #4ade80; font-weight: 600;">78%</span>
+                  </div>
+                  <input type="range" id="inputEditorialOpacity" min="30" max="100" value="78" class="styled-slider" style="width: 100%;">
+                </div>
+
+                <!-- 4. Behind Torso Level Slider (When in Below or Alternate mode) -->
+                <div style="margin-top: 12px;" id="rowEditorialTorsoY">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>⬇️ Below Height (Torso / Chest Level)</span>
+                    <span id="valEditorialTorsoY" style="color: #4ade80; font-weight: 600;">58%</span>
+                  </div>
+                  <input type="range" id="inputEditorialTorsoY" min="45" max="75" value="58" class="styled-slider" style="width: 100%;">
+                </div>
+              </div>
+
 
               <!-- 1. Words per line Stepper (Chunk Pacing) -->
               <div class="stepper-card" data-style-group="text">

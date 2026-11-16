@@ -5042,6 +5042,9 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     return arr;
   };
 
+  const blendMode = (st && (st.editorialBlend || st.blendMode || st.blend)) || 'overlay';
+  const blendOpacity = Math.max(0.2, Math.min(1.0, Number(st?.editorialOpacity ?? st?.blendOpacity ?? 0.78)));
+
   // Draws one [White Lead + Giant Colored Hero] stack
   const drawEditorialPair = (leadList, heroObj, slot, pal, fadeAlpha, evalT, fullInstant) => {
     const heroRaw = heroObj ? (heroObj.t || heroObj.word || '') : '';
@@ -5080,7 +5083,8 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       heroBaselineY = Math.round(crownPlace.baseY + ov.posDeltaY);
       heroInkTopY = Math.round(crownPlace.inkTopY + ov.posDeltaY);
     } else {
-      const heroCenterY = Math.round(H * 0.580 + ov.posDeltaY);
+      const torsoRatio = (st && typeof st.depthAccentY === 'number' && st.depthAccentY > 0.35) ? st.depthAccentY : 0.58;
+      const heroCenterY = Math.round(H * torsoRatio + ov.posDeltaY);
       heroBaselineY = Math.round(heroCenterY + heroFontSize * 0.30);
       heroInkTopY = Math.round(heroBaselineY - heroFontSize * 0.60);
     }
@@ -5092,7 +5096,8 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     const heroVisible = fullInstant || (evalT >= heroStart - 0.02);
 
     if (heroVisible && fadeAlpha > 0.005) {
-      // Hero word is ALWAYS drawn on targetBehind (behind the person cutout / segmentation mask)
+      // Hero word is ALWAYS drawn on targetBehind (behind person cutout / segmentation mask)
+      // Even when placed below at chest level, speaker's torso, suit jacket, and moving hands stay in front!
       const heroCtx = targetBehind;
       const heroAlpha = fadeAlpha * Math.min(1, heroP * 1.5);
       const slideX = fullInstant ? 0 : Math.round(-W * 0.10 * (1 - heroP));
@@ -5124,20 +5129,38 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
 
         // 1. Deep 3D physical drop shadow pass (grounds the giant word into the 3D scene behind speaker)
         heroCtx.save();
-        heroCtx.shadowColor = 'rgba(0, 0, 0, 0.90)';
+        heroCtx.shadowColor = 'rgba(0, 0, 0, 0.88)';
         heroCtx.shadowBlur = Math.round(H * 0.015);
         heroCtx.shadowOffsetX = 0;
         heroCtx.shadowOffsetY = Math.round(H * 0.008);
+        heroCtx.fillStyle = 'rgba(0, 0, 0, 0.40)';
+        heroCtx.fillText(heroText, heroX, heroBaselineY);
+        heroCtx.restore();
 
-        // 2. 100% Solid vibrant saturated jewel fill (solid, punchy color matching reference video)
+        // 2. Base subtle tint pass (ensures vibrant color visibility even on pure white/black video backgrounds)
+        heroCtx.save();
+        heroCtx.globalAlpha = heroAlpha * 0.38;
         heroCtx.fillStyle = ov.customHighlight || horizGrad;
         heroCtx.fillText(heroText, heroX, heroBaselineY);
         heroCtx.restore();
 
-        // 3. 3D bevel / bottom extrusion shading pass for solid physical depth
+        // 3. See-Through Blend Pass (Overlay / Soft Light / Screen / Normal)
+        // Allows background painting/video textures to shine right THROUGH the bold letters!
+        heroCtx.save();
+        try {
+          if (blendMode && blendMode !== 'normal') {
+            heroCtx.globalCompositeOperation = blendMode;
+          }
+          heroCtx.globalAlpha = heroAlpha * blendOpacity;
+          heroCtx.fillStyle = ov.customHighlight || horizGrad;
+          heroCtx.fillText(heroText, heroX, heroBaselineY);
+        } catch (_) {}
+        heroCtx.restore();
+
+        // 4. 3D bevel / bottom extrusion shading pass for solid physical depth
         heroCtx.save();
         heroCtx.globalCompositeOperation = 'multiply';
-        heroCtx.globalAlpha = heroAlpha * 0.35;
+        heroCtx.globalAlpha = heroAlpha * 0.30;
         heroCtx.fillStyle = pal.right || '#000000';
         heroCtx.fillText(heroText, heroX, heroBaselineY + 2);
         heroCtx.restore();
@@ -5148,7 +5171,7 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     }
 
     // 2. Small White Lead Line sitting along Hero word (ctxFore Layer in front of subject)
-    // Sits directly above Hero word in crisp uppercase sans-serif
+    // Sits directly above Hero word (or splits top & bottom in torso slot) in crisp uppercase sans-serif
     const cleanTokens = (leadList || [])
       .map(w => ({ txt: cleanLeadWord(w.t || w.word || ''), s: w.s }))
       .filter(w => w.txt);
@@ -5156,29 +5179,23 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     if (cleanTokens.length > 0 && fadeAlpha > 0.005) {
       const leadWeight = '700';
       let leadFontSize = Math.round(H * 0.038 * edFontScale);
-      const fullLeadStr = cleanTokens.map(w => w.txt).join(' ');
 
-      ctxFore.save();
-      ctxFore.font = `${leadWeight} ${leadFontSize}px ${edFam}`;
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${edLTrk}em`;
-      const rawLeadW = measureWidth(ctxFore, fullLeadStr, leadFontSize);
-      ctxFore.restore();
-
-      const maxLeadW = W * 0.88;
-      if (rawLeadW > maxLeadW && rawLeadW > 0) {
-        leadFontSize = Math.max(Math.round(H * 0.020), Math.floor(leadFontSize * (maxLeadW / rawLeadW)));
-      }
-
-      const leadGap = Math.round(H * 0.008);
-      const leadBaselineY = Math.max(
-        Math.round(H * 0.035 + leadFontSize * 0.85),
-        Math.round(heroInkTopY - leadGap)
-      );
-
-      ctxFore.save();
-      try {
+      const renderLeadLine = (tokens, baseY) => {
+        if (!tokens || !tokens.length) return;
+        const lineStr = tokens.map(w => w.txt).join(' ');
+        ctxFore.save();
         ctxFore.font = `${leadWeight} ${leadFontSize}px ${edFam}`;
         if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${edLTrk}em`;
+        const rawLineW = measureWidth(ctxFore, lineStr, leadFontSize);
+        const maxLineW = W * 0.88;
+        let curFontSize = leadFontSize;
+        if (rawLineW > maxLineW && rawLineW > 0) {
+          curFontSize = Math.max(Math.round(H * 0.020), Math.floor(leadFontSize * (maxLineW / rawLineW)));
+          ctxFore.font = `${leadWeight} ${curFontSize}px ${edFam}`;
+        }
+        const totalLineW = measureWidth(ctxFore, lineStr, curFontSize);
+        const startX = Math.round(W * 0.50 - totalLineW * 0.50);
+
         ctxFore.textAlign = 'left';
         ctxFore.textBaseline = 'alphabetic';
         ctxFore.fillStyle = ov.pickBase('#FFFFFF');
@@ -5186,14 +5203,11 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         ctxFore.shadowOffsetX = 0;
         ctxFore.shadowOffsetY = 2;
 
-        const totalLineW = measureWidth(ctxFore, fullLeadStr, leadFontSize);
-        const startX = Math.round(W * 0.50 - totalLineW * 0.50);
-
-        for (let i = 0; i < cleanTokens.length; i++) {
-          const tok = cleanTokens[i];
-          const prefixStr = i > 0 ? (cleanTokens.slice(0, i).map(x => x.txt).join(' ') + ' ') : '';
-          const wordX = startX + measureWidth(ctxFore, prefixStr, leadFontSize);
-          const wordW = measureWidth(ctxFore, tok.txt, leadFontSize);
+        for (let i = 0; i < tokens.length; i++) {
+          const tok = tokens[i];
+          const prefixStr = i > 0 ? (tokens.slice(0, i).map(x => x.txt).join(' ') + ' ') : '';
+          const wordX = startX + measureWidth(ctxFore, prefixStr, curFontSize);
+          const wordW = measureWidth(ctxFore, tok.txt, curFontSize);
 
           const wAge = fullInstant ? 1.0 : Math.max(0, evalT - (typeof tok.s === 'number' ? tok.s : 0));
           const wp = fullInstant ? 1.0 : easeOutCubic(Math.min(1, wAge / 0.20));
@@ -5204,11 +5218,28 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
 
           ctxFore.save();
           ctxFore.globalAlpha = wordAlpha;
-          ctxFore.fillText(tok.txt, wordX + slideShift, leadBaselineY);
+          ctxFore.fillText(tok.txt, wordX + slideShift, baseY);
           ctxFore.restore();
         }
-      } finally {
         ctxFore.restore();
+      };
+
+      const leadGap = Math.round(H * 0.008);
+      if (slot === 'top' || cleanTokens.length === 1) {
+        const leadBaselineY = Math.max(
+          Math.round(H * 0.035 + leadFontSize * 0.85),
+          Math.round(heroInkTopY - leadGap)
+        );
+        renderLeadLine(cleanTokens, leadBaselineY);
+      } else {
+        // Below / Torso slot with multiple words (matches frame 26s: "LIVING" top, "OUTSIDE" bottom):
+        const splitIdx = Math.ceil(cleanTokens.length / 2);
+        const topTokens = cleanTokens.slice(0, splitIdx);
+        const botTokens = cleanTokens.slice(splitIdx);
+        const topBaselineY = Math.max(Math.round(H * 0.04), Math.round(heroInkTopY - leadGap));
+        const botBaselineY = Math.min(Math.round(H * 0.95), Math.round(heroBaselineY + leadFontSize * 1.15 + leadGap));
+        renderLeadLine(topTokens, topBaselineY);
+        renderLeadLine(botTokens, botBaselineY);
       }
     }
   };
@@ -5281,8 +5312,17 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   const desiredEnd = Math.max(capEnd + 0.50, capStart + 1.30);
   const effCapEnd = Math.max(capEnd, Math.min(desiredEnd, nextCapStart - 0.03));
 
-  // Default: stays consistently at 'top' behind speaker's head crown (matching reference video)
-  const slot = (st && st.editorialSlot) || 'top';
+  // Default: 'alternate' (Top on even, Below on odd) unless user locked to 'top' or 'below'
+  const slotMode = (st && (st.editorialSlotMode || st.editorialPosition)) || (st && st.editorialSlot) || 'alternate';
+  let slot = 'top';
+  if (slotMode === 'top') {
+    slot = 'top';
+  } else if (slotMode === 'below' || slotMode === 'waist' || slotMode === 'torso') {
+    slot = 'below';
+  } else {
+    // 'alternate': Even captions sit Top (behind head), Odd captions sit Below (behind torso)
+    slot = (capIdx % 2 === 0) ? 'top' : 'below';
+  }
   const currPair = pickHeroAndLead(normWords);
 
   // Smooth cross-fade / exit fade for current caption
@@ -15476,8 +15516,47 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (valGlow) valGlow.textContent = `${curGlow}px`;
   }
 
+  function syncEditorialUI() {
+    const card = $('cardEditorialSettings');
+    if (!card) return;
+    const isEditorial = Boolean(S.style && (S.style.id === 'editorial_depth_stack' || S.style.id === 'spatial_sandwich_syne'));
+    card.classList.toggle('hidden', !isEditorial);
+    if (!isEditorial) return;
+
+    // 1. Placement (Alternate vs Top vs Below)
+    const slotMode = S.style.editorialSlotMode || S.style.editorialPosition || 'alternate';
+    const btnAlt = $('btnEditorialPosAlt');
+    const btnTop = $('btnEditorialPosTop');
+    const btnBelow = $('btnEditorialPosBelow');
+    if (btnAlt) btnAlt.classList.toggle('active', slotMode === 'alternate');
+    if (btnTop) btnTop.classList.toggle('active', slotMode === 'top');
+    if (btnBelow) btnBelow.classList.toggle('active', slotMode === 'below');
+
+    // 2. Blend Type
+    const blendSelect = $('selectEditorialBlend');
+    const valBlend = $('valEditorialBlend');
+    const curBlend = S.style.editorialBlend || S.style.blendMode || S.style.blend || 'overlay';
+    if (blendSelect) blendSelect.value = curBlend;
+    if (valBlend) valBlend.textContent = curBlend.charAt(0).toUpperCase() + curBlend.slice(1);
+
+    // 3. See-Through Opacity
+    const opSlider = $('inputEditorialOpacity');
+    const valOp = $('valEditorialOpacity');
+    const curOp = Math.round((S.style.editorialOpacity != null ? S.style.editorialOpacity : (S.style.blendOpacity != null ? S.style.blendOpacity : 0.78)) * 100);
+    if (opSlider) opSlider.value = String(curOp);
+    if (valOp) valOp.textContent = `${curOp}%`;
+
+    // 4. Torso Level (Below Height)
+    const torsoSlider = $('inputEditorialTorsoY');
+    const valTorso = $('valEditorialTorsoY');
+    const curTorso = Math.round((S.style.depthAccentY != null && S.style.depthAccentY > 0.35 ? S.style.depthAccentY : 0.58) * 100);
+    if (torsoSlider) torsoSlider.value = String(curTorso);
+    if (valTorso) valTorso.textContent = `${curTorso}%`;
+  }
+
   function syncBehindSliders() {
     syncDualPlaneUI();
+    syncEditorialUI();
   }
 
   function applyPreset(preset, showGenToast = false) {
@@ -16197,6 +16276,59 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         if (valDualPlaneGlow) valDualPlaneGlow.textContent = `${px}px`;
         if (!S.style) S.style = {};
         S.style.behindGlowSize = px;
+        renderCanvas();
+      });
+    }
+
+    // Editorial Depth Stack Controls Event Listeners
+    $$('#groupEditorialPosition .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#groupEditorialPosition .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        const pos = btn.getAttribute('data-pos') || 'alternate';
+        if (!S.style) S.style = {};
+        S.style.editorialSlotMode = pos;
+        S.style.editorialPosition = pos;
+        showToast('📍 Editorial Position: ' + (pos === 'top' ? 'Above Head' : (pos === 'below' ? 'Behind Torso' : 'Alternate')));
+        renderCanvas();
+      });
+    });
+
+    const selectEditorialBlend = $('selectEditorialBlend');
+    const valEditorialBlend = $('valEditorialBlend');
+    if (selectEditorialBlend) {
+      selectEditorialBlend.addEventListener('change', (e) => {
+        const blend = e.target.value || 'overlay';
+        if (valEditorialBlend) valEditorialBlend.textContent = blend.charAt(0).toUpperCase() + blend.slice(1);
+        if (!S.style) S.style = {};
+        S.style.editorialBlend = blend;
+        S.style.blendMode = blend;
+        S.style.blend = blend;
+        showToast('🎨 Blend Type: ' + blend);
+        renderCanvas();
+      });
+    }
+
+    const inputEditorialOpacity = $('inputEditorialOpacity');
+    const valEditorialOpacity = $('valEditorialOpacity');
+    if (inputEditorialOpacity) {
+      inputEditorialOpacity.addEventListener('input', (e) => {
+        const pct = parseInt(e.target.value, 10) || 78;
+        if (valEditorialOpacity) valEditorialOpacity.textContent = `${pct}%`;
+        if (!S.style) S.style = {};
+        S.style.editorialOpacity = pct / 100;
+        S.style.blendOpacity = pct / 100;
+        renderCanvas();
+      });
+    }
+
+    const inputEditorialTorsoY = $('inputEditorialTorsoY');
+    const valEditorialTorsoY = $('valEditorialTorsoY');
+    if (inputEditorialTorsoY) {
+      inputEditorialTorsoY.addEventListener('input', (e) => {
+        const pct = parseInt(e.target.value, 10) || 58;
+        if (valEditorialTorsoY) valEditorialTorsoY.textContent = `${pct}%`;
+        if (!S.style) S.style = {};
+        S.style.depthAccentY = pct / 100;
         renderCanvas();
       });
     }

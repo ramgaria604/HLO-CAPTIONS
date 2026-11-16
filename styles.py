@@ -1354,9 +1354,23 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             hero_w = [hero_word_data]
             supp_w = [words[i] for i in range(len(words)) if i != key_idx]
 
-            hero_pos_y = 0.20
-            lead_pos_y = max(0.05, hero_pos_y - (big_size + small_size) * 0.46 / H)
-            lead_above = True
+            slot_mode = style.get("editorialSlotMode") or style.get("editorialPosition") or "alternate"
+            if slot_mode == "top":
+                slot_is_top = True
+            elif slot_mode in ("below", "waist", "torso"):
+                slot_is_top = False
+            else:
+                slot_is_top = (cap_idx % 2 == 0)
+
+            if slot_is_top:
+                hero_pos_y = 0.20
+                lead_pos_y = max(0.05, hero_pos_y - (big_size + small_size) * 0.46 / H)
+                lead_above = True
+            else:
+                torso_y = float(style.get("depthAccentY", 0.58))
+                hero_pos_y = torso_y if torso_y > 0.35 else 0.58
+                lead_pos_y = max(0.42, hero_pos_y - (big_size + small_size) * 0.46 / H)
+                lead_above = True
 
             editorial_palettes = [
                 "#22C55E", # 0 Emerald Green ("EIGHTY")
@@ -1780,6 +1794,12 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 if style.get("id") == "spatial_sandwich_syne" and is_hero:
                     # Translucent organic texture blend (~85% fill opacity so background video bleeds through)
                     tags.append(r"\1a&H24&")
+                elif style.get("id") == "editorial_depth_stack" and is_hero:
+                    # Calculate exact hex alpha from see-through opacity (default ~78% opacity -> 22% see-through)
+                    op_val = float(style.get("editorialOpacity", style.get("blendOpacity", 0.78)))
+                    op_val = max(0.2, min(1.0, op_val))
+                    alpha_hex = int(round((1.0 - op_val) * 255))
+                    tags.append(f"\\1a&H{alpha_hex:02X}&")
                 if outline_px > 0:
                     tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
                 else:
