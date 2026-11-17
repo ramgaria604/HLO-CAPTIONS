@@ -14423,7 +14423,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
       fitCanvas();
       if (typeof window.applyVideoFraming === 'function') {
-        window.applyVideoFraming(S.pullDownY || 0);
+        window.applyVideoFraming(S.pullDownY || 0, S.autoPullDown !== false);
+      }
+      if (typeof ensureSegmenterLoaded === 'function') {
+        ensureSegmenterLoaded().then(() => {
+          if (typeof renderCanvas === 'function') renderCanvas(true);
+        }).catch(() => {});
       }
       renderTimeline();
       renderCanvas();
@@ -16117,6 +16122,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (typeof syncVideoTplCustomizerUI === 'function') {
       syncVideoTplCustomizerUI();
     }
+    if (typeof window.checkAutoHeadroom === 'function') {
+      const headTop = (typeof window._editorialHeadTopRatio === 'number') ? window._editorialHeadTopRatio : 0.16;
+      window.checkAutoHeadroom(headTop);
+    }
     if (chkWhiteSplash) {
       chkWhiteSplash.checked = (preset.whiteSplash !== false);
     }
@@ -16739,26 +16748,37 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
     });
 
-    // 🎬 Video Framing / Pull Down (Safe Headroom for Face Protection)
+    // 🎬 Video Framing / Safe Headroom (Auto Face Protection)
     const inputPullDown = $('inputPullDown');
     const valPullDown = $('valPullDown');
     const btnResetPullDown = $('btnResetPullDown');
+    const chkAutoPullDown = $('chkAutoPullDown');
 
-    function applyVideoFraming(pullVal) {
+    if (S.autoPullDown === undefined) S.autoPullDown = true;
+
+    function applyVideoFraming(pullVal, isAuto = false) {
       if (typeof pullVal !== 'number' || isNaN(pullVal)) pullVal = 0;
       pullVal = Math.max(0, Math.min(0.25, pullVal));
       S.pullDownY = pullVal;
 
       const pct = Math.round(pullVal * 100);
       if (valPullDown) {
-        if (pct === 0) {
-          valPullDown.textContent = '0% (Default)';
-        } else if (pct <= 7) {
-          valPullDown.textContent = `${pct}% (Slight Drop)`;
-        } else if (pct <= 16) {
-          valPullDown.textContent = `${pct}% (Safe Headroom)`;
+        if (isAuto || S.autoPullDown) {
+          if (pct === 0) {
+            valPullDown.textContent = '⚡ Auto: Safe (0%)';
+          } else {
+            valPullDown.textContent = `⚡ Auto: ${pct}% Drop`;
+          }
         } else {
-          valPullDown.textContent = `${pct}% (Deep Drop)`;
+          if (pct === 0) {
+            valPullDown.textContent = '0% (Default)';
+          } else if (pct <= 7) {
+            valPullDown.textContent = `${pct}% (Slight Drop)`;
+          } else if (pct <= 16) {
+            valPullDown.textContent = `${pct}% (Safe Headroom)`;
+          } else {
+            valPullDown.textContent = `${pct}% (Deep Drop)`;
+          }
         }
       }
       if (inputPullDown && parseInt(inputPullDown.value, 10) !== pct) {
@@ -16807,14 +16827,61 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
     window.applyVideoFraming = applyVideoFraming;
 
+    // Automatic Face Protection Solver
+    function checkAutoHeadroom(headRatio) {
+      if (S.autoPullDown === false) return;
+      if (typeof headRatio !== 'number' || isNaN(headRatio)) return;
+
+      const st = S.style || {};
+      const pos = typeof st.posY === 'number' ? st.posY : (typeof st.position === 'number' ? st.position : 0.67);
+      const isTopOrDepth = Boolean(
+        st.behindPerson ||
+        st.isDuo ||
+        st.isSpecial ||
+        st.layout === 'stack' ||
+        pos <= 0.52 ||
+        (st.id && (st.id.includes('depth') || st.id.includes('hero') || st.id.includes('editorial') || st.id.includes('stack') || st.id.includes('zine')))
+      );
+
+      const targetHeadY = isTopOrDepth ? 0.26 : 0.0;
+      let neededDrop = 0;
+      if (targetHeadY > 0 && headRatio < targetHeadY) {
+        neededDrop = Math.max(0, Math.min(0.24, targetHeadY - headRatio));
+      }
+
+      const autoPullVal = Math.round(neededDrop * 100) / 100;
+      const curPull = S.pullDownY || 0;
+      if (Math.abs(autoPullVal - curPull) >= 0.015 || (S.autoPullLatched !== true && autoPullVal > 0)) {
+        S.autoPullLatched = true;
+        applyVideoFraming(autoPullVal, true);
+      }
+    }
+    window.checkAutoHeadroom = checkAutoHeadroom;
+
     if (inputPullDown) {
       inputPullDown.addEventListener('input', (e) => {
-        applyVideoFraming(parseFloat(e.target.value) / 100);
+        S.autoPullDown = false;
+        if (chkAutoPullDown) chkAutoPullDown.checked = false;
+        applyVideoFraming(parseFloat(e.target.value) / 100, false);
+      });
+    }
+    if (chkAutoPullDown) {
+      chkAutoPullDown.addEventListener('change', (e) => {
+        S.autoPullDown = e.target.checked;
+        if (S.autoPullDown) {
+          S.autoPullLatched = false;
+          const headTop = (typeof window._editorialHeadTopRatio === 'number') ? window._editorialHeadTopRatio : 0.16;
+          checkAutoHeadroom(headTop);
+        } else {
+          applyVideoFraming(S.pullDownY || 0, false);
+        }
       });
     }
     if (btnResetPullDown) {
       btnResetPullDown.addEventListener('click', () => {
-        applyVideoFraming(0);
+        S.autoPullDown = false;
+        if (chkAutoPullDown) chkAutoPullDown.checked = false;
+        applyVideoFraming(0, false);
       });
     }
 
@@ -18957,6 +19024,9 @@ function updateEditorialHeadTopRatio(floats, mW, mH) {
     window._editorialHeadTopRatio = (typeof window._editorialHeadTopRatio === 'number')
       ? (window._editorialHeadTopRatio * 0.70 + detectedRatio * 0.30)
       : detectedRatio;
+    if (typeof window.checkAutoHeadroom === 'function') {
+      window.checkAutoHeadroom(window._editorialHeadTopRatio);
+    }
   }
 
   // Copy a compact 48x64 mask grid so live preview & export share frame-safe anti-occlusion & face-avoiding stats

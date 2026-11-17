@@ -1346,17 +1346,30 @@
                 </div>
               </div>
 
-              <!-- 🎬 Video Framing / Pull Down (Safe Headroom for Face Protection) -->
+              <!-- 🎬 Video Framing / Safe Headroom (Auto Face Protection) -->
               <div class="stepper-card" data-style-group="motion" style="margin-top: 14px;">
                 <div class="stepper-header-row">
                   <div class="stepper-label-col">
-                    <label class="stepper-label">🎬 Video Framing (Pull Down)</label>
-                    <span class="stepper-sub">Pull video down to create safe headroom so top captions never cover the face</span>
+                    <label class="stepper-label">🎬 Video Framing (Safe Headroom)</label>
+                    <span class="stepper-sub">Automatically pulls video down so captions never cover the face</span>
                   </div>
-                  <span class="stepper-value" id="valPullDown">0% (Default)</span>
+                  <span class="stepper-value" id="valPullDown" style="color: #FACC15; font-weight: 600;">⚡ Auto Active</span>
                   <button type="button" class="btn-step-reset" id="btnResetPullDown" title="Reset video framing">Reset</button>
                 </div>
-                <div style="margin-top: 8px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 7px 12px; background: rgba(250, 204, 21, 0.08); border: 1px solid rgba(250, 204, 21, 0.25); border-radius: 8px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 15px;">⚡</span>
+                    <div>
+                      <strong style="font-size: 12px; color: #FACC15;">Auto Face Protection</strong>
+                      <p style="font-size: 11px; color: #94a3b8; margin: 1px 0 0 0;">AI senses head crown & auto-drops video for clear caption headroom</p>
+                    </div>
+                  </div>
+                  <label class="switch-toggle" style="margin: 0;">
+                    <input type="checkbox" id="chkAutoPullDown" checked>
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <div style="margin-top: 10px;">
                   <input type="range" id="inputPullDown" min="0" max="25" value="0" step="1" class="styled-slider" style="width: 100%;">
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 4px;">
