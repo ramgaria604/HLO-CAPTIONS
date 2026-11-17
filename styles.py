@@ -637,6 +637,7 @@ def load_presets():
                     "chromeLiquid", "tornZine", "acidVoltTicker",
                     "porcelainRibbon", "holoAuraPill", "analogFilmStrip",
                     "wordRiseCascade", "velvetSpotlight", "prismTileKinetic",
+                    "editorialZineDynamic",
                 ):
                     if p.get(_flag):
                         duo_item[_flag] = True
@@ -790,17 +791,22 @@ def _text(v, default, n=60):
 
 def clean_role(r, d):
     r = r or {}
+    d = d or {}
     out = {
-        "font": _text(r.get("font"), d["font"]), "fallback": _text(r.get("fallback"), d["fallback"]),
-        "size": _num(r.get("size"), 0.02, 0.30, d["size"]),
-        "color": r.get("color") or d["color"],
-        "outline": _num(r.get("outline"), 0, 0.25, d["outline"]),
-        "outlineColor": r.get("outlineColor") or d["outlineColor"],
-        "glow": r.get("glow") or d["glow"], "glowSize": _num(r.get("glowSize"), 0, 0.25, d["glowSize"]),
-        "shadow": _num(r.get("shadow"), 0, 0.2, d["shadow"]),
-        "shadowColor": r.get("shadowColor") or d["shadowColor"],
+        "font": _text(r.get("font"), d.get("font", "Arial")),
+        "fallback": _text(r.get("fallback"), d.get("fallback", "Arial")),
+        "size": _num(r.get("size"), 0.02, 0.30, d.get("size", 0.08)),
+        "color": r.get("color") or d.get("color", "#FFFFFF"),
+        "outline": _num(r.get("outline"), 0, 0.25, d.get("outline", 0)),
+        "outlineColor": r.get("outlineColor") or d.get("outlineColor", "#000000"),
+        "glow": r.get("glow") or d.get("glow", "#FFFFFF"),
+        "glowSize": _num(r.get("glowSize"), 0, 0.25, d.get("glowSize", 0)),
+        "shadow": _num(r.get("shadow"), 0, 0.2, d.get("shadow", 0)),
+        "shadowColor": r.get("shadowColor") or d.get("shadowColor", "#000000"),
         "track": float(_num(r.get("track"), -0.5, 0.5, 0.0)),
-        "italic": bool(r.get("italic")), "bold": bool(r.get("bold")), "upper": bool(r.get("upper")),
+        "italic": bool(r.get("italic")),
+        "bold": bool(r.get("bold")),
+        "upper": bool(r.get("upper")),
     }
     if "keyGradient" in r:
         out["keyGradient"] = r["keyGradient"]
@@ -1263,7 +1269,8 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             "start": float(c.get("start", 0)),
             "end": float(c.get("end", 0)),
             "words": clean_w,
-            "text": c.get("text", "")
+            "text": c.get("text", ""),
+            "cardVariant": c.get("cardVariant")
         })
     caps = sorted(norm_caps, key=lambda c: c["start"])
     rows = []
@@ -1426,6 +1433,129 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     "is_top": False
                 }
                 lay += ink_layout.layout_stack([desc_bottom], W, H, pos_x=pos_x, pos_y=lead_pos_y, ink_gap=ink_gap)
+        elif style.get("id") == "editorial_zine_dynamic" or style.get("editorialZineDynamic"):
+            # Editorial Zine Dynamic Multi-Variant Storyboard:
+            # Universal bottom subtitle pill with karaoke word tracking
+            # Dynamic / selectable top or mid cards (hook, zine, stat, none)
+            c_variant = c.get("cardVariant") or style.get("cardVariant")
+            if not c_variant or c_variant == "auto":
+                cycle = ["hook", "zine", "stat", "none"]
+                c_variant = cycle[cap_idx % len(cycle)]
+
+            sub_y = 0.84 if c_variant == "stat" else 0.82
+            desc_sub = {
+                "text": " ".join(str(w.get("t") or w.get("word") or "") for w in words),
+                "font_file": base_font_file,
+                "size": small_size * 0.95,
+                "track": float(base_role.get("track", 0.01)),
+                "words": words,
+                "role": {**base_role, "color": "#111111", "bold": True},
+                "is_hero": False,
+                "is_top": False
+            }
+            lay = ink_layout.layout_stack([desc_sub], W, H, pos_x=pos_x, pos_y=sub_y, ink_gap=ink_gap)
+
+            if c_variant != "none":
+                key_idx = -1
+                for ki, kw in enumerate(words):
+                    if kw.get("key"):
+                        key_idx = ki
+                        break
+                if key_idx == -1:
+                    stop_words = {"a", "an", "the", "in", "on", "at", "to", "for", "of", "with", "by", "from", "and", "or", "is", "am", "are", "was", "were", "it", "this", "that", "you", "your"}
+                    best_idx = 0
+                    max_l = 0
+                    for ki, kw in enumerate(words):
+                        clean = re.sub(r"[^a-zA-Z0-9]", "", str(kw.get("t") or kw.get("word") or "").lower())
+                        if clean not in stop_words and len(clean) > max_l:
+                            max_l = len(clean)
+                            best_idx = ki
+                    key_idx = best_idx
+
+                hero_w = [words[key_idx]]
+                before_w = words[:key_idx]
+                after_w = words[key_idx + 1:]
+
+                if c_variant == "hook":
+                    hook_y = 0.16
+                    lead_txt = " ".join(str(w.get("t") or w.get("word") or "") for w in before_w) if before_w else "RULE 01 // HOOK"
+                    hero_txt = str(hero_w[0].get("t") or hero_w[0].get("word") or "").upper()
+                    desc_hook_top = {
+                        "text": lead_txt.upper(),
+                        "font_file": find_font_file({"font": "Space Mono"}),
+                        "size": max(24.0 * scale_h, small_size * 0.60),
+                        "track": 0.04,
+                        "words": before_w if before_w else hero_w,
+                        "role": {"color": "#2E2A25", "bold": True},
+                        "is_hero": False,
+                        "is_top": True
+                    }
+                    desc_hook_main = {
+                        "text": hero_txt,
+                        "font_file": find_font_file({"font": "Playfair Display", "italic": True}),
+                        "size": max(54.0 * scale_h, big_size * 0.70),
+                        "track": 0.01,
+                        "words": hero_w,
+                        "role": {"color": "#181614", "bold": True, "italic": True},
+                        "is_hero": True,
+                        "is_top": False
+                    }
+                    card_lay = ink_layout.layout_stack([desc_hook_top, desc_hook_main], W, H, pos_x=pos_x, pos_y=hook_y, ink_gap=ink_gap)
+                    lay = card_lay + lay
+
+                elif c_variant == "zine":
+                    badge_y = 0.18
+                    script_txt = " ".join(str(w.get("t") or w.get("word") or "") for w in before_w) if before_w else "The real secret"
+                    block_txt = str(hero_w[0].get("t") or hero_w[0].get("word") or "").upper()
+                    desc_zine_script = {
+                        "text": script_txt,
+                        "font_file": find_font_file({"font": "Yellowtail"}),
+                        "size": max(28.0 * scale_h, small_size * 0.72),
+                        "track": 0.01,
+                        "words": before_w if before_w else hero_w,
+                        "role": {"color": "#FAF6ED", "bold": False, "italic": True},
+                        "is_hero": False,
+                        "is_top": True
+                    }
+                    desc_zine_block = {
+                        "text": block_txt,
+                        "font_file": find_font_file({"font": "Anton"}),
+                        "size": max(72.0 * scale_h, big_size * 0.85),
+                        "track": 0.03,
+                        "words": hero_w,
+                        "role": {"color": "#FFFFFF", "bold": True},
+                        "is_hero": True,
+                        "is_top": False
+                    }
+                    card_lay = ink_layout.layout_stack([desc_zine_script, desc_zine_block], W, H, pos_x=pos_x, pos_y=badge_y, ink_gap=ink_gap)
+                    lay = card_lay + lay
+
+                elif c_variant == "stat":
+                    stat_y = 0.63
+                    stat_step = f"STEP {cap_idx + 1:02d}"
+                    stat_txt = str(hero_w[0].get("t") or hero_w[0].get("word") or "").upper()
+                    desc_stat_tag = {
+                        "text": stat_step,
+                        "font_file": find_font_file({"font": "Space Mono"}),
+                        "size": max(22.0 * scale_h, small_size * 0.55),
+                        "track": 0.04,
+                        "words": [hero_w[0]],
+                        "role": {"color": "#1A1816", "bold": True},
+                        "is_hero": False,
+                        "is_top": True
+                    }
+                    desc_stat_main = {
+                        "text": stat_txt,
+                        "font_file": find_font_file({"font": "Montserrat"}),
+                        "size": max(50.0 * scale_h, big_size * 0.65),
+                        "track": 0.01,
+                        "words": hero_w,
+                        "role": {"color": "#FFFFFF", "bold": True},
+                        "is_hero": True,
+                        "is_top": False
+                    }
+                    card_lay = ink_layout.layout_stack([desc_stat_tag, desc_stat_main], W, H, pos_x=pos_x, pos_y=stat_y, ink_gap=ink_gap)
+                    lay = card_lay + lay
         elif is_behind:
             hero_y = float(style.get("depthAccentY", 0.25))
             font_span = (big_size + small_size) * 0.5 / H + 0.008
@@ -1723,6 +1853,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 style.get("acidVoltTicker") or style.get("id") == "acid_volt_ticker" or
                 style.get("holoAuraPill") or style.get("id") == "holo_aura_pill" or
                 style.get("analogFilmStrip") or style.get("id") == "espresso_analog_film" or
+                style.get("editorialZineDynamic") or style.get("id") == "editorial_zine_dynamic" or
                 style.get("id") in ("box_pop", "yellow_box") or
                 style.get("category") == "box" or
                 style.get("box") or
@@ -1739,6 +1870,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 elif style.get("analogFilmStrip") or style.get("id") == "espresso_analog_film":
                     pill_bg = style.get("highlightColor") or "#B45309"
                     pill_fg = "#FFF7E6"
+                elif style.get("editorialZineDynamic") or style.get("id") == "editorial_zine_dynamic":
+                    pill_bg = "#FAF6ED"
+                    pill_fg = "#111111"
                 else:
                     pill_bg = style.get("highlightColor") or "#FFE600"
                     pill_fg = "#111111"
@@ -2008,7 +2142,8 @@ def build_ass(captions, style, W, H):
             "start": float(c.get("start", 0)),
             "end": float(c.get("end", 0)),
             "words": clean_w,
-            "text": c.get("text", "")
+            "text": c.get("text", ""),
+            "cardVariant": c.get("cardVariant")
         })
     caps = sorted(norm_caps, key=lambda c: c["start"])
     rows = []

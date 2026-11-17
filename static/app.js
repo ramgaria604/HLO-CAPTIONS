@@ -6883,6 +6883,521 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
   }
 }
 
+// ============================================================================
+// 📰 EDITORIAL ZINE DYNAMIC PASS (MULTI-VARIANT STORYBOARD / ZINE PRESET SYSTEM)
+// ============================================================================
+function drawEditorialZineDynamicPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+  // Front tactile layer preset; if behind pass is being rendered, return early
+  if (isBehind) return;
+
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
+
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitFade = fullInstant ? 1.0 : Math.min(1, timeRem / 0.12);
+  if (exitFade <= 0.005) return;
+
+  const capsList = (typeof S !== 'undefined' && S && Array.isArray(S.captions)) ? S.captions : [];
+  const foundIdx = (cap && capsList.length > 0) ? capsList.indexOf(cap) : -1;
+  const rawIdx = (cap && cap.index != null) ? Number(cap.index) - 1 : parseInt(cap && cap.id, 10) - 1;
+  const capIdx = foundIdx >= 0 ? foundIdx : (!isNaN(rawIdx) && rawIdx >= 0 ? rawIdx : 0);
+
+  // Variant selection: manual override on cap or auto-cycle (Sample card always shows hook banner)
+  const variantChoice = isSampleCard ? 'hook' : (cap?.cardVariant || 'auto');
+  let variant = variantChoice;
+  if (!variant || variant === 'auto') {
+    const cycle = ['hook', 'zine', 'stat', 'none'];
+    variant = cycle[capIdx % cycle.length];
+  }
+
+  // Animation timings
+  const timeIn = fullInstant ? 1.0 : Math.max(0, evalT - capStart);
+  const enterProgress = fullInstant ? 1.0 : Math.min(1, timeIn / 0.18);
+  const enterScale = 0.94 + 0.06 * Math.sin(Math.min(1, enterProgress) * Math.PI * 0.5);
+  const enterAlpha = Math.min(1, enterProgress * 1.5) * exitFade;
+
+  // Base dimension scale
+  const scale = Math.min(W, H) / 1080.0;
+  const fontScale = Math.max(0.6, Math.min(1.8, Number(st?.fontScale) || 1.0));
+
+  // Deterministic torn paper edge generator (stable across frames, zero jitter)
+  const drawTornPaperShape = (ctx, x, y, width, height, seed, tornTop = true, tornBottom = true) => {
+    const stepsX = Math.max(16, Math.round(width / 14));
+    const stepW = width / stepsX;
+    const amp = Math.max(2, Math.round(width * 0.006));
+    const pseudoNoise = (s, i) => {
+      const v = Math.sin(s * 613.41 + i * 291.73) * 10000;
+      return (v - Math.floor(v)) * 2 - 1; // -1 to +1
+    };
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+
+    // Top torn edge
+    if (tornTop) {
+      for (let i = 1; i < stepsX; i++) {
+        const px = x + i * stepW;
+        const py = y + pseudoNoise(seed + 1, i) * amp;
+        ctx.lineTo(px, py);
+      }
+    }
+    ctx.lineTo(x + width, y);
+
+    // Right edge
+    ctx.lineTo(x + width, y + height);
+
+    // Bottom torn edge (right to left)
+    if (tornBottom) {
+      for (let i = stepsX - 1; i > 0; i--) {
+        const px = x + i * stepW;
+        const py = y + height + pseudoNoise(seed + 5, i) * amp;
+        ctx.lineTo(px, py);
+      }
+    }
+    ctx.lineTo(x, y + height);
+
+    // Left edge
+    ctx.lineTo(x, y);
+    ctx.closePath();
+  };
+
+  // Helper: Draw washi tape strip
+  const drawWashiTapeTab = (ctx, cx, cy, width, height, angleDeg, color = 'rgba(215, 201, 178, 0.92)') => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((angleDeg * Math.PI) / 180);
+    ctx.fillStyle = color;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.16)';
+    ctx.shadowBlur = 6 * scale;
+    ctx.shadowOffsetY = 2 * scale;
+    const rx = -width / 2;
+    const ry = -height / 2;
+    ctx.fillRect(rx, ry, width, height);
+
+    // Subtle dashed fiber grid
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(rx, 0);
+    ctx.lineTo(rx + width, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  };
+
+  // Helper: Find focal / hero word
+  let heroIdx = -1;
+  for (let i = words.length - 1; i >= 0; i--) {
+    if (words[i]?.key) { heroIdx = i; break; }
+  }
+  if (heroIdx < 0) {
+    const stopSet = new Set(['a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'and', 'or', 'is', 'am', 'are', 'was', 'were', 'it', 'its', 'this', 'that', 'you', 'your', 'we', 'our', 'they', 'my', 'me']);
+    let bestScore = -999;
+    let bestI = 0;
+    for (let i = 0; i < words.length; i++) {
+      const txt = String(words[i]?.t || words[i]?.word || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!txt) continue;
+      let score = txt.length;
+      if (/\d+/.test(txt)) score += 25;
+      if (stopSet.has(txt)) score -= 15;
+      if (score > bestScore) { bestScore = score; bestI = i; }
+    }
+    heroIdx = bestI;
+  }
+
+  const heroWordObj = words[heroIdx] || words[0];
+  const heroTxt = String(heroWordObj?.t || heroWordObj?.word || '').replace(/[.,!?;:]+$/g, '');
+  const beforeWords = words.slice(0, heroIdx);
+  const afterWords = words.slice(heroIdx + 1);
+
+  // --------------------------------------------------------------------------
+  // 1. UNIVERSAL BOTTOM SUBTITLE PILL (TWO-TONE KARAOKE ACTIVE WORD TRACKING)
+  // --------------------------------------------------------------------------
+  const drawBottomPill = () => {
+    ctxFore.save();
+    try {
+      const pillY = (variant === 'stat') ? Math.round(H * 0.84) : Math.round(H * (st.position || st.subtitlePosition || 0.81));
+      const subFontSize = Math.max(16, Math.round(28 * scale * fontScale));
+      const chosenFont = st.font || 'Poppins';
+      ctxFore.font = `700 ${subFontSize}px "${chosenFont}", -apple-system, BlinkMacSystemFont, sans-serif`;
+
+      const spaceW = subFontSize * 0.28;
+      const wordMetrics = words.map((w) => {
+        const txt = String(w.t || w.word || '');
+        const mw = ctxFore.measureText(txt).width;
+        return { w, txt, width: mw };
+      });
+      const totalWordsW = wordMetrics.reduce((sum, item) => sum + item.width, 0) + Math.max(0, words.length - 1) * spaceW;
+
+      // Handle wide captions by slightly scaling down font if needed to stay within 88% screen width
+      const maxPillTextW = W * 0.84;
+      let effectiveFontSize = subFontSize;
+      let effectiveSpaceW = spaceW;
+      let measuredItems = wordMetrics;
+      if (totalWordsW > maxPillTextW && totalWordsW > 0) {
+        const compressFactor = Math.max(0.72, maxPillTextW / totalWordsW);
+        effectiveFontSize = Math.round(subFontSize * compressFactor);
+        effectiveSpaceW = effectiveFontSize * 0.28;
+        ctxFore.font = `700 ${effectiveFontSize}px "${chosenFont}", -apple-system, BlinkMacSystemFont, sans-serif`;
+        measuredItems = words.map((w) => {
+          const txt = String(w.t || w.word || '');
+          const mw = ctxFore.measureText(txt).width;
+          return { w, txt, width: mw };
+        });
+      }
+
+      const finalWordsW = measuredItems.reduce((sum, item) => sum + item.width, 0) + Math.max(0, words.length - 1) * effectiveSpaceW;
+      const padX = Math.max(18, Math.round(22 * scale));
+      const padY = Math.max(8, Math.round(11 * scale));
+      const pillW = finalWordsW + padX * 2;
+      const pillH = effectiveFontSize + padY * 2;
+      const pillX = Math.round((W - pillW) * 0.5);
+      const pillRadius = Math.round(pillH * 0.5);
+
+      // Pill container entrance & exit fade
+      ctxFore.globalAlpha = enterAlpha;
+
+      // Drop shadow for pill
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.22)';
+      ctxFore.shadowBlur = Math.round(12 * scale);
+      ctxFore.shadowOffsetY = Math.round(4 * scale);
+
+      // Cream background fill
+      ctxFore.fillStyle = '#FAF6ED';
+      ctxFore.beginPath();
+      if (typeof ctxFore.roundRect === 'function') {
+        ctxFore.roundRect(pillX, pillY - pillRadius, pillW, pillH, pillRadius);
+      } else {
+        ctxFore.arc(pillX + pillRadius, pillY, pillRadius, Math.PI * 0.5, Math.PI * 1.5);
+        ctxFore.lineTo(pillX + pillW - pillRadius, pillY - pillRadius);
+        ctxFore.arc(pillX + pillW - pillRadius, pillY, pillRadius, Math.PI * 1.5, Math.PI * 0.5);
+        ctxFore.closePath();
+      }
+      ctxFore.fill();
+
+      // Subtle warm border
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(215, 203, 185, 0.70)';
+      ctxFore.lineWidth = 1;
+      ctxFore.stroke();
+
+      // Render words with active word karaoke
+      let curX = pillX + padX;
+      const textBaselineY = Math.round(pillY + effectiveFontSize * 0.35);
+
+      measuredItems.forEach((item) => {
+        const ws = (item.w && typeof item.w.s === 'number') ? item.w.s : ((item.w && typeof item.w.start === 'number') ? item.w.start : capStart);
+        const we = (item.w && typeof item.w.e === 'number') ? item.w.e : ((item.w && typeof item.w.end === 'number') ? item.w.end : ws + 0.35);
+        const isCurrentActive = fullInstant ? true : (evalT >= ws && evalT < we);
+        const isAlreadySpoken = fullInstant ? false : (evalT >= we);
+
+        ctxFore.save();
+        if (isCurrentActive) {
+          // Current active spoken word: Crisp Charcoal Black (#111111) with subtle emphasis
+          ctxFore.fillStyle = '#111111';
+          ctxFore.font = `800 ${effectiveFontSize}px "${chosenFont}", -apple-system, BlinkMacSystemFont, sans-serif`;
+
+          // Subtle warm terracotta micro dot under active word
+          const dotRadius = Math.max(2, Math.round(2.5 * scale));
+          ctxFore.fillStyle = '#C8644A';
+          ctxFore.beginPath();
+          ctxFore.arc(curX + item.width * 0.5, textBaselineY + Math.round(4 * scale), dotRadius, 0, Math.PI * 2);
+          ctxFore.fill();
+          ctxFore.fillStyle = '#111111';
+        } else if (isAlreadySpoken) {
+          // Already spoken words: Deep charcoal (#1A1A1A)
+          ctxFore.fillStyle = '#222222';
+        } else {
+          // Upcoming words: Elegant warm sand grey (#8C857B)
+          ctxFore.fillStyle = '#8C857B';
+        }
+
+        ctxFore.fillText(item.txt, curX, textBaselineY);
+        ctxFore.restore();
+
+        curX += item.width + effectiveSpaceW;
+      });
+
+    } finally {
+      ctxFore.restore();
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 2. VARIANT 1: TORN CRAFT PAPER HOOK BANNER WITH WASHI TAPE TABS
+  // --------------------------------------------------------------------------
+  const drawVariantHook = () => {
+    ctxFore.save();
+    try {
+      const cardY = Math.round(H * 0.14);
+      const tagTxt = beforeWords.length
+        ? beforeWords.map(w => w.t || w.word || '').join(' ').toUpperCase()
+        : `RULE ${String(capIdx + 1).padStart(2, '0')} // HOOK`;
+      const headlineTxt = heroTxt.toUpperCase();
+
+      const tagSize = Math.max(12, Math.round(18 * scale * fontScale));
+      const headSize = Math.max(22, Math.round(38 * scale * fontScale));
+
+      ctxFore.font = `700 ${tagSize}px "Space Mono", monospace`;
+      const tagW = ctxFore.measureText(tagTxt).width;
+
+      ctxFore.font = `bold italic ${headSize}px "Playfair Display", "Poppins", serif`;
+      const headW = ctxFore.measureText(headlineTxt).width;
+
+      const contentW = Math.max(tagW, headW);
+      const padX = Math.max(24, Math.round(32 * scale));
+      const cardW = Math.min(W * 0.88, Math.max(W * 0.52, contentW + padX * 2));
+      const cardH = tagSize + headSize + Math.round(36 * scale);
+      const cardX = Math.round((W - cardW) * 0.5);
+
+      // Entrance animation
+      ctxFore.globalAlpha = enterAlpha;
+      ctxFore.translate(W * 0.5, cardY + cardH * 0.5);
+      ctxFore.scale(enterScale, enterScale);
+      ctxFore.translate(-W * 0.5, -(cardY + cardH * 0.5));
+
+      // Realistic Jagged Torn Craft Paper Card
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.26)';
+      ctxFore.shadowBlur = Math.round(14 * scale);
+      ctxFore.shadowOffsetY = Math.round(6 * scale);
+
+      ctxFore.fillStyle = '#E8DAC8'; // Warm tactile craft paper
+      drawTornPaperShape(ctxFore, cardX, cardY, cardW, cardH, capIdx * 19 + 7, true, true);
+      ctxFore.fill();
+
+      // Dual-tone inner fiber gradient tint
+      ctxFore.shadowColor = 'transparent';
+      const fiberGrad = ctxFore.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+      fiberGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+      fiberGrad.addColorStop(1, 'rgba(0, 0, 0, 0.05)');
+      ctxFore.fillStyle = fiberGrad;
+      ctxFore.fill();
+
+      // Top Washi Tape Tabs
+      const tapeW = Math.max(34, Math.round(48 * scale));
+      const tapeH = Math.max(14, Math.round(18 * scale));
+      drawWashiTapeTab(ctxFore, cardX + cardW * 0.22, cardY + 2, tapeW, tapeH, -3.5);
+      drawWashiTapeTab(ctxFore, cardX + cardW * 0.78, cardY + 3, tapeW, tapeH, 2.5);
+
+      // Line 1: Typewriter Monospace Tagline
+      ctxFore.fillStyle = '#2E2A25';
+      ctxFore.font = `700 ${tagSize}px "Space Mono", monospace`;
+      ctxFore.textAlign = 'center';
+      const tagY = cardY + tagSize + Math.round(18 * scale);
+      ctxFore.fillText(tagTxt, W * 0.5, tagY);
+
+      // Line 2: Bold Editorial Serif Headline
+      ctxFore.fillStyle = '#181614'; // Deep espresso charcoal
+      ctxFore.font = `bold italic ${headSize}px "Playfair Display", "Poppins", serif`;
+      const headY = tagY + headSize + Math.round(8 * scale);
+      ctxFore.fillText(headlineTxt, W * 0.5, headY);
+
+    } finally {
+      ctxFore.restore();
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 3. VARIANT 2: ANGLED DARK MATTE ATHLETIC ZINE BADGE WITH RED RIM
+  // --------------------------------------------------------------------------
+  const drawVariantZine = () => {
+    ctxFore.save();
+    try {
+      const cardY = Math.round(H * 0.16);
+      const cursiveTxt = beforeWords.length
+        ? beforeWords.map(w => w.t || w.word || '').join(' ')
+        : 'The real secret of';
+      const blockTxt = heroTxt.toUpperCase();
+      const redTagTxt = afterWords.length
+        ? afterWords.map(w => w.t || w.word || '').join(' ').toUpperCase()
+        : 'HIGH PERFORMANCE // NO EXCUSES';
+
+      const cursiveSize = Math.max(14, Math.round(22 * scale * fontScale));
+      const blockSize = Math.max(28, Math.round(48 * scale * fontScale));
+      const redTagSize = Math.max(10, Math.round(13 * scale * fontScale));
+
+      ctxFore.font = `400 italic ${cursiveSize}px "Yellowtail", cursive, serif`;
+      const cursiveW = ctxFore.measureText(cursiveTxt).width;
+
+      ctxFore.font = `900 ${blockSize}px "Anton", "Montserrat", sans-serif`;
+      const blockW = ctxFore.measureText(blockTxt).width;
+
+      ctxFore.font = `800 ${redTagSize}px "Poppins", sans-serif`;
+      const redTagW = ctxFore.measureText(redTagTxt).width;
+
+      const contentW = Math.max(cursiveW, blockW, redTagW);
+      const padX = Math.max(26, Math.round(36 * scale));
+      const cardW = Math.min(W * 0.90, Math.max(W * 0.56, contentW + padX * 2));
+      const cardH = cursiveSize + blockSize + redTagSize + Math.round(44 * scale);
+      const cardX = Math.round((W - cardW) * 0.5);
+
+      // Kinetic tilt angle (-3.5deg) & Entrance scale
+      const tiltAngle = -3.5;
+      ctxFore.globalAlpha = enterAlpha;
+      ctxFore.translate(W * 0.5, cardY + cardH * 0.5);
+      ctxFore.rotate((tiltAngle * Math.PI) / 180);
+      ctxFore.scale(enterScale, enterScale);
+      ctxFore.translate(-W * 0.5, -(cardY + cardH * 0.5));
+
+      // Dark Matte Tape Badge with Red Rim
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.40)';
+      ctxFore.shadowBlur = Math.round(18 * scale);
+      ctxFore.shadowOffsetY = Math.round(8 * scale);
+
+      ctxFore.fillStyle = '#161514'; // Dark matte charcoal
+      const rad = Math.round(8 * scale);
+      if (typeof ctxFore.roundRect === 'function') {
+        ctxFore.beginPath();
+        ctxFore.roundRect(cardX, cardY, cardW, cardH, rad);
+        ctxFore.fill();
+      } else {
+        ctxFore.fillRect(cardX, cardY, cardW, cardH);
+      }
+
+      // Bold Red Rim
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = '#D32F2F'; // Athletic Crimson Red
+      ctxFore.lineWidth = Math.max(2, Math.round(2.8 * scale));
+      if (typeof ctxFore.roundRect === 'function') {
+        ctxFore.beginPath();
+        ctxFore.roundRect(cardX, cardY, cardW, cardH, rad);
+        ctxFore.stroke();
+      } else {
+        ctxFore.strokeRect(cardX, cardY, cardW, cardH);
+      }
+
+      // Line 1: Script / Cursive in Warm White
+      ctxFore.fillStyle = '#FAF6ED';
+      ctxFore.font = `400 italic ${cursiveSize}px "Yellowtail", cursive, serif`;
+      ctxFore.textAlign = 'center';
+      const cY = cardY + cursiveSize + Math.round(14 * scale);
+      ctxFore.fillText(cursiveTxt, W * 0.5, cY);
+
+      // Line 2: Collegiate Athletic Block Lettering (Anton / Montserrat 900)
+      ctxFore.fillStyle = '#FFFFFF';
+      ctxFore.font = `900 ${blockSize}px "Anton", "Montserrat", sans-serif`;
+      const bY = cY + blockSize + Math.round(4 * scale);
+      ctxFore.fillText(blockTxt, W * 0.5, bY);
+
+      // Line 3: Red Accent Tag / Micro-tracked Label
+      ctxFore.fillStyle = '#E53935';
+      ctxFore.font = `800 ${redTagSize}px "Poppins", sans-serif`;
+      const rY = bY + redTagSize + Math.round(12 * scale);
+      ctxFore.fillText(redTagTxt, W * 0.5, rY);
+
+    } finally {
+      ctxFore.restore();
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 4. VARIANT 3: LOWER-THIRD TERRACOTTA RIPPED CARD WITH WATERMARK & STEP TAG
+  // --------------------------------------------------------------------------
+  const drawVariantStat = () => {
+    ctxFore.save();
+    try {
+      const cardY = Math.round(H * 0.63);
+      const stepTxt = `STEP ${String(capIdx + 1).padStart(2, '0')}`;
+      const statementTxt = heroTxt.toUpperCase();
+
+      const stepSize = Math.max(11, Math.round(15 * scale * fontScale));
+      const statementSize = Math.max(20, Math.round(36 * scale * fontScale));
+
+      ctxFore.font = `800 ${stepSize}px "Space Mono", monospace`;
+      const stepW = ctxFore.measureText(stepTxt).width;
+
+      ctxFore.font = `800 ${statementSize}px "Montserrat", "Poppins", sans-serif`;
+      const stmtW = ctxFore.measureText(statementTxt).width;
+
+      const contentW = Math.max(stepW + 60, stmtW);
+      const padX = Math.max(26, Math.round(34 * scale));
+      const cardW = Math.min(W * 0.88, Math.max(W * 0.58, contentW + padX * 2));
+      const cardH = statementSize + Math.round(48 * scale);
+      const cardX = Math.round((W - cardW) * 0.5);
+
+      // Entrance animation
+      ctxFore.globalAlpha = enterAlpha;
+      ctxFore.translate(W * 0.5, cardY + cardH * 0.5);
+      ctxFore.scale(enterScale, enterScale);
+      ctxFore.translate(-W * 0.5, -(cardY + cardH * 0.5));
+
+      // Terracotta torn card background
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.32)';
+      ctxFore.shadowBlur = Math.round(16 * scale);
+      ctxFore.shadowOffsetY = Math.round(7 * scale);
+
+      ctxFore.fillStyle = '#C8644A'; // Warm terracotta / rust
+      drawTornPaperShape(ctxFore, cardX, cardY, cardW, cardH, capIdx * 23 + 13, true, true);
+      ctxFore.fill();
+
+      // Translucent Watermark in Card Background (Right Anchor)
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.save();
+      const watermarkSize = Math.round(cardH * 1.35);
+      ctxFore.font = `900 ${watermarkSize}px "Playfair Display", serif`;
+      ctxFore.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      ctxFore.textAlign = 'right';
+      ctxFore.fillText('&', cardX + cardW - Math.round(16 * scale), cardY + cardH * 0.85);
+      ctxFore.restore();
+
+      // Top-Left Overlapping Cream Badge
+      const badgePadX = Math.max(10, Math.round(14 * scale));
+      const badgeH = stepSize + Math.round(10 * scale);
+      const badgeW = stepW + badgePadX * 2;
+      const badgeX = cardX + Math.round(18 * scale);
+      const badgeY = cardY - Math.round(badgeH * 0.45);
+      const badgeRad = Math.round(4 * scale);
+
+      ctxFore.fillStyle = '#FAF6ED';
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.20)';
+      ctxFore.shadowBlur = Math.round(6 * scale);
+      ctxFore.shadowOffsetY = Math.round(2 * scale);
+      if (typeof ctxFore.roundRect === 'function') {
+        ctxFore.beginPath();
+        ctxFore.roundRect(badgeX, badgeY, badgeW, badgeH, badgeRad);
+        ctxFore.fill();
+      } else {
+        ctxFore.fillRect(badgeX, badgeY, badgeW, badgeH);
+      }
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.fillStyle = '#1A1816';
+      ctxFore.font = `800 ${stepSize}px "Space Mono", monospace`;
+      ctxFore.textAlign = 'center';
+      ctxFore.fillText(stepTxt, badgeX + badgeW * 0.5, badgeY + stepSize + Math.round(1 * scale));
+
+      // Main Bold White Statement
+      ctxFore.fillStyle = '#FFFFFF';
+      ctxFore.font = `800 ${statementSize}px "Montserrat", "Poppins", sans-serif`;
+      ctxFore.textAlign = 'center';
+      const stmtY = cardY + Math.round(cardH * 0.65);
+      ctxFore.fillText(statementTxt, W * 0.5, stmtY);
+
+    } finally {
+      ctxFore.restore();
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 5. RENDER THE CHOSEN VARIANT CARD & UNIVERSAL BOTTOM SUBTITLE PILL
+  // --------------------------------------------------------------------------
+  if (variant === 'hook') {
+    drawVariantHook();
+  } else if (variant === 'zine') {
+    drawVariantZine();
+  } else if (variant === 'stat') {
+    drawVariantStat();
+  }
+  // All variants (including 'none') render the universal bottom subtitle pill!
+  drawBottomPill();
+}
+
 function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!ctxFore || !words || !words.length) return;
 
@@ -11623,6 +12138,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.kineticCollage || st.id === 'kinetic_collage') {
         drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.editorialZineDynamic || st.id === 'editorial_zine_dynamic') {
+        drawEditorialZineDynamicPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.obsidianGoldCouture || st.id === 'obsidian_gold_couture') {
         drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.auroraSpatialDepth || st.id === 'aurora_spatial_depth') {
@@ -15642,6 +16159,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     renderCanvas();
     renderTimeline();
+    renderCaptionsList();
 
     if (showGenToast) {
       showToast(`✨ Generated with ${preset.name}!`);
@@ -15765,6 +16283,69 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           wordsRow.appendChild(chip);
         });
         captionCenter.appendChild(wordsRow);
+      }
+
+      // Multi-Variant Card Selector for Editorial Zine Dynamic Storyboard
+      const isZineDynamic = Boolean(S.style && (S.style.editorialZineDynamic || S.style.id === 'editorial_zine_dynamic'));
+      if (isZineDynamic) {
+        const variantRow = document.createElement('div');
+        variantRow.className = 'caption-variant-picker-row';
+        variantRow.style.cssText = 'display:flex; align-items:center; gap:6px; margin-top:6px;';
+
+        const variantLabel = document.createElement('span');
+        variantLabel.style.cssText = 'font-size:11px; font-weight:700; color:#E53935; text-transform:uppercase; letter-spacing:0.04em; display:flex; align-items:center; gap:3px;';
+        variantLabel.innerHTML = '📰 Card:';
+
+        const variantSelect = document.createElement('select');
+        variantSelect.className = 'caption-variant-select';
+        variantSelect.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:5px; background:#1e293b; color:#f8fafc; border:1px solid #334155; cursor:pointer; font-weight:600; outline:none; max-width:240px; text-overflow:ellipsis;';
+
+        const autoVariants = ['hook', 'zine', 'stat', 'none'];
+        const autoName = autoVariants[idx % autoVariants.length];
+        const autoLabels = {
+          hook: '📜 Craft Hook Banner',
+          zine: '🏷️ Athletic Zine Badge',
+          stat: '📊 Terracotta Stat Card',
+          none: '💬 Subtitle Only'
+        };
+
+        const optAuto = document.createElement('option');
+        optAuto.value = 'auto';
+        optAuto.textContent = `⚡ Auto (${autoLabels[autoName]})`;
+
+        const optHook = document.createElement('option');
+        optHook.value = 'hook';
+        optHook.textContent = '📜 Torn Craft Hook Banner';
+
+        const optZine = document.createElement('option');
+        optZine.value = 'zine';
+        optZine.textContent = '🏷️ Athletic Zine Badge';
+
+        const optStat = document.createElement('option');
+        optStat.value = 'stat';
+        optStat.textContent = '📊 Terracotta Stat Card';
+
+        const optNone = document.createElement('option');
+        optNone.value = 'none';
+        optNone.textContent = '💬 Subtitle Only (Breathing Room)';
+
+        variantSelect.appendChild(optAuto);
+        variantSelect.appendChild(optHook);
+        variantSelect.appendChild(optZine);
+        variantSelect.appendChild(optStat);
+        variantSelect.appendChild(optNone);
+
+        variantSelect.value = cap.cardVariant || 'auto';
+
+        variantSelect.addEventListener('change', (e) => {
+          e.stopPropagation();
+          cap.cardVariant = e.target.value;
+          renderCanvas(true);
+        });
+
+        variantRow.appendChild(variantLabel);
+        variantRow.appendChild(variantSelect);
+        captionCenter.appendChild(variantRow);
       }
 
       row.addEventListener('click', (e) => {
