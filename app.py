@@ -2687,7 +2687,7 @@ def export_worker(job_id, d):
                 # Streamlined fast ASS caption generation (behind-person cutout removed per user request)
                 ass_name = f"{job_id}.ass"
                 temp.append(WORK / ass_name)
-                if st.get("layout") == "stack" or st.get("isDuo") or st.get("isSpecial"):
+                if st.get("layout") in ("stack", "side_by_side") or st.get("sideBySideDepth") or st.get("isDuo") or st.get("isSpecial"):
                     (WORK / ass_name).write_text(stylelib.build_stack_ass(caps, st, W, H, layer_filter="all"), encoding="utf-8")
                 else:
                     (WORK / ass_name).write_text(stylelib.build_ass(caps, st, W, H), encoding="utf-8")

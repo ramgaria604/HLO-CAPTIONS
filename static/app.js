@@ -10388,6 +10388,375 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
 }
 
 /**
+ * Renders the "Side-by-Side Head Framing" bilateral depth caption style (Reference Video 1:1)
+ * - Words split horizontally across the speaker's head into Left Wing and Right Wing
+ * - Left Wing: Solid electric lemon yellow (#FFE600), heavy geometric sans
+ * - Right Wing: Hollow neon stroke / outline (#FFE600) with transparent interior
+ * - Superscript connector badge perched in top-left of Left Wing (e.g. "MY", "AND", "SAID")
+ * - 4-point camera autofocus viewfinder UI brackets framing the face
+ * - Crisp floating subtitle across the chest with active-word karaoke lighting
+ * - 3-Plane depth compositing: wings behind person, chest subtitle in front
+ */
+function drawSideBySideDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+  const capArg = (showAll && cap) ? Object.assign({}, cap, { _forceInstant: typeof t !== 'number' || isNaN(t) || t <= (cap.start || 0) + 0.04 }) : cap;
+  const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind);
+  if (rt.exitFade <= 0.005) return;
+
+  const {
+    isSampleCard, capStart, capEnd, evalT, fullInstant, exitFade, targetBehind,
+    fontScale, cleanTok, wordStart, easeOutCubic, progFactor, measureW,
+    posDeltaY, customHighlight, pickFontFam
+  } = rt;
+
+  const highlightCol = customHighlight || st.highlightColor || '#FFE600';
+  const baseCol = st.baseColor || '#FFFFFF';
+  const fontFam = pickFontFam(st.key?.font ? `"${st.key.font}", "Montserrat", "Poppins", sans-serif` : '"Montserrat", "Poppins", sans-serif');
+
+  // Token Extraction & Wing Word Allocation
+  const CONNECTORS = new Set(['a', 'an', 'the', 'my', 'your', 'his', 'her', 'our', 'their', 'and', 'or', 'but', 'so', 'is', 'not', 'said', 'get', 'got', 'he', 'she', 'we', 'they', 'in', 'to', 'for', 'on', 'at', 'by', 'from']);
+
+  let connTxt = '';
+  let leftTxt = '';
+  let rightTxt = '';
+  let subWords = words;
+
+  if (isSampleCard) {
+    connTxt = 'MY';
+    leftTxt = 'BACH';
+    rightTxt = 'DEGREE';
+  } else {
+    const rawTokens = words.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean);
+    if (rawTokens.length === 1) {
+      const t0 = rawTokens[0];
+      if (t0.includes('/')) {
+        const parts = t0.split('/');
+        leftTxt = parts[0];
+        rightTxt = parts[1] || '';
+      } else if (t0.length >= 6 && !/\d/.test(t0)) {
+        const mid = Math.ceil(t0.length / 2);
+        leftTxt = t0.slice(0, mid);
+        rightTxt = t0.slice(mid);
+      } else if (/\d/.test(t0) && /[a-zA-Z]/.test(t0)) {
+        const m = t0.match(/^(\D*)(\d+)(\D*)$/);
+        if (m) {
+          leftTxt = (m[1] || '') + m[2];
+          rightTxt = m[3] || '';
+        } else {
+          leftTxt = t0;
+        }
+      } else {
+        leftTxt = t0;
+      }
+    } else if (rawTokens.length === 2) {
+      leftTxt = rawTokens[0];
+      rightTxt = rawTokens[1];
+    } else if (rawTokens.length === 3) {
+      if (CONNECTORS.has(rawTokens[0].toLowerCase())) {
+        connTxt = rawTokens[0];
+        leftTxt = rawTokens[1];
+        rightTxt = rawTokens[2];
+      } else {
+        leftTxt = rawTokens[0];
+        rightTxt = rawTokens[1] + ' ' + rawTokens[2];
+      }
+    } else {
+      let startI = 0;
+      if (CONNECTORS.has(rawTokens[0].toLowerCase())) {
+        connTxt = rawTokens[0];
+        startI = 1;
+      }
+      const keyIndices = [];
+      words.forEach((kw, ki) => { if (kw.key || kw.isKey) keyIndices.push(ki); });
+      if (keyIndices.length >= 2) {
+        leftTxt = rawTokens[keyIndices[0]] || rawTokens[startI] || '';
+        rightTxt = rawTokens[keyIndices[1]] || rawTokens[startI + 1] || '';
+      } else if (keyIndices.length === 1) {
+        const ki = keyIndices[0];
+        leftTxt = rawTokens[ki] || '';
+        rightTxt = rawTokens[ki + 1] || rawTokens[ki - 1] || '';
+      } else {
+        const subToks = rawTokens.slice(startI);
+        const sorted = subToks.map((tok, idx) => ({ tok, idx, score: (/\d/.test(tok) ? 10 : 0) + tok.length }))
+          .sort((a, b) => b.score - a.score);
+        if (sorted.length >= 2) {
+          let i1 = sorted[0].idx;
+          let i2 = sorted[1].idx;
+          if (i1 > i2) { const tmp = i1; i1 = i2; i2 = tmp; }
+          leftTxt = subToks[i1] || '';
+          rightTxt = subToks[i2] || '';
+        } else {
+          leftTxt = subToks[0] || rawTokens[0] || '';
+          rightTxt = subToks[1] || '';
+        }
+      }
+    }
+  }
+
+  leftTxt = (leftTxt || '').toUpperCase();
+  rightTxt = (rightTxt || '').toUpperCase();
+  connTxt = (connTxt || '').toUpperCase();
+
+  // Layout Coordinates
+  const leftCenterX = Math.round(W * 0.22);
+  const rightCenterX = Math.round(W * 0.78);
+  const wingYRatio = typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.23;
+  const wingCenterY = Math.round(H * wingYRatio + posDeltaY);
+  const subYRatio = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.46;
+  const subCenterY = Math.round(H * subYRatio + posDeltaY);
+  const subCenterX = Math.round(W * 0.50);
+
+  // Typography sizing & max-width face clearance guard
+  let wingFontSize = Math.round(H * 0.125 * fontScale);
+  if (leftTxt.length > 5) {
+    wingFontSize = Math.round(wingFontSize * (5.0 / leftTxt.length));
+  }
+  wingFontSize = Math.max(22, wingFontSize);
+
+  // Animation progress
+  const pEntry = progFactor(capStart, 0.18);
+  const ep = easeOutCubic(pEntry);
+  const scale = fullInstant ? 1.0 : (0.92 + 0.08 * ep);
+  const alpha = exitFade * (fullInstant ? 1.0 : ep);
+  const slideLeftX = fullInstant ? 0 : Math.round((1 - ep) * -16);
+  const slideRightX = fullInstant ? 0 : Math.round((1 - ep) * 16);
+
+  // -------------------------------------------------------------------------
+  // LAYER 1: BEHIND SPEAKER - LEFT WING (Solid Yellow Hero Word)
+  // -------------------------------------------------------------------------
+  if (leftTxt) {
+    targetBehind.save();
+    targetBehind.globalAlpha = alpha;
+    targetBehind.translate(leftCenterX + slideLeftX, wingCenterY);
+    if (scale !== 1.0) targetBehind.scale(scale, scale);
+
+    targetBehind.font = `900 ${wingFontSize}px ${fontFam}`;
+    targetBehind.textAlign = 'center';
+    targetBehind.textBaseline = 'middle';
+
+    // Drop shadow
+    targetBehind.shadowColor = 'rgba(0, 0, 0, 0.70)';
+    targetBehind.shadowBlur = Math.round(wingFontSize * 0.12);
+    targetBehind.shadowOffsetY = Math.round(wingFontSize * 0.04);
+
+    // Dark stroke outline for razor-sharp edge separation
+    targetBehind.strokeStyle = 'rgba(0, 0, 0, 0.90)';
+    targetBehind.lineWidth = Math.max(2.5, Math.round(wingFontSize * 0.04));
+    targetBehind.strokeText(leftTxt, 0, 0);
+
+    // Solid lemon yellow fill
+    targetBehind.fillStyle = highlightCol;
+    targetBehind.fillText(leftTxt, 0, 0);
+
+    // Measure left wing for superscript positioning
+    const leftMetrics = targetBehind.measureText(leftTxt);
+    const leftWidth = (leftMetrics && leftMetrics.width) ? leftMetrics.width : (leftTxt.length * wingFontSize * 0.6);
+
+    targetBehind.restore();
+
+    // -----------------------------------------------------------------------
+    // LAYER 1: SUPERSCRIPT CONNECTOR BADGE (e.g. "MY", "AND", "SAID")
+    // -----------------------------------------------------------------------
+    if (connTxt) {
+      const connSize = Math.max(12, Math.round(wingFontSize * 0.32));
+      const connY = wingCenterY - Math.round(wingFontSize * 0.54);
+      const connX = Math.round(leftCenterX - leftWidth * 0.30) + slideLeftX;
+
+      targetBehind.save();
+      targetBehind.globalAlpha = alpha;
+      targetBehind.translate(connX, connY);
+      if (scale !== 1.0) targetBehind.scale(scale, scale);
+
+      targetBehind.font = `800 ${connSize}px ${fontFam}`;
+      targetBehind.textAlign = 'center';
+      targetBehind.textBaseline = 'middle';
+
+      const connMetrics = targetBehind.measureText(connTxt);
+      const connW = (connMetrics && connMetrics.width) ? connMetrics.width : (connTxt.length * connSize * 0.6);
+      const padX = Math.max(5, Math.round(connSize * 0.32));
+      const padY = Math.max(2, Math.round(connSize * 0.18));
+
+      // Dark capsule backdrop
+      targetBehind.fillStyle = 'rgba(10, 10, 10, 0.75)';
+      if (typeof targetBehind.roundRect === 'function') {
+        targetBehind.beginPath();
+        targetBehind.roundRect(-connW / 2 - padX, -connSize / 2 - padY, connW + padX * 2, connSize + padY * 2, 4);
+        targetBehind.fill();
+      } else {
+        targetBehind.fillRect(-connW / 2 - padX, -connSize / 2 - padY, connW + padX * 2, connSize + padY * 2);
+      }
+
+      // Border outline
+      targetBehind.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      targetBehind.lineWidth = 1.0;
+      targetBehind.stroke();
+
+      // Text
+      targetBehind.fillStyle = '#FFFFFF';
+      targetBehind.shadowColor = 'rgba(0,0,0,0.8)';
+      targetBehind.shadowBlur = 4;
+      targetBehind.fillText(connTxt, 0, 0);
+
+      targetBehind.restore();
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // LAYER 1: BEHIND SPEAKER - RIGHT WING (Hollow Neon Contour Word)
+  // -------------------------------------------------------------------------
+  if (rightTxt) {
+    targetBehind.save();
+    targetBehind.globalAlpha = alpha;
+    targetBehind.translate(rightCenterX + slideRightX, wingCenterY);
+    if (scale !== 1.0) targetBehind.scale(scale, scale);
+
+    targetBehind.font = `900 ${wingFontSize}px ${fontFam}`;
+    targetBehind.textAlign = 'center';
+    targetBehind.textBaseline = 'middle';
+
+    // Electric Neon Outer Aura Glow
+    targetBehind.shadowColor = highlightCol;
+    targetBehind.shadowBlur = Math.round(wingFontSize * 0.18);
+
+    // Hollow Stroke
+    targetBehind.strokeStyle = highlightCol;
+    targetBehind.lineWidth = Math.max(3.5, Math.round(wingFontSize * 0.052));
+    targetBehind.lineJoin = 'round';
+    targetBehind.strokeText(rightTxt, 0, 0);
+    // Draw twice for bright neon saturation
+    targetBehind.strokeText(rightTxt, 0, 0);
+
+    // Subtle translucent inner sheen for high legibility
+    targetBehind.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    targetBehind.fillText(rightTxt, 0, 0);
+
+    targetBehind.restore();
+  }
+
+  // -------------------------------------------------------------------------
+  // LAYER 3: FOREGROUND - CAMERA AUTOFOCUS VIEWFINDER UI BRACKETS [ ]
+  // -------------------------------------------------------------------------
+  ctxFore.save();
+  ctxFore.globalAlpha = exitFade * Math.min(1.0, ep * 0.85);
+
+  const bLeft = Math.round(W * 0.34);
+  const bRight = Math.round(W * 0.66);
+  const bTop = Math.round(H * 0.13);
+  const bBottom = Math.round(H * 0.36);
+  const tick = Math.round(W * 0.042);
+
+  ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+  ctxFore.lineWidth = 1.6;
+  ctxFore.lineCap = 'square';
+
+  // 1. Top-Left Bracket
+  ctxFore.beginPath();
+  ctxFore.moveTo(bLeft, bTop + tick);
+  ctxFore.lineTo(bLeft, bTop);
+  ctxFore.lineTo(bLeft + tick, bTop);
+  ctxFore.stroke();
+
+  // 2. Top-Right Bracket
+  ctxFore.beginPath();
+  ctxFore.moveTo(bRight - tick, bTop);
+  ctxFore.lineTo(bRight, bTop);
+  ctxFore.lineTo(bRight, bTop + tick);
+  ctxFore.stroke();
+
+  // 3. Bottom-Left Bracket
+  ctxFore.beginPath();
+  ctxFore.moveTo(bLeft, bBottom - tick);
+  ctxFore.lineTo(bLeft, bBottom);
+  ctxFore.lineTo(bLeft + tick, bBottom);
+  ctxFore.stroke();
+
+  // 4. Bottom-Right Bracket
+  ctxFore.beginPath();
+  ctxFore.moveTo(bRight - tick, bBottom);
+  ctxFore.lineTo(bRight, bBottom);
+  ctxFore.lineTo(bRight, bBottom - tick);
+  ctxFore.stroke();
+
+  // Tech micro-tag at top of bracket
+  ctxFore.font = `700 ${Math.round(W * 0.018)}px ${fontFam}`;
+  ctxFore.fillStyle = 'rgba(255, 255, 255, 0.65)';
+  ctxFore.textAlign = 'center';
+  ctxFore.textBaseline = 'bottom';
+  ctxFore.fillText('[ AF-TRACK ]', Math.round((bLeft + bRight) / 2), bTop - 4);
+
+  ctxFore.restore();
+
+  // -------------------------------------------------------------------------
+  // LAYER 3: FOREGROUND - FLOATING CHEST SUBTITLE WITH ACTIVE KARAOKE HIGHLIGHT
+  // -------------------------------------------------------------------------
+  const subFontSize = Math.round(H * 0.046 * fontScale);
+  ctxFore.save();
+  ctxFore.globalAlpha = alpha;
+  ctxFore.font = `700 ${subFontSize}px ${fontFam}`;
+  ctxFore.textAlign = 'left';
+  ctxFore.textBaseline = 'middle';
+
+  // Measure full subtitle line
+  const wordTokens = (isSampleCard
+    ? [{ t: 'my', s: 0 }, { t: 'bachelors', s: 0 }, { t: 'degree', s: 0 }]
+    : subWords
+  ).map(w => ({
+    text: String(w.t || w.word || '').toUpperCase(),
+    s: (typeof w.s === 'number') ? w.s : (typeof w.start === 'number' ? w.start : capStart),
+    e: (typeof w.e === 'number') ? w.e : (typeof w.end === 'number' ? w.end : capEnd),
+  }));
+
+  const spaceW = ctxFore.measureText(' ').width || (subFontSize * 0.28);
+  const measuredSub = wordTokens.map(wt => {
+    const m = ctxFore.measureText(wt.text);
+    return { ...wt, width: m.width };
+  });
+
+  const totalSubW = measuredSub.reduce((acc, item) => acc + item.width, 0) + Math.max(0, measuredSub.length - 1) * spaceW;
+  let curX = Math.round(subCenterX - totalSubW / 2);
+
+  // Subtle dark capsule pill backdrop behind chest subtitle for 100% readability
+  const pillPadX = Math.round(subFontSize * 0.45);
+  const pillPadY = Math.round(subFontSize * 0.25);
+  const pillH = subFontSize + pillPadY * 2;
+  const pillW = totalSubW + pillPadX * 2;
+
+  ctxFore.fillStyle = 'rgba(12, 14, 18, 0.68)';
+  if (typeof ctxFore.roundRect === 'function') {
+    ctxFore.beginPath();
+    ctxFore.roundRect(curX - pillPadX, subCenterY - pillH / 2, pillW, pillH, Math.round(pillH * 0.32));
+    ctxFore.fill();
+  } else {
+    ctxFore.fillRect(curX - pillPadX, subCenterY - pillH / 2, pillW, pillH);
+  }
+
+  // Draw each word with active karaoke highlighting
+  measuredSub.forEach((wt, idx) => {
+    const isWordActive = fullInstant || (evalT >= wt.s - 0.04 && evalT <= wt.e + 0.05);
+
+    ctxFore.save();
+    // Drop shadow
+    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctxFore.shadowBlur = 6;
+    ctxFore.shadowOffsetY = 2;
+
+    // Dark outline
+    ctxFore.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+    ctxFore.lineWidth = 2.5;
+    ctxFore.strokeText(wt.text, curX, subCenterY);
+
+    // Fill: active word lights up in electric yellow, others in white
+    ctxFore.fillStyle = isWordActive ? highlightCol : baseCol;
+    ctxFore.fillText(wt.text, curX, subCenterY);
+
+    ctxFore.restore();
+    curX += wt.width + spaceW;
+  });
+
+  ctxFore.restore();
+}
+
+/**
  * Renders the "Celestial Monolith" 4-scene flagship preset:
  * 1) Liquid Silver Crown + Smoked Capsule + Molten Copper Italic,
  * 2) Clean Contrast Sans + Molten Copper Anamorphic Laser Streak,
@@ -12150,6 +12519,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.sufiDivineDepth || st.id === 'sufi_divine_depth') {
         drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.sideBySideDepth || st.id === 'side_by_side_depth' || st.layout === 'side_by_side') {
+        drawSideBySideDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.dualPlaneHero || st.id === 'dual_plane_hero' || st.id === 'dual_plane_amber' || st.id === 'dual_plane_cyber' || (st.id && st.id.startsWith('dual_plane'))) {
         drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if ((st.highlight && st.highlight.mode === 'box') || st.category === 'box' || presetId === 'box_pop' || presetId === 'yellow_box' || st.box || st.pill) {
@@ -15831,7 +16202,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       (preset.roles && preset.roles.accent && preset.roles.accent.layer === 'behind') ||
       (preset.name && preset.name.toLowerCase().includes('(behind)'))
     );
-    if (isBehind) tag = '👑 BEHIND';
+    if (isBehind && !preset.badge) tag = '👑 BEHIND';
 
     // Visual Art Container
     const art = document.createElement('div');
@@ -15845,39 +16216,76 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     tagSpan.textContent = tag;
     art.appendChild(tagSpan);
 
-    if (preset.isDuo) {
-      const small = document.createElement('span');
-      small.className = 'preset-card-small';
-      small.textContent = 'SOME MOMENTS';
-      art.appendChild(small);
-    }
+    if (preset.id === 'side_by_side_depth' || preset.layout === 'side_by_side') {
+      const splitRow = document.createElement('div');
+      splitRow.style.display = 'flex';
+      splitRow.style.alignItems = 'center';
+      splitRow.style.justifyContent = 'space-between';
+      splitRow.style.width = '88%';
+      splitRow.style.zIndex = '1';
+      splitRow.style.fontFamily = `'${font}', sans-serif`;
+      splitRow.style.fontSize = '17px';
+      splitRow.style.fontWeight = '900';
+      splitRow.style.letterSpacing = '-0.5px';
 
-    const big = document.createElement('strong');
-    big.className = 'preset-card-big';
-    big.textContent = previewWord;
-    big.style.fontFamily = `'${font}', sans-serif`;
-    big.style.fontStyle = isItalic;
-    big.style.fontWeight = weight;
-    big.style.textTransform = textTransform;
+      const lSpan = document.createElement('span');
+      lSpan.textContent = 'BACH';
+      lSpan.style.color = color;
+      lSpan.style.textShadow = '0 2px 8px rgba(0,0,0,0.8)';
 
-    const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
-    if (preset.pill) {
-      big.style.background = preset.pill;
-      big.style.padding = '3px 8px';
-      big.style.borderRadius = '5px';
-      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
-    } else if (paint && paint.startsWith('linear-gradient(')) {
-      big.style.backgroundImage = paint;
-      big.style.webkitBackgroundClip = 'text';
-      big.style.backgroundClip = 'text';
-      big.style.color = 'transparent';
+      const rSpan = document.createElement('span');
+      rSpan.textContent = 'DEGREE';
+      rSpan.style.webkitTextStroke = `1.5px ${color}`;
+      rSpan.style.color = 'transparent';
+      rSpan.style.filter = `drop-shadow(0 0 6px ${color}88)`;
+
+      splitRow.appendChild(lSpan);
+      splitRow.appendChild(rSpan);
+      art.appendChild(splitRow);
+
+      const subSmall = document.createElement('span');
+      subSmall.className = 'preset-card-small';
+      subSmall.textContent = 'MY BACHELORS DEGREE';
+      subSmall.style.fontSize = '8.5px';
+      subSmall.style.color = 'rgba(255,255,255,0.85)';
+      subSmall.style.marginTop = '4px';
+      subSmall.style.zIndex = '3';
+      art.appendChild(subSmall);
     } else {
-      big.style.color = color;
-      if (kRole.glow || preset.glow) {
-        big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+      if (preset.isDuo) {
+        const small = document.createElement('span');
+        small.className = 'preset-card-small';
+        small.textContent = 'SOME MOMENTS';
+        art.appendChild(small);
       }
+
+      const big = document.createElement('strong');
+      big.className = 'preset-card-big';
+      big.textContent = previewWord;
+      big.style.fontFamily = `'${font}', sans-serif`;
+      big.style.fontStyle = isItalic;
+      big.style.fontWeight = weight;
+      big.style.textTransform = textTransform;
+
+      const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
+      if (preset.pill) {
+        big.style.background = preset.pill;
+        big.style.padding = '3px 8px';
+        big.style.borderRadius = '5px';
+        big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
+      } else if (paint && paint.startsWith('linear-gradient(')) {
+        big.style.backgroundImage = paint;
+        big.style.webkitBackgroundClip = 'text';
+        big.style.backgroundClip = 'text';
+        big.style.color = 'transparent';
+      } else {
+        big.style.color = color;
+        if (kRole.glow || preset.glow) {
+          big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+        }
+      }
+      art.appendChild(big);
     }
-    art.appendChild(big);
 
     // Person silhouette in front of behind cards preview
     if (isBehind) {

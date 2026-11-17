@@ -760,6 +760,74 @@ def load_presets():
     }
     out.insert(0, sufi_item)
 
+    # Side-by-Side Head Framing & Depth Preset (Reference Video 1:1)
+    side_by_side_item = {
+        "id": "side_by_side_depth",
+        "name": "Side-by-Side Head Framing ⚡",
+        "category": "behind",
+        "mode": "emphasis",
+        "layout": "side_by_side",
+        "animation": "pop",
+        "wordsPerCaption": 3,
+        "maxKeys": 1,
+        "position": 0.46,
+        "behindPerson": True,
+        "depthAccent": True,
+        "sideBySideDepth": True,
+        "highlightColor": "#FFE600",
+        "textColor": "#FFFFFF",
+        "baseColor": "#FFFFFF",
+        "fontFamily": "Montserrat",
+        "fontScale": 1.0,
+        "depthAccentY": 0.23,
+        "subtitlePosition": 0.46,
+        "hollowRight": True,
+        "previewWord": "BACHELORS DEGREE",
+        "badge": "⚡ SIDE-BY-SIDE",
+        "badgeTextColor": "#FFE600",
+        "roles": {
+            "accent": {
+                "font": "Montserrat",
+                "color": "#FFE600",
+                "layer": "behind",
+                "bold": True,
+                "weight": 900,
+                "shadow": 0.08,
+                "shadowColor": "#000000"
+            },
+            "base": {
+                "font": "Montserrat",
+                "color": "#FFFFFF",
+                "layer": "front",
+                "bold": True,
+                "weight": 700,
+                "shadow": 0.06,
+                "shadowColor": "#000000"
+            }
+        },
+        "key": {
+            "font": "Montserrat",
+            "size": 0.13,
+            "color": "#FFE600",
+            "bold": True,
+            "weight": 900,
+            "italic": False,
+            "shadow": 0.08,
+            "shadowColor": "#000000"
+        },
+        "filler": {
+            "font": "Montserrat",
+            "size": 0.05,
+            "color": "#FFFFFF",
+            "bold": True,
+            "weight": 700,
+            "italic": False,
+            "shadow": 0.06,
+            "shadowColor": "#000000"
+        }
+    }
+    out.insert(0, side_by_side_item)
+
     return out
 
 
@@ -852,7 +920,7 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
-        "layout": s.get("layout") if s.get("layout") in ("stack", "line") else ("stack" if s.get("isDuo") else "line"),
+        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side") else ("stack" if s.get("isDuo") else "line"),
         "animation": anim,
         "anim": anim,
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",
@@ -860,6 +928,10 @@ def clean_style(s):
         "maxKeys": int(_num(s.get("maxKeys"), 0, 3, 1)),
         "position": _num(s.get("position"), 0.1, 0.95, 0.68),
         "opacity": _num(s.get("opacity"), 0.4, 1.0, 1.0),
+        "sideBySideDepth": bool(s.get("sideBySideDepth", False)),
+        "hollowRight": bool(s.get("hollowRight", True)),
+        "depthAccentY": float(s.get("depthAccentY", 0.23)) if s.get("depthAccentY") is not None else 0.23,
+        "subtitlePosition": float(s.get("subtitlePosition", 0.46)) if s.get("subtitlePosition") is not None else 0.46,
         "highlightColor": s.get("highlightColor") or key_role.get("color") or "#FFE600",
         "baseColor": s.get("baseColor") or filler_role.get("color") or "#FFFFFF",
         "_customColorActive": bool(s.get("_customColorActive", False)),
@@ -1327,6 +1399,129 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             (accent_role.get("layer") == "behind") or
             ("(behind)" in str(style.get("name", "")).lower())
         )
+
+        if style.get("id") == "side_by_side_depth" or style.get("layout") == "side_by_side" or style.get("sideBySideDepth"):
+            # Bilateral Side-by-Side Head Framing (Reference Video 1:1)
+            clean_tokens = [re.sub(r"[^\w$€£%.,'-]", "", str(w.get("t") or w.get("word") or "")).strip() for w in words]
+            clean_tokens = [t for t in clean_tokens if t]
+            if not clean_tokens:
+                continue
+
+            CONNECTORS = {"a", "an", "the", "my", "your", "his", "her", "our", "their", "and", "or", "but", "so", "is", "not", "said", "get", "got", "he", "she", "we", "they", "in", "to", "for", "on", "at", "by", "from"}
+
+            conn_txt = ""
+            left_txt = ""
+            right_txt = ""
+
+            if len(clean_tokens) == 1:
+                t = clean_tokens[0]
+                if "/" in t:
+                    parts = t.split("/", 1)
+                    left_txt, right_txt = parts[0], parts[1]
+                elif len(t) >= 6 and not any(c.isdigit() for c in t):
+                    mid = len(t) // 2
+                    left_txt = t[:mid]
+                    right_txt = t[mid:]
+                elif any(c.isdigit() for c in t) and any(c.isalpha() for c in t):
+                    m = re.match(r"^(\D*)(\d+)(\D*)$", t)
+                    if m:
+                        left_txt = m.group(1) + m.group(2)
+                        right_txt = m.group(3) if m.group(3) else ""
+                    else:
+                        left_txt = t
+                else:
+                    left_txt = t
+            elif len(clean_tokens) == 2:
+                left_txt = clean_tokens[0]
+                right_txt = clean_tokens[1]
+            elif len(clean_tokens) == 3:
+                if clean_tokens[0].lower() in CONNECTORS:
+                    conn_txt = clean_tokens[0]
+                    left_txt = clean_tokens[1]
+                    right_txt = clean_tokens[2]
+                else:
+                    left_txt = clean_tokens[0]
+                    right_txt = clean_tokens[1] + " " + clean_tokens[2]
+            else:
+                start_i = 0
+                if clean_tokens[0].lower() in CONNECTORS:
+                    conn_txt = clean_tokens[0]
+                    start_i = 1
+
+                key_indices = [ki for ki, kw in enumerate(words) if kw.get("key")]
+                if len(key_indices) >= 2:
+                    left_txt = clean_tokens[key_indices[0]]
+                    right_txt = clean_tokens[key_indices[1]]
+                elif len(key_indices) == 1:
+                    ki = key_indices[0]
+                    left_txt = clean_tokens[ki]
+                    right_txt = clean_tokens[ki+1] if ki+1 < len(clean_tokens) else (clean_tokens[ki-1] if ki > 0 else "")
+                else:
+                    sub_toks = clean_tokens[start_i:]
+                    sorted_toks = sorted(enumerate(sub_toks), key=lambda x: (any(c.isdigit() for c in x[1]), len(x[1])), reverse=True)
+                    if len(sorted_toks) >= 2:
+                        idx1 = sorted_toks[0][0]
+                        idx2 = sorted_toks[1][0]
+                        if idx1 > idx2:
+                            idx1, idx2 = idx2, idx1
+                        left_txt = sub_toks[idx1]
+                        right_txt = sub_toks[idx2]
+                    else:
+                        left_txt = sub_toks[0] if sub_toks else clean_tokens[0]
+                        right_txt = sub_toks[1] if len(sub_toks) > 1 else ""
+
+            up = lambda x: x.upper() if uppercase else x
+            left_txt = up(left_txt)
+            right_txt = up(right_txt)
+            conn_txt = up(conn_txt)
+            sub_text = " ".join(up(w.get("t") or w.get("word") or "") for w in words)
+
+            hl_col = style.get("highlightColor") or "#FFE600"
+            base_col = style.get("baseColor") or "#FFFFFF"
+
+            accent_font_file = find_font_file(accent_role)
+            base_font_file = find_font_file(base_role)
+            accent_font_name, accent_ratio = get_ass_font_info(accent_font_file)
+            base_font_name, base_ratio = get_ass_font_info(base_font_file)
+
+            font_scale = float(style.get("fontScale") or 1.0)
+            wing_size_raw = H * 0.125 * font_scale
+            if len(left_txt) > 5:
+                wing_size_raw *= (5.0 / len(left_txt))
+            wing_fs = max(24.0, wing_size_raw * accent_ratio)
+            conn_fs = max(14.0, wing_fs * 0.32)
+            sub_fs = max(18.0, H * 0.046 * font_scale * base_ratio)
+
+            left_x = round(W * 0.22)
+            right_x = round(W * 0.78)
+            wing_y = round(H * float(style.get("depthAccentY", 0.23)))
+            sub_x = round(W * 0.50)
+            sub_y = round(H * float(style.get("subtitlePosition", 0.46)))
+            conn_y = round(wing_y - wing_fs * 0.54)
+            conn_x = round(left_x - wing_fs * 0.15)
+
+            st_ts = ts(ev_start)
+            et_ts = ts(ev_end)
+
+            anim_tags = r"\fscx88\fscy88\alpha&HFF&\t(0,40,\alpha&H00&)\t(0,200,0.4,\fscx100\fscy100)"
+
+            if layer_filter in ("depth", "all"):
+                left_tags = f"\\an5\\pos({left_x},{wing_y})\\fn{accent_font_name}\\fs{wing_fs:.1f}\\b1\\1c{_c(hl_col)}\\bord3.5\\3c&H000000&\\shad2\\4c&H000000&" + anim_tags
+                rows.append(f"Dialogue: 1,{st_ts},{et_ts},Default,,0,0,0,,{{{left_tags}}}{_esc(left_txt)}")
+
+                if right_txt:
+                    right_tags = f"\\an5\\pos({right_x},{wing_y})\\fn{accent_font_name}\\fs{wing_fs:.1f}\\b1\\1a&HFF&\\bord4.5\\3c{_c(hl_col)}\\shad0" + anim_tags
+                    rows.append(f"Dialogue: 1,{st_ts},{et_ts},Default,,0,0,0,,{{{right_tags}}}{_esc(right_txt)}")
+
+                if conn_txt:
+                    conn_tags = f"\\an5\\pos({conn_x},{conn_y})\\fn{accent_font_name}\\fs{conn_fs:.1f}\\b1\\1c{_c(base_col)}\\bord2\\3c&H000000&\\shad1\\4c&H000000&" + anim_tags
+                    rows.append(f"Dialogue: 1,{st_ts},{et_ts},Default,,0,0,0,,{{{conn_tags}}}{_esc(conn_txt)}")
+
+            if layer_filter in ("subtitle", "all"):
+                sub_tags = f"\\an5\\pos({sub_x},{sub_y})\\fn{base_font_name}\\fs{sub_fs:.1f}\\b1\\1c{_c(base_col)}\\bord3\\3c&H000000&\\shad1.5\\4c&H000000&" + anim_tags
+                rows.append(f"Dialogue: 3,{st_ts},{et_ts},Default,,0,0,0,,{{{sub_tags}}}{_esc(sub_text)}")
+
+            continue
 
         if style.get("id") in ("editorial_depth_stack", "spatial_sandwich_syne"):
             # Editorial Depth Stack: Big Anchor Word comes first (or user-marked key word),
@@ -2005,7 +2200,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 def build_depth_ass(captions, style, W, H):
     """Return a large behind-person keyword and readable foreground subtitle."""
     base = clean_style(style)
-    if (base.get("behindPerson") or base.get("depthAccent") or base.get("layout") == "stack" or base.get("isDuo") or (base.get("isSpecial") and base.get("mode") == "emphasis")):
+    if (base.get("sideBySideDepth") or base.get("layout") == "side_by_side" or base.get("behindPerson") or base.get("depthAccent") or base.get("layout") == "stack" or base.get("isDuo") or (base.get("isSpecial") and base.get("mode") == "emphasis")):
         return build_stack_ass(captions, base, W, H, layer_filter="depth"), build_stack_ass(captions, base, W, H, layer_filter="subtitle")
     if base.get("estateVariant"):
         line_style = copy.deepcopy(base)
@@ -2084,7 +2279,7 @@ def build_depth_ass(captions, style, W, H):
 def build_ass(captions, style, W, H):
     """captions: list of {'start','end','words':[{'t','key','s','e'}]} already on the OUTPUT timeline."""
     style = clean_style(style)
-    if style.get("layout") == "stack" or style.get("isDuo") or (style.get("isSpecial") and style.get("mode") == "emphasis"):
+    if style.get("layout") in ("stack", "side_by_side") or style.get("sideBySideDepth") or style.get("isDuo") or (style.get("isSpecial") and style.get("mode") == "emphasis"):
         return build_stack_ass(captions, style, W, H, layer_filter="all")
 
     k_role = style.get("key") or {}
