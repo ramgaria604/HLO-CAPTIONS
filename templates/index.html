@@ -1346,6 +1346,26 @@
                 </div>
               </div>
 
+              <!-- 🎬 Video Framing / Pull Down (Safe Headroom for Face Protection) -->
+              <div class="stepper-card" data-style-group="motion" style="margin-top: 14px;">
+                <div class="stepper-header-row">
+                  <div class="stepper-label-col">
+                    <label class="stepper-label">🎬 Video Framing (Pull Down)</label>
+                    <span class="stepper-sub">Pull video down to create safe headroom so top captions never cover the face</span>
+                  </div>
+                  <span class="stepper-value" id="valPullDown">0% (Default)</span>
+                  <button type="button" class="btn-step-reset" id="btnResetPullDown" title="Reset video framing">Reset</button>
+                </div>
+                <div style="margin-top: 8px;">
+                  <input type="range" id="inputPullDown" min="0" max="25" value="0" step="1" class="styled-slider" style="width: 100%;">
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                  <span>0% (Default)</span>
+                  <span style="color: #FACC15; font-weight: 600;">8-14% (Safe Headroom)</span>
+                  <span>25% (Max Drop)</span>
+                </div>
+              </div>
+
               <!-- 👑 Dubai Luxury Effects (White Splash Sheen & Atmospheric Glow) -->
               <div class="control-card" id="cardDubaiEffects" data-style-group="color">
                 <div class="control-header">

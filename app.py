@@ -2394,8 +2394,24 @@ def cut_filter(keep, W, H, fps, zoom, has_audio):
     return ";".join(parts)
 
 
-def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None, front_ass_name=None):
-    parts = [f"[0:v]scale={W}:{H},setsar=1,format=yuv420p[base0]"]
+def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None, front_ass_name=None, pull_down_y=0.0, zoom_val=1.0):
+    if pull_down_y and pull_down_y > 0.001:
+        eff_zoom = max(zoom_val, 1.0 + pull_down_y * 2.1)
+        scaled_w = int(round(W * eff_zoom))
+        scaled_w = scaled_w if scaled_w % 2 == 0 else scaled_w + 1
+        scaled_h = int(round(H * eff_zoom))
+        scaled_h = scaled_h if scaled_h % 2 == 0 else scaled_h + 1
+        crop_x = int(round((scaled_w - W) / 2.0))
+        crop_x = crop_x if crop_x % 2 == 0 else crop_x - 1
+        crop_y_center = int(round((scaled_h - H) / 2.0))
+        offset = int(round(H * pull_down_y))
+        crop_y = max(0, min(scaled_h - H, crop_y_center - offset))
+        crop_y = crop_y if crop_y % 2 == 0 else crop_y - 1
+        crop_y = max(0, crop_y)
+        parts = [f"[0:v]scale={scaled_w}:{scaled_h},crop={W}:{H}:{crop_x}:{crop_y},setsar=1,format=yuv420p[base0]"]
+    else:
+        scaled_w, scaled_h, crop_x, crop_y = W, H, 0, 0
+        parts = [f"[0:v]scale={W}:{H},setsar=1,format=yuv420p[base0]"]
     for i, b in enumerate(brolls):
         s, e = b["start"], b["end"]
         layout = b.get("layout", "full")
@@ -2439,7 +2455,10 @@ def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None,
         # Behind person mode: hero keyword on background, person cutout on top, front subtitles on top of person
         parts.append(f"[{last}]ass={ass_name}:fontsdir=fonts[captioned]")
         person_input = 1 + len(brolls)
-        parts.append(f"[{person_input}:v]fps={fps},scale={W}:{H},setsar=1,format=rgba[person]")
+        if pull_down_y and pull_down_y > 0.001:
+            parts.append(f"[{person_input}:v]fps={fps},scale={scaled_w}:{scaled_h},crop={W}:{H}:{crop_x}:{crop_y},setsar=1,format=rgba[person]")
+        else:
+            parts.append(f"[{person_input}:v]fps={fps},scale={W}:{H},setsar=1,format=rgba[person]")
         parts.append("[captioned][person]overlay=shortest=1:format=auto[subject]")
     elif ass_name:
         parts.append(f"[{last}]ass={ass_name}:fontsdir=fonts[subject]")
@@ -2554,8 +2573,10 @@ def export_worker(job_id, d):
                 (d.get("style") or {}).get("behindPerson") or
                 (d.get("style") or {}).get("behind_person")
             )
+            pull_down_y = float(d.get("pullDownY", 0.0) or (d.get("style") or {}).get("pullDownY", 0.0) or 0.0)
+            zoom_val = float(d.get("videoZoom", 1.0) or (1.0 + pull_down_y * 2.1))
             is_remotion = requested_engine == "remotion" or (
-                requested_engine != "ffmpeg" and is_remotion_available() and (bool(d.get("is_remotion")) or (preset_id in REMOTION_PRESET_IDS and not is_behind))
+                requested_engine != "ffmpeg" and is_remotion_available() and (bool(d.get("is_remotion")) or (preset_id in REMOTION_PRESET_IDS and not is_behind and not (pull_down_y > 0.001)))
             )
 
             if is_remotion:
@@ -2722,7 +2743,7 @@ def export_worker(job_id, d):
                     g["end"] = remap(float(g["end"]))
 
             # Build overlay filter
-            base_filter = overlay_filter(W, H, fps, brolls, ass_name, person_name, cur_duration, front_ass_name)
+            base_filter = overlay_filter(W, H, fps, brolls, ass_name, person_name, cur_duration, front_ass_name, pull_down_y=pull_down_y, zoom_val=zoom_val)
 
             final_v = "[vout]"
             if graphics:

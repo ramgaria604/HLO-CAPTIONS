@@ -14422,6 +14422,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         stage.style.aspectRatio = `${vid.videoWidth} / ${vid.videoHeight}`;
       }
       fitCanvas();
+      if (typeof window.applyVideoFraming === 'function') {
+        window.applyVideoFraming(S.pullDownY || 0);
+      }
       renderTimeline();
       renderCanvas();
     });
@@ -16735,6 +16738,85 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         updatePositionUI(parseFloat(btn.getAttribute('data-pos')));
       });
     });
+
+    // 🎬 Video Framing / Pull Down (Safe Headroom for Face Protection)
+    const inputPullDown = $('inputPullDown');
+    const valPullDown = $('valPullDown');
+    const btnResetPullDown = $('btnResetPullDown');
+
+    function applyVideoFraming(pullVal) {
+      if (typeof pullVal !== 'number' || isNaN(pullVal)) pullVal = 0;
+      pullVal = Math.max(0, Math.min(0.25, pullVal));
+      S.pullDownY = pullVal;
+
+      const pct = Math.round(pullVal * 100);
+      if (valPullDown) {
+        if (pct === 0) {
+          valPullDown.textContent = '0% (Default)';
+        } else if (pct <= 7) {
+          valPullDown.textContent = `${pct}% (Slight Drop)`;
+        } else if (pct <= 16) {
+          valPullDown.textContent = `${pct}% (Safe Headroom)`;
+        } else {
+          valPullDown.textContent = `${pct}% (Deep Drop)`;
+        }
+      }
+      if (inputPullDown && parseInt(inputPullDown.value, 10) !== pct) {
+        inputPullDown.value = String(pct);
+      }
+
+      const vid = $('vid');
+      const personCanvas = $('personCanvas');
+      const brollStageLayer = $('brollStageLayer');
+
+      if (pullVal === 0) {
+        S.videoZoom = 1.0;
+        if (vid) {
+          vid.style.transform = '';
+          vid.style.transformOrigin = '';
+        }
+        if (personCanvas) {
+          personCanvas.style.transform = '';
+          personCanvas.style.transformOrigin = '';
+        }
+        if (brollStageLayer) {
+          brollStageLayer.style.transform = '';
+          brollStageLayer.style.transformOrigin = '';
+        }
+      } else {
+        const zoom = 1.0 + pullVal * 2.1;
+        S.videoZoom = zoom;
+        const transformStr = `translate3d(0, ${pullVal * 100}%, 0) scale(${zoom})`;
+        const originStr = 'center center';
+
+        if (vid) {
+          vid.style.transform = transformStr;
+          vid.style.transformOrigin = originStr;
+        }
+        if (personCanvas) {
+          personCanvas.style.transform = transformStr;
+          personCanvas.style.transformOrigin = originStr;
+        }
+        if (brollStageLayer) {
+          brollStageLayer.style.transform = transformStr;
+          brollStageLayer.style.transformOrigin = originStr;
+        }
+      }
+
+      renderCanvas();
+    }
+    window.applyVideoFraming = applyVideoFraming;
+
+    if (inputPullDown) {
+      inputPullDown.addEventListener('input', (e) => {
+        applyVideoFraming(parseFloat(e.target.value) / 100);
+      });
+    }
+    if (btnResetPullDown) {
+      btnResetPullDown.addEventListener('click', () => {
+        applyVideoFraming(0);
+      });
+    }
 
     const chkWhiteSplash = $('chkWhiteSplash');
     const chkWhiteBloom = $('chkWhiteBloom');
@@ -21355,7 +21437,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         const hasWatermark = Boolean(S.watermark && S.watermark.text && S.watermark.text.trim());
 
         // Skip all extra drawing work on frames with no active caption or overlay (except full-frame custom templates)
-        if (!isCustomVideoTplExport && !isZoomed && !activeBroll && !hasProgressBar && !activeCap && !hasWatermark) {
+        if (!isCustomVideoTplExport && !isZoomed && !(S.pullDownY > 0) && !activeBroll && !hasProgressBar && !activeCap && !hasWatermark) {
           sample.draw(ctx, 0, 0, W, H);
           lastExportMaskCanvas = null;
           exportMaskFrameIdx = 0;
@@ -21375,12 +21457,14 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           }
           segExportCleanCtx.clearRect(0, 0, W, H);
           const rePunch = ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) ? getRealEstateCameraPunch(t, S.captions) : 1.0;
-          const effZoom = isZoomed ? ((az && az.scale) || 1.10) * rePunch : rePunch;
-          if (effZoom > 1.001) {
+          const pullY = S.pullDownY || 0;
+          const basePullZoom = pullY > 0 ? (1.0 + pullY * 2.1) : 1.0;
+          const effZoom = (isZoomed ? ((az && az.scale) || 1.10) * rePunch : rePunch) * basePullZoom;
+          if (effZoom > 1.001 || pullY > 0) {
             const zW = W * effZoom;
             const zH = H * effZoom;
             const zX = (W - zW) / 2;
-            const zY = (H - zH) / 2;
+            const zY = (H - zH) / 2 + (pullY * H);
             sample.draw(segExportCleanCtx, zX, zY, zW, zH);
           } else {
             sample.draw(segExportCleanCtx, 0, 0, W, H);
@@ -21431,12 +21515,14 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         dbgFrameCount++;
         const _tVideo0 = performance.now();
         const reExportPunch = ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) ? getRealEstateCameraPunch(t, S.captions) : 1.0;
-        const effExportZoom = isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch;
-        if (effExportZoom > 1.001) {
+        const pullY = S.pullDownY || 0;
+        const basePullZoom = pullY > 0 ? (1.0 + pullY * 2.1) : 1.0;
+        const effExportZoom = (isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch) * basePullZoom;
+        if (effExportZoom > 1.001 || pullY > 0) {
           const zW = W * effExportZoom;
           const zH = H * effExportZoom;
           const zX = (W - zW) / 2;
-          const zY = (H - zH) / 2;
+          const zY = (H - zH) / 2 + (pullY * H);
           sample.draw(ctx, zX, zY, zW, zH);
         } else {
           sample.draw(ctx, 0, 0, W, H);
@@ -22141,7 +22227,9 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         zoom: Boolean(S.autoZoom && S.autoZoom.enabled),
         progressBar: S.progressBar,
         watermark: S.watermark,
-        auto_sfx: Boolean(S.autoSfx !== false)
+        auto_sfx: Boolean(S.autoSfx !== false),
+        pullDownY: S.pullDownY || 0,
+        videoZoom: S.videoZoom || 1.0
       };
       if (S.brolls && S.brolls.length > 0) {
         payload.broll = S.brolls.filter(b => b.url && b.end > b.start).map((b, idx) => ({
@@ -24716,10 +24804,25 @@ function drawCoverVideo(ctx, videoEl, dx, dy, dw, dh) {
     sy = (vh - sh) / 2;
   }
 
+  const pullY = S.pullDownY || 0;
+  if (pullY > 0) {
+    const shift = (vh - sh) * pullY;
+    sy = Math.max(0, sy - shift);
+  }
+
   try {
     if (typeof videoEl.draw === 'function') {
       // Mediabunny VideoSample
-      videoEl.draw(ctx, dx, dy, dw, dh);
+      if (pullY > 0) {
+        const effZoom = 1.0 + pullY * 2.1;
+        const pW = dw * effZoom;
+        const pH = dh * effZoom;
+        const pX = dx + (dw - pW) / 2;
+        const pY = dy + (dh - pH) / 2 + (pullY * dh);
+        videoEl.draw(ctx, pX, pY, pW, pH);
+      } else {
+        videoEl.draw(ctx, dx, dy, dw, dh);
+      }
     } else {
       ctx.drawImage(videoEl, sx, sy, sw, sh, dx, dy, dw, dh);
     }
