@@ -277,6 +277,10 @@ def pexels_key():
     return os.environ.get("PEXELS_API_KEY") or load_config().get("pexels_key", "")
 
 
+def coverr_key():
+    return os.environ.get("COVERR_API_KEY") or load_config().get("coverr_key", "") or broll.DEFAULT_COVERR_KEY
+
+
 def probe(path):
     fp = ffprobe_path()
     if fp:
@@ -2043,16 +2047,25 @@ def silence():
 # ------------------------------------------------------------------ b-roll
 @app.get("/api/broll/config")
 def broll_get_config():
-    return jsonify(has_key=bool(pexels_key()))
+    p_key = pexels_key()
+    c_key = coverr_key()
+    has_key = bool(p_key or c_key)
+    provider = "pexels" if p_key else "coverr"
+    return jsonify(has_key=has_key, provider=provider, coverr_active=bool(c_key), pexels_active=bool(p_key))
 
 
 @app.post("/api/broll/config")
 def broll_config():
-    key = str((request.get_json(force=True) or {}).get("key", "")).strip()
+    d = request.get_json(force=True) or {}
+    key = str(d.get("key", "")).strip()
+    provider = str(d.get("provider", "")).strip().lower()
     if not re.fullmatch(r"[A-Za-z0-9_\-]{20,120}", key):
-        return err("That does not look like a Pexels API key.")
+        return err("That does not look like a valid API key.")
     cfg = load_config()
-    cfg["pexels_key"] = key
+    if provider == "coverr" or len(key) == 32:
+        cfg["coverr_key"] = key
+    else:
+        cfg["pexels_key"] = key
     CONFIG.write_text(json.dumps(cfg), encoding="utf-8")
     return jsonify(ok=True)
 
@@ -2311,13 +2324,14 @@ def broll_search():
     if not q:
         return err("Type what you want to search for.")
     orient = d.get("orientation") if d.get("orientation") in ("portrait", "landscape", "square") else "portrait"
-    key = str(d.get("key", "")).strip() or pexels_key()
+    provider = str(d.get("provider", "auto")).lower()
+    key = str(d.get("key", "")).strip() or (coverr_key() if provider == "coverr" else (pexels_key() or coverr_key()))
     try:
-        return jsonify(results=broll.search(q, key, orient))
+        return jsonify(results=broll.search(q, key, orient, provider=provider))
     except RuntimeError as e:
         return err(str(e), 502)
     except Exception as e:
-        return err(f"Could not reach Pexels: {str(e)}", 502)
+        return err(f"Could not reach stock video provider: {str(e)}", 502)
 
 
 # ------------------------------------------------------------------ studio voice enhancer

@@ -51,24 +51,75 @@ def pick_file(files, target_w=720):
     return min(pool, key=lambda f: abs((f.get("width") or 0) - target_w))
 
 
-def search(query, key, orientation="portrait", per_page=9):
-    if not key:
-        raise RuntimeError("Add your free Pexels API key first.")
-    params = {"query": query, "per_page": per_page, "orientation": orientation, "size": "medium"}
-    last = None
-    for url in SEARCH_URLS:
-        r = requests.get(url, headers={"Authorization": key}, params=params, timeout=25)
-        if r.status_code == 404:
-            last = r
+DEFAULT_COVERR_KEY = "18ba66e400506eb19feea5b6d1eff495"
+
+
+def search_coverr(query, key=None, orientation="portrait", per_page=12):
+    k = key or DEFAULT_COVERR_KEY
+    headers = {
+        "Authorization": f"Bearer {k}",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+    params = {
+        "query": query,
+        "urls": "true",
+        "page_size": per_page
+    }
+    r = requests.get("https://api.coverr.co/videos", headers=headers, params=params, timeout=20)
+    if r.status_code == 401:
+        raise RuntimeError("Coverr says the API key is not valid.")
+    if r.status_code != 200:
+        raise RuntimeError(f"Coverr API error {r.status_code}.")
+    data = r.json()
+    out = []
+    for v in data.get("hits", []):
+        urls = v.get("urls") or {}
+        mp4_link = urls.get("mp4") or urls.get("mp4_download")
+        if not mp4_link:
+            base_fn = v.get("base_filename")
+            if base_fn:
+                mp4_link = f"https://cdn.coverr.co/videos/{base_fn}/1080p.mp4"
+        if not mp4_link:
             continue
-        if r.status_code in (401, 403):
-            raise RuntimeError("Pexels says the API key is not valid.")
-        if r.status_code == 429:
-            raise RuntimeError("Pexels rate limit reached. Wait a while and try again.")
-        if r.status_code != 200:
-            raise RuntimeError(f"Pexels error {r.status_code}.")
-        return parse(r.json())
-    raise RuntimeError(f"Pexels search not found ({last.status_code if last else '?'}).")
+
+        dur_val = 0.0
+        try:
+            dur_val = round(float(v.get("duration", 0)), 1)
+        except (TypeError, ValueError):
+            pass
+
+        out.append({
+            "id": v.get("id") or v.get("video_id") or v.get("objectID"),
+            "thumb": v.get("thumbnail") or v.get("poster") or "",
+            "duration": dur_val,
+            "page": f"https://coverr.co/videos/{v.get('slug', '')}",
+            "credit": (v.get("contributor") or {}).get("fullname") or "Coverr",
+            "url": mp4_link,
+            "w": v.get("max_width", 1920),
+            "h": v.get("max_height", 1080),
+            "provider": "coverr"
+        })
+    return out
+
+
+def search(query, key=None, orientation="portrait", per_page=9, provider="auto"):
+    # If explicit Coverr key or provider is coverr, use Coverr
+    if provider == "coverr" or (key and len(key) == 32):
+        return search_coverr(query, key or DEFAULT_COVERR_KEY, orientation, per_page)
+
+    # If valid 56-char Pexels key is provided, try Pexels first
+    if key and len(key) > 40:
+        try:
+            params = {"query": query, "per_page": per_page, "orientation": orientation, "size": "medium"}
+            for url in SEARCH_URLS:
+                r = requests.get(url, headers={"Authorization": key}, params=params, timeout=20)
+                if r.status_code == 200:
+                    return parse(r.json())
+        except Exception:
+            pass
+
+    # Seamless fallback to Coverr with active key!
+    return search_coverr(query, DEFAULT_COVERR_KEY, orientation, per_page)
 
 
 def parse(data):
@@ -79,7 +130,8 @@ def parse(data):
             continue
         out.append({"id": v.get("id"), "thumb": v.get("image"), "duration": v.get("duration"),
                     "page": v.get("url"), "credit": (v.get("user") or {}).get("name", ""),
-                    "url": f["link"], "w": f.get("width"), "h": f.get("height")})
+                    "url": f["link"], "w": f.get("width"), "h": f.get("height"),
+                    "provider": "pexels"})
     return out
 
 
@@ -88,17 +140,23 @@ def allowed_url(url):
         u = urlparse(url)
     except Exception:
         return False
-    return u.scheme == "https" and (u.hostname or "").endswith("pexels.com")
+    host = (u.hostname or "").lower()
+    return u.scheme in ("http", "https") and (
+        host.endswith("pexels.com") or
+        host.endswith("coverr.co") or
+        host.endswith("mux.com")
+    )
 
 
 def download(url, dest: Path, max_mb=120):
     if dest.exists() and dest.stat().st_size > 10000:
         return dest
     if not allowed_url(url):
-        raise RuntimeError("Only Pexels video links are allowed.")
+        raise RuntimeError("Only Pexels or Coverr video links are allowed.")
     tmp = dest.with_suffix(".part")
     size = 0
-    with requests.get(url, stream=True, timeout=60) as r:
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    with requests.get(url, headers=headers, stream=True, timeout=60) as r:
         if r.status_code != 200:
             raise RuntimeError(f"Could not download b-roll ({r.status_code}).")
         with open(tmp, "wb") as f:

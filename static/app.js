@@ -20499,19 +20499,25 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       });
     }
 
-    // Check if server already has Pexels key
+    // Check if server already has Coverr or Pexels key
     fetch('/api/broll/config')
       .then(r => r.json())
       .then(d => {
         const badge = $('brollKeyBadge');
         if (badge) {
-          badge.textContent = d.has_key ? '✓ Pexels Connected' : 'Pexels Free Library';
+          if (d.provider === 'coverr' || d.coverr_active) {
+            badge.textContent = '✓ Coverr Connected';
+          } else if (d.has_key) {
+            badge.textContent = '✓ Stock Video Connected';
+          } else {
+            badge.textContent = 'Free Stock Video Library';
+          }
         }
       })
       .catch(() => {});
   }
 
-  // Auto-detect caption moments & fetch B-roll clips from Pexels
+  // Auto-detect caption moments & fetch B-roll clips from stock library
   async function autoAddBrolls() {
     if (isAutoBrolling) return;
     if (!S.captions || S.captions.length === 0) {
@@ -20553,7 +20559,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         return;
       }
 
-      setMsg(`✨ Found ${slots.length} moments! Fetching stock videos from Pexels...`);
+      setMsg(`✨ Found ${slots.length} moments! Fetching free stock videos...`);
 
       // Intelligent layout rotation: Circle, Above, Below, Window, Full
       const layoutPattern = ['circle', 'above', 'below', 'window', 'full'];
@@ -20583,7 +20589,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               url: pick.url,
               thumb: pick.thumb,
               duration: pick.duration || (slot.end - slot.start),
-              credit: pick.credit || '',
+              credit: pick.credit || (pick.provider === 'coverr' ? 'Coverr' : 'Pexels'),
               layout: layout
             });
           }
@@ -20599,7 +20605,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         setMsg(`✓ Successfully added ${newBrolls.length} B-Rolls with smart layouts!`);
         showToast(`✨ Added ${newBrolls.length} B-Rolls!`);
       } else {
-        setMsg('Could not find videos on Pexels for those keywords. Search manually below.');
+        setMsg('Could not find stock videos for those keywords. Search manually below.');
       }
     } catch (err) {
       setMsg('Error adding B-roll: ' + err.message);
@@ -20610,12 +20616,12 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     }
   }
 
-  // Search Pexels with query
+  // Search stock videos (Coverr / Pexels) with query
   async function searchPexels(query) {
     const grid = $('pexelsResultsGrid');
     if (!grid) return;
     grid.classList.remove('hidden');
-    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#a1a1aa;">Searching Pexels for "' + escapeHtml(query) + '"...</div>';
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#a1a1aa;">Searching stock library for "' + escapeHtml(query) + '"...</div>';
 
     try {
       const res = await fetch('/api/broll/search', {
@@ -20624,7 +20630,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         body: JSON.stringify({ query, orientation: pexelsOrientation })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to search Pexels');
+      if (!res.ok) throw new Error(data.error || 'Failed to search stock library');
       const results = data.results || [];
 
       if (results.length === 0) {
@@ -20636,13 +20642,14 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       results.forEach((item, idx) => {
         const card = document.createElement('div');
         card.className = 'pexels-card';
+        const providerName = (item.provider === 'coverr' ? 'Coverr' : (item.credit || 'Free Stock'));
         card.innerHTML = `
           <div class="pexels-thumb-wrap">
-            <img src="${escapeHtml(item.thumb)}" class="pexels-thumb-img" alt="Pexels Video" loading="lazy">
+            <img src="${escapeHtml(item.thumb)}" class="pexels-thumb-img" alt="Stock Video" loading="lazy">
             <span class="pexels-dur-badge">${Math.round(item.duration || 0)}s</span>
           </div>
           <div class="pexels-card-info">
-            <span class="pexels-credit">By ${escapeHtml(item.credit || 'Pexels')}</span>
+            <span class="pexels-credit">By ${escapeHtml(item.credit || providerName)}</span>
             <button type="button" class="btn-add-broll" data-idx="${idx}">+ Add to Video</button>
           </div>
         `;

@@ -1807,8 +1807,8 @@
                 <div class="broll-hero-content">
                   <div class="broll-hero-icon">✨</div>
                   <div class="broll-hero-text">
-                    <strong>Auto B-Roll with Pexels</strong>
-                    <span>Automatically detects key moments in captions & inserts relevant stock video clips</span>
+                    <strong>Auto B-Roll with Coverr / Stock Library</strong>
+                    <span>Automatically detects key moments in captions & inserts relevant free stock video clips</span>
                   </div>
                 </div>
                 <div class="broll-actions-row">
@@ -1821,7 +1821,7 @@
                     <span>🎬 Auto B-Rolls Only</span>
                   </button>
                   <button type="button" id="btnTogglePexelsSearch" class="btn-subaction">
-                    <span>🔍 Search Pexels</span>
+                    <span>🔍 Search Stock Videos</span>
                   </button>
                 </div>
                 <div id="brollStatusMsg" class="broll-status-msg hidden"></div>
@@ -1830,8 +1830,8 @@
               <!-- Pexels Search Box -->
               <div class="control-card" id="brollSearchCard">
                 <div class="control-header">
-                  <label>🔍 Search Pexels Stock Videos</label>
-                  <span id="brollKeyBadge" class="val-badge badge-green">Pexels Free</span>
+                  <label>🔍 Search Coverr & Pexels Stock Videos</label>
+                  <span id="brollKeyBadge" class="val-badge badge-green">✓ Coverr Connected</span>
                 </div>
                 <div class="broll-search-row">
                   <input type="text" id="brollSearchInput" class="styled-text-input" placeholder="Search clips (e.g. money, nature, city, business)...">
@@ -1862,22 +1862,22 @@
                   <div class="broll-empty-state" id="brollEmptyState">
                     <div class="empty-icon">🎬</div>
                     <p>No B-Rolls added yet.</p>
-                    <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search Pexels above.</p>
+                    <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search stock videos above.</p>
                   </div>
                 </div>
               </div>
 
-              <!-- Pexels API Key Settings (Collapsible) -->
+              <!-- Stock Video API Key Settings (Collapsible) -->
               <div class="control-card broll-config-card">
                 <details class="broll-key-details" id="brollKeyDetails">
-                  <summary class="broll-key-summary">🔑 Pexels API Key Settings</summary>
+                  <summary class="broll-key-summary">🔑 Stock Video API Key Settings</summary>
                   <div class="broll-key-body">
                     <p class="broll-help-text">
-                      Pexels provides 100% free stock videos for your reels. Add your free Pexels API key below or use the built-in library.
-                      <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">Get free API key ↗</a>
+                      Coverr & Pexels provide 100% free stock videos for your reels. Built-in Coverr API key is pre-connected! You can also add a custom key below.
+                      <a href="https://coverr.co" target="_blank" rel="noopener">Coverr Library ↗</a> | <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">Pexels ↗</a>
                     </p>
                     <div class="broll-search-row">
-                      <input type="password" id="inputPexelsKey" class="styled-text-input" placeholder="Paste Pexels API key here...">
+                      <input type="password" id="inputPexelsKey" class="styled-text-input" placeholder="Paste Coverr or Pexels API key here...">
                       <button type="button" id="btnSavePexelsKey" class="btn-subaction">Save Key</button>
                     </div>
                     <span id="pexelsKeyStatus" class="broll-key-status"></span>
