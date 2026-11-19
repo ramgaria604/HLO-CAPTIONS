@@ -1081,11 +1081,13 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     const wordObjs = lineWords.map((w, idx) => {
       const isKey = Boolean(w.key);
       const txt = applyTextCase(w.t, currentCase);
+      const wScale = (w && typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0;
       ctx.font = `${isKey ? 900 : 800} ${fs}px ${fontFam}`;
-      const width = ctx.measureText(txt).width;
+      const unscaledWidth = ctx.measureText(txt).width;
+      const width = unscaledWidth * wScale;
       const spaceWidth = (idx < lineWords.length - 1) ? ctx.measureText(' ').width : 0;
       lineWidth += width + spaceWidth;
-      return { w, txt, isKey, width, spaceWidth };
+      return { w, txt, isKey, width, unscaledWidth, spaceWidth, wScale };
     });
     if (lineWidth > maxLineWidth) maxLineWidth = lineWidth;
     return { wordObjs, lineWidth };
@@ -1170,8 +1172,11 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     const scaledSpaceWidth = Math.max(fs * 0.28, ctx.measureText(' ').width);
     let actualLineWidth = 0;
     mLine.wordObjs.forEach((wo, idx) => {
+      const wScale = (wo.w && typeof wo.w.scale === 'number' && wo.w.scale > 0) ? wo.w.scale : (wo.wScale || 1.0);
+      wo.wScale = wScale;
       ctx.font = `${wo.isKey ? 900 : 800} ${fs}px ${fontFam}`;
-      wo.width = ctx.measureText(wo.txt).width;
+      wo.unscaledWidth = ctx.measureText(wo.txt).width;
+      wo.width = wo.unscaledWidth * wScale;
       wo.spaceWidth = (idx < mLine.wordObjs.length - 1) ? scaledSpaceWidth : 0;
       actualLineWidth += wo.width + wo.spaceWidth;
     });
@@ -1203,7 +1208,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 
         if (isBoxMode) {
           const padX = Math.max(6, Math.round(fs * 0.22));
-          const boxW = wo.width + padX * 2;
+          const boxW = (wo.unscaledWidth || (wo.width / (wo.wScale || 1.0))) + padX * 2;
           const boxH = fs * 1.20;
           ctx.save();
           ctx.fillStyle = ov.customHighlight || st.highlightColor || (st.highlight && st.highlight.color) || (st.key && st.key.color) || st.pill || '#FFE600';
@@ -2447,8 +2452,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       let txt = up(w.t);
       if (o.role && o.role.upper) txt = txt.toUpperCase();
       else if (o.role && o.role.lower) txt = txt.toLowerCase();
-      const wWidth = targetCtx.measureText(txt).width;
-      return { w, txt, width: wWidth };
+      const wScale = (w && typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0;
+      const unscaledWidth = targetCtx.measureText(txt).width;
+      const wWidth = unscaledWidth * wScale;
+      return { w, txt, width: wWidth, unscaledWidth, wScale };
     });
 
     const totalLineWidth = wordObjs.reduce((sum, wo) => sum + wo.width, 0) + Math.max(0, wordObjs.length - 1) * spaceWidth;
@@ -16979,50 +16986,85 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const btnStepSizeUp = $('btnStepSizeUp');
     const btnResetSize = $('btnResetSize');
 
-    const updateFontScaleUI = () => {
+    const getActiveScaleTarget = () => {
+      const curCap = (S.captions && S.selectedCaptionId) ? S.captions.find(c => c.id === S.selectedCaptionId) : null;
+      const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && curCap && curCap.words && curCap.words[S.selectedWordIndex]);
+      if (isWordMode) {
+        return { type: 'word', cap: curCap, word: curCap.words[S.selectedWordIndex], scale: Number(curCap.words[S.selectedWordIndex].scale) || 1.0 };
+      }
+      if (S.adjustScope === 'one' && curCap) {
+        return { type: 'caption', cap: curCap, scale: Number(curCap.scale) || 1.0 };
+      }
       if (!S.style) S.style = {};
-      if (typeof S.style.fontScale !== 'number') S.style.fontScale = 1.0;
-      const px = Math.round(S.style.fontScale * 48);
-      const pct = Math.round(S.style.fontScale * 100);
-      if (valFontSize) valFontSize.textContent = `${pct}% (${px}px)`;
+      return { type: 'global', scale: Number(S.style.fontScale) || 1.0 };
+    };
+
+    const setActiveScale = (newScale, actionName = 'Change size') => {
+      const clamped = Math.round(Math.max(0.4, Math.min(3.0, newScale)) * 100) / 100;
+      const target = getActiveScaleTarget();
+      if (target.type === 'word') {
+        target.word.scale = clamped;
+        if (target.cap) target.cap._cachedExportWords = null;
+        pushHistoryState(actionName);
+        if (typeof updateTransformHud === 'function') updateTransformHud(`Word: ${clamped.toFixed(2)}×`, false);
+      } else if (target.type === 'caption') {
+        target.cap.scale = clamped;
+        pushHistoryState(actionName);
+        if (typeof updateTransformHud === 'function') updateTransformHud(`${clamped.toFixed(2)}×`, false);
+      } else {
+        if (!S.style) S.style = {};
+        S.style.fontScale = clamped;
+        pushHistoryState(actionName);
+      }
+      updateFontScaleUI();
+      renderCanvas();
+      if (typeof updateVideoEditOverlay === 'function') updateVideoEditOverlay();
+    };
+
+    const updateFontScaleUI = () => {
+      const target = getActiveScaleTarget();
+      const currentScale = target.scale;
+      const px = Math.round(currentScale * 48);
+      const pct = Math.round(currentScale * 100);
+      if (valFontSize) {
+        if (target.type === 'word') {
+          valFontSize.textContent = `Word "${target.word.t}": ${pct}% (${px}px)`;
+        } else if (target.type === 'caption') {
+          valFontSize.textContent = `This caption: ${pct}% (${px}px)`;
+        } else {
+          valFontSize.textContent = `${pct}% (${px}px)`;
+        }
+      }
       if (inputFontSize) inputFontSize.value = String(pct);
       $$('.btn-size-preset').forEach(b => {
         const s = parseFloat(b.getAttribute('data-scale')) || 1.0;
-        b.classList.toggle('active', Math.abs(s - S.style.fontScale) < 0.05);
+        b.classList.toggle('active', Math.abs(s - currentScale) < 0.05);
       });
     };
+    window.updateFontScaleUI = updateFontScaleUI;
+
     if (inputFontSize) {
       inputFontSize.addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10) || 100;
-        if (!S.style) S.style = {};
-        S.style.fontScale = Math.round(val) / 100;
-        updateFontScaleUI();
-        renderCanvas();
+        setActiveScale(Math.round(val) / 100, 'Adjust font scale');
       });
     }
 
     if (btnStepSizeDown) {
       btnStepSizeDown.addEventListener('click', () => {
-        if (!S.style) S.style = {};
-        S.style.fontScale = Math.max(0.6, Math.round(((S.style.fontScale || 1.0) - 0.1) * 10) / 10);
-        updateFontScaleUI();
-        renderCanvas();
+        const target = getActiveScaleTarget();
+        setActiveScale(target.scale - 0.1, 'Step size down');
       });
     }
     if (btnStepSizeUp) {
       btnStepSizeUp.addEventListener('click', () => {
-        if (!S.style) S.style = {};
-        S.style.fontScale = Math.min(1.8, Math.round(((S.style.fontScale || 1.0) + 0.1) * 10) / 10);
-        updateFontScaleUI();
-        renderCanvas();
+        const target = getActiveScaleTarget();
+        setActiveScale(target.scale + 0.1, 'Step size up');
       });
     }
     if (btnResetSize) {
       btnResetSize.addEventListener('click', () => {
-        if (!S.style) S.style = {};
-        S.style.fontScale = 1.0;
-        updateFontScaleUI();
-        renderCanvas();
+        setActiveScale(1.0, 'Reset size');
       });
     }
 
@@ -17741,12 +17783,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const handler = (e) => {
         e.preventDefault();
         const scale = parseFloat(btn.getAttribute('data-scale')) || 1.0;
-        if (!S.style) S.style = {};
-        S.style.fontScale = scale;
-        updateFontScaleUI();
-        syncTypographyUI();
-        showToast(`📏 Caption Size: ${Math.round(scale * 100)}%`);
-        renderCanvas(true);
+        if (typeof setActiveScale === 'function') {
+          setActiveScale(scale, 'Set size preset');
+        } else {
+          if (!S.style) S.style = {};
+          S.style.fontScale = scale;
+          if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
+          renderCanvas(true);
+        }
+        if (typeof syncTypographyUI === 'function') syncTypographyUI();
+        showToast(`📏 Size: ${Math.round(scale * 100)}%`);
       };
       btn.addEventListener('click', handler);
       btn.addEventListener('pointerup', handler);
@@ -18387,8 +18433,20 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function setupCaptionDragging() {
     const hint = $('captionDragHint');
     let drag = null;
+    let stageDragRafId = null;
+
+    const scheduleStageDragRaf = () => {
+      if (stageDragRafId) return;
+      stageDragRafId = requestAnimationFrame(() => {
+        stageDragRafId = null;
+        renderCanvas();
+        updateVideoEditOverlay();
+      });
+    };
+
     stage.addEventListener('pointerdown', (event) => {
-      if (!S.captions.length || !S.style || event.target.closest('button') || event.target.closest('#captionBoundingBox') || event.target.closest('#videoEditMiniToolbar')) return;
+      if (!S.captions.length || !S.style || event.target.closest('button') || event.target.closest('#captionBoundingBox') || event.target.closest('#videoEditMiniToolbar') || event.target.closest('#captionContextNavBar')) return;
+      if (S.editMode === 'word') return;
       if (!event.isPrimary) { drag = null; return; }
       const rect = stage.getBoundingClientRect();
       if (!rect.height || !rect.width) return;
@@ -18424,8 +18482,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         try { stage.setPointerCapture(event.pointerId); } catch (e) {}
         if (drag.activeCap && S.selectedCaptionId !== drag.activeCap.id) {
           S.selectedCaptionId = drag.activeCap.id;
-          S.editMode = 'whole';
-          S.selectedWordIndex = -1;
+          if (S.editMode !== 'word') {
+            S.editMode = 'whole';
+            S.selectedWordIndex = -1;
+          }
         }
       }
       drag.moved = true;
@@ -18442,8 +18502,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         const scopeBadge = S.adjustScope === 'all' ? '🌐 All' : '📍 This';
         updateTransformHud(`${scopeBadge}: ${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
         if (hint) hint.textContent = `${scopeBadge} caption: ${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`;
-        renderCanvas();
-        updateVideoEditOverlay();
+        scheduleStageDragRaf();
       } else {
         const nextPos = Math.max(0.08, Math.min(0.92, drag.origPos + dY / drag.rectH));
         if (S.style) {
@@ -18451,11 +18510,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           S.style.posY = nextPos;
         }
         if (hint) hint.textContent = '↕ Caption Position: ' + Math.round(nextPos * 100) + '%';
-        renderCanvas();
+        scheduleStageDragRaf();
       }
     });
 
     const finish = (event) => {
+      if (stageDragRafId) {
+        cancelAnimationFrame(stageDragRafId);
+        stageDragRafId = null;
+      }
       if (!drag || drag.id !== event.pointerId) return;
       const d = drag;
       drag = null;
@@ -23090,6 +23153,7 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
       const wIdx = words.indexOf(w);
       const wScale = (typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0;
       const estW = Math.max(estFs * 1.2, (w.t || '').length * estFs * 0.55);
+      const scaledEstW = estW * wScale;
       const wDx = (Number(w.dx) || 0) * W;
       const wDy = (Number(w.dy) || 0) * H;
       const wx = curX + wDx + capDx;
@@ -23098,13 +23162,13 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
         wordIndex: wIdx >= 0 ? wIdx : wordBoxes.length,
         word: w,
         box: {
-          x: Math.max(0, Math.min(1, (wx - estW * wScale * 0.5) / W)),
+          x: Math.max(0, Math.min(1, (wx - scaledEstW * 0.5) / W)),
           y: Math.max(0, Math.min(1, (wy - estFs * wScale * 0.6) / H)),
-          w: Math.max(0.04, Math.min(1, (estW * capScale * wScale) / W)),
+          w: Math.max(0.04, Math.min(1, (scaledEstW * capScale) / W)),
           h: Math.max(0.03, Math.min(1, (estFs * 1.2 * capScale * wScale) / H))
         }
       });
-      curX += estW + estFs * 0.25;
+      curX += scaledEstW + estFs * 0.25;
       totalW = Math.max(totalW, curX - (centerX - (lWords.length * estFs * 2.2) / 2));
     });
   });
@@ -23187,6 +23251,7 @@ function selectCaption(capId, wordIndex = -1) {
   }
 
   updateVideoEditOverlay();
+  if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
 
   // Show first-time hint
   if (!window._hasShownTapEditHint) {
@@ -23204,6 +23269,7 @@ function deselectCaption() {
   S.selectedCaptionId = null;
   S.selectedWordIndex = -1;
   S.editMode = 'whole';
+  if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
 
   $$('.timeline-block').forEach(b => b.classList.remove('selected'));
 
@@ -23466,8 +23532,11 @@ function setupVideoOverlayInteractions() {
     return capIdx === -1 ? null : { capIdx, cap: S.captions[capIdx] };
   };
 
+  let overlayRafId = null;
   const commitFrameUpdate = () => {
-    requestAnimationFrame(() => {
+    if (overlayRafId) return;
+    overlayRafId = requestAnimationFrame(() => {
+      overlayRafId = null;
       renderCanvas();
       updateVideoEditOverlay();
     });
@@ -23637,9 +23706,11 @@ function setupVideoOverlayInteractions() {
         drag.targetObj.scale = newScale;
         if (drag.cap) drag.cap._cachedExportWords = null;
         updateTransformHud(`Word: ${newScale.toFixed(2)}×`, true);
+        if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
       } else {
         applyCaptionTransform(drag.cap, (c) => { c.scale = newScale; });
         updateTransformHud(`${newScale.toFixed(2)}×`, true);
+        if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
       }
       commitFrameUpdate();
     } else if (drag.type === 'rotate') {
@@ -23679,12 +23750,17 @@ function setupVideoOverlayInteractions() {
   };
 
   const onPointerUp = (e) => {
+    if (overlayRafId) {
+      cancelAnimationFrame(overlayRafId);
+      overlayRafId = null;
+    }
     activePointers.delete(e.pointerId);
     if (pinch && activePointers.size < 2) {
       pinch = null;
       updateSnapGuidesDOM(false, false);
       updateTransformHud('', false);
       pushHistoryState('Pinch adjust caption');
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
       renderCanvas();
       updateVideoEditOverlay();
     }
@@ -23705,6 +23781,7 @@ function setupVideoOverlayInteractions() {
         pushHistoryState('Scale caption');
         console.log('[EDIT]', 'scale', d.capIdx, -1, d.cap.scale);
       }
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
     } else if (d.type === 'rotate' && d.moved) {
       pushHistoryState('Rotate caption');
       console.log('[EDIT]', 'rotate', d.capIdx, -1, d.cap.rot);
@@ -23740,6 +23817,7 @@ function setupVideoOverlayInteractions() {
     }
     renderCanvas();
     updateVideoEditOverlay();
+    if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
     clearTimeout(wheelHistoryTimer);
     wheelHistoryTimer = setTimeout(() => {
       updateTransformHud('', false);
@@ -23758,6 +23836,7 @@ function setupVideoOverlayInteractions() {
       S.adjustScope = 'all';
       S.editMode = 'whole';
       updateVideoEditOverlay();
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
       showToast('Editing all captions together');
     });
   }
@@ -23770,6 +23849,7 @@ function setupVideoOverlayInteractions() {
       S.editMode = 'whole';
       S.selectedWordIndex = -1;
       updateVideoEditOverlay();
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
       showToast('Editing this caption line');
     });
   }
@@ -23805,6 +23885,7 @@ function setupVideoOverlayInteractions() {
         S.selectedWordIndex = 0;
       }
       commitFrameUpdate();
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
       showToast('Tap any word to select & drag it');
     });
   }
@@ -23827,6 +23908,7 @@ function setupVideoOverlayInteractions() {
     }
     renderCanvas();
     updateVideoEditOverlay();
+    if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
     clearTimeout(wheelHistoryTimer);
     wheelHistoryTimer = setTimeout(() => updateTransformHud('', false), 700);
   };
