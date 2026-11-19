@@ -159,10 +159,10 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.85, max_len=3.4):
     flush()
 
     # Seamless gap-closing: keep caption container visible between sentences
-    # but do NOT stretch the word's own pronunciation boundary artificially
+    # so captions do not disappear or flash off in the middle of natural pauses
     for i in range(len(caps) - 1):
         inter_gap = caps[i + 1]["start"] - caps[i]["end"]
-        if 0 < inter_gap <= 0.75:
+        if 0 < inter_gap <= 1.4:
             caps[i]["end"] = caps[i + 1]["start"]
 
     return caps
@@ -1323,6 +1323,16 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
     norm_caps = []
     for c in captions:
         w_list = c.get("words", [])
+        if not w_list and c.get("text"):
+            toks = [t for t in c.get("text", "").split() if t]
+            dur = max(0.5, float(c.get("end", 1)) - float(c.get("start", 0)))
+            step = dur / max(1, len(toks))
+            w_list = [{
+                "t": t, "word": t,
+                "s": float(c.get("start", 0)) + i * step,
+                "e": float(c.get("start", 0)) + (i + 1) * step,
+                "key": (i == 0)
+            } for i, t in enumerate(toks)]
         if not w_list:
             continue
         clean_w = []
@@ -2319,6 +2329,16 @@ def build_ass(captions, style, W, H):
     norm_caps = []
     for c in captions:
         w_list = c.get("words", [])
+        if not w_list and c.get("text"):
+            toks = [t for t in c.get("text", "").split() if t]
+            dur = max(0.5, float(c.get("end", 1)) - float(c.get("start", 0)))
+            step = dur / max(1, len(toks))
+            w_list = [{
+                "t": t, "word": t,
+                "s": float(c.get("start", 0)) + i * step,
+                "e": float(c.get("start", 0)) + (i + 1) * step,
+                "key": (i == 0)
+            } for i, t in enumerate(toks)]
         if not w_list:
             continue
         clean_w = []

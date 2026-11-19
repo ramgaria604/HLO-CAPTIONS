@@ -16648,9 +16648,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       captionCenter.appendChild(captionInput);
 
       // 1-Click Word Chips for instant 👑 Hero Highlight
-      if (!Array.isArray(cap.words) || cap.words.length === 0 || cap.words.length !== (cap.text || '').trim().split(/\s+/).filter(Boolean).length) {
+      const textTokens = (cap.text || '').trim().split(/\s+/).filter(Boolean);
+      if (!Array.isArray(cap.words) || cap.words.length === 0 || cap.words.length !== textTokens.length) {
         updateCaptionWordTimings(cap);
-        const textTokens = (cap.text || '').trim().split(/\s+/).filter(Boolean);
         const existingWords = Array.isArray(cap.words) ? cap.words : [];
         const dur = Math.max(0.1, cap.end - cap.start);
         const wDur = dur / Math.max(textTokens.length, 1);
@@ -16663,6 +16663,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           end: Math.round((cap.start + (idx + 1) * wDur) * 100) / 100,
           key: existingWords[idx] ? Boolean(existingWords[idx].key) : false
         }));
+      } else {
+        // Synchronize word text in case spelling was edited in textarea!
+        cap.words.forEach((w, idx) => {
+          if (textTokens[idx] && (w.t !== textTokens[idx] || w.word !== textTokens[idx])) {
+            w.t = textTokens[idx];
+            w.word = textTokens[idx];
+          }
+        });
       }
       if (Array.isArray(cap.words) && cap.words.length > 0) {
         const wordsRow = document.createElement('div');
@@ -16811,21 +16819,37 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         cap.text = cleanValue;
         const rawTokens = rawValue.split(/\s+/).filter(Boolean);
         const words = cleanValue.split(/\s+/).filter(Boolean);
-        const dur = (cap.end - cap.start) / Math.max(words.length, 1);
-        cap.words = words.map((w, wIdx) => {
-          const hasAsterisk = rawTokens[wIdx] ? rawTokens[wIdx].includes('*') : false;
-          return {
-            t: w,
-            word: w,
-            s: cap.start + wIdx * dur,
-            start: cap.start + wIdx * dur,
-            e: cap.start + (wIdx + 1) * dur,
-            end: cap.start + (wIdx + 1) * dur,
-            key: hasAsterisk
-          };
-        });
+        if (Array.isArray(cap.words) && cap.words.length === words.length) {
+          // Same word count (e.g. spelling correction in a middle word):
+          // Keep precise timing and only update word text & highlight keys
+          words.forEach((w, wIdx) => {
+            const hasAsterisk = rawTokens[wIdx] ? rawTokens[wIdx].includes('*') : false;
+            cap.words[wIdx].t = w;
+            cap.words[wIdx].word = w;
+            if (hasAsterisk) cap.words[wIdx].key = true;
+          });
+        } else {
+          // Word count changed: re-slice timing proportionally
+          const dur = (cap.end - cap.start) / Math.max(words.length, 1);
+          cap.words = words.map((w, wIdx) => {
+            const hasAsterisk = rawTokens[wIdx] ? rawTokens[wIdx].includes('*') : false;
+            return {
+              t: w,
+              word: w,
+              s: Math.round((cap.start + wIdx * dur) * 100) / 100,
+              start: Math.round((cap.start + wIdx * dur) * 100) / 100,
+              e: Math.round((cap.start + (wIdx + 1) * dur) * 100) / 100,
+              end: Math.round((cap.start + (wIdx + 1) * dur) * 100) / 100,
+              key: hasAsterisk
+            };
+          });
+        }
         renderCanvas();
         renderTimeline();
+      });
+
+      textarea.addEventListener('blur', () => {
+        renderCaptionsList();
       });
 
       row.querySelector('.caption-delete-btn').addEventListener('click', (e) => {
@@ -24252,14 +24276,25 @@ function setupCaptionEditSheet() {
       cap.text = newText;
       const textWords = newText.split(/\s+/).filter(Boolean);
       if (textWords.length !== (cap.words || []).length) {
-        // Words changed in text input, re-distribute proportionally
+        // Words count changed in text input, re-distribute proportionally
         const dur = Math.max(0.2, cap.end - cap.start);
         const wDur = dur / Math.max(1, textWords.length);
         cap.words = textWords.map((t, i) => ({
-          t,
+          t: t,
+          word: t,
           s: Math.round((cap.start + i * wDur) * 100) / 100,
-          e: Math.round((cap.start + (i + 1) * wDur) * 100) / 100
+          start: Math.round((cap.start + i * wDur) * 100) / 100,
+          e: Math.round((cap.start + (i + 1) * wDur) * 100) / 100,
+          end: Math.round((cap.start + (i + 1) * wDur) * 100) / 100,
+          key: (cap.words && cap.words[i]) ? Boolean(cap.words[i].key) : false
         }));
+      } else {
+        // Same word count (e.g. spelling mistake corrected in a word):
+        // Update each word token in place while preserving timing & key highlight!
+        cap.words.forEach((w, i) => {
+          w.t = textWords[i];
+          w.word = textWords[i];
+        });
       }
 
       pushHistoryState('Edit caption text & word timings');
