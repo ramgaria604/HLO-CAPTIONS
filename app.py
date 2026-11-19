@@ -1128,25 +1128,40 @@ def auth_google():
         user_data["created_at"] = existing.get("created_at", user_data["created_at"])
 
     dev_data = load_device_credits_data()
-    email_rec = dev_data.get(email) if isinstance(dev_data.get(email), dict) else None
+    device_id = (d.get("device_id") or "").strip()
+    client_c = d.get("client_credits")
+    client_credits_val = int(client_c) if (isinstance(client_c, (int, float)) and client_c > 0) else 0
 
-    # Credits tied directly to Gmail account
+    email_rec = dev_data.get(email) if isinstance(dev_data.get(email), dict) else None
+    dev_rec = dev_data.get(device_id) if (device_id and isinstance(dev_data.get(device_id), dict)) else None
+
+    # Credits tied directly to Gmail account, merging guest device credits if redeemed before login
     credits_candidates = [
         existing.get("credits") if isinstance(existing, dict) else None,
         email_rec.get("credits") if email_rec else None,
+        dev_rec.get("credits") if dev_rec else None,
+        client_credits_val if client_credits_val > 0 else None,
     ]
-    valid_credits = [int(c) for c in credits_candidates if isinstance(c, (int, float))]
-    merged_credits = max(0, valid_credits[0]) if valid_credits else 0
-
-    has_legit = bool(
-        existing.get("has_paid") or
-        (email_rec and email_rec.get("has_paid")) or
-        has_verified_credit_proof(user_email=email, user_id=user_id, dev_data=dev_data)
-    )
+    valid_credits = [int(c) for c in credits_candidates if isinstance(c, (int, float)) and c >= 0]
 
     merged_used = max(
         existing.get("used", 0) if isinstance(existing, dict) else 0,
         email_rec.get("used", 0) if isinstance(email_rec, dict) else 0,
+        dev_rec.get("used", 0) if isinstance(dev_rec, dict) else 0,
+    )
+
+    if not valid_credits or max(valid_credits) == 0:
+        # Every Gmail account gets exactly 1 free credit on signup if they have not used it yet!
+        merged_credits = 1 if (merged_used == 0) else 0
+    else:
+        merged_credits = max(valid_credits)
+
+    has_legit = bool(
+        existing.get("has_paid") or
+        (email_rec and email_rec.get("has_paid")) or
+        (dev_rec and dev_rec.get("has_paid")) or
+        (merged_credits > 1) or
+        has_verified_credit_proof(user_email=email, user_id=user_id, device_id=device_id, dev_data=dev_data)
     )
     expires_candidates = [
         x for x in (
@@ -1248,6 +1263,10 @@ def project_delete(pid):
 # ------------------------------------------------------------------ Instagram VIP Coupon & Credits
 COUPONS_FILE = WORK / "coupons.json"
 DEFAULT_COUPONS = {
+    # Creator & Owner Codes (Unlimited 100 Credits)
+    "NIKHILNOTTA1": {"credits": 100, "unlimited": True},
+    "NIKHIL604": {"credits": 100, "unlimited": True},
+    "PRO100": {"credits": 100, "unlimited": True},
     # 10 Exclusive Single-Use Codes (max 1 use total each, 2 free credits each)
     "VAULT4A": {"credits": 2, "max_uses": 1},
     "ZINE9K": {"credits": 2, "max_uses": 1},
@@ -1278,10 +1297,14 @@ def check_device_credits():
     """Checks server-side export credits strictly connected to user's Gmail."""
     d = request.get_json(force=True) or {}
     user_email = (d.get("email") or "").strip().lower()
+    device_id = (d.get("device_id") or "").strip()
 
     if not user_email:
-        # Anonymous users without Gmail have 0 export credits
-        resp0 = jsonify(credits=0, used=0, has_paid=False)
+        # Check if guest device has redeemed coupon credits
+        data = load_device_credits_data()
+        dev_rec = data.get(device_id) if (device_id and isinstance(data.get(device_id), dict)) else {}
+        dev_credits = dev_rec.get("credits", 0) if isinstance(dev_rec.get("credits"), (int, float)) else 0
+        resp0 = jsonify(credits=dev_credits, used=dev_rec.get("used", 0), has_paid=bool(dev_rec.get("has_paid")))
         resp0.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
         return resp0
 
@@ -1290,18 +1313,31 @@ def check_device_credits():
     user_file = USERS_DIR / f"{user_id}.json"
     data = load_device_credits_data()
     email_rec = data.get(user_email) if isinstance(data.get(user_email), dict) else {}
+    dev_rec = data.get(device_id) if (device_id and isinstance(data.get(device_id), dict)) else {}
 
-    # Authoritative balance comes directly from user's Gmail profile / database
+    # Authoritative balance comes directly from user's Gmail profile / database / device
     credits_val = user_profile.get("credits")
     if credits_val is None:
-        credits_val = email_rec.get("credits", 0)
+        credits_val = email_rec.get("credits")
+    if credits_val is None:
+        credits_val = dev_rec.get("credits")
+
+    used_count = max(
+        int(user_profile.get("used", 0) or 0),
+        int(email_rec.get("used", 0) or 0),
+        int(dev_rec.get("used", 0) or 0)
+    )
+
+    if credits_val is None:
+        # Brand new Gmail user: gets 1 free starter credit if unused!
+        credits_val = 1 if (used_count == 0) else 0
+
     try:
         credits_val = max(0, int(credits_val))
     except (ValueError, TypeError):
         credits_val = 0
 
-    used_count = user_profile.get("used", email_rec.get("used", 0))
-    has_paid = bool(user_profile.get("has_paid") or email_rec.get("has_paid") or credits_val > 0)
+    has_paid = bool(user_profile.get("has_paid") or email_rec.get("has_paid") or dev_rec.get("has_paid") or credits_val > 1)
     expires_at = user_profile.get("expires_at") or email_rec.get("expires_at")
 
     if expires_at and time.time() > expires_at:
@@ -1318,11 +1354,12 @@ def check_device_credits():
         record["expires_at"] = expires_at
 
     data[user_email] = {**email_rec, **record}
+    if device_id:
+        data[device_id] = {**dev_rec, **record}
     save_device_credits_data(data)
 
-    if user_file or user_profile:
-        user_profile.update(record)
-        save_user_profile(user_id, user_profile)
+    user_profile.update(record)
+    save_user_profile(user_id, user_profile)
 
     resp = jsonify(credits=credits_val, used=used_count, expires_at=expires_at, has_paid=has_paid)
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"

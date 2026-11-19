@@ -13125,9 +13125,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function setupCouponHandlers() {
-    // Load credits strictly linked to Gmail/Account if logged in
+    // Load credits strictly linked to Gmail/Account if logged in, with device fallback
     const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
-    let savedCredits = 0;
+    let savedCredits = null;
     if (userEmail) {
       const userCreditKey = 'cs_credits_' + userEmail;
       const savedUserVal = safeLSGet(userCreditKey);
@@ -13135,8 +13135,20 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         savedCredits = Math.max(0, parseInt(savedUserVal, 10));
       }
     }
+    if (savedCredits === null) {
+      const savedGlobalVal = safeLSGet('cs_credits');
+      if (savedGlobalVal !== null && !isNaN(parseInt(savedGlobalVal, 10))) {
+        savedCredits = Math.max(0, parseInt(savedGlobalVal, 10));
+      }
+    }
 
-    S.credits = savedCredits;
+    if (savedCredits !== null) {
+      S.credits = savedCredits;
+    } else {
+      // 1 starter credit for new user until synced from server
+      S.credits = 1;
+      saveUserCredits(1);
+    }
     updateCreditsUI();
 
     // Authoritative server credit sync with retry backoff, timeout, and no-store cache
@@ -13160,9 +13172,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       }
 
       _creditSyncInFlight = true;
+      const curDevId = getPersistentDeviceId();
       const checkPayload = {
+        device_id: curDevId,
         email: curEmail,
-        user_id: S.user ? S.user.id : null
+        user_id: S.user ? S.user.id : null,
+        client_credits: S.credits
       };
 
       const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
