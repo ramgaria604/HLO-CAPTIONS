@@ -19100,79 +19100,212 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     ctx.drawImage(cachedWatermarkCanvas, 0, 0);
   }
 
+  const MOTION_THEMES = {
+    wealth: {
+      tlBadge: '📈 +847% ROI',
+      tlColor: '#4ade80',
+      tlBorder: '#22c55e',
+      tlBg: 'rgba(15, 23, 42, 0.92)',
+      trEmoji: '💸',
+      trShadow: 'rgba(250, 204, 21, 0.85)',
+      blTag: 'FIG. 01 // CAPITAL',
+      brBadge: '✓ VERIFIED',
+      brColor: '#6ee7b7',
+      brBg: 'rgba(16, 185, 129, 0.22)',
+      brBorder: '#10b981',
+      accent: 'particles'
+    },
+    viral: {
+      tlBadge: '🔥 1.4M VIEWS',
+      tlColor: '#f87171',
+      tlBorder: '#ef4444',
+      tlBg: 'rgba(24, 15, 15, 0.92)',
+      trEmoji: '🚀',
+      trShadow: 'rgba(239, 68, 68, 0.85)',
+      blTag: 'RETENTION 98.4%',
+      brBadge: '⭐ TRENDING',
+      brColor: '#fcd34d',
+      brBg: 'rgba(245, 158, 11, 0.22)',
+      brBorder: '#f59e0b',
+      accent: 'arrow'
+    },
+    cyber: {
+      tlBadge: '🤖 GPT-4o ARCH',
+      tlColor: '#38bdf8',
+      tlBorder: '#0ea5e9',
+      tlBg: 'rgba(8, 18, 32, 0.92)',
+      trEmoji: '⚡',
+      trShadow: 'rgba(56, 189, 248, 0.85)',
+      blTag: 'SYS.01 // 120 FPS',
+      brBadge: '[SECURE // AI]',
+      brColor: '#67e8f9',
+      brBg: 'rgba(6, 182, 212, 0.22)',
+      brBorder: '#06b6d4',
+      accent: 'hud'
+    },
+    motivation: {
+      tlBadge: '⚡ 100% FOCUS',
+      tlColor: '#fbbf24',
+      tlBorder: '#f59e0b',
+      tlBg: 'rgba(28, 20, 8, 0.92)',
+      trEmoji: '🏆',
+      trShadow: 'rgba(245, 158, 11, 0.85)',
+      blTag: '00:45 // DAILY GOAL',
+      brBadge: '💥 NO EXCUSES',
+      brColor: '#fde047',
+      brBg: 'rgba(234, 179, 8, 0.22)',
+      brBorder: '#eab308',
+      accent: 'streaks'
+    },
+    podcast: {
+      tlBadge: '🎙️ EPISODE 42',
+      tlColor: '#c084fc',
+      tlBorder: '#a855f7',
+      tlBg: 'rgba(24, 12, 36, 0.92)',
+      trEmoji: '🧠',
+      trShadow: 'rgba(168, 85, 247, 0.85)',
+      blTag: 'AUDIO // 48kHz HQ',
+      brBadge: '📌 KEY TAKEAWAY',
+      brColor: '#e9d5ff',
+      brBg: 'rgba(147, 51, 234, 0.22)',
+      brBorder: '#9333ea',
+      accent: 'waves'
+    }
+  };
+
+  function detectMotionTheme(activeBroll) {
+    if (activeBroll && activeBroll.theme && MOTION_THEMES[activeBroll.theme]) {
+      return MOTION_THEMES[activeBroll.theme];
+    }
+    if (S.brollMotionTheme && MOTION_THEMES[S.brollMotionTheme]) {
+      return MOTION_THEMES[S.brollMotionTheme];
+    }
+    // Intelligent auto-detection from caption keywords
+    const query = ((activeBroll && activeBroll.query) || '').toLowerCase();
+    const allText = (S.captions || []).map(c => c.text || '').join(' ').toLowerCase();
+    const text = query + ' ' + allText;
+    if (/money|dollar|cash|wealth|rich|profit|invest|crypto|bitcoin|roi|finance|business|sales|revenue/i.test(text)) {
+      return MOTION_THEMES.wealth;
+    }
+    if (/views|viral|tiktok|instagram|youtube|followers|subscribers|algorithm|growth|reach|share/i.test(text)) {
+      return MOTION_THEMES.viral;
+    }
+    if (/code|coding|dev|ai|tech|robot|algorithm|software|system|cyber|matrix|model|gpt|data|engineer/i.test(text)) {
+      return MOTION_THEMES.cyber;
+    }
+    if (/gym|fitness|workout|discipline|mindset|focus|hustle|wake up|grind|goals|push|win|champion/i.test(text)) {
+      return MOTION_THEMES.motivation;
+    }
+    if (/podcast|interview|talk|episode|guest|listen|sound|mic|conversation|deep dive|story/i.test(text)) {
+      return MOTION_THEMES.podcast;
+    }
+    return MOTION_THEMES.wealth;
+  }
+
   function drawMotionStickersOverlays(ctx, W, H, t) {
     const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
     const hasActiveBroll = Boolean(activeBroll);
-    const isWealthMotion = Boolean(
+    const isMotionActive = Boolean(
       (S.style && (S.style.hasBrollMotion || S.style.id === 'tpl_broll_wealth' || S.style.id === 'wealth_impact')) ||
       (S.motionStickersEnabled) ||
       (hasActiveBroll && S.motionStickersEnabled !== false)
     );
-    if (!isWealthMotion) return;
+    if (!isMotionActive) return;
 
     ctx.save();
 
+    const theme = detectMotionTheme(activeBroll);
     const layout = activeBroll ? (activeBroll.layout || 'above') : 'above';
+    const safeT = (typeof t === 'number') ? t : 0;
 
-    // 4-CORNERS DYNAMIC OVERLAYS (For Zoom-Out / Dynamic Framing)
+    // Spring Bounce Pop-In Physics & Exit Fade
+    const bStart = activeBroll ? activeBroll.start : 0;
+    const bEnd = activeBroll ? activeBroll.end : (safeT + 5);
+    const elapsed = Math.max(0, safeT - bStart);
+    const remaining = Math.max(0, bEnd - safeT);
+
+    const popDur = 0.24;
+    const popRatio = Math.min(1, elapsed / popDur);
+    // Elastic spring formula
+    const springScale = popRatio < 1
+      ? 0.6 + 0.4 * Math.sin(popRatio * Math.PI * 0.5) + Math.sin(popRatio * Math.PI) * 0.22
+      : 1.0;
+
+    const exitDur = 0.18;
+    const exitAlpha = remaining < exitDur ? Math.max(0, remaining / exitDur) : 1.0;
+    ctx.globalAlpha = exitAlpha;
+
+    // Dynamic Corner Framing (zoom_corners or auto-switched)
     if (layout === 'zoom_corners') {
-      // Corner 1: Top-Left Topic Badge
-      const tlBadge = '📈 +847% ROI';
+      // 1. Top-Left Topic Badge with Spring Pop
+      ctx.save();
+      const tlText = (activeBroll && activeBroll.customBadge) || theme.tlBadge;
       const tlFont = Math.max(11, Math.round(H * 0.015));
       ctx.font = `800 ${tlFont}px "Montserrat", sans-serif`;
-      const mTL = ctx.measureText(tlBadge);
-      const bwTL = mTL.width + tlFont * 1.5;
+      const mTL = ctx.measureText(tlText);
+      const bwTL = mTL.width + tlFont * 1.6;
       const bhTL = tlFont * 2.0;
-      ctx.save();
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-      ctx.strokeStyle = '#22c55e';
+      const tlX = W * 0.04;
+      const tlY = H * 0.03;
+
+      ctx.translate(tlX + bwTL / 2, tlY + bhTL / 2);
+      ctx.scale(springScale, springScale);
+      ctx.translate(-(tlX + bwTL / 2), -(tlY + bhTL / 2));
+
+      ctx.fillStyle = theme.tlBg;
+      ctx.strokeStyle = theme.tlBorder;
       ctx.lineWidth = 1.5;
+      ctx.shadowColor = theme.tlBorder;
+      ctx.shadowBlur = 8;
       if (ctx.roundRect) {
         ctx.beginPath();
-        ctx.roundRect(W * 0.04, H * 0.03, bwTL, bhTL, bhTL / 2);
+        ctx.roundRect(tlX, tlY, bwTL, bhTL, bhTL / 2);
         ctx.fill(); ctx.stroke();
       } else {
-        ctx.fillRect(W * 0.04, H * 0.03, bwTL, bhTL);
-        ctx.strokeRect(W * 0.04, H * 0.03, bwTL, bhTL);
+        ctx.fillRect(tlX, tlY, bwTL, bhTL);
+        ctx.strokeRect(tlX, tlY, bwTL, bhTL);
       }
-      ctx.fillStyle = '#4ade80';
+      ctx.fillStyle = theme.tlColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(tlBadge, W * 0.04 + bwTL / 2, H * 0.03 + bhTL / 2);
+      ctx.fillText(tlText, tlX + bwTL / 2, tlY + bhTL / 2);
       ctx.restore();
 
-      // Corner 2: Top-Right Floating 3D Emoji
-      const trFloat = Math.sin((typeof t === 'number' ? t : 0) * 3) * (H * 0.005);
+      // 2. Top-Right Floating 3D Emoji with Ambient Float
+      const trFloat = Math.sin(safeT * 3.2) * (H * 0.007);
       ctx.save();
       ctx.translate(W * 0.88, H * 0.05 + trFloat);
-      ctx.font = `${Math.max(24, Math.round(H * 0.04))}px sans-serif`;
+      ctx.scale(springScale, springScale);
+      ctx.font = `${Math.max(26, Math.round(H * 0.042))}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(250, 204, 21, 0.8)';
-      ctx.shadowBlur = 10;
-      ctx.fillText('💸', 0, 0);
+      ctx.shadowColor = theme.trShadow;
+      ctx.shadowBlur = 12;
+      ctx.fillText(theme.trEmoji, 0, 0);
       ctx.restore();
 
-      // Corner 3: Bottom-Left Minimal Scene Mark
+      // 3. Bottom-Left Scene Mark
       ctx.save();
       ctx.font = `700 ${Math.max(10, Math.round(H * 0.013))}px monospace, sans-serif`;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
-      ctx.fillText('FIG. 01 // METRICS', W * 0.05, H * 0.94);
+      ctx.fillText(theme.blTag, W * 0.05, H * 0.94);
       ctx.restore();
 
-      // Corner 4: Bottom-Right Micro Verified Badge
+      // 4. Bottom-Right Status Badge
       ctx.save();
-      const brTxt = '✓ VERIFIED';
-      ctx.font = `800 ${Math.max(10, Math.round(H * 0.013))}px sans-serif`;
+      const brTxt = theme.brBadge;
+      const brFont = Math.max(10, Math.round(H * 0.013));
+      ctx.font = `800 ${brFont}px sans-serif`;
       const mBR = ctx.measureText(brTxt);
       const bwBR = mBR.width + 16;
       const bhBR = Math.max(18, Math.round(H * 0.024));
       const bxBR = W * 0.95 - bwBR;
       const byBR = H * 0.94 - bhBR;
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
-      ctx.strokeStyle = '#10b981';
+
+      ctx.fillStyle = theme.brBg;
+      ctx.strokeStyle = theme.brBorder;
       ctx.lineWidth = 1;
       if (ctx.roundRect) {
         ctx.beginPath();
@@ -19181,101 +19314,151 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       } else {
         ctx.fillRect(bxBR, byBR, bwBR, bhBR);
       }
-      ctx.fillStyle = '#6ee7b7';
+      ctx.fillStyle = theme.brColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(brTxt, bxBR + bwBR / 2, byBR + bhBR / 2);
       ctx.restore();
-    }
 
-    // 1. STICKER ABOVE B-ROLL: Glassmorphic Status Badge
-    const badgeText = '📈 +847% ROI';
-    const badgeFont = Math.max(11, Math.round(H * 0.016));
-    ctx.font = `800 ${badgeFont}px "Montserrat", sans-serif`;
-    const m = ctx.measureText(badgeText);
-    const bw = m.width + badgeFont * 1.6;
-    const bh = badgeFont * 2.0;
-    const bx = W - bw - Math.round(W * 0.05);
-    const by = Math.round(H * 0.035);
-
-    // Pill background
-    ctx.save();
-    ctx.shadowColor = 'rgba(34, 197, 94, 0.6)';
-    ctx.shadowBlur = 10;
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    ctx.strokeStyle = '#22c55e';
-    ctx.lineWidth = 1.5;
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, bh / 2);
-      ctx.fill();
-      ctx.stroke();
+      // HUD / Accent Enhancements for zoom_corners
+      if (theme.accent === 'hud') {
+        // Neon HUD brackets
+        ctx.save();
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2;
+        const bLen = W * 0.04;
+        const bX1 = W * 0.19;
+        const bY1 = H * 0.035;
+        const bX2 = W * 0.81;
+        const bY2 = H * 0.325;
+        // Top-Left bracket
+        ctx.beginPath();
+        ctx.moveTo(bX1, bY1 + bLen); ctx.lineTo(bX1, bY1); ctx.lineTo(bX1 + bLen, bY1);
+        // Top-Right bracket
+        ctx.moveTo(bX2 - bLen, bY1); ctx.lineTo(bX2, bY1); ctx.lineTo(bX2, bY1 + bLen);
+        // Bottom-Left bracket
+        ctx.moveTo(bX1, bY2 - bLen); ctx.lineTo(bX1, bY2); ctx.lineTo(bX1 + bLen, bY2);
+        // Bottom-Right bracket
+        ctx.moveTo(bX2 - bLen, bY2); ctx.lineTo(bX2, bY2); ctx.lineTo(bX2, bY2 - bLen);
+        ctx.stroke();
+        ctx.restore();
+      }
     } else {
-      ctx.fillRect(bx, by, bw, bh);
-      ctx.strokeRect(bx, by, bw, bh);
+      // Standard / Top Split / Card Motion Overlays
+
+      // 1. Primary Glassmorphic Status Pill
+      ctx.save();
+      const badgeText = (activeBroll && activeBroll.customBadge) || theme.tlBadge;
+      const badgeFont = Math.max(11, Math.round(H * 0.016));
+      ctx.font = `800 ${badgeFont}px "Montserrat", sans-serif`;
+      const m = ctx.measureText(badgeText);
+      const bw = m.width + badgeFont * 1.6;
+      const bh = badgeFont * 2.0;
+      const bx = W - bw - Math.round(W * 0.05);
+      const by = Math.round(H * 0.035);
+
+      ctx.translate(bx + bw / 2, by + bh / 2);
+      ctx.scale(springScale, springScale);
+      ctx.translate(-(bx + bw / 2), -(by + bh / 2));
+
+      ctx.shadowColor = theme.tlBorder;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = theme.tlBg;
+      ctx.strokeStyle = theme.tlBorder;
+      ctx.lineWidth = 1.5;
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, bh / 2);
+        ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeRect(bx, by, bw, bh);
+      }
+      ctx.fillStyle = theme.tlColor;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.fillText(badgeText, bx + bw / 2, by + bh / 2 + 1);
+      ctx.restore();
+
+      // 2. 3D Floating Emoji Accent
+      const floatY = Math.sin(safeT * 3.5) * (H * 0.008);
+      const emojiX = Math.round(W * 0.16);
+      const emojiY = Math.round(H * 0.44) + floatY;
+      const emojiSize = Math.max(28, Math.round(H * 0.045));
+
+      ctx.save();
+      ctx.translate(emojiX, emojiY);
+      ctx.scale(springScale, springScale);
+      ctx.rotate(-0.12 + Math.sin(safeT * 2.5) * 0.06);
+      ctx.font = `${emojiSize}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = theme.trShadow;
+      ctx.shadowBlur = 14;
+      ctx.fillText(theme.trEmoji, 0, 0);
+      ctx.restore();
+
+      // 3. Dynamic Pack-Specific Accents
+      if (theme.accent === 'arrow') {
+        // Viral curved scribble doodle arrow
+        ctx.save();
+        const arrowStartX = W * 0.28;
+        const arrowStartY = H * 0.40;
+        const arrowMidX = W * 0.38;
+        const arrowMidY = H * 0.48;
+        const arrowEndX = W * 0.32;
+        const arrowEndY = H * 0.54;
+
+        ctx.strokeStyle = '#FDE047';
+        ctx.lineWidth = Math.max(2, Math.round(H * 0.0035));
+        ctx.lineCap = 'round';
+        ctx.shadowColor = 'rgba(253, 224, 71, 0.6)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(arrowStartX, arrowStartY);
+        ctx.quadraticCurveTo(arrowMidX, arrowMidY, arrowEndX, arrowEndY);
+        ctx.stroke();
+
+        const angle = Math.atan2(arrowEndY - arrowMidY, arrowEndX - arrowMidX);
+        const headLen = Math.max(8, Math.round(H * 0.012));
+        ctx.beginPath();
+        ctx.moveTo(arrowEndX, arrowEndY);
+        ctx.lineTo(arrowEndX - headLen * Math.cos(angle - Math.PI / 6), arrowEndY - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(arrowEndX, arrowEndY);
+        ctx.lineTo(arrowEndX - headLen * Math.cos(angle + Math.PI / 6), arrowEndY - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.stroke();
+        ctx.restore();
+      } else if (theme.accent === 'waves') {
+        // Podcast pulsing equalizer bars
+        ctx.save();
+        const waveX = W * 0.28;
+        const waveY = H * 0.45;
+        const barW = Math.max(3, Math.round(W * 0.008));
+        const gap = 3;
+        ctx.fillStyle = '#a855f7';
+        for (let i = 0; i < 4; i++) {
+          const barH = Math.max(6, Math.sin(safeT * 6 + i * 1.2) * 14 + 16);
+          ctx.fillRect(waveX + i * (barW + gap), waveY - barH / 2, barW, barH);
+        }
+        ctx.restore();
+      } else if (theme.accent === 'hud') {
+        // Tech crosshair mark
+        ctx.save();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        const chX = W * 0.88;
+        const chY = H * 0.42;
+        const chSize = 10;
+        ctx.beginPath();
+        ctx.moveTo(chX - chSize, chY); ctx.lineTo(chX + chSize, chY);
+        ctx.moveTo(chX, chY - chSize); ctx.lineTo(chX, chY + chSize);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
-    ctx.restore();
-
-    // Pill Text
-    ctx.fillStyle = '#4ade80';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText(badgeText, bx + bw / 2, by + bh / 2 + 1);
-
-    // 2. STICKER DOWNWARDS (Below B-Roll / Above Captions)
-    const safeT = (typeof t === 'number') ? t : 0;
-    const floatY = Math.sin(safeT * 3.5) * (H * 0.008);
-    const moneyX = Math.round(W * 0.16);
-    const moneyY = Math.round(H * 0.44) + floatY;
-    const moneySize = Math.max(28, Math.round(H * 0.045));
-
-    // Draw 3D Cash Emoji Sticker with slight tilt
-    ctx.save();
-    ctx.translate(moneyX, moneyY);
-    ctx.rotate(-0.15 + Math.sin(t * 2) * 0.05);
-    ctx.font = `${moneySize}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(250, 204, 21, 0.8)';
-    ctx.shadowBlur = 12;
-    ctx.fillText('💸', 0, 0);
-    ctx.restore();
-
-    // 3. ANIMATED YELLOW SCRIBBLE ARROW POINTING DOWN
-    ctx.save();
-    const arrowStartX = W * 0.28;
-    const arrowStartY = H * 0.40;
-    const arrowMidX = W * 0.38;
-    const arrowMidY = H * 0.48;
-    const arrowEndX = W * 0.32;
-    const arrowEndY = H * 0.54;
-
-    ctx.strokeStyle = '#FDE047';
-    ctx.lineWidth = Math.max(2, Math.round(H * 0.0035));
-    ctx.lineCap = 'round';
-    ctx.shadowColor = 'rgba(253, 224, 71, 0.6)';
-    ctx.shadowBlur = 8;
-
-    // Curving line
-    ctx.beginPath();
-    ctx.moveTo(arrowStartX, arrowStartY);
-    ctx.quadraticCurveTo(arrowMidX, arrowMidY, arrowEndX, arrowEndY);
-    ctx.stroke();
-
-    // Arrowhead
-    const angle = Math.atan2(arrowEndY - arrowMidY, arrowEndX - arrowMidX);
-    const headLen = Math.max(8, Math.round(H * 0.012));
-    ctx.beginPath();
-    ctx.moveTo(arrowEndX, arrowEndY);
-    ctx.lineTo(arrowEndX - headLen * Math.cos(angle - Math.PI / 6), arrowEndY - headLen * Math.sin(angle - Math.PI / 6));
-    ctx.moveTo(arrowEndX, arrowEndY);
-    ctx.lineTo(arrowEndX - headLen * Math.cos(angle + Math.PI / 6), arrowEndY - headLen * Math.sin(angle + Math.PI / 6));
-    ctx.stroke();
-    ctx.restore();
 
     ctx.restore();
   }
-
   function setChunkMode(mode) {
     S.chunkMode = mode;
     $$('.btn-chunk-mode').forEach(b => b.classList.toggle('active', b.getAttribute('data-chunk') === String(mode)));
@@ -21043,6 +21226,18 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         </div>
 
         <div class="broll-layout-selector-wrap" style="margin-top: 6px;">
+          <span class="broll-layout-label">Motion Graphics Theme</span>
+          <div class="broll-theme-selector">
+            <button type="button" class="broll-theme-btn ${!b.theme || b.theme === 'auto' ? 'active' : ''}" data-theme="auto" title="Auto Detect from Audio">⚡ Auto</button>
+            <button type="button" class="broll-theme-btn ${b.theme === 'wealth' ? 'active' : ''}" data-theme="wealth" title="FinTech & ROI">📈 Wealth</button>
+            <button type="button" class="broll-theme-btn ${b.theme === 'viral' ? 'active' : ''}" data-theme="viral" title="Viral & Views">🔥 Viral</button>
+            <button type="button" class="broll-theme-btn ${b.theme === 'cyber' ? 'active' : ''}" data-theme="cyber" title="Cyber AI & Tech">🤖 Cyber</button>
+            <button type="button" class="broll-theme-btn ${b.theme === 'motivation' ? 'active' : ''}" data-theme="motivation" title="High-Energy Hustle">💪 Hustle</button>
+            <button type="button" class="broll-theme-btn ${b.theme === 'podcast' ? 'active' : ''}" data-theme="podcast" title="Deep Talk & Knowledge">🎙️ Podcast</button>
+          </div>
+        </div>
+
+        <div class="broll-layout-selector-wrap" style="margin-top: 6px;">
           <span class="broll-layout-label">Entry Animation</span>
           <div class="broll-layout-selector">
             <button type="button" class="broll-anim-btn ${anim === 'pop' ? 'active' : ''}" data-anim="pop" title="Pop & Bounce">
@@ -21089,6 +21284,17 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           card.querySelectorAll('.broll-layout-btn').forEach(b2 => b2.classList.toggle('active', b2 === btn));
           lastActiveBrollId = null;
           syncBrollPlayback();
+        });
+      });
+
+      // Motion Theme selector buttons
+      card.querySelectorAll('.broll-theme-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          b.theme = btn.getAttribute('data-theme');
+          card.querySelectorAll('.broll-theme-btn').forEach(b2 => b2.classList.toggle('active', b2 === btn));
+          drawCanvasFast();
+          showToast(`✓ Applied ${btn.innerText.trim()} motion theme!`);
         });
       });
 
