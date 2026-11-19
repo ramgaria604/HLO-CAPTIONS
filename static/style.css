@@ -7002,7 +7002,8 @@ button {
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.broll-layout-btn {
+.broll-layout-btn,
+.broll-anim-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -7018,11 +7019,13 @@ button {
   font-weight: 600;
   transition: all 0.15s ease;
 }
-.broll-layout-btn:hover {
+.broll-layout-btn:hover,
+.broll-anim-btn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
 }
-.broll-layout-btn.active {
+.broll-layout-btn.active,
+.broll-anim-btn.active {
   background: linear-gradient(135deg, #6366f1, #a855f7);
   color: #fff;
   font-weight: 700;
@@ -7216,6 +7219,22 @@ button {
 }
 .broll-stage-layer.broll-animate-slide-up {
   animation: brollSlideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.broll-stage-layer.broll-animate-fade {
+  animation: brollFade 0.28s ease forwards;
+}
+.broll-stage-layer.broll-animate-zoom {
+  animation: brollZoom 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes brollFade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes brollZoom {
+  0% { transform: scale(1.18); opacity: 0; }
+  100% { transform: scale(1.0); opacity: 1; }
 }
 
 @keyframes brollPopBounce {

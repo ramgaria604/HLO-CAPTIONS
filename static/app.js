@@ -14634,13 +14634,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             voiceoverText.value = S.captions.map(c => c.text).join(' ');
           }
         } catch (e) {}
-
-        // Automatically match and insert Coverr B-roll clips according to the video speech!
-        setTimeout(() => {
-          try {
-            autoAddBrolls({ silent: true });
-          } catch (_) {}
-        }, 500);
       }, 400);
 
     } catch (err) {
@@ -20778,7 +20771,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     brolls.forEach((b, idx) => {
       const card = document.createElement('div');
       card.className = 'broll-card';
-      const layout = b.layout || 'full';
+      const layout = b.layout || 'above';
+      const anim = b.animation || (layout === 'above' ? 'slide-down' : (layout === 'circle' || layout === 'window' ? 'pop' : 'fade'));
 
       card.innerHTML = `
         <div class="broll-card-top">
@@ -20793,25 +20787,47 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         <div class="broll-layout-selector-wrap">
           <span class="broll-layout-label">Display Layout</span>
           <div class="broll-layout-selector">
-            <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
-              <span class="layout-btn-icon">🖥️</span>
-              <span>Full</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'above' ? 'active' : ''}" data-layout="above" title="Top 50% Split (Speaker Below)">
+            <button type="button" class="broll-layout-btn ${layout === 'above' ? 'active' : ''}" data-layout="above" title="Top Placement (Slides Speaker Down)">
               <span class="layout-btn-icon">⬆️</span>
               <span>Above</span>
             </button>
-            <button type="button" class="broll-layout-btn ${layout === 'below' ? 'active' : ''}" data-layout="below" title="Bottom 50% Split (Speaker Above)">
-              <span class="layout-btn-icon">⬇️</span>
-              <span>Below</span>
+            <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Corner Floating Card">
+              <span class="layout-btn-icon">🪟</span>
+              <span>Card</span>
+            </button>
+            <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
+              <span class="layout-btn-icon">🖥️</span>
+              <span>Full</span>
             </button>
             <button type="button" class="broll-layout-btn ${layout === 'circle' ? 'active' : ''}" data-layout="circle" title="Circular Bubble">
               <span class="layout-btn-icon">⭕</span>
               <span>Circle</span>
             </button>
-            <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Small Picture-in-Picture Floating Window">
-              <span class="layout-btn-icon">🪟</span>
-              <span>Window</span>
+            <button type="button" class="broll-layout-btn ${layout === 'below' ? 'active' : ''}" data-layout="below" title="Bottom Split (Speaker Above)">
+              <span class="layout-btn-icon">⬇️</span>
+              <span>Below</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="broll-layout-selector-wrap" style="margin-top: 6px;">
+          <span class="broll-layout-label">Entry Animation</span>
+          <div class="broll-layout-selector">
+            <button type="button" class="broll-anim-btn ${anim === 'pop' ? 'active' : ''}" data-anim="pop" title="Pop & Bounce">
+              <span class="layout-btn-icon">⚡</span>
+              <span>Pop</span>
+            </button>
+            <button type="button" class="broll-anim-btn ${anim === 'slide-down' ? 'active' : ''}" data-anim="slide-down" title="Smooth Slide Down">
+              <span class="layout-btn-icon">⬇️</span>
+              <span>Slide</span>
+            </button>
+            <button type="button" class="broll-anim-btn ${anim === 'fade' ? 'active' : ''}" data-anim="fade" title="Smooth Fade">
+              <span class="layout-btn-icon">✨</span>
+              <span>Fade</span>
+            </button>
+            <button type="button" class="broll-anim-btn ${anim === 'zoom' ? 'active' : ''}" data-anim="zoom" title="Zoom Punch">
+              <span class="layout-btn-icon">🔍</span>
+              <span>Zoom</span>
             </button>
           </div>
         </div>
@@ -20839,6 +20855,18 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           const newLayout = btn.getAttribute('data-layout');
           b.layout = newLayout;
           card.querySelectorAll('.broll-layout-btn').forEach(b2 => b2.classList.toggle('active', b2 === btn));
+          lastActiveBrollId = null;
+          syncBrollPlayback();
+        });
+      });
+
+      // Animation selector buttons
+      card.querySelectorAll('.broll-anim-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const newAnim = btn.getAttribute('data-anim');
+          b.animation = newAnim;
+          card.querySelectorAll('.broll-anim-btn').forEach(b2 => b2.classList.toggle('active', b2 === btn));
+          lastActiveBrollId = null;
           syncBrollPlayback();
         });
       });
@@ -20951,6 +20979,10 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         brollVid.pause();
       }
       lastActiveBrollId = null;
+      if (vid.style.transform) {
+        vid.style.transition = 'transform 0.35s ease';
+        vid.style.transform = '';
+      }
       return;
     }
 
@@ -20967,20 +20999,26 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
     // Update layout classes
     brollLayer.classList.remove('broll-layout-full', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window', 'broll-layout-circle');
-    const layout = activeBroll.layout || 'full';
+    const layout = activeBroll.layout || 'above';
     brollLayer.classList.add('broll-layout-' + layout);
 
-    // Trigger slick pop / slide entry animations
-    if (activeBroll.id !== lastActiveBrollId) {
-      brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up');
-      void brollLayer.offsetWidth; // trigger reflow
-      if (layout === 'circle' || layout === 'window') {
-        brollLayer.classList.add('broll-animate-pop');
-      } else if (layout === 'above') {
-        brollLayer.classList.add('broll-animate-slide-down');
-      } else if (layout === 'below') {
-        brollLayer.classList.add('broll-animate-slide-up');
+    // Downward video shift for 'above' layout so speaker face is never covered!
+    if (layout === 'above') {
+      vid.style.transition = 'transform 0.35s ease';
+      vid.style.transform = 'translateY(28%)';
+    } else {
+      if (vid.style.transform) {
+        vid.style.transition = 'transform 0.35s ease';
+        vid.style.transform = '';
       }
+    }
+
+    // Trigger slick pop / slide / fade / zoom entry animations
+    if (activeBroll.id !== lastActiveBrollId) {
+      const anim = activeBroll.animation || (layout === 'above' ? 'slide-down' : (layout === 'circle' || layout === 'window' ? 'pop' : 'fade'));
+      brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up', 'broll-animate-fade', 'broll-animate-zoom');
+      void brollLayer.offsetWidth; // trigger reflow
+      brollLayer.classList.add('broll-animate-' + anim);
     }
 
     // Sync video source

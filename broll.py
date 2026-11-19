@@ -180,6 +180,7 @@ def auto_generate_brolls(captions, duration, key=None, orientation="portrait", m
         if hits:
             pick = hits[i % len(hits)]
             layout = layouts[i % len(layouts)]
+            anim = "slide-down" if layout == "above" else ("pop" if layout in ("circle", "window") else "fade")
             results.append({
                 "id": f"broll_coverr_{int(slot['start'] * 100)}_{i}",
                 "query": q,
@@ -191,6 +192,7 @@ def auto_generate_brolls(captions, duration, key=None, orientation="portrait", m
                 "duration": pick.get("duration") or round(slot["end"] - slot["start"], 2),
                 "credit": pick.get("credit", "Coverr"),
                 "layout": layout,
+                "animation": anim,
                 "provider": "coverr"
             })
     return results
