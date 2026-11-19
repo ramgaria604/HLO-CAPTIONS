@@ -1579,6 +1579,74 @@ def get_model(size):
     return _MODELS[size]
 
 
+def transcribe_audio_gap(audio_path, gap_start, gap_end, lang_code="hi-IN", is_hinglish=True):
+    """Failsafe recovery: transcribes unvoiced or skipped audio gaps > 2.5s using Google Speech AI."""
+    if not module_ok("speech_recognition"):
+        return []
+    import speech_recognition as sr
+    import wave
+    gap_dur = float(gap_end) - float(gap_start)
+    if gap_dur < 1.0:
+        return []
+    wav_chunk = WORK / f"gap_{uuid.uuid4().hex[:8]}.wav"
+    try:
+        subprocess.run([
+            ffmpeg_path(), "-y", "-ss", str(gap_start), "-to", str(gap_end),
+            "-i", str(audio_path), "-vn",
+            "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_chunk)
+        ], capture_output=True, check=True)
+
+        wf = wave.open(str(wav_chunk), "rb")
+        framerate = wf.getframerate()
+        num_frames = wf.getnframes()
+        raw_bytes = wf.readframes(num_frames)
+        wf.close()
+        wav_chunk.unlink(missing_ok=True)
+
+        audio_data = sr.AudioData(raw_bytes, framerate, 2)
+        r = sr.Recognizer()
+        r.energy_threshold = 45
+        r.dynamic_energy_threshold = True
+
+        txt = None
+        langs_to_try = [lang_code] if lang_code else []
+        if is_hinglish and "hi-IN" not in langs_to_try:
+            langs_to_try.append("hi-IN")
+        if "en-IN" not in langs_to_try:
+            langs_to_try.append("en-IN")
+        if "en-US" not in langs_to_try:
+            langs_to_try.append("en-US")
+
+        for l_try in langs_to_try:
+            try:
+                txt = r.recognize_google(audio_data, language=l_try)
+                if txt and txt.strip():
+                    break
+            except Exception:
+                continue
+
+        if not txt:
+            return []
+
+        tokens = [t.strip() for t in txt.split() if t.strip()]
+        if not tokens:
+            return []
+
+        token_dur = max(0.12, gap_dur / len(tokens))
+        gap_words = []
+        for j, tok in enumerate(tokens):
+            w_s = round(gap_start + j * token_dur, 3)
+            w_e = round(gap_start + (j + 1) * token_dur, 3)
+            if is_hinglish and hinglish.is_devanagari(tok):
+                tok = hinglish.devanagari_to_hinglish(tok)
+            gap_words.append((w_s, w_e, tok))
+        return gap_words
+    except Exception:
+        if wav_chunk.exists():
+            wav_chunk.unlink(missing_ok=True)
+        return []
+
+
 @app.post("/api/transcribe")
 def transcribe():
     d = request.get_json(force=True)
@@ -1746,7 +1814,7 @@ def transcribe():
                                 t = hinglish.devanagari_to_hinglish(t)
                             words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
 
-                    # If raw_words missed an entire segment, recover that segment's tokens smoothly across its duration
+                    # If raw_words missed words in a segment, recover that segment's tokens smoothly across its duration
                     for seg in res_json.get("segments", []):
                         s_start = float(seg.get("start", 0))
                         s_end = float(seg.get("end", s_start + 1.0))
@@ -1757,9 +1825,10 @@ def transcribe():
                         if not seg_tokens:
                             continue
                         seg_words = [w for w in words if (s_start - 0.05) <= w[0] < (s_end + 0.05)]
-                        # Only synthesize if this segment had virtually zero words in raw_words
-                        if not seg_words:
-                            dur_per_token = max(0.1, (s_end - s_start) / len(seg_tokens))
+                        # If word-level timestamps dropped more than 30% of this segment's words:
+                        if len(seg_words) < len(seg_tokens) * 0.7:
+                            words = [w for w in words if not (s_start <= w[0] < s_end)]
+                            dur_per_token = max(0.12, (s_end - s_start) / len(seg_tokens))
                             for idx_t, tok in enumerate(seg_tokens):
                                 w_s = round(s_start + idx_t * dur_per_token, 3)
                                 w_e = round(s_start + (idx_t + 1) * dur_per_token, 3)
@@ -1784,6 +1853,40 @@ def transcribe():
                                 words.append((w_s, w_e, tok))
 
                     words.sort(key=lambda x: x[0])
+
+                    # Failsafe: check for any wide audio gaps (> 2.8s) where speech might have been skipped
+                    gap_fillers = []
+                    for idx_g in range(len(words) - 1):
+                        g_start = words[idx_g][1]
+                        g_end = words[idx_g + 1][0]
+                        if (g_end - g_start) > 2.8:
+                            recovered = transcribe_audio_gap(WORK / name, g_start, g_end,
+                                                             lang_code=recognition_lang, is_hinglish=is_hinglish)
+                            if recovered:
+                                gap_fillers.extend(recovered)
+
+                    if words:
+                        first_s = words[0][0]
+                        if first_s > 3.0:
+                            recovered = transcribe_audio_gap(WORK / name, 0.0, first_s,
+                                                             lang_code=recognition_lang, is_hinglish=is_hinglish)
+                            if recovered:
+                                gap_fillers.extend(recovered)
+                        last_e = words[-1][1]
+                        try:
+                            vid_dur = float(probe(WORK / name).get("duration") or (last_e + 1.0))
+                            if (vid_dur - last_e) > 3.0:
+                                recovered = transcribe_audio_gap(WORK / name, last_e, vid_dur,
+                                                                 lang_code=recognition_lang, is_hinglish=is_hinglish)
+                                if recovered:
+                                    gap_fillers.extend(recovered)
+                        except Exception:
+                            pass
+
+                    if gap_fillers:
+                        words.extend(gap_fillers)
+                        words.sort(key=lambda x: x[0])
+
                     if words:
                         transcription_engine = groq_engine_name
         except Exception as groq_err:
