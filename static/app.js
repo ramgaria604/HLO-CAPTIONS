@@ -17859,15 +17859,48 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
 
     // Viral Auto-Emojis toggle
-    const valEmojiBadge = $('valEmojiBadge');
+    function syncEmojiUI(mode) {
+      const valEmojiBadge = $('valEmojiBadge');
+      if (valEmojiBadge) {
+        valEmojiBadge.textContent = mode === 'above' ? 'ON (Above Word)' : (mode === 'beside' ? 'ON (Beside Word)' : 'OFF');
+      }
+      const lbl = $('lblCapNavEmoji');
+      if (lbl) {
+        lbl.textContent = mode === 'off' ? 'Emojis: OFF' : (mode === 'above' ? 'Emojis: ON' : 'Emojis: Beside');
+      }
+      const btnCapEmoji = $('btnCapNavEmoji');
+      if (btnCapEmoji) {
+        btnCapEmoji.classList.toggle('active', mode !== 'off');
+      }
+      const btnMiniEmoji = $('btnMiniToggleEmoji');
+      if (btnMiniEmoji) {
+        btnMiniEmoji.style.opacity = mode === 'off' ? '0.45' : '1.0';
+      }
+    }
+
+    function cycleEmojiMode() {
+      const modes = ['above', 'beside', 'off'];
+      const curIdx = modes.indexOf(S.autoEmojis || 'above');
+      const nextIdx = (curIdx + 1) % modes.length;
+      const newMode = modes[nextIdx];
+      S.autoEmojis = newMode;
+      $$('#emojiButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b.getAttribute('data-emoji') === newMode));
+      syncEmojiUI(newMode);
+      showToast('😃 Emojis: ' + (newMode === 'above' ? 'ON (Above Word)' : (newMode === 'beside' ? 'ON (Beside Word)' : 'OFF')));
+      renderCanvas();
+    }
+
+    const btnCapNavEmoji = $('btnCapNavEmoji');
+    if (btnCapNavEmoji) btnCapNavEmoji.addEventListener('click', cycleEmojiMode);
+    const btnMiniToggleEmoji = $('btnMiniToggleEmoji');
+    if (btnMiniToggleEmoji) btnMiniToggleEmoji.addEventListener('click', cycleEmojiMode);
+
     $$('#emojiButtonGroup .btn-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         $$('#emojiButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
         const mode = btn.getAttribute('data-emoji') || 'above';
         S.autoEmojis = mode;
-        if (valEmojiBadge) {
-          valEmojiBadge.textContent = mode === 'above' ? 'ON (Above Word)' : (mode === 'beside' ? 'ON (Beside Word)' : 'OFF');
-        }
+        syncEmojiUI(mode);
         showToast('🔥 Auto-Emojis: ' + (mode === 'off' ? 'Off' : 'Active'));
         renderCanvas();
       });
