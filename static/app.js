@@ -14627,6 +14627,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             voiceoverText.value = S.captions.map(c => c.text).join(' ');
           }
         } catch (e) {}
+
+        // Automatically match and insert Coverr B-roll clips according to the video speech!
+        setTimeout(() => {
+          try {
+            autoAddBrolls({ silent: true });
+          } catch (_) {}
+        }, 500);
       }, 400);
 
     } catch (err) {
@@ -20333,54 +20340,28 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       let addedBrollsCount = 0;
 
       if (duration > 2) {
-        const suggestRes = await fetch('/api/broll/suggest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ captions: S.captions, duration })
-        });
-        const suggestData = await suggestRes.json();
-        const slots = suggestData.slots || [];
-
-        if (slots.length > 0) {
-          const layoutPattern = ['circle', 'above', 'below', 'window', 'full'];
-          const newBrolls = [];
-
-          for (let i = 0; i < slots.length; i++) {
-            const slot = slots[i];
-            try {
-              const searchRes = await fetch('/api/broll/search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: slot.query, orientation: pexelsOrientation })
-              });
-              const searchData = await searchRes.json();
-              const results = searchData.results || [];
-              if (results.length > 0) {
-                const pick = results[0];
-                const layout = layoutPattern[i % layoutPattern.length];
-                newBrolls.push({
-                  id: 'broll_' + Date.now() + '_' + i,
-                  query: slot.query,
-                  text: slot.text || slot.query,
-                  start: Number(slot.start),
-                  end: Number(slot.end),
-                  url: pick.url,
-                  thumb: pick.thumb,
-                  duration: pick.duration || (slot.end - slot.start),
-                  credit: pick.credit || '',
-                  layout: layout
-                });
-              }
-            } catch (_) {}
-          }
+        try {
+          const autoRes = await fetch('/api/broll/auto_generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              captions: S.captions,
+              duration: duration,
+              orientation: pexelsOrientation || 'portrait'
+            })
+          });
+          const autoData = await autoRes.json();
+          const newBrolls = autoData.brolls || [];
 
           if (newBrolls.length > 0) {
             S.brolls = newBrolls;
             addedBrollsCount = newBrolls.length;
             renderBrollTab();
             syncBrollPlayback();
+            if (typeof renderTimeline === 'function') renderTimeline();
+            if (typeof renderCanvas === 'function') renderCanvas(true);
           }
-        }
+        } catch (_) {}
       }
 
       // 4. Feedback
@@ -20517,17 +20498,17 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       .catch(() => {});
   }
 
-  // Auto-detect caption moments & fetch B-roll clips from stock library
-  async function autoAddBrolls() {
+  // Auto-detect caption moments & fetch B-roll clips from Coverr according to video speech
+  async function autoAddBrolls(opts = {}) {
     if (isAutoBrolling) return;
     if (!S.captions || S.captions.length === 0) {
-      showToast('Please add or transcribe captions first!');
+      if (!opts.silent) showToast('Please add or transcribe captions first!');
       return;
     }
 
     const duration = vid.duration || S.probe?.duration || 0;
     if (duration <= 2) {
-      showToast('Video duration is too short for B-Roll');
+      if (!opts.silent) showToast('Video duration is too short for B-Roll');
       return;
     }
 
@@ -20543,73 +20524,42 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     if (btn) btn.disabled = true;
 
     try {
-      setMsg('🔍 Analyzing captions to detect key viral moments...');
+      setMsg('🔍 Analyzing speech context to match Coverr stock videos...');
+      if (!opts.silent) showToast('🔍 Matching Coverr videos to your speech...');
 
-      const suggestRes = await fetch('/api/broll/suggest', {
+      const autoRes = await fetch('/api/broll/auto_generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ captions: S.captions, duration })
+        body: JSON.stringify({
+          captions: S.captions,
+          duration: duration,
+          orientation: pexelsOrientation || 'portrait'
+        })
       });
-      const suggestData = await suggestRes.json();
-      const slots = suggestData.slots || [];
 
-      if (slots.length === 0) {
-        setMsg('No suitable B-Roll keywords found in captions. Try searching manually below!');
-        showToast('No B-Roll slots found');
-        return;
-      }
-
-      setMsg(`✨ Found ${slots.length} moments! Fetching free stock videos...`);
-
-      // Intelligent layout rotation: Circle, Above, Below, Window, Full
-      const layoutPattern = ['circle', 'above', 'below', 'window', 'full'];
-      const newBrolls = [];
-
-      for (let i = 0; i < slots.length; i++) {
-        const slot = slots[i];
-        setMsg(`🎬 Fetching clip ${i + 1}/${slots.length} for "${slot.query}"...`);
-
-        try {
-          const searchRes = await fetch('/api/broll/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: slot.query, orientation: pexelsOrientation })
-          });
-          const searchData = await searchRes.json();
-          const results = searchData.results || [];
-          if (results.length > 0) {
-            const pick = results[0];
-            const layout = layoutPattern[i % layoutPattern.length];
-            newBrolls.push({
-              id: 'broll_' + Date.now() + '_' + i,
-              query: slot.query,
-              text: slot.text || slot.query,
-              start: Number(slot.start),
-              end: Number(slot.end),
-              url: pick.url,
-              thumb: pick.thumb,
-              duration: pick.duration || (slot.end - slot.start),
-              credit: pick.credit || (pick.provider === 'coverr' ? 'Coverr' : 'Pexels'),
-              layout: layout
-            });
-          }
-        } catch (clipErr) {
-          console.warn('Failed to fetch clip for slot:', slot, clipErr);
-        }
-      }
+      const autoData = await autoRes.json();
+      const newBrolls = autoData.brolls || [];
 
       if (newBrolls.length > 0) {
         S.brolls = newBrolls;
         renderBrollTab();
         syncBrollPlayback();
-        setMsg(`✓ Successfully added ${newBrolls.length} B-Rolls with smart layouts!`);
-        showToast(`✨ Added ${newBrolls.length} B-Rolls!`);
+        if (typeof renderTimeline === 'function') renderTimeline();
+        if (typeof renderCanvas === 'function') renderCanvas(true);
+        setMsg(`✓ Successfully added ${newBrolls.length} Coverr B-Rolls with smart layouts!`);
+        showToast(`✨ Automatically added ${newBrolls.length} matching Coverr videos!`);
       } else {
-        setMsg('Could not find stock videos for those keywords. Search manually below.');
+        if (!opts.silent) {
+          setMsg('No matching Coverr clips found for these keywords. Search manually below.');
+          showToast('No B-Roll moments found');
+        }
       }
     } catch (err) {
-      setMsg('Error adding B-roll: ' + err.message);
-      showToast(err.message);
+      console.warn('Auto broll error:', err);
+      if (!opts.silent) {
+        setMsg('Error adding B-roll: ' + err.message);
+        showToast(err.message);
+      }
     } finally {
       isAutoBrolling = false;
       if (btn) btn.disabled = false;

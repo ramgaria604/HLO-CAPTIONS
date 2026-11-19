@@ -2317,6 +2317,21 @@ def broll_suggest():
     return jsonify(slots=slots)
 
 
+@app.post("/api/broll/auto_generate")
+def broll_auto_generate():
+    d = request.get_json(force=True) or {}
+    captions = d.get("captions", [])
+    duration = float(d.get("duration", 0))
+    orient = d.get("orientation") if d.get("orientation") in ("portrait", "landscape", "square") else "portrait"
+    max_slots = int(d.get("max_slots", 6))
+    key = coverr_key()
+    try:
+        brolls = broll.auto_generate_brolls(captions, duration, key=key, orientation=orient, max_slots=max_slots)
+        return jsonify(brolls=brolls, count=len(brolls))
+    except Exception as exc:
+        return err(f"Auto B-roll error: {str(exc)}", 500)
+
+
 @app.post("/api/broll/search")
 def broll_search():
     d = request.get_json(force=True)
