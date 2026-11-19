@@ -1671,16 +1671,16 @@ def transcribe():
     groq_key = (os.environ.get("GROQ_API_KEY") or d.get("groq_api_key") or _DEFAULT_GROQ_KEY).strip()
     groq_model = d.get("groq_model") or os.environ.get("GROQ_MODEL")
     if groq_model not in ("whisper-large-v3", "whisper-large-v3-turbo"):
-        groq_model = "whisper-large-v3"
-    groq_engine_name = "Groq Whisper Large v3" if groq_model == "whisper-large-v3" else "Groq Whisper Large v3 Turbo"
+        groq_model = "whisper-large-v3-turbo"
+    groq_engine_name = "Groq Whisper Large v3 Turbo" if groq_model.endswith("-turbo") else "Groq Whisper Large v3"
     if groq_key:
         audio_for_groq = WORK / f"{name}_groq.mp3"
         try:
-            # Vocal enhancement with zero-delay filtering (highpass rumble cut + volume boost for quiet words)
+            # Vocal enhancement with zero-delay filtering + 2s trailing silence padding so Whisper never cuts trailing speech
             subprocess.run([
                 ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
-                "-af", "highpass=f=80,lowpass=f=7600,volume=1.5",
-                "-ar", "16000", "-ac", "1", "-b:a", "96k", str(audio_for_groq)
+                "-af", "highpass=f=80,lowpass=f=7600,volume=1.5,apad=pad_dur=2.0",
+                "-ar", "16000", "-ac", "1", "-b:a", "128k", str(audio_for_groq)
             ], capture_output=True, check=True)
 
             with open(audio_for_groq, "rb") as af:
@@ -1713,13 +1713,12 @@ def transcribe():
                         if groq_resp.ok:
                             break
                         if groq_resp.status_code in (429, 500, 502, 503, 504) and attempt == 0:
-                            # Fallback to turbo on second attempt if large-v3 is saturated
-                            current_groq_model = "whisper-large-v3-turbo"
+                            current_groq_model = "whisper-large-v3" if current_groq_model.endswith("-turbo") else "whisper-large-v3-turbo"
                             time.sleep(1.5)
                             continue
                     except (requests.Timeout, requests.RequestException):
                         if attempt == 0:
-                            current_groq_model = "whisper-large-v3-turbo"
+                            current_groq_model = "whisper-large-v3" if current_groq_model.endswith("-turbo") else "whisper-large-v3-turbo"
                             time.sleep(1.5)
                             continue
                         break
@@ -1748,20 +1747,27 @@ def transcribe():
                                 t = hinglish.devanagari_to_hinglish(t)
                             words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
 
-                    # Ensure NO entire segment is dropped if word timestamps were empty for that segment
+                    # Crucial: Ensure NO trailing words or segments across the entire video are skipped
                     for seg in res_json.get("segments", []):
                         s_start = float(seg.get("start", 0))
                         s_end = float(seg.get("end", s_start + 1.0))
                         seg_text = (seg.get("text") or "").strip()
                         if not seg_text:
                             continue
-                        seg_tokens = seg_text.split()
-                        seg_words = [w for w in words if s_start <= w[0] < s_end]
-                        if not seg_words and seg_tokens:
-                            dur_per_token = max(0.08, (s_end - s_start) / len(seg_tokens))
-                            for idx_t, tok in enumerate(seg_tokens):
-                                w_s = round(s_start + idx_t * dur_per_token, 3)
-                                w_e = round(s_start + (idx_t + 1) * dur_per_token, 3)
+                        seg_tokens = [t.strip() for t in seg_text.split() if t.strip()]
+                        if not seg_tokens:
+                            continue
+                        seg_words = [w for w in words if (s_start - 0.05) <= w[0] < (s_end + 0.05)]
+                        if len(seg_words) < len(seg_tokens):
+                            missing_tokens = seg_tokens[len(seg_words):]
+                            tail_start = seg_words[-1][1] if seg_words else s_start
+                            tail_end = max(tail_start + 0.35, s_end)
+                            step = max(0.12, (tail_end - tail_start) / len(missing_tokens))
+                            for idx_m, tok in enumerate(missing_tokens):
+                                w_s = round(tail_start + idx_m * step, 3)
+                                w_e = round(min(tail_end, tail_start + (idx_m + 1) * step), 3)
+                                if w_e <= w_s:
+                                    w_e = w_s + 0.2
                                 if is_hinglish and hinglish.is_devanagari(tok):
                                     tok = hinglish.devanagari_to_hinglish(tok)
                                 words.append((w_s, w_e, tok))
