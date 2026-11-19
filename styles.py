@@ -107,15 +107,30 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.85, max_len=3.4):
     """Group timed words into plain-text captions with seamless gap-closing and no misplaced words."""
     caps, cur = [], []
 
+    # Sanitize and clamp all word durations: no single spoken word ever exceeds 0.85s or overlaps next word
+    clamped_input_words = []
+    for idx_w, w in enumerate(words):
+        ws = float(w[0])
+        we = float(w[1])
+        wt = str(w[2]).strip()
+        if not wt:
+            continue
+        next_s = float(words[idx_w + 1][0]) if (idx_w + 1 < len(words)) else (ws + 0.85)
+        max_allowed_e = min(ws + 0.85, max(ws + 0.1, next_s))
+        we = min(we, max_allowed_e)
+        if we <= ws:
+            we = ws + 0.2
+        clamped_input_words.append((round(ws, 3), round(we, 3), wt))
+
     # Filter out immediate duplicate stutters (e.g. "tum tum", "the the")
     clean_words = []
-    for w in words:
+    for w in clamped_input_words:
         wt = str(w[2]).strip()
         if clean_words:
             prev_wt = str(clean_words[-1][2]).strip()
             # If identical word spoken within 0.7s of each other, merge into one
             if wt.lower() == prev_wt.lower() and (w[0] - clean_words[-1][1]) <= 0.7:
-                clean_words[-1] = (clean_words[-1][0], max(clean_words[-1][1], w[1]), clean_words[-1][2])
+                clean_words[-1] = (clean_words[-1][0], min(clean_words[-1][0] + 0.85, max(clean_words[-1][1], w[1])), clean_words[-1][2])
                 continue
         clean_words.append(w)
 
@@ -149,12 +164,14 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.85, max_len=3.4):
             cur = []
     flush()
 
-    # Seamless gap-closing: keep caption container visible between sentences
-    # so captions do not disappear or flash off in the middle of natural pauses
+    # Enforce non-overlapping boundaries so no caption can EVER swallow or delete the next caption!
     for i in range(len(caps) - 1):
-        inter_gap = caps[i + 1]["start"] - caps[i]["end"]
-        if 0 < inter_gap <= 1.4:
+        if caps[i]["end"] > caps[i + 1]["start"]:
             caps[i]["end"] = caps[i + 1]["start"]
+        else:
+            inter_gap = caps[i + 1]["start"] - caps[i]["end"]
+            if 0 < inter_gap <= 0.85:
+                caps[i]["end"] = caps[i + 1]["start"]
 
     return caps
 

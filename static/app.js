@@ -14682,33 +14682,48 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         };
       }).filter(w => w.t);
 
+      // Strictly clamp word durations so no single word can ever stretch across seconds or swallow captions
+      for (let j = 0; j < normalizedWords.length; j++) {
+        const nextWordStart = (j + 1 < normalizedWords.length) ? normalizedWords[j + 1].s : (normalizedWords[j].s + 0.85);
+        const maxWe = Math.min(normalizedWords[j].s + 0.85, Math.max(normalizedWords[j].s + 0.1, nextWordStart));
+        if (normalizedWords[j].e > maxWe) {
+          normalizedWords[j].e = maxWe;
+          normalizedWords[j].end = maxWe;
+        }
+      }
+
       // Close micro word gaps
       for (let j = 0; j < normalizedWords.length - 1; j++) {
         const wGap = normalizedWords[j + 1].s - normalizedWords[j].e;
-        if (wGap > 0 && wGap <= 0.35) {
+        if (wGap > 0 && wGap <= 0.25) {
           normalizedWords[j].e = normalizedWords[j + 1].s;
           normalizedWords[j].end = normalizedWords[j + 1].s;
         }
       }
 
+      const safeStart = parseFloat(c.start) || 0;
+      let safeEnd = parseFloat(c.end) || 0;
+      if (normalizedWords.length > 0) {
+        safeEnd = Math.max(safeStart + 0.2, normalizedWords[normalizedWords.length - 1].e);
+      }
+
       return {
         id: c.id || ('cap_' + (i + 1)),
-        start: parseFloat(c.start) || 0,
-        end: parseFloat(c.end) || 0,
+        start: safeStart,
+        end: safeEnd,
         text: cleanCaptionText(c.text || normalizedWords.map(w => w.t).join(' ')),
         words: normalizedWords
       };
     });
 
-    // Close inter-caption gaps (eliminate flickering between sentences)
+    // Enforce strict non-overlapping boundaries so no caption can EVER hide or delete the next caption!
     for (let i = 0; i < list.length - 1; i++) {
-      const interGap = list[i + 1].start - list[i].end;
-      if (interGap > 0 && interGap <= 0.85) {
+      if (list[i].end > list[i + 1].start) {
         list[i].end = list[i + 1].start;
-        if (list[i].words && list[i].words.length) {
-          const lastW = list[i].words[list[i].words.length - 1];
-          lastW.e = list[i + 1].start;
-          lastW.end = list[i + 1].start;
+      } else {
+        const interGap = list[i + 1].start - list[i].end;
+        if (interGap > 0 && interGap <= 0.75) {
+          list[i].end = list[i + 1].start;
         }
       }
     }
@@ -19968,7 +19983,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       }
 
       t = (vid && typeof vid.currentTime === 'number') ? vid.currentTime : 0;
-      activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+      const candidates = S.captions.filter(c => t >= c.start && t <= c.end);
+      activeCap = candidates.length > 0 ? candidates[candidates.length - 1] : null;
       if (!activeCap && vid.paused && S.selectedCaptionId) {
         activeCap = S.captions.find(c => c.id === S.selectedCaptionId) || null;
       }
@@ -21874,7 +21890,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         lastExportTimestampMs = frameMs;
 
         // Binary/fast caption lookup by time (for Editorial Depth Stack, linger up to +0.55s in pauses so short captions sit longer)
-        let activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+        const exportCaps = S.captions.filter(c => t >= c.start && t <= c.end);
+        let activeCap = exportCaps.length > 0 ? exportCaps[exportCaps.length - 1] : null;
         if (!activeCap && S.style && (S.style.id === 'editorial_depth_stack' || S.style.id === 'spatial_sandwich_syne')) {
           activeCap = findLatestLingerCaption(S.captions, t, 0.85);
         }
