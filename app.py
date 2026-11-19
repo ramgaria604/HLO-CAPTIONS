@@ -1591,8 +1591,8 @@ def transcribe_audio_gap(audio_path, gap_start, gap_end, lang_code="hi-IN", is_h
     wav_chunk = WORK / f"gap_{uuid.uuid4().hex[:8]}.wav"
     try:
         subprocess.run([
-            ffmpeg_path(), "-y", "-ss", str(gap_start), "-to", str(gap_end),
-            "-i", str(audio_path), "-vn",
+            ffmpeg_path(), "-y",
+            "-i", str(audio_path), "-ss", str(gap_start), "-to", str(gap_end), "-vn",
             "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_chunk)
         ], capture_output=True, check=True)
 
@@ -1739,15 +1739,15 @@ def transcribe():
     groq_key = (os.environ.get("GROQ_API_KEY") or d.get("groq_api_key") or _DEFAULT_GROQ_KEY).strip()
     groq_model = d.get("groq_model") or os.environ.get("GROQ_MODEL")
     if groq_model not in ("whisper-large-v3", "whisper-large-v3-turbo"):
-        groq_model = "whisper-large-v3-turbo"
-    groq_engine_name = "Groq Whisper Large v3 Turbo" if groq_model.endswith("-turbo") else "Groq Whisper Large v3"
+        groq_model = "whisper-large-v3"
+    groq_engine_name = "Groq Whisper Large v3" if groq_model == "whisper-large-v3" else "Groq Whisper Large v3 Turbo"
     if groq_key:
         audio_for_groq = WORK / f"{name}_groq.mp3"
         try:
-            # Clean vocal extraction: 60Hz subsonic rumble cut + 2.0s trailing padding (no clipping/distortion)
+            # Clean vocal extraction: clean 16kHz resampling + 2.0s trailing padding (no distortion/rumble)
             subprocess.run([
                 ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
-                "-af", "highpass=f=60,apad=pad_dur=2.0",
+                "-af", "aresample=16000,apad=pad_dur=2.0",
                 "-ar", "16000", "-ac", "1", "-b:a", "128k", str(audio_for_groq)
             ], capture_output=True, check=True)
 
