@@ -587,7 +587,7 @@ def load_presets():
                     "posCycle": None if is_behind else p.get("posCycle"),
                     "behindPerson": is_behind,
                     "depthAccent": is_behind,
-                    "dualPlaneHero": bool(p.get("dualPlaneHero", False)),
+                    "dualPlaneHero": False,
                     "depthAccentSize": round(_safe_float(p.get("depthAccentSize") or accent.get("size", 230)) / 1080.0, 3) if _safe_float(accent.get("size", 230)) > 1.0 else round(_safe_float(p.get("depthAccentSize") or accent.get("size", 0.088), 0.088), 3),
                     "topY": float(p.get("topY", top_y if is_behind else 0.10)),
                     "depthAccentY": float(p.get("depthAccentY", 0.18 if is_behind else preset_y)),

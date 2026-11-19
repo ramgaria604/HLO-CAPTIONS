@@ -9703,6 +9703,9 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
  *   Clean white text with vibrant active-word highlight pill (yellow-gold, amber, or cyan).
  */
 function drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
+  return;
+}
+function _unused_drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!ctxFore || !words || !words.length) return;
   const capArg = (showAll && cap) ? Object.assign({}, cap, { _forceInstant: typeof t !== 'number' || isNaN(t) || t <= (cap.start || 0) + 0.04 }) : cap;
   const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind);
@@ -14634,13 +14637,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             voiceoverText.value = S.captions.map(c => c.text).join(' ');
           }
         } catch (e) {}
-
-        // Automatically match and insert Coverr B-roll clips according to the video speech!
-        setTimeout(() => {
-          try {
-            autoAddBrolls({ silent: true });
-          } catch (_) {}
-        }, 500);
       }, 400);
 
     } catch (err) {
@@ -20936,71 +20932,9 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     fill.style.width = pct + '%';
   }
 
-  // Live real-time B-Roll playback sync with main video
+  // Live real-time B-Roll playback sync with main video (disabled on main)
   function syncBrollPlayback() {
-    const brollLayer = $('brollStageLayer');
-    const brollVid = $('brollVid');
-    if (!brollLayer || !brollVid) return;
-
-    const t = vid.currentTime || 0;
-    const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
-
-    if (!activeBroll) {
-      brollLayer.classList.add('hidden');
-      if (!brollVid.paused) {
-        brollVid.pause();
-      }
-      lastActiveBrollId = null;
-      return;
-    }
-
-    // Play punchy transition whoosh sound effect when a B-Roll appears!
-    if (activeBroll.id !== lastActiveBrollId) {
-      lastActiveBrollId = activeBroll.id;
-      if (!vid.paused && S.autoSfx !== false) {
-        playSfx('whoosh');
-      }
-    }
-
-    // Active B-Roll found
-    brollLayer.classList.remove('hidden');
-
-    // Update layout classes
-    brollLayer.classList.remove('broll-layout-full', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window', 'broll-layout-circle');
-    const layout = activeBroll.layout || 'full';
-    brollLayer.classList.add('broll-layout-' + layout);
-
-    // Trigger slick pop / slide entry animations
-    if (activeBroll.id !== lastActiveBrollId) {
-      brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up');
-      void brollLayer.offsetWidth; // trigger reflow
-      if (layout === 'circle' || layout === 'window') {
-        brollLayer.classList.add('broll-animate-pop');
-      } else if (layout === 'above') {
-        brollLayer.classList.add('broll-animate-slide-down');
-      } else if (layout === 'below') {
-        brollLayer.classList.add('broll-animate-slide-up');
-      }
-    }
-
-    // Sync video source
-    if (brollVid.src !== activeBroll.url && brollVid.currentSrc !== activeBroll.url) {
-      brollVid.src = activeBroll.url;
-      brollVid.load();
-    }
-
-    // Sync playback offset
-    const offset = Math.max(0, t - activeBroll.start);
-    if (Math.abs(brollVid.currentTime - offset) > 0.3) {
-      brollVid.currentTime = offset;
-    }
-
-    // Match play/pause state
-    if (!vid.paused && brollVid.paused) {
-      brollVid.play().catch(() => {});
-    } else if (vid.paused && !brollVid.paused) {
-      brollVid.pause();
-    }
+    return;
   }
 
   function setupModalHandlers() {
