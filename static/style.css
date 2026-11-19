@@ -8634,6 +8634,102 @@ button {
   border-top: 1px solid rgba(255, 255, 255, 0.10) !important;
 }
 
+.bottom-nav-bar.hidden,
+#bottomNavBar.hidden,
+#captionContextNavBar.hidden {
+  display: none !important;
+}
+
+/* Contextual Caption Bottom Bar (CapCut / Instagram Style) */
+#captionContextNavBar {
+  height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-around !important;
+  background: #0d0f18 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  z-index: 40;
+}
+
+#captionContextNavBar .cap-context-btn {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  cursor: pointer !important;
+  padding: 4px 0 !important;
+  transition: all 0.15s ease !important;
+}
+
+#captionContextNavBar .cap-context-btn:hover {
+  color: #f8fafc !important;
+}
+
+#captionContextNavBar .cap-context-btn:active {
+  transform: scale(0.92);
+}
+
+#captionContextNavBar .cap-context-btn .nav-btn-icon {
+  width: 32px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
+  transition: all 0.18s ease !important;
+}
+
+#btnCapNavBack {
+  color: #38bdf8 !important;
+}
+#btnCapNavBack:hover .nav-btn-icon {
+  background: rgba(56, 189, 248, 0.20) !important;
+  color: #38bdf8 !important;
+}
+
+#btnCapNavEdit:hover .nav-btn-icon {
+  background: rgba(148, 163, 184, 0.20) !important;
+  color: #f8fafc !important;
+}
+
+#btnCapNavImpact {
+  color: #fbbf24 !important;
+}
+#btnCapNavImpact:hover .nav-btn-icon {
+  background: rgba(251, 191, 36, 0.20) !important;
+  color: #f59e0b !important;
+}
+
+#btnCapNavText {
+  color: #a78bfa !important;
+}
+#btnCapNavText:hover .nav-btn-icon {
+  background: rgba(167, 139, 250, 0.20) !important;
+  color: #c4b5fd !important;
+}
+
+#btnCapNavColour {
+  color: #f43f5e !important;
+}
+#btnCapNavColour:hover .nav-btn-icon {
+  background: rgba(244, 63, 94, 0.20) !important;
+  color: #fb7185 !important;
+}
+
+#btnCapNavStyle {
+  color: #34d399 !important;
+}
+#btnCapNavStyle:hover .nav-btn-icon {
+  background: rgba(52, 211, 153, 0.20) !important;
+  color: #6ee7b7 !important;
+}
+
 .bottom-nav-btn {
   flex: 1 !important;
   display: flex !important;

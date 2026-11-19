@@ -23152,6 +23152,12 @@ function selectCaption(capId, wordIndex = -1) {
     }
   });
 
+  // Switch downwards bottom toolbar into contextual caption controls (Back, Edit, Impact, Text, Colour, Style)
+  const standardNav = $('bottomNavBar');
+  const capContextNav = $('captionContextNavBar');
+  if (standardNav) standardNav.classList.add('hidden');
+  if (capContextNav) capContextNav.classList.remove('hidden');
+
   // Show timeline action bar
   const actionBar = $('timelineClipActionBar');
   if (actionBar) actionBar.classList.remove('hidden');
@@ -23183,6 +23189,12 @@ function deselectCaption() {
   S.editMode = 'whole';
 
   $$('.timeline-block').forEach(b => b.classList.remove('selected'));
+
+  // Restore standard downwards bottom toolbar (Auto Edit, Captions, Templates, Style, Voice)
+  const standardNav = $('bottomNavBar');
+  const capContextNav = $('captionContextNavBar');
+  if (standardNav) standardNav.classList.remove('hidden');
+  if (capContextNav) capContextNav.classList.add('hidden');
 
   const actionBar = $('timelineClipActionBar');
   if (actionBar) actionBar.classList.add('hidden');
@@ -24141,6 +24153,116 @@ function setupTimelineActionBar() {
     btnClipRedo.addEventListener('click', (e) => {
       e.stopPropagation();
       redo();
+    });
+  }
+
+  // =========================================================================
+  // CONTEXTUAL CAPTION BOTTOM BAR HANDLERS (Back, Edit, Impact, Text, Colour, Style)
+  // =========================================================================
+  const btnCapNavBack = $('btnCapNavBack');
+  if (btnCapNavBack) {
+    btnCapNavBack.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deselectCaption();
+    });
+  }
+
+  const btnCapNavEdit = $('btnCapNavEdit');
+  if (btnCapNavEdit) {
+    btnCapNavEdit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (S.selectedCaptionId) {
+        openCaptionEditSheet(S.selectedCaptionId);
+      } else {
+        showToast('Select a caption first');
+      }
+    });
+  }
+
+  const btnCapNavImpact = $('btnCapNavImpact');
+  if (btnCapNavImpact) {
+    btnCapNavImpact.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) {
+        showToast('Select a caption first');
+        return;
+      }
+      const cap = S.captions[capIdx];
+      if (!Array.isArray(cap.words) || !cap.words.length) {
+        if (cap.text) {
+          const parts = cap.text.trim().split(/\s+/).filter(Boolean);
+          const segDur = Math.max(0.5, (cap.end || 1) - (cap.start || 0));
+          const step = segDur / Math.max(1, parts.length);
+          cap.words = parts.map((pt, pIdx) => ({
+            t: pt,
+            s: (cap.start || 0) + pIdx * step,
+            e: (cap.start || 0) + (pIdx + 1) * step,
+            key: pIdx === 0,
+            dx: 0,
+            dy: 0
+          }));
+        }
+      }
+
+      if (cap.words && cap.words.length > 0) {
+        let curWordIdx = (S.selectedWordIndex >= 0 && S.selectedWordIndex < cap.words.length) ? S.selectedWordIndex : 0;
+        let nextIdx = (curWordIdx + 1) % cap.words.length;
+        if (S.selectedWordIndex < 0) nextIdx = 0;
+        S.selectedWordIndex = nextIdx;
+        S.editMode = 'word';
+
+        cap.words.forEach((w, i) => {
+          w.key = (i === nextIdx);
+        });
+
+        const activeWord = cap.words[nextIdx];
+        showToast(`💥 Impact word: "${activeWord.t}" highlighted!`);
+        pushHistoryState('Impact word highlight');
+        renderCanvas(true);
+        updateVideoEditOverlay();
+      } else {
+        showToast('💥 Impact emphasis applied');
+        renderCanvas(true);
+      }
+    });
+  }
+
+  const btnCapNavText = $('btnCapNavText');
+  if (btnCapNavText) {
+    btnCapNavText.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDrawerTab('tabStyle');
+      const textPill = document.querySelector('#styleSectionPills .cat-pill[data-style-group="text"]');
+      if (textPill) textPill.click();
+      const card = $('cardFontFamily');
+      if (card) {
+        const sc = document.querySelector('#drawerPanel .drawer-content');
+        if (sc) sc.scrollTop = Math.max(0, card.offsetTop - 20);
+      }
+    });
+  }
+
+  const btnCapNavColour = $('btnCapNavColour');
+  if (btnCapNavColour) {
+    btnCapNavColour.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDrawerTab('tabStyle');
+      const colorPill = document.querySelector('#styleSectionPills .cat-pill[data-style-group="color"]');
+      if (colorPill) colorPill.click();
+      const card = $('colorSwatches') || document.querySelector('[data-style-group="color"]');
+      if (card) {
+        const sc = document.querySelector('#drawerPanel .drawer-content');
+        if (sc) sc.scrollTop = Math.max(0, card.offsetTop - 20);
+      }
+    });
+  }
+
+  const btnCapNavStyle = $('btnCapNavStyle');
+  if (btnCapNavStyle) {
+    btnCapNavStyle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDrawerTab('tabTemplates');
     });
   }
 }
