@@ -13056,29 +13056,33 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
   }
 
-  function deductCreditAfterExport() {
+  function deductCreditAfterExport(exportId) {
     const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
     const userName = S.user ? (S.user.name || '') : '';
+    const devId = getPersistentDeviceId();
+    const effExportId = exportId || S.currentExportId || ('exp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8));
+
+    // Optimistic UI update
     const updated = Math.max(0, S.credits - 1);
     saveUserCredits(updated);
     updateCreditsUI();
 
-    if (userEmail) {
-      fetch('/api/credits/consume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userEmail,
-          name: userName
-        })
-      }).then(r => r.json()).then(data => {
-        if (data && typeof data.remaining_credits === 'number') {
-          const finalBal = Math.max(0, data.remaining_credits);
-          saveUserCredits(finalBal);
-          updateCreditsUI();
-        }
-      }).catch(() => {});
-    }
+    fetch('/api/credits/deduct', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        export_id: effExportId,
+        email: userEmail,
+        name: userName,
+        device_id: devId
+      })
+    }).then(r => r.json()).then(data => {
+      if (data && typeof data.remaining_credits === 'number') {
+        const finalBal = Math.max(0, data.remaining_credits);
+        saveUserCredits(finalBal);
+        updateCreditsUI();
+      }
+    }).catch(() => {});
   }
 
   function updateCreditsUI() {
@@ -22863,6 +22867,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     }
 
     vid.pause();
+    S.currentExportId = 'exp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
     updateQualityPillsUI();
     // Hide complex underlying video and editor DOM to give 100% GPU to video encoder
     const editorMain = document.querySelector('.editor-main') || $('editorMain') || document.body;

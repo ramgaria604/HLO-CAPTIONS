@@ -1,3 +1,4 @@
+import db
 """CaptionStudio Pro: captions + auto-cuts + b-roll. Runs on your own computer."""
 import json
 import os
@@ -47,6 +48,9 @@ if cloud_storage.storage.is_enabled():
             pass
 
 def load_device_credits_data():
+    db_res = db.db_load_device_credits_data()
+    if db_res is not None:
+        return db_res
     dev_file = DATA_DIR / "device_credits.json"
     if not dev_file.exists() and cloud_storage.storage.is_enabled():
         try:
@@ -61,6 +65,8 @@ def load_device_credits_data():
     return {}
 
 def save_device_credits_data(dev_data):
+    if db.db_save_device_credits_data(dev_data):
+        return
     dev_file = DATA_DIR / "device_credits.json"
     try:
         dev_file.write_text(json.dumps(dev_data, indent=2), encoding="utf-8")
@@ -70,6 +76,9 @@ def save_device_credits_data(dev_data):
         pass
 
 def load_redeemed_coupons():
+    db_res = db.db_load_redeemed_coupons()
+    if db_res is not None:
+        return db_res
     data_red = DATA_DIR / "redeemed_coupons.json"
     work_red = WORK / "redeemed_coupons.json"
     if not data_red.exists() and cloud_storage.storage.is_enabled():
@@ -89,6 +98,8 @@ def load_redeemed_coupons():
     return merged
 
 def save_redeemed_coupons(redeemed):
+    if db.db_save_redeemed_coupons(redeemed):
+        return
     data_red = DATA_DIR / "redeemed_coupons.json"
     try:
         data_red.write_text(json.dumps(redeemed, indent=2), encoding="utf-8")
@@ -98,6 +109,9 @@ def save_redeemed_coupons(redeemed):
         pass
 
 def load_razorpay_payments():
+    db_res = db.db_load_razorpay_payments()
+    if db_res is not None:
+        return db_res
     pay_file = DATA_DIR / "razorpay_payments.json"
     if not pay_file.exists() and cloud_storage.storage.is_enabled():
         try:
@@ -114,6 +128,8 @@ def load_razorpay_payments():
     return []
 
 def save_razorpay_payments(payments_data):
+    if db.db_save_razorpay_payments(payments_data):
+        return
     pay_file = DATA_DIR / "razorpay_payments.json"
     try:
         pay_file.write_text(json.dumps(payments_data, indent=2), encoding="utf-8")
@@ -154,6 +170,8 @@ def has_verified_credit_proof(user_email="", user_id="", device_id="", user_prof
     return False
 
 def save_user_profile(user_id, u_data):
+    if db.db_save_user_profile(user_id, u_data):
+        return
     u_file = USERS_DIR / f"{user_id}.json"
     try:
         u_file.write_text(json.dumps(u_data, indent=2), encoding="utf-8")
@@ -163,6 +181,9 @@ def save_user_profile(user_id, u_data):
         pass
 
 def load_user_profile(user_id):
+    db_res = db.db_load_user_profile(user_id)
+    if db_res is not None:
+        return db_res
     u_file = USERS_DIR / f"{user_id}.json"
     if not u_file.exists() and cloud_storage.storage.is_enabled():
         cloud_storage.storage.download_file(f"users/{user_id}.json", u_file)
@@ -1282,6 +1303,9 @@ DEFAULT_COUPONS = {
 
 
 def load_coupons():
+    db_res = db.db_load_coupons()
+    if db_res is not None:
+        return db_res
     merged = dict(DEFAULT_COUPONS)
     if COUPONS_FILE.exists():
         try:
@@ -1364,6 +1388,30 @@ def check_device_credits():
     resp = jsonify(credits=credits_val, used=used_count, expires_at=expires_at, has_paid=has_paid)
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return resp
+
+
+@app.post("/api/credits/deduct")
+def api_credits_deduct():
+    """Atomically deducts 1 credit after video export completes, verified by export_id."""
+    d = request.get_json(force=True) or {}
+    export_id = (d.get("export_id") or "").strip()
+    user_email = (d.get("email") or "").strip().lower()
+    device_id = (d.get("device_id") or "").strip()
+    user_name = (d.get("name") or "").strip()
+
+    if not export_id:
+        return jsonify(ok=False, error="export_id is required"), 400
+
+    # 1. Try PostgreSQL atomic transaction with export_id idempotency
+    db_res = db.db_deduct_export_credit(export_id, user_email, device_id)
+    if db_res is not None:
+        success, remaining, msg = db_res
+        if not success:
+            return jsonify(ok=False, error=msg), 400
+        return jsonify(ok=True, remaining_credits=remaining, message=msg)
+
+    # 2. File-based fallback
+    return consume_device_credit()
 
 
 @app.post("/api/credits/consume")
