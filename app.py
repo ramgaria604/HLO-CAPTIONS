@@ -1596,25 +1596,25 @@ def transcribe():
         recognition_lang = "hi-IN"
         target_label = "Hinglish"
         whisper_lang = "hi"
-        whisper_prompt = "Accurate Hinglish Roman script transcription without missing words: dosto, video, content, viral, like, share, subscribe, ye, woh, kya, kaise, kyun, nahi, hai, aur, toh, dekho, samjhe, ready, creator."
+        whisper_prompt = "Hinglish, Hindi, English dialogue."
     elif raw_lang in ("hi", "hi-in", "hindi"):
         is_hinglish = False
         recognition_lang = "hi-IN"
         target_label = "Hindi"
         whisper_lang = "hi"
-        whisper_prompt = "हिंदी भाषण, संवाद, और बातचीत बिना किसी शब्द को छोड़े।"
+        whisper_prompt = "हिंदी भाषण और संवाद।"
     elif not raw_lang or raw_lang == "auto":
         is_hinglish = False
         recognition_lang = "en-US"
         target_label = "Auto Detect"
         whisper_lang = None
-        whisper_prompt = "Accurate word-for-word transcription with clean punctuation and Hinglish support: dosto, video, viral, creator, content, share, subscribe, like, dekho, samjhe, ready."
+        whisper_prompt = "Hinglish, Hindi, English casual dialogue."
     elif raw_lang in ("en", "en-us", "english"):
         is_hinglish = False
         recognition_lang = "en-US"
         target_label = "English (US)"
         whisper_lang = "en"
-        whisper_prompt = "Clear, accurate word-for-word English transcription without skipping any words."
+        whisper_prompt = "English dialogue."
     elif raw_lang in ("en-gb", "uk"):
         is_hinglish = False
         recognition_lang = "en-GB"
@@ -1676,10 +1676,10 @@ def transcribe():
     if groq_key:
         audio_for_groq = WORK / f"{name}_groq.mp3"
         try:
-            # Vocal enhancement with zero-delay filtering + 2s trailing silence padding so Whisper never cuts trailing speech
+            # Clean vocal extraction: 60Hz subsonic rumble cut + 2.0s trailing padding (no clipping/distortion)
             subprocess.run([
                 ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
-                "-af", "highpass=f=80,lowpass=f=7600,volume=1.5,apad=pad_dur=2.0",
+                "-af", "highpass=f=60,apad=pad_dur=2.0",
                 "-ar", "16000", "-ac", "1", "-b:a", "128k", str(audio_for_groq)
             ], capture_output=True, check=True)
 
@@ -1696,7 +1696,6 @@ def transcribe():
                         ("response_format", "verbose_json"),
                         ("timestamp_granularities[]", "word"),
                         ("timestamp_granularities[]", "segment"),
-                        ("temperature", "0.0"),
                     ]
                     if whisper_lang:
                         post_data.append(("language", whisper_lang))
@@ -1747,7 +1746,7 @@ def transcribe():
                                 t = hinglish.devanagari_to_hinglish(t)
                             words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
 
-                    # Crucial: Ensure NO trailing words or segments across the entire video are skipped
+                    # If raw_words missed an entire segment, recover that segment's tokens smoothly across its duration
                     for seg in res_json.get("segments", []):
                         s_start = float(seg.get("start", 0))
                         s_end = float(seg.get("end", s_start + 1.0))
@@ -1758,16 +1757,12 @@ def transcribe():
                         if not seg_tokens:
                             continue
                         seg_words = [w for w in words if (s_start - 0.05) <= w[0] < (s_end + 0.05)]
-                        if len(seg_words) < len(seg_tokens):
-                            missing_tokens = seg_tokens[len(seg_words):]
-                            tail_start = seg_words[-1][1] if seg_words else s_start
-                            tail_end = max(tail_start + 0.35, s_end)
-                            step = max(0.12, (tail_end - tail_start) / len(missing_tokens))
-                            for idx_m, tok in enumerate(missing_tokens):
-                                w_s = round(tail_start + idx_m * step, 3)
-                                w_e = round(min(tail_end, tail_start + (idx_m + 1) * step), 3)
-                                if w_e <= w_s:
-                                    w_e = w_s + 0.2
+                        # Only synthesize if this segment had virtually zero words in raw_words
+                        if not seg_words:
+                            dur_per_token = max(0.1, (s_end - s_start) / len(seg_tokens))
+                            for idx_t, tok in enumerate(seg_tokens):
+                                w_s = round(s_start + idx_t * dur_per_token, 3)
+                                w_e = round(s_start + (idx_t + 1) * dur_per_token, 3)
                                 if is_hinglish and hinglish.is_devanagari(tok):
                                     tok = hinglish.devanagari_to_hinglish(tok)
                                 words.append((w_s, w_e, tok))
