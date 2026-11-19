@@ -19772,7 +19772,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
 
   if (!exportSegDownscaleCanvas) {
     exportSegDownscaleCanvas = document.createElement('canvas');
-    exportSegDownscaleCtx = exportSegDownscaleCanvas.getContext('2d', { willReadFrequently: true });
+    exportSegDownscaleCtx = exportSegDownscaleCanvas.getContext('2d', { alpha: false });
   }
   if (exportSegDownscaleCanvas.width !== downW || exportSegDownscaleCanvas.height !== downH) {
     exportSegDownscaleCanvas.width = downW;
@@ -19804,36 +19804,35 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
         if (!exportSegImageData || exportSegImageData.width !== mW || exportSegImageData.height !== mH) {
           exportSegImageData = exportSegMaskRawCtx.createImageData(mW, mH);
         }
-        const data = exportSegImageData.data;
         const totalPx = floatVals.length;
+        const data32 = new Uint32Array(exportSegImageData.data.buffer);
+        let nonZeroCount = 0;
 
         if (!exportPrevMaskFloats || exportPrevMaskFloats.length !== totalPx) {
           exportPrevMaskFloats = new Float32Array(totalPx);
           for (let i = 0; i < totalPx; i++) {
-            exportPrevMaskFloats[i] = floatVals[i];
+            const conf = floatVals[i];
+            exportPrevMaskFloats[i] = conf;
+            const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : (((conf - 0.25) * 510) | 0));
+            if (alpha > 0) nonZeroCount++;
+            data32[i] = (alpha << 24) | 0x00FFFFFF;
           }
         } else {
           for (let i = 0; i < totalPx; i++) {
-            exportPrevMaskFloats[i] = floatVals[i] * 0.7 + exportPrevMaskFloats[i] * 0.3;
+            const conf = floatVals[i] * 0.7 + exportPrevMaskFloats[i] * 0.3;
+            exportPrevMaskFloats[i] = conf;
+            const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : (((conf - 0.25) * 510) | 0));
+            if (alpha > 0) nonZeroCount++;
+            data32[i] = (alpha << 24) | 0x00FFFFFF;
           }
-        }
-
-        let nonZeroCount = 0;
-        for (let i = 0; i < totalPx; i++) {
-          const conf = exportPrevMaskFloats[i];
-          const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : Math.round(((conf - 0.25) / 0.5) * 255));
-          if (alpha > 0) nonZeroCount++;
-          const idx = i * 4;
-          data[idx] = 255;
-          data[idx + 1] = 255;
-          data[idx + 2] = 255;
-          data[idx + 3] = alpha;
         }
 
         // PROBLEM A Point 3: Verify mask is actually populated
         if (nonZeroCount === 0) return;
 
-        updateEditorialHeadTopRatio(exportPrevMaskFloats, mW, mH);
+        if (exportFrameIndex % 10 === 0 || !window._subjectMaskStats) {
+          updateEditorialHeadTopRatio(exportPrevMaskFloats, mW, mH);
+        }
         exportSegMaskRawCtx.putImageData(exportSegImageData, 0, 0);
 
         if (!exportSegFinalCanvas) {
@@ -22004,7 +22003,10 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         const pullY = S.pullDownY || 0;
         const basePullZoom = pullY > 0 ? (1.0 + pullY * 2.1) : 1.0;
         const effExportZoom = (isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch) * basePullZoom;
-        if (effExportZoom > 1.001 || pullY > 0) {
+        if (exportCleanFrameCanvas) {
+          // Zero-cost GPU copy of already decoded frame (avoids decoding video twice per frame)
+          ctx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
+        } else if (effExportZoom > 1.001 || pullY > 0) {
           const zW = W * effExportZoom;
           const zH = H * effExportZoom;
           const zX = (W - zW) / 2;
