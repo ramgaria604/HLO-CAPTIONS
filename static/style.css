@@ -10871,3 +10871,41 @@ button {
   color: #ffffff !important;
 }
 
+
+/* Replace B-Roll Action & Top Actions */
+.broll-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-replace-broll {
+  background: rgba(99, 102, 241, 0.16);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.15s ease;
+}
+.btn-replace-broll:hover {
+  background: rgba(99, 102, 241, 0.35);
+  color: #ffffff;
+  border-color: #818cf8;
+}
+
+/* Zoom Corners Layout */
+.broll-stage-layer.broll-layout-zoom_corners {
+  top: 4%;
+  left: 20%;
+  width: 60%;
+  height: 28%;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}

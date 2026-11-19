@@ -19101,13 +19101,92 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function drawMotionStickersOverlays(ctx, W, H, t) {
+    const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
+    const hasActiveBroll = Boolean(activeBroll);
     const isWealthMotion = Boolean(
       (S.style && (S.style.hasBrollMotion || S.style.id === 'tpl_broll_wealth' || S.style.id === 'wealth_impact')) ||
-      (S.motionStickersEnabled)
+      (S.motionStickersEnabled) ||
+      (hasActiveBroll && S.motionStickersEnabled !== false)
     );
     if (!isWealthMotion) return;
 
     ctx.save();
+
+    const layout = activeBroll ? (activeBroll.layout || 'above') : 'above';
+
+    // 4-CORNERS DYNAMIC OVERLAYS (For Zoom-Out / Dynamic Framing)
+    if (layout === 'zoom_corners') {
+      // Corner 1: Top-Left Topic Badge
+      const tlBadge = '📈 +847% ROI';
+      const tlFont = Math.max(11, Math.round(H * 0.015));
+      ctx.font = `800 ${tlFont}px "Montserrat", sans-serif`;
+      const mTL = ctx.measureText(tlBadge);
+      const bwTL = mTL.width + tlFont * 1.5;
+      const bhTL = tlFont * 2.0;
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 1.5;
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(W * 0.04, H * 0.03, bwTL, bhTL, bhTL / 2);
+        ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillRect(W * 0.04, H * 0.03, bwTL, bhTL);
+        ctx.strokeRect(W * 0.04, H * 0.03, bwTL, bhTL);
+      }
+      ctx.fillStyle = '#4ade80';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tlBadge, W * 0.04 + bwTL / 2, H * 0.03 + bhTL / 2);
+      ctx.restore();
+
+      // Corner 2: Top-Right Floating 3D Emoji
+      const trFloat = Math.sin((typeof t === 'number' ? t : 0) * 3) * (H * 0.005);
+      ctx.save();
+      ctx.translate(W * 0.88, H * 0.05 + trFloat);
+      ctx.font = `${Math.max(24, Math.round(H * 0.04))}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(250, 204, 21, 0.8)';
+      ctx.shadowBlur = 10;
+      ctx.fillText('💸', 0, 0);
+      ctx.restore();
+
+      // Corner 3: Bottom-Left Minimal Scene Mark
+      ctx.save();
+      ctx.font = `700 ${Math.max(10, Math.round(H * 0.013))}px monospace, sans-serif`;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('FIG. 01 // METRICS', W * 0.05, H * 0.94);
+      ctx.restore();
+
+      // Corner 4: Bottom-Right Micro Verified Badge
+      ctx.save();
+      const brTxt = '✓ VERIFIED';
+      ctx.font = `800 ${Math.max(10, Math.round(H * 0.013))}px sans-serif`;
+      const mBR = ctx.measureText(brTxt);
+      const bwBR = mBR.width + 16;
+      const bhBR = Math.max(18, Math.round(H * 0.024));
+      const bxBR = W * 0.95 - bwBR;
+      const byBR = H * 0.94 - bhBR;
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1;
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(bxBR, byBR, bwBR, bhBR, 4);
+        ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillRect(bxBR, byBR, bwBR, bhBR);
+      }
+      ctx.fillStyle = '#6ee7b7';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(brTxt, bxBR + bwBR / 2, byBR + bhBR / 2);
+      ctx.restore();
+    }
 
     // 1. STICKER ABOVE B-ROLL: Glassmorphic Status Badge
     const badgeText = '📈 +847% ROI';
@@ -20930,31 +21009,35 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             <span class="broll-card-title">🎬 #${idx + 1}: ${escapeHtml(b.query || 'Stock Clip')}</span>
             <span class="broll-card-timing">${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)</span>
           </div>
-          <button type="button" class="btn-del-broll" title="Delete B-roll">🗑️</button>
+          <div class="broll-top-actions">
+            <button type="button" class="btn-replace-broll" title="Replace video clip">🔄 Replace</button>
+            <button type="button" class="btn-del-broll" title="Delete B-roll">🗑️</button>
+          </div>
+          <input type="file" accept="video/*" class="input-replace-file hidden">
         </div>
 
         <div class="broll-layout-selector-wrap">
           <span class="broll-layout-label">Display Layout</span>
-          <div class="broll-layout-selector">
-            <button type="button" class="broll-layout-btn ${layout === 'above' ? 'active' : ''}" data-layout="above" title="Top Placement (Slides Speaker Down)">
+          <div class="broll-layout-selector" style="grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));">
+            <button type="button" class="broll-layout-btn ${layout === 'above' ? 'active' : ''}" data-layout="above" title="50% Top Split (Auto-Safe Headroom)">
               <span class="layout-btn-icon">⬆️</span>
-              <span>Above</span>
+              <span>50/50</span>
+            </button>
+            <button type="button" class="broll-layout-btn ${layout === 'zoom_corners' ? 'active' : ''}" data-layout="zoom_corners" title="Zoom-Out + 4-Corner Motion Stickers">
+              <span class="layout-btn-icon">🔍</span>
+              <span>Zoom 4C</span>
             </button>
             <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Corner Floating Card">
               <span class="layout-btn-icon">🪟</span>
               <span>Card</span>
             </button>
-            <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
-              <span class="layout-btn-icon">🖥️</span>
-              <span>Full</span>
-            </button>
             <button type="button" class="broll-layout-btn ${layout === 'circle' ? 'active' : ''}" data-layout="circle" title="Circular Bubble">
               <span class="layout-btn-icon">⭕</span>
               <span>Circle</span>
             </button>
-            <button type="button" class="broll-layout-btn ${layout === 'below' ? 'active' : ''}" data-layout="below" title="Bottom Split (Speaker Above)">
-              <span class="layout-btn-icon">⬇️</span>
-              <span>Below</span>
+            <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
+              <span class="layout-btn-icon">🖥️</span>
+              <span>Full</span>
             </button>
           </div>
         </div>
@@ -21042,6 +21125,38 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         vid.currentTime = Math.max(0, b.start);
         syncBrollPlayback();
         vid.play().catch(() => {});
+      });
+
+      // 1-Click Replace Video Clip
+      const btnReplace = card.querySelector('.btn-replace-broll');
+      const inputReplace = card.querySelector('.input-replace-file');
+      if (btnReplace && inputReplace) {
+        btnReplace.addEventListener('click', (e) => {
+          e.stopPropagation();
+          inputReplace.click();
+        });
+        inputReplace.addEventListener('change', (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (file) {
+            const newUrl = URL.createObjectURL(file);
+            b.url = newUrl;
+            b.query = file.name.replace(/\.[^/.]+$/, '');
+            b.thumb = newUrl;
+            renderBrollTab();
+            lastActiveBrollId = null;
+            syncBrollPlayback();
+            showToast('✓ B-Roll clip replaced!');
+          }
+        });
+      }
+
+      // Click card to jump video to B-roll start and preview
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('input')) return;
+        vid.currentTime = b.start;
+        vid.pause();
+        lastActiveBrollId = null;
+        syncBrollPlayback();
       });
 
       // Delete button
@@ -21147,17 +21262,33 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     brollLayer.classList.remove('hidden');
 
     // Update layout classes
-    brollLayer.classList.remove('broll-layout-full', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window', 'broll-layout-circle');
+    brollLayer.classList.remove('broll-layout-full', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window', 'broll-layout-circle', 'broll-layout-zoom_corners');
     const layout = activeBroll.layout || 'above';
-    brollLayer.classList.add('broll-layout-' + layout);
 
-    // Downward video shift for 'above' layout so speaker face is never covered!
-    if (layout === 'above') {
-      vid.style.transition = 'transform 0.35s ease';
+    // 50% Top Split Safety Check: Only shift down if speaker headroom is safe!
+    // If speaker is too close to the top, shifting down 28% would cut their face.
+    // In that case, safely fall back to zoom_corners so face is never cut off!
+    const headTop = (window._subjectMaskStats && typeof window._subjectMaskStats.headTopRatio === 'number')
+      ? window._subjectMaskStats.headTopRatio
+      : 0.22;
+
+    let effectiveLayout = layout;
+    if (layout === 'above' && headTop < 0.16) {
+      effectiveLayout = 'zoom_corners';
+    }
+
+    brollLayer.classList.add('broll-layout-' + effectiveLayout);
+
+    // Instant zero-delay video shift
+    if (effectiveLayout === 'above') {
+      vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
       vid.style.transform = 'translateY(28%)';
+    } else if (effectiveLayout === 'zoom_corners') {
+      vid.style.transition = 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)';
+      vid.style.transform = 'scale(0.85)';
     } else {
       if (vid.style.transform) {
-        vid.style.transition = 'transform 0.35s ease';
+        vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
         vid.style.transform = '';
       }
     }
@@ -22312,6 +22443,19 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             ctx.beginPath();
             ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.restore();
+          } else if (layout === 'zoom_corners') {
+            const winW = W * 0.58;
+            const winH = H * 0.28;
+            const winX = (W - winW) / 2;
+            const winY = H * 0.04;
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.7)';
+            ctx.shadowBlur = 16;
+            ctx.drawImage(bv, winX, winY, winW, winH);
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(winX, winY, winW, winH);
             ctx.restore();
           } else if (layout === 'window' || layout === 'pip') {
             const winW = W * 0.44;
