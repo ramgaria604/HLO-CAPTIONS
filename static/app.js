@@ -5310,8 +5310,6 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     // 'alternate': Even captions sit Top (behind head), Odd captions sit Below (behind torso)
     slot = (capIdx % 2 === 0) ? 'top' : 'below';
   }
-  const currPair = pickHeroAndLead(normWords);
-
   // Smooth cross-fade / exit fade for current caption
   const timeRem = fullInstant ? 1.0 : Math.max(0, effCapEnd - evalT);
   const currExitFade = fullInstant ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.18));
@@ -20127,35 +20125,6 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         if (!Array.isArray(activeCap.words) || !activeCap.words.length) {
           activeCap.words = words.map(w => ({ ...w }));
         }
-      }
-
-      // Check for Multi-Frame Custom Video Templates (Chrono Vault HUD / Atelier Zine Studio)
-      const activeVideoTpl = (S.style && S.style.videoTemplate) || '';
-      if (activeVideoTpl === 'chronoVault' || activeVideoTpl === 'atelierZine') {
-        if (vid && vid.style.opacity !== '1') vid.style.opacity = '1';
-        if (segmenterInstance && vid && vid.readyState >= 2) {
-          if (!vid.paused) {
-            const now = performance.now();
-            if (now - lastLiveSegTime >= cfg.minMaskInterval) {
-              lastLiveSegTime = now;
-              getLivePersonMask(vid, Math.round(t * 1000), w, h, false, cfg.maskDownscaleTarget, false);
-            }
-          } else if (Math.abs(t - lastPausedSegTime) > 0.02 || !window._subjectMaskStats) {
-            lastPausedSegTime = t;
-            getLivePersonMask(vid, Math.round(t * 1000), w, h, true, 160, false);
-          }
-        } else if (!segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
-          ensureSegmenterLoaded().catch(() => {});
-        }
-        drawCustomVideoTemplateFrame(activeVideoTpl, ctx, behindCtx || ctx, t, w, h, isPreview, null);
-        drawWatermark(ctx, w, h);
-
-        if (isPreview) {
-          const elp = performance.now() - drawStart;
-          recordPreviewDrawTime(elp);
-          updateDebugBadge(elp, effQuality);
-        }
-        return;
       }
 
       // Check for Multi-Frame Custom Video Templates (Chrono Vault HUD / Atelier Zine Studio)
