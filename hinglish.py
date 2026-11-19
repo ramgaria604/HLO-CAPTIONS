@@ -88,7 +88,9 @@ COMMON_WORDS = {
     # Creator, social media & tech terms
     'दोस्तों': 'dosto', 'दोस्त': 'dost', 'भाई': 'bhai', 'यार': 'yaar', 'लोग': 'log', 'लोगों': 'logon',
     'वीडियो': 'video', 'विडियो': 'video', 'चैनल': 'channel',
-    'सब्सक्राइब': 'subscribe', 'लाइक': 'like', 'शेयर': 'share', 'फॉलो': 'follow', 'कमेंट': 'comment',
+    'सब्सक्राइब': 'subscribe', 'सबक्राइब': 'subscribe', 'सबस्क्राइब': 'subscribe', 'सबस्क्राईब': 'subscribe',
+    'लाइक': 'like', 'शेयर': 'share', 'फॉलो': 'follow', 'फ़ॉलो': 'follow',
+    'कमेंट': 'comment', 'कमैंट': 'comment', 'कॉमेंट': 'comment', 'कमेंट्स': 'comments',
     'फोन': 'phone', 'फ़ोन': 'phone', 'मोबाइल': 'mobile',
     'एडिटिंग': 'editing', 'एडिट': 'edit', 'कैप्शन': 'caption', 'कैप्शन्स': 'captions',
     'ट्रिक': 'trick', 'टिप्स': 'tips', 'ट्रिक्स': 'tricks', 'फीचर': 'feature',
@@ -157,7 +159,32 @@ COMMON_WORDS = {
     'जरूरी': 'zaroori', 'ज़रूरी': 'zaroori', 'आसान': 'aasan', 'मुश्किल': 'mushkil',
     'जिंदगी': 'zindagi', 'ज़िंदगी': 'zindagi', 'खुशी': 'khushi', 'दिक्कत': 'dikkat',
     'प्रॉब्लम': 'problem', 'सॉल्यूशन': 'solution',
-    'टेम्पलेट': 'template', 'फॉन्ट': 'font', 'स्टाइल': 'style'
+    'टेम्पलेट': 'template', 'फॉन्ट': 'font', 'स्टाइल': 'style',
+
+    # High-Accuracy Internet, Web, Creator & Tech Terms
+    'वेबसाइट': 'website', 'वेबसाईट': 'website', 'वेबसाइट्स': 'websites', 'वेबसाईट्स': 'websites',
+    'वेब': 'web', 'साइट': 'site', 'साईट': 'site',
+    'इंटरनेट': 'internet', 'इन्टरनेट': 'internet',
+    'ऑनलाइन': 'online', 'ऑफलाइन': 'offline', 'ऑफ़लाइन': 'offline',
+    'गूगल': 'Google', 'यूट्यूब': 'YouTube', 'व्हाट्सएप': 'WhatsApp', 'व्हाट्सऐप': 'WhatsApp',
+    'फेसबुक': 'Facebook', 'इंस्टाग्राम': 'Instagram', 'ट्विटर': 'Twitter',
+    'ब्राउज़र': 'browser', 'ब्राउजर': 'browser',
+    'सर्च': 'search', 'सर्चिंग': 'searching',
+    'कंप्यूटर': 'computer', 'कम्प्यूटर': 'computer', 'लैपटॉप': 'laptop',
+    'सॉफ्टवेयर': 'software', 'हार्डवेयर': 'hardware',
+    'पासवर्ड': 'password', 'ईमेल': 'email', 'जीमेल': 'Gmail',
+    'टूल': 'tool', 'टूल्स': 'tools',
+    'ऐप': 'app', 'ऐप्स': 'apps', 'एप्लिकेशन': 'application',
+    'अपलोड': 'upload', 'अपलोडिंग': 'uploading',
+    'डाउनलोडिंग': 'downloading',
+    'बिजनेस': 'business', 'मार्केटिंग': 'marketing',
+    'स्टूडियो': 'Studio', 'कैप्शनस्टूडियो': 'CaptionStudio',
+    'क्वालिटी': 'quality', 'एचडी': 'HD', 'फोरके': '4K',
+    'ट्यूटोरियल': 'tutorial', 'गाइड': 'guide',
+    'अमेजिंग': 'amazing', 'ऑसम': 'awesome', 'परफेक्ट': 'perfect', 'सिंपल': 'simple',
+    'स्टेप': 'step', 'स्टेप्स': 'steps', 'प्रोसेस': 'process',
+    'फ्री': 'free', 'पेड': 'paid', 'प्राइस': 'price', 'ऑफर': 'offer',
+    'पैसा': 'paisa', 'पैसे': 'paise', 'रुपये': 'rupaye', 'रुपया': 'rupaya', 'मनी': 'money'
 }
 
 # Phonetic character tables
@@ -312,6 +339,32 @@ SPELLING_CORRECTIONS = {
     "phon": "phone", "mobail": "mobile", "smartphon": "smartphone",
     "profil": "profile", "acount": "account", "akount": "account",
 
+    # Website, Internet, Browser & Tech terms
+    "websait": "website", "vebsait": "website", "vebsite": "website", "websyt": "website",
+    "websayt": "website", "webiste": "website", "websit": "website", "vebsayt": "website",
+    "vebasait": "website", "vebaasaait": "website", "wibsite": "website", "webaite": "website",
+    "webside": "website", "vebside": "website", "webcite": "website",
+    "vebsaaee": "website", "vebasaaee": "website", "websites": "websites", "vebsaites": "websites",
+    "intenet": "internet", "intrnet": "internet", "intarnet": "internet",
+    "onlin": "online", "oonlin": "online", "ofline": "offline", "offlin": "offline",
+    "gogle": "Google", "googel": "Google", "gugle": "Google",
+    "youtub": "YouTube", "yutube": "YouTube", "u-tube": "YouTube",
+    "whtsapp": "WhatsApp", "watsap": "WhatsApp", "whatsap": "WhatsApp", "whatspp": "WhatsApp", "watzap": "WhatsApp",
+    "brouser": "browser", "brauser": "browser", "browzer": "browser",
+    "serch": "search", "surch": "search", "sarch": "search",
+    "dawnload": "download", "downlod": "download", "dwnload": "download",
+    "uplod": "upload", "aplod": "upload",
+    "pasword": "password", "passward": "password", "pasward": "password",
+    "computr": "computer", "camputer": "computer", "kompitar": "computer",
+    "laptap": "laptop", "leptop": "laptop",
+    "softwer": "software", "softwere": "software",
+    "hardwer": "hardware", "hardwere": "hardware",
+    "tols": "tools", "toolz": "tools", "tul": "tool", "tuls": "tools",
+    "quallity": "quality", "kwality": "quality", "qualiti": "quality",
+    "tutoral": "tutorial", "tutoreal": "tutorial", "tutrial": "tutorial",
+    "mesage": "message", "messege": "message", "massage": "message",
+    "fotage": "footage", "broll": "B-roll",
+
     # Common Hindi/Hinglish colloquial words
     "dostoon": "dosto", "dostoo": "dosto", "dsto": "dosto",
     "bataao": "batao", "btao": "batao", "btana": "batana", "batana": "batana",
@@ -410,4 +463,11 @@ def devanagari_to_hinglish(text):
     res = '\n'.join(out_lines)
     # Post-cleanup: clean double spaces, Hindi danda (|) to period
     res = res.replace('।', '.').replace('॥', '.')
+
+    # Normalize split compound internet/creator terms (e.g. 'web site' -> 'website')
+    res = re.sub(r'\b(?:web|veb)\s*(?:site|sait)\b', 'website', res, flags=re.IGNORECASE)
+    res = re.sub(r'\b(?:you|yu)\s*(?:tube|tub)\b', 'YouTube', res, flags=re.IGNORECASE)
+    res = re.sub(r'\b(?:whats|wats)\s*app\b', 'WhatsApp', res, flags=re.IGNORECASE)
+    res = re.sub(r'\binsta\s*gram\b', 'Instagram', res, flags=re.IGNORECASE)
+    res = re.sub(r'\bface\s*book\b', 'Facebook', res, flags=re.IGNORECASE)
     return res
