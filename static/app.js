@@ -19125,7 +19125,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     ctx.fillText(badgeText, bx + bw / 2, by + bh / 2 + 1);
 
     // 2. STICKER DOWNWARDS (Below B-Roll / Above Captions)
-    const floatY = Math.sin(t * 3.5) * (H * 0.008);
+    const safeT = (typeof t === 'number') ? t : 0;
+    const floatY = Math.sin(safeT * 3.5) * (H * 0.008);
     const moneyX = Math.round(W * 0.16);
     const moneyY = Math.round(H * 0.44) + floatY;
     const moneySize = Math.max(28, Math.round(H * 0.045));
@@ -22047,8 +22048,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             document.fonts.load('800 100px "Poppins"'),
             document.fonts.load('italic 800 100px "Poppins"'),
             document.fonts.load('600 48px "Poppins"'),
-            document.fonts.load(`${Math.round(H * 0.16)}px Anton`),
-            document.fonts.load(`600 ${Math.round(H * 0.05)}px Poppins`),
+            document.fonts.load(`${Math.round(targetH * 0.16)}px Anton`),
+            document.fonts.load(`600 ${Math.round(targetH * 0.05)}px Poppins`),
             document.fonts.ready
           ]);
         } catch (_) {}
@@ -22100,27 +22101,31 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       }
 
       const processFrame = (sample) => {
-        try {
-          exportFrameIndex++;
+        let t = 0;
         const W = targetW;
         const H = targetH;
-
-        if (!canvas) {
-          if (typeof OffscreenCanvas !== 'undefined') {
-            try {
-              canvas = new OffscreenCanvas(W, H);
-              ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
-            } catch (_) {}
+        try {
+          exportFrameIndex++;
+          if (sample && typeof sample.timestamp === 'number') {
+            t = sample.timestamp;
+          } else if (sample && sample.timestamp != null) {
+            t = Number(sample.timestamp) || 0;
           }
-          if (!ctx) {
-            canvas = document.createElement('canvas');
-            canvas.width = W;
-            canvas.height = H;
-            ctx = canvas.getContext('2d', { alpha: false });
-          }
-        }
 
-        const t = sample.timestamp || 0;
+          if (!canvas) {
+            if (typeof OffscreenCanvas !== 'undefined') {
+              try {
+                canvas = new OffscreenCanvas(W, H);
+                ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+              } catch (_) {}
+            }
+            if (!ctx) {
+              canvas = document.createElement('canvas');
+              canvas.width = W;
+              canvas.height = H;
+              ctx = canvas.getContext('2d', { alpha: false });
+            }
+          }
 
         // PROBLEM A Point 2: Strictly increasing timestamps (start at 0, in ms, never repeat or go backwards)
         let frameMs = Math.round(t * 1000);
@@ -22485,15 +22490,16 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         return canvas;
         } catch (procFrameErr) {
           consecutiveProcFrameErrors++;
+          const safeT = (typeof t === 'number') ? t : 0;
           if (consecutiveProcFrameErrors <= 5 || consecutiveProcFrameErrors % 30 === 0) {
-            console.error('[EXPORT] processFrame error at frame', exportFrameIndex, 't=' + t, procFrameErr && (procFrameErr.stack || procFrameErr.message || procFrameErr));
+            console.error('[EXPORT] processFrame error at frame', exportFrameIndex, 't=' + safeT, procFrameErr && (procFrameErr.stack || procFrameErr.message || procFrameErr));
             try { window._lastProcFrameError = String(procFrameErr && (procFrameErr.stack || procFrameErr.message || procFrameErr)); } catch (_) {}
           }
           try {
-            if (canvas && ctx) {
+            if (canvas && ctx && sample && typeof sample.draw === 'function') {
               ctx.clearRect(0, 0, targetW, targetH);
               sample.draw(ctx, 0, 0, targetW, targetH);
-              try { if (sample && typeof sample.close === 'function') sample.close(); } catch (_) {}
+              try { if (typeof sample.close === 'function') sample.close(); } catch (_) {}
               return canvas;
             }
           } catch (_) {}
