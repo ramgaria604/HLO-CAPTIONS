@@ -1812,6 +1812,7 @@ def transcribe():
                         if t:
                             if is_hinglish and hinglish.is_devanagari(t):
                                 t = hinglish.devanagari_to_hinglish(t)
+                            t = hinglish.standardize_spelling(t)
                             words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
 
                     # If raw_words missed words in a segment, recover that segment's tokens smoothly across its duration
@@ -1834,6 +1835,7 @@ def transcribe():
                                 w_e = round(s_start + (idx_t + 1) * dur_per_token, 3)
                                 if is_hinglish and hinglish.is_devanagari(tok):
                                     tok = hinglish.devanagari_to_hinglish(tok)
+                                tok = hinglish.standardize_spelling(tok)
                                 words.append((w_s, w_e, tok))
 
                     if not words and res_json.get("text"):
@@ -1850,6 +1852,7 @@ def transcribe():
                                 w_e = round((idx_t + 1) * token_dur, 3)
                                 if is_hinglish and hinglish.is_devanagari(tok):
                                     tok = hinglish.devanagari_to_hinglish(tok)
+                                tok = hinglish.standardize_spelling(tok)
                                 words.append((w_s, w_e, tok))
 
                     words.sort(key=lambda x: x[0])

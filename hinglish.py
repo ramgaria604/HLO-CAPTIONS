@@ -288,6 +288,78 @@ def phonetic_word_to_hinglish(word):
     return ''.join(out)
 
 
+# High-frequency spelling standardization dictionary for creator Hinglish & English
+SPELLING_CORRECTIONS = {
+    # Video / Creator / Tech terms
+    "vedio": "video", "vedios": "videos", "bideo": "video", "vidio": "video", "vid": "video",
+    "channal": "channel", "chenal": "channel", "chenel": "channel", "chanel": "channel",
+    "subcribe": "subscribe", "sabscribe": "subscribe", "subscrib": "subscribe", "subscibe": "subscribe",
+    "subcribers": "subscribers", "sabscribers": "subscribers",
+    "folow": "follow", "falo": "follow", "folowers": "followers", "falowers": "followers",
+    "coment": "comment", "kament": "comment", "coments": "comments", "kaments": "comments",
+    "edting": "editing", "iditing": "editing", "editer": "editor", "iditer": "editor",
+    "kontent": "content", "kantent": "content",
+    "fichar": "feature", "fichars": "features",
+    "kaption": "caption", "kaptions": "captions", "captn": "caption",
+    "insta": "Instagram", "instgram": "Instagram", "yt": "YouTube", "utube": "YouTube",
+    "bayral": "viral", "vairal": "viral", "virul": "viral",
+    "aadio": "audio", "audeo": "audio",
+    "seting": "settings", "setings": "settings",
+    "scren": "screen", "skreen": "screen",
+    "aplication": "application", "ap": "app",
+    "notifaction": "notification", "notifactions": "notifications",
+    "camra": "camera", "cemera": "camera",
+    "phon": "phone", "mobail": "mobile", "smartphon": "smartphone",
+    "profil": "profile", "acount": "account", "akount": "account",
+
+    # Common Hindi/Hinglish colloquial words
+    "dostoon": "dosto", "dostoo": "dosto", "dsto": "dosto",
+    "bataao": "batao", "btao": "batao", "btana": "batana", "batana": "batana",
+    "dekhana": "dekhna", "dkhna": "dekhna", "dekhe": "dekhein", "dekho": "dekho",
+    "karna": "karna", "krna": "karna", "karo": "karo", "kro": "karo", "karein": "karein", "kre": "karein",
+    "rakho": "rakho", "rkho": "rakho", "rakhna": "rakhna", "rkhna": "rakhna",
+    "kaisa": "kaisa", "kesa": "kaisa", "kaisi": "kaisi", "kesi": "kaisi",
+    "kaise": "kaise", "kese": "kaise",
+    "kyun": "kyun", "kyu": "kyun", "kio": "kyun", "kyo": "kyun",
+    "zaroor": "zaroor", "jarur": "zaroor", "jaroor": "zaroor",
+    "zaroori": "zaroori", "jaruri": "zaroori",
+    "accha": "achha", "acha": "achha", "achaa": "achha",
+    "bahut": "bohot", "bhut": "bohot", "boht": "bohot", "bhot": "bohot",
+    "samjhe": "samjhe", "smjhe": "samjhe", "samjho": "samjho", "smjho": "samjho",
+    "lekin": "lekin", "leken": "lekin", "magar": "magar",
+    "isliye": "isliye", "islye": "isliye", "isleye": "isliye",
+    "kyunki": "kyunki", "kyonki": "kyunki", "kyunkey": "kyunki",
+    "shuru": "shuru", "suru": "shuru",
+    "koshish": "koshish", "kosis": "koshish",
+    "pata": "pata", "pta": "pata",
+    "hoga": "hoga", "hogi": "hogi", "honge": "honge",
+    "hamesha": "hamesha", "hmesha": "hamesha",
+    "aaj": "aaj", "kal": "kal", "parso": "parso",
+    "pehle": "pehle", "phle": "pehle", "baad": "baad",
+    "bilkul": "bilkul", "blkul": "bilkul",
+    "sahi": "sahi", "galat": "galat", "glt": "galat",
+    "acche": "achhe", "achhe": "achhe",
+    "thoda": "thoda", "thodi": "thodi",
+    "samay": "samay", "time": "time",
+    "ready": "ready", "redi": "ready",
+}
+
+
+def standardize_spelling(word):
+    """Clean and standardize phonetic and colloquial spelling variations."""
+    if not word or not isinstance(word, str):
+        return word
+    clean_key = re.sub(r"[^\w]", "", word.lower())
+    if clean_key in SPELLING_CORRECTIONS:
+        corrected = SPELLING_CORRECTIONS[clean_key]
+        if word.isupper():
+            return corrected.upper()
+        if word[0].isupper():
+            return corrected.capitalize()
+        return corrected
+    return word
+
+
 def convert_token(token):
     """Convert a single token (which might have leading/trailing punctuation)."""
     # Separate leading punctuation
@@ -304,9 +376,9 @@ def convert_token(token):
     if not token:
         return lead + trail
 
-    # If it has no Devanagari, keep as is (e.g. English words, numbers)
+    # If it has no Devanagari, standardize spelling directly
     if not is_devanagari(token):
-        return lead + token + trail
+        return lead + standardize_spelling(token) + trail
 
     # Check common words dictionary
     cleaned = re.sub(r'[\u0964\u0965]', '', token)  # remove danda
@@ -315,15 +387,16 @@ def convert_token(token):
     else:
         translated = phonetic_word_to_hinglish(cleaned)
 
+    translated = standardize_spelling(translated)
     return lead + translated + trail
 
 
 def devanagari_to_hinglish(text):
     """
     Convert full text containing Devanagari Hindi to natural Romanized Hinglish.
-    Preserves English words, numbers, and punctuation.
+    Preserves English words, numbers, and punctuation, while fixing common spelling errors.
     """
-    if not text or not is_devanagari(text):
+    if not text:
         return text
 
     # Split into lines/tokens
