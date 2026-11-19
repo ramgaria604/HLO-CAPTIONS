@@ -1676,17 +1676,10 @@ def transcribe():
     if groq_key:
         audio_for_groq = WORK / f"{name}_groq.mp3"
         try:
-            try:
-                subprocess.run([
-                    ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
-                    "-af", "dynaudnorm=f=75:g=15:m=10.0,highpass=f=80,lowpass=f=7500,volume=1.5",
-                    "-ar", "16000", "-ac", "1", "-b:a", "64k", str(audio_for_groq)
-                ], capture_output=True, check=True)
-            except Exception:
-                subprocess.run([
-                    ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
-                    "-ar", "16000", "-ac", "1", "-b:a", "64k", str(audio_for_groq)
-                ], capture_output=True, check=True)
+            subprocess.run([
+                ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
+                "-ar", "16000", "-ac", "1", "-b:a", "96k", str(audio_for_groq)
+            ], capture_output=True, check=True)
 
             with open(audio_for_groq, "rb") as af:
                 post_data = [
@@ -1749,22 +1742,24 @@ def transcribe():
                                 t = hinglish.devanagari_to_hinglish(t)
                             words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
 
-                    # Crucial: Ensure NO segments across the full video are skipped even if word timestamps ended early
+                    # Crucial: Ensure NO segments or words across the full video are skipped even if word timestamps ended early
                     for seg in res_json.get("segments", []):
                         s_start = float(seg.get("start", 0))
                         s_end = float(seg.get("end", s_start + 1.0))
                         seg_text = (seg.get("text") or "").strip()
                         if not seg_text:
                             continue
-                        # If no words exist inside this segment's duration, parse its tokens
-                        has_words = any(s_start <= w[0] < s_end for w in words)
-                        if not has_words:
-                            seg_tokens = seg_text.split()
-                            if seg_tokens:
-                                dur_per_token = max(0.08, (s_end - s_start) / len(seg_tokens))
-                                for idx_t, tok in enumerate(seg_tokens):
-                                    w_s = round(s_start + idx_t * dur_per_token, 3)
-                                    w_e = round(s_start + (idx_t + 1) * dur_per_token, 3)
+                        seg_tokens = seg_text.split()
+                        seg_words = [w for w in words if s_start <= w[0] < s_end]
+                        if len(seg_words) < len(seg_tokens):
+                            missing = seg_tokens[len(seg_words):]
+                            if missing:
+                                tail_start = seg_words[-1][1] if seg_words else s_start
+                                tail_end = max(tail_start + 0.3, s_end)
+                                dur_per_token = max(0.08, (tail_end - tail_start) / len(missing))
+                                for idx_t, tok in enumerate(missing):
+                                    w_s = round(tail_start + idx_t * dur_per_token, 3)
+                                    w_e = round(tail_start + (idx_t + 1) * dur_per_token, 3)
                                     if is_hinglish and hinglish.is_devanagari(tok):
                                         tok = hinglish.devanagari_to_hinglish(tok)
                                     words.append((w_s, w_e, tok))
@@ -1808,12 +1803,40 @@ def transcribe():
                 initial_prompt=whisper_prompt, condition_on_previous_text=True
             )
             for seg in segs:
-                for w in seg.words or []:
-                    t = w.word.strip()
+                seg_text = (seg.text or "").strip()
+                tokens = [t.strip() for t in seg_text.split() if t.strip()]
+                seg_words = seg.words or []
+                valid_w = []
+                for w in seg_words:
+                    t = (w.word or "").strip()
                     if t:
-                        if is_hinglish and hinglish.is_devanagari(t):
-                            t = hinglish.devanagari_to_hinglish(t)
-                        words.append((float(w.start), float(w.end), t))
+                        valid_w.append((float(w.start), float(w.end), t))
+
+                if len(valid_w) == len(tokens):
+                    for ws, we, wt in valid_w:
+                        if is_hinglish and hinglish.is_devanagari(wt):
+                            wt = hinglish.devanagari_to_hinglish(wt)
+                        words.append((ws, we, wt))
+                elif len(valid_w) > 0:
+                    for ws, we, wt in valid_w:
+                        if is_hinglish and hinglish.is_devanagari(wt):
+                            wt = hinglish.devanagari_to_hinglish(wt)
+                        words.append((ws, we, wt))
+                    missing = tokens[len(valid_w):]
+                    tail_start = max(float(seg.start), valid_w[-1][1])
+                    tail_end = max(tail_start + 0.25, float(seg.end))
+                    step = (tail_end - tail_start) / len(missing)
+                    for idx_m, m_tok in enumerate(missing):
+                        if is_hinglish and hinglish.is_devanagari(m_tok):
+                            m_tok = hinglish.devanagari_to_hinglish(m_tok)
+                        words.append((round(tail_start + idx_m * step, 3), round(tail_start + (idx_m + 1) * step, 3), m_tok))
+                elif tokens:
+                    dur = max(0.2, float(seg.end) - float(seg.start))
+                    step = dur / len(tokens)
+                    for idx_t, tok in enumerate(tokens):
+                        if is_hinglish and hinglish.is_devanagari(tok):
+                            tok = hinglish.devanagari_to_hinglish(tok)
+                        words.append((round(float(seg.start) + idx_t * step, 3), round(float(seg.start) + (idx_t + 1) * step, 3), tok))
             if hasattr(info, "language"):
                 detected_lang = target_label if is_hinglish else info.language
             if words:
@@ -1825,18 +1848,11 @@ def transcribe():
     if not words and module_ok("speech_recognition"):
         wav_path = WORK / f"{name}_speech.wav"
         try:
-            # Extract vocal track with dynamic audio normalization, voice frequency pass & clarity gain
-            try:
-                subprocess.run([
-                    ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
-                    "-af", "dynaudnorm=f=75:g=15:m=10.0,highpass=f=80,lowpass=f=7500,volume=1.6",
-                    "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_path)
-                ], capture_output=True, check=True)
-            except Exception:
-                subprocess.run([
-                    ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
-                    "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_path)
-                ], capture_output=True, check=True)
+            # Extract vocal track directly without delay-causing filter buffers
+            subprocess.run([
+                ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
+                "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_path)
+            ], capture_output=True, check=True)
 
             import speech_recognition as sr
             import wave, math, struct
