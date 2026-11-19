@@ -834,7 +834,43 @@ def load_presets():
             "shadowColor": "#000000"
         }
     }
-    out.insert(0, side_by_side_item)
+    wealth_broll_item = {
+        "id": "tpl_broll_wealth",
+        "name": "⚡ Wealth & Impact (B-Roll + Stickers)",
+        "category": "motion_broll",
+        "badge": "MOTION ⚡",
+        "layout": "above",
+        "animation": "pop",
+        "wordsPerCaption": 3,
+        "maxKeys": 1,
+        "position": 0.72,
+        "highlightColor": "#FDE047",
+        "baseColor": "#FFFFFF",
+        "hasBrollMotion": True,
+        "brollLayout": "above",
+        "fontFamily": "Montserrat",
+        "fontScale": 1.0,
+        "key": {
+            "font": "Montserrat",
+            "size": 0.088,
+            "color": "#FDE047",
+            "bold": True,
+            "weight": 900,
+            "shadow": 0.08,
+            "shadowColor": "#000000"
+        },
+        "filler": {
+            "font": "Montserrat",
+            "size": 0.055,
+            "color": "#FFFFFF",
+            "bold": True,
+            "weight": 800,
+            "shadow": 0.06,
+            "shadowColor": "#000000"
+        }
+    }
+    out.insert(0, wealth_broll_item)
+    out.insert(1, side_by_side_item)
 
     return out
 

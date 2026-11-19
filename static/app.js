@@ -19048,6 +19048,102 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     ctx.drawImage(cachedWatermarkCanvas, 0, 0);
   }
 
+  function drawMotionStickersOverlays(ctx, W, H, t) {
+    const isWealthMotion = Boolean(
+      (S.style && (S.style.hasBrollMotion || S.style.id === 'tpl_broll_wealth' || S.style.id === 'wealth_impact')) ||
+      (S.motionStickersEnabled)
+    );
+    if (!isWealthMotion) return;
+
+    ctx.save();
+
+    // 1. STICKER ABOVE B-ROLL: Glassmorphic Status Badge
+    const badgeText = '📈 +847% ROI';
+    const badgeFont = Math.max(11, Math.round(H * 0.016));
+    ctx.font = `800 ${badgeFont}px "Montserrat", sans-serif`;
+    const m = ctx.measureText(badgeText);
+    const bw = m.width + badgeFont * 1.6;
+    const bh = badgeFont * 2.0;
+    const bx = W - bw - Math.round(W * 0.05);
+    const by = Math.round(H * 0.035);
+
+    // Pill background
+    ctx.save();
+    ctx.shadowColor = 'rgba(34, 197, 94, 0.6)';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 1.5;
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, bh / 2);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.strokeRect(bx, by, bw, bh);
+    }
+    ctx.restore();
+
+    // Pill Text
+    ctx.fillStyle = '#4ade80';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText(badgeText, bx + bw / 2, by + bh / 2 + 1);
+
+    // 2. STICKER DOWNWARDS (Below B-Roll / Above Captions)
+    const floatY = Math.sin(t * 3.5) * (H * 0.008);
+    const moneyX = Math.round(W * 0.16);
+    const moneyY = Math.round(H * 0.44) + floatY;
+    const moneySize = Math.max(28, Math.round(H * 0.045));
+
+    // Draw 3D Cash Emoji Sticker with slight tilt
+    ctx.save();
+    ctx.translate(moneyX, moneyY);
+    ctx.rotate(-0.15 + Math.sin(t * 2) * 0.05);
+    ctx.font = `${moneySize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(250, 204, 21, 0.8)';
+    ctx.shadowBlur = 12;
+    ctx.fillText('💸', 0, 0);
+    ctx.restore();
+
+    // 3. ANIMATED YELLOW SCRIBBLE ARROW POINTING DOWN
+    ctx.save();
+    const arrowStartX = W * 0.28;
+    const arrowStartY = H * 0.40;
+    const arrowMidX = W * 0.38;
+    const arrowMidY = H * 0.48;
+    const arrowEndX = W * 0.32;
+    const arrowEndY = H * 0.54;
+
+    ctx.strokeStyle = '#FDE047';
+    ctx.lineWidth = Math.max(2, Math.round(H * 0.0035));
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(253, 224, 71, 0.6)';
+    ctx.shadowBlur = 8;
+
+    // Curving line
+    ctx.beginPath();
+    ctx.moveTo(arrowStartX, arrowStartY);
+    ctx.quadraticCurveTo(arrowMidX, arrowMidY, arrowEndX, arrowEndY);
+    ctx.stroke();
+
+    // Arrowhead
+    const angle = Math.atan2(arrowEndY - arrowMidY, arrowEndX - arrowMidX);
+    const headLen = Math.max(8, Math.round(H * 0.012));
+    ctx.beginPath();
+    ctx.moveTo(arrowEndX, arrowEndY);
+    ctx.lineTo(arrowEndX - headLen * Math.cos(angle - Math.PI / 6), arrowEndY - headLen * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(arrowEndX, arrowEndY);
+    ctx.lineTo(arrowEndX - headLen * Math.cos(angle + Math.PI / 6), arrowEndY - headLen * Math.sin(angle + Math.PI / 6));
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
   function setChunkMode(mode) {
     S.chunkMode = mode;
     $$('.btn-chunk-mode').forEach(b => b.classList.toggle('active', b.getAttribute('data-chunk') === String(mode)));
@@ -20305,6 +20401,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       }
 
       drawRealEstateOverlays(ctx, w, h, t);
+      drawMotionStickersOverlays(ctx, w, h, t);
       drawWatermark(ctx, w, h);
 
       if (isPreview) {
@@ -22347,6 +22444,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         }
 
         drawRealEstateOverlays(ctx, W, H, t);
+        drawMotionStickersOverlays(ctx, W, H, t);
         drawWatermark(ctx, W, H);
         consecutiveProcFrameErrors = 0;
 
