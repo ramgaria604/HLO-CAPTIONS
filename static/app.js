@@ -406,14 +406,15 @@
   // 133+ PRESETS TYPOGRAPHY ENGINE (DualNeon, KineticLens, Crimson3D, ChromeStudio, EstateDepth, SpecialFront, Standard)
 
 function getWordPop(w, t, showAll, anim) {
-  if (showAll || !w) return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
+  const wScale = (w && typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0;
+  if (showAll || !w) return { visible: true, scale: wScale, dx: 0, dy: 0, opacity: 1.0 };
 
   if (typeof w.s === 'number') {
     const dt = t - w.s;
 
     // Word not yet reached in speech: hidden, keep layout position
     if (dt < 0) {
-      return { visible: false, scale: 1.0, dx: 0, dy: 0, opacity: 0.0 };
+      return { visible: false, scale: wScale, dx: 0, dy: 0, opacity: 0.0 };
     }
 
     const isSlide = (anim === 'slide-up' || anim === 'slide-down' || anim === 'slide-left' || anim === 'slide-right');
@@ -440,14 +441,14 @@ function getWordPop(w, t, showAll, anim) {
       } else if (enterAnim === 'none' || enterAnim === 'static') {
         scale = 1.0;
       }
-      return { visible: true, scale, dx, dy, opacity: (enterAnim === 'none' || enterAnim === 'static') ? 1.0 : ease };
+      return { visible: true, scale: scale * wScale, dx, dy, opacity: (enterAnim === 'none' || enterAnim === 'static') ? 1.0 : ease };
     }
 
     // Word already spoken: stays fully visible and stable at exactly (0,0)
-    return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
+    return { visible: true, scale: wScale, dx, dy, opacity: 1.0 };
   }
 
-  return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
+  return { visible: true, scale: wScale, dx: 0, dy: 0, opacity: 1.0 };
 }
 
 // Configurable threshold: lines whose vertical center is <= this ratio are 'behind', lines below are 'front'
@@ -620,12 +621,39 @@ function chooseAdaptiveBehindTarget(ctxFore, ctxBehind, isBehind, xPx, yPx, wPx,
   return { ctx: ctxBehind, promoted: false, coverage: occ.coverage };
 }
 
+/**
+ * Automatically computes a face-safe and chin-safe vertical position ratio.
+ * When the speaker is close to the camera (tight close-up / large head), it ensures
+ * captions and multi-line lower words never collide with or cover their mouth/face.
+ */
+function getFaceSafeVerticalRatio(st, H, defaultRatio = 0.65, numLines = 1) {
+  const customPos = (st && Number.isFinite(Number(st.position ?? st.posY))) ? Number(st.position ?? st.posY) : null;
+  const hasManualPos = customPos !== null && Math.abs(customPos - defaultRatio) > 0.005;
+  if (hasManualPos) return customPos;
+
+  const maskStats = (typeof getSubjectMaskStats === 'function') ? getSubjectMaskStats() : null;
+  const headTop = (maskStats && typeof maskStats.headTopRatio === 'number')
+    ? maskStats.headTopRatio
+    : (typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number' ? window._editorialHeadTopRatio : null);
+
+  const isCloseUp = Boolean(headTop !== null && (headTop < 0.22 || (maskStats && maskStats.centerCoverage > 0.40)));
+  if (isCloseUp && headTop !== null) {
+    // Face crown to chin spans ~0.35 - 0.42 * H in close-up portrait framing
+    const chinRatio = Math.min(0.68, headTop + (headTop < 0.16 ? 0.40 : 0.35));
+    // Safe buffer below chin depends on number of lines so the lowest line is well clear of mouth and chin
+    const lineBuffer = numLines > 1 ? 0.13 : 0.07;
+    const safeCenterRatio = Math.max(defaultRatio, Math.min(0.80, chinRatio + lineBuffer));
+    return safeCenterRatio;
+  }
+  return customPos !== null ? customPos : defaultRatio;
+}
+
 function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll) {
   const kRole = st.key || {}, fRole = st.filler || {};
   const kSize = Math.max(24, Math.round(base * (kRole.size || 0.165)));
   const fSize = Math.max(18, Math.round(base * (fRole.size || 0.115)));
   const leading = st.leading || 0.88;
-  const cY = H * (st.position || 0.38);
+  const cY = H * getFaceSafeVerticalRatio(st, H, 0.38, 2);
 
   // Preserve exact chronological reading order (never scramble words by key)
   let line1 = [], line2 = [];
@@ -731,7 +759,7 @@ function drawDualNeonPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind
 
 function drawKineticLensPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll) {
   const kRole = st.key || {}, fRole = st.filler || {};
-  const cY = H * (st.position || 0.44);
+  const cY = H * getFaceSafeVerticalRatio(st, H, 0.44, 2);
   const total = words.length;
 
   ctxFore.save();
@@ -818,7 +846,7 @@ function drawCrimson3DPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehin
   if (!words || !words.length) return;
   const kRole = st.key || {}, fRole = st.filler || {};
   const fs = Math.max(26, Math.round(base * (kRole.size || 0.17)));
-  const cY = H * (st.position || 0.46);
+  const cY = H * getFaceSafeVerticalRatio(st, H, 0.46, 2);
   const text = words.map(w => w.t.toLowerCase()).join(' ');
 
   const anim = getWordPop(words[0], t, showAll, st.animation);
@@ -870,7 +898,7 @@ function drawChromeStudioPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBe
   const kRole = st.key || {}, fRole = st.filler || {};
   const kSize = Math.max(26, Math.round(base * (kRole.size || 0.17)));
   const fSize = Math.max(14, Math.round(base * (fRole.size || 0.065)));
-  const cY = H * (st.position || 0.42);
+  const cY = H * getFaceSafeVerticalRatio(st, H, 0.42, 2);
 
   // Preserve exact chronological reading order
   let keyWords = [], subWords = [];
@@ -1053,11 +1081,13 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     const wordObjs = lineWords.map((w, idx) => {
       const isKey = Boolean(w.key);
       const txt = applyTextCase(w.t, currentCase);
+      const wScale = (w && typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0;
       ctx.font = `${isKey ? 900 : 800} ${fs}px ${fontFam}`;
-      const width = ctx.measureText(txt).width;
+      const unscaledWidth = ctx.measureText(txt).width;
+      const width = unscaledWidth * wScale;
       const spaceWidth = (idx < lineWords.length - 1) ? ctx.measureText(' ').width : 0;
       lineWidth += width + spaceWidth;
-      return { w, txt, isKey, width, spaceWidth };
+      return { w, txt, isKey, width, unscaledWidth, spaceWidth, wScale };
     });
     if (lineWidth > maxLineWidth) maxLineWidth = lineWidth;
     return { wordObjs, lineWidth };
@@ -1142,8 +1172,11 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
     const scaledSpaceWidth = Math.max(fs * 0.28, ctx.measureText(' ').width);
     let actualLineWidth = 0;
     mLine.wordObjs.forEach((wo, idx) => {
+      const wScale = (wo.w && typeof wo.w.scale === 'number' && wo.w.scale > 0) ? wo.w.scale : (wo.wScale || 1.0);
+      wo.wScale = wScale;
       ctx.font = `${wo.isKey ? 900 : 800} ${fs}px ${fontFam}`;
-      wo.width = ctx.measureText(wo.txt).width;
+      wo.unscaledWidth = ctx.measureText(wo.txt).width;
+      wo.width = wo.unscaledWidth * wScale;
       wo.spaceWidth = (idx < mLine.wordObjs.length - 1) ? scaledSpaceWidth : 0;
       actualLineWidth += wo.width + wo.spaceWidth;
     });
@@ -1175,7 +1208,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
 
         if (isBoxMode) {
           const padX = Math.max(6, Math.round(fs * 0.22));
-          const boxW = wo.width + padX * 2;
+          const boxW = (wo.unscaledWidth || (wo.width / (wo.wScale || 1.0))) + padX * 2;
           const boxH = fs * 1.20;
           ctx.save();
           ctx.fillStyle = ov.customHighlight || st.highlightColor || (st.highlight && st.highlight.color) || (st.key && st.key.color) || st.pill || '#FFE600';
@@ -2419,8 +2452,10 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
       let txt = up(w.t);
       if (o.role && o.role.upper) txt = txt.toUpperCase();
       else if (o.role && o.role.lower) txt = txt.toLowerCase();
-      const wWidth = targetCtx.measureText(txt).width;
-      return { w, txt, width: wWidth };
+      const wScale = (w && typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0;
+      const unscaledWidth = targetCtx.measureText(txt).width;
+      const wWidth = unscaledWidth * wScale;
+      return { w, txt, width: wWidth, unscaledWidth, wScale };
     });
 
     const totalLineWidth = wordObjs.reduce((sum, wo) => sum + wo.width, 0) + Math.max(0, wordObjs.length - 1) * spaceWidth;
@@ -4937,17 +4972,17 @@ function findLatestLingerCaption(captions, t, maxSec = 0.85) {
 function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!words || !words.length) return;
   const ov = resolveSceneStyleOverrides(st, H);
-  const preferredFam = st?.fontFamily || st?.key?.font || (st?.id === 'spatial_sandwich_syne' ? 'Syne' : 'Poppins');
-  const edFam = ov.pickFontFam(`"${preferredFam}", "Montserrat", sans-serif`);
+  const preferredFam = st?.fontFamily || st?.key?.font || (st?.id === 'spatial_sandwich_syne' ? 'Syne' : 'Montserrat');
+  const edFam = ov.pickFontFam(`"${preferredFam}", "Montserrat", "Anton", sans-serif`);
   const edFontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
   const edCase = st && st.textCase;
   const edHTrk = ov.trackEmWith(-0.068);
-  const edLTrk = ov.trackEmWith(-0.03);
+  const edLTrk = ov.trackEmWith(-0.02);
 
   const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
   const targetBehind = (isBehind && ctxBehind) ? ctxBehind : ctxFore;
 
-  // Resolve real index in S.captions so even captions sit Top and odd captions sit Waist
+  // Resolve real index in S.captions so colors rotate predictably
   const captionsArr = (typeof S !== 'undefined' && Array.isArray(S.captions)) ? S.captions : null;
   let capIdx = (captionsArr && cap) ? captionsArr.indexOf(cap) : -1;
   if (capIdx === -1) {
@@ -4956,7 +4991,10 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     capIdx = (!isNaN(rawIdx) && rawIdx > 0) ? rawIdx - 1 : 0;
   }
 
-  // Exact jewel gradients: for spatial_sandwich_syne use electric cobalt, liquid chrome, neon plasma, acid cyber
+  // Exact jewel gradients matching reference video:
+  // Frame 03s: Emerald Green ("EIGHTY")
+  // Frame 06s: Royal Purple ("THIS", "AND")
+  // Frame 12s: Cobalt Blue ("DIRECT", "EASIER")
   const palettes = (st && st.id === 'spatial_sandwich_syne') ? [
     { left: '#0052FF', mid: '#0088FF', right: '#00D2FF' }, // 0 Electric Cobalt / Cyan
     { left: '#E2E8F0', mid: '#94A3B8', right: '#475569' }, // 1 Liquid Chrome / Silver
@@ -4964,14 +5002,13 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     { left: '#00FF66', mid: '#00D2FF', right: '#0052FF' }, // 3 Neon Acid / Aqua
     { left: '#FF007A', mid: '#C026D3', right: '#7928CA' }  // 4 Neon Plasma
   ] : [
-    { left: '#3828D6', mid: '#25159E', right: '#150A68' }, // 0 Purple / Indigo ("Videos")
-    { left: '#00D2FF', mid: '#0099CC', right: '#006699' }, // 1 Vibrant Cyan / Teal ("chahte")
-    { left: '#00FF66', mid: '#00CC44', right: '#008822' }, // 2 Neon Lime Green ("AI")
-    { left: '#FF0099', mid: '#CC0077', right: '#880044' }, // 3 Hot Pink / Magenta ("samajh")
-    { left: '#0066FF', mid: '#0044CC', right: '#002288' }, // 4 Royal Blue ("video")
-    { left: '#FF8800', mid: '#CC5500', right: '#883300' }, // 5 Sunset Orange
-    { left: '#9933FF', mid: '#7711CC', right: '#440088' }, // 6 Deep Violet
-    { left: '#00E5FF', mid: '#00B4D8', right: '#0077B6' }  // 7 Ocean Blue
+    { left: '#16A34A', mid: '#22C55E', right: '#15803D' }, // 0 Emerald Green ("EIGHTY")
+    { left: '#6D28D9', mid: '#7C3AED', right: '#5B21B6' }, // 1 Royal Purple ("THIS", "AND")
+    { left: '#1D4ED8', mid: '#2563EB', right: '#1E40AF' }, // 2 Cobalt Blue ("DIRECT", "EASIER")
+    { left: '#65A30D', mid: '#84CC16', right: '#4D7C0F' }, // 3 Acid Lime ("MAKE")
+    { left: '#C2410C', mid: '#EA580C', right: '#9A3412' }, // 4 Amber Copper ("MUCH")
+    { left: '#BE123C', mid: '#E11D48', right: '#9F1239' }, // 5 Crimson Ruby
+    { left: '#0D9488', mid: '#14B8A6', right: '#0F766E' }  // 6 Jade Teal
   ];
 
   const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
@@ -4984,16 +5021,16 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
   };
   const cleanHeroWord = (txt) => {
     const s = String(txt || '').replace(/^[""'`.,/#!$%^&*;:{}=\-_~()?]+|[""'`.,/#!$%^&*;:{}=\-_~()?]+$/g, '');
-    if (edCase === 'upper') return s.toUpperCase();
+    if (edCase === 'lower') return s.toLowerCase();
     if (edCase === 'asIs') return s;
     if (edCase === 'title') return s.replace(/\b\w/g, (c) => c.toUpperCase());
-    return s.toLowerCase();
+    return s.toUpperCase();
   };
   const cleanLeadWord = (txt) => {
     const s = String(txt || '').replace(/^[""']+|[,.;:!?""']+$/g, '');
-    if (edCase === 'upper') return s.toUpperCase();
     if (edCase === 'lower') return s.toLowerCase();
-    return s;
+    if (edCase === 'asIs') return s;
+    return s.toUpperCase();
   };
 
   const normalizeWords = (wordList, fallbackStart, fallbackEnd) => {
@@ -5013,13 +5050,16 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
     return arr;
   };
 
-  // Draws one [White Lead + Giant Colored Hero] stack in either 'top' or 'waist' position
+  const blendMode = (st && (st.editorialBlend || st.blendMode || st.blend)) || 'overlay';
+  const blendOpacity = Math.max(0.2, Math.min(1.0, Number(st?.editorialOpacity ?? st?.blendOpacity ?? 0.78)));
+
+  // Draws one [White Lead + Giant Colored Hero] stack
   const drawEditorialPair = (leadList, heroObj, slot, pal, fadeAlpha, evalT, fullInstant) => {
     const heroRaw = heroObj ? (heroObj.t || heroObj.word || '') : '';
-    const heroText = cleanHeroWord(heroRaw) || 'seen';
+    const heroText = cleanHeroWord(heroRaw) || 'EIGHTY';
     const heroStart = (heroObj && typeof heroObj.s === 'number') ? heroObj.s : 0;
 
-    let heroFontSize = Math.round(H * 0.128 * edFontScale);
+    let heroFontSize = Math.round(H * 0.138 * edFontScale);
     targetBehind.save();
     targetBehind.font = `900 ${heroFontSize}px ${edFam}`;
     if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${edHTrk}em`;
@@ -5040,40 +5080,40 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         H,
         fontFn: (sz) => `900 ${sz}px ${edFam}`,
         preferredSize: heroFontSize,
-        minSize: Math.round(H * 0.055),
+        minSize: Math.round(H * 0.065),
         trackEm: edHTrk,
         isSampleCard,
-        fallbackCrownRatio: 0.225,
-        extraAbovePx: (leadList && leadList.length > 0) ? Math.round(H * 0.048) : 0
+        fallbackCrownRatio: 0.23,
+        overlapRatio: 0.38, // ~38% occluded by speaker's head crown (matching ref video)
+        extraAbovePx: (leadList && leadList.length > 0) ? Math.round(H * 0.052) : 0
       });
       heroFontSize = crownPlace.size;
       heroBaselineY = Math.round(crownPlace.baseY + ov.posDeltaY);
       heroInkTopY = Math.round(crownPlace.inkTopY + ov.posDeltaY);
     } else {
-      const heroCenterY = Math.round(H * 0.620 + ov.posDeltaY);
-      heroBaselineY = Math.round(heroCenterY + heroFontSize * 0.28);
-      heroInkTopY = Math.round(heroBaselineY - heroFontSize * 0.58);
+      const torsoRatio = (st && typeof st.depthAccentY === 'number' && st.depthAccentY > 0.35) ? st.depthAccentY : 0.58;
+      const heroCenterY = Math.round(H * torsoRatio + ov.posDeltaY);
+      heroBaselineY = Math.round(heroCenterY + heroFontSize * 0.30);
+      heroInkTopY = Math.round(heroBaselineY - heroFontSize * 0.60);
     }
     ov.recordSceneBox(cap, W, H, heroX - W * 0.42, heroInkTopY - H * 0.05, W * 0.84, (heroBaselineY - heroInkTopY) + H * 0.08);
 
-    // Hero entrance curve ("how it comes"): slides gently rightwards into center while sharpening out of blur
+    // Hero entrance curve ("how it comes"): slides smoothly from left into center behind head
     const heroAge = fullInstant ? 1.0 : Math.max(0, evalT - heroStart);
     const heroP = fullInstant ? 1.0 : easeOutCubic(Math.min(1, heroAge / 0.26));
     const heroVisible = fullInstant || (evalT >= heroStart - 0.02);
 
     if (heroVisible && fadeAlpha > 0.005) {
-      // Top keyword draws on targetBehind (behind person cutout); lower waist keyword draws in front (ctxFore) so it stays visible
-      const heroCtx = (slot === 'waist') ? ctxFore : targetBehind;
-      const hasBehindLayer = Boolean(isBehind && ctxBehind);
-      const layerOpacity = isSampleCard ? 0.92 : (hasBehindLayer ? 0.96 : 0.72);
-      const heroAlpha = fadeAlpha * Math.min(1, heroP * 1.45) * layerOpacity;
-      const slideX = fullInstant ? 0 : Math.round(-W * 0.095 * (1 - heroP));
-      const heroScale = fullInstant ? 1.0 : (0.96 + 0.04 * heroP);
-      const blurPx = fullInstant ? 0 : Math.round(9 * Math.pow(1 - heroP, 2) * 10) / 10;
+      // Top keyword draws on targetBehind (behind head crown); below keyword draws on ctxFore (in front of chest so it is never hidden by the body)
+      const heroCtx = (slot === 'below' || slot === 'waist') ? ctxFore : targetBehind;
+      const heroAlpha = fadeAlpha * Math.min(1, heroP * 1.5);
+      const slideX = fullInstant ? 0 : Math.round(-W * 0.10 * (1 - heroP));
+      const heroScale = fullInstant ? 1.0 : (0.97 + 0.03 * heroP);
+      const blurPx = fullInstant ? 0 : Math.round(8 * Math.pow(1 - heroP, 2) * 10) / 10;
 
       heroCtx.save();
       try {
-        heroCtx.globalAlpha = heroAlpha;
+        heroCtx.globalAlpha = heroAlpha * blendOpacity;
         if (blurPx > 0.2 && 'filter' in heroCtx) {
           heroCtx.filter = `blur(${blurPx.toFixed(1)}px)`;
         }
@@ -5091,30 +5131,25 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
         const gradRight = heroX + finalHeroW * 0.52;
         const horizGrad = heroCtx.createLinearGradient(gradLeft, 0, gradRight, 0);
         horizGrad.addColorStop(0.00, pal.left);
-        horizGrad.addColorStop(0.52, pal.mid);
+        horizGrad.addColorStop(0.50, pal.mid);
         horizGrad.addColorStop(1.00, pal.right);
 
-        // 1. Drop shadow & glow anchor pass (ensures deep contrast on any background)
-        ov.applyGlow(heroCtx, 'rgba(0, 0, 0, 0.45)', 12, 1);
-        heroCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-        heroCtx.shadowBlur = 14;
+        // 1. 3D physical drop shadow pass with see-through jewel gradient
+        heroCtx.save();
+        heroCtx.shadowColor = 'rgba(0, 0, 0, 0.88)';
+        heroCtx.shadowBlur = Math.round(H * 0.015);
         heroCtx.shadowOffsetX = 0;
-        heroCtx.shadowOffsetY = 4;
-
-        // 2. Translucent Texture Bleed Pass (85% fill opacity so background video/curtain/clothes bleed through)
-        heroCtx.globalAlpha = heroAlpha * 0.85;
+        heroCtx.shadowOffsetY = Math.round(H * 0.008);
         heroCtx.fillStyle = ov.customHighlight || horizGrad;
         heroCtx.fillText(heroText, heroX, heroBaselineY);
+        heroCtx.restore();
 
-        // 3. Luminous Studio Optical Sheen (Screen blend for vibrant, lit-from-within jewel look matching reference video)
+        // 2. Multi-depth bottom extrusion shading pass for solid physical depth
         heroCtx.save();
-        try {
-          heroCtx.globalCompositeOperation = 'screen';
-          heroCtx.globalAlpha = heroAlpha * 0.35;
-          heroCtx.shadowColor = 'transparent';
-          heroCtx.shadowBlur = 0;
-          heroCtx.fillText(heroText, heroX, heroBaselineY);
-        } catch (_) {}
+        heroCtx.globalCompositeOperation = 'multiply';
+        heroCtx.globalAlpha = heroAlpha * 0.28;
+        heroCtx.fillStyle = pal.right || '#000000';
+        heroCtx.fillText(heroText, heroX, heroBaselineY + 2);
         heroCtx.restore();
       } finally {
         if ('filter' in heroCtx) heroCtx.filter = 'none';
@@ -5122,117 +5157,124 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
       }
     }
 
-    // 2. Small White Lead Line sitting along Hero word (ctxFore Layer 4)
-    // In 'top' slot: sits directly above Hero word. In 'waist' slot: sits directly below Hero word (matching viral video reference)
+    // 2. Small White Lead Line sitting along Hero word (ctxFore Layer in front of subject)
+    // Sits directly above Hero word (or splits top & bottom in torso slot) in crisp uppercase sans-serif
     const cleanTokens = (leadList || [])
       .map(w => ({ txt: cleanLeadWord(w.t || w.word || ''), s: w.s }))
       .filter(w => w.txt);
 
     if (cleanTokens.length > 0 && fadeAlpha > 0.005) {
-      const leadWeight = slot === 'top' ? '700' : '500';
+      const leadWeight = '700';
       let leadFontSize = Math.round(H * 0.038 * edFontScale);
-      const fullLeadStr = cleanTokens.map(w => w.txt).join(' ');
 
-      ctxFore.save();
-      ctxFore.font = `${leadWeight} ${leadFontSize}px ${edFam}`;
-      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${edLTrk}em`;
-      const rawLeadW = measureWidth(ctxFore, fullLeadStr, leadFontSize);
-      ctxFore.restore();
-
-      const maxLeadW = W * 0.88;
-      if (rawLeadW > maxLeadW && rawLeadW > 0) {
-        leadFontSize = Math.max(Math.round(H * 0.020), Math.floor(leadFontSize * (maxLeadW / rawLeadW)));
-      }
-
-      const leadGap = Math.round((ov.lineSpacingMult - 1.0) * heroFontSize * 0.26);
-      let leadBaselineY;
-      if (slot === 'top') {
-        leadBaselineY = Math.max(
-          Math.round(H * 0.025 + leadFontSize * 0.80),
-          Math.round(Math.min(heroBaselineY - heroFontSize * 0.54, heroInkTopY - Math.round(H * 0.004)) - leadGap)
-        );
-      } else {
-        leadBaselineY = Math.min(
-          Math.round(H * 0.95 - leadFontSize * 0.3),
-          Math.round(heroBaselineY + leadFontSize * 1.25 + leadGap)
-        );
-      }
-
-      ctxFore.save();
-      try {
+      const renderLeadLine = (tokens, baseY) => {
+        if (!tokens || !tokens.length) return;
+        const lineStr = tokens.map(w => w.txt).join(' ');
+        ctxFore.save();
         ctxFore.font = `${leadWeight} ${leadFontSize}px ${edFam}`;
         if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${edLTrk}em`;
+        const rawLineW = measureWidth(ctxFore, lineStr, leadFontSize);
+        const maxLineW = W * 0.88;
+        let curFontSize = leadFontSize;
+        if (rawLineW > maxLineW && rawLineW > 0) {
+          curFontSize = Math.max(Math.round(H * 0.020), Math.floor(leadFontSize * (maxLineW / rawLineW)));
+          ctxFore.font = `${leadWeight} ${curFontSize}px ${edFam}`;
+        }
+        const totalLineW = measureWidth(ctxFore, lineStr, curFontSize);
+        const startX = Math.round(W * 0.50 - totalLineW * 0.50);
+
         ctxFore.textAlign = 'left';
         ctxFore.textBaseline = 'alphabetic';
         ctxFore.fillStyle = ov.pickBase('#FFFFFF');
-        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.65)', 8, 1);
+        ov.applyGlow(ctxFore, 'rgba(0, 0, 0, 0.75)', 8, 1);
         ctxFore.shadowOffsetX = 0;
         ctxFore.shadowOffsetY = 2;
 
-        const totalLineW = measureWidth(ctxFore, fullLeadStr, leadFontSize);
-        const startX = Math.round(W * 0.50 - totalLineW * 0.50);
-
-        for (let i = 0; i < cleanTokens.length; i++) {
-          const tok = cleanTokens[i];
-          const prefixStr = i > 0 ? (cleanTokens.slice(0, i).map(x => x.txt).join(' ') + ' ') : '';
-          const wordX = startX + measureWidth(ctxFore, prefixStr, leadFontSize);
-          const wordW = measureWidth(ctxFore, tok.txt, leadFontSize);
+        for (let i = 0; i < tokens.length; i++) {
+          const tok = tokens[i];
+          const prefixStr = i > 0 ? (tokens.slice(0, i).map(x => x.txt).join(' ') + ' ') : '';
+          const wordX = startX + measureWidth(ctxFore, prefixStr, curFontSize);
+          const wordW = measureWidth(ctxFore, tok.txt, curFontSize);
 
           const wAge = fullInstant ? 1.0 : Math.max(0, evalT - (typeof tok.s === 'number' ? tok.s : 0));
-          const wp = fullInstant ? 1.0 : easeOutCubic(Math.min(1, wAge / 0.22));
+          const wp = fullInstant ? 1.0 : easeOutCubic(Math.min(1, wAge / 0.20));
           if (!fullInstant && evalT < (typeof tok.s === 'number' ? tok.s : 0) - 0.02) continue;
 
-          // Exact per-word horizontal slide-in behind left edge mask ("Some |omes", "A |ew", "a |lace")
-          const slideShift = fullInstant ? 0 : (-wordW * 0.44 * (1 - wp));
-          const wordAlpha = fadeAlpha * Math.min(1, wp * 1.6);
+          const slideShift = fullInstant ? 0 : (-wordW * 0.35 * (1 - wp));
+          const wordAlpha = fadeAlpha * Math.min(1, wp * 1.5);
 
           ctxFore.save();
           ctxFore.globalAlpha = wordAlpha;
-          ctxFore.beginPath();
-          ctxFore.rect(wordX - 2, leadBaselineY - leadFontSize * 1.25, wordW + 24, leadFontSize * 1.65);
-          ctxFore.clip();
-          ctxFore.fillText(tok.txt, wordX + slideShift, leadBaselineY);
+          ctxFore.fillText(tok.txt, wordX + slideShift, baseY);
           ctxFore.restore();
         }
-      } finally {
         ctxFore.restore();
+      };
+
+      const leadGap = Math.round(H * 0.008);
+      if (slot === 'top' || cleanTokens.length === 1) {
+        const leadBaselineY = Math.max(
+          Math.round(H * 0.035 + leadFontSize * 0.85),
+          Math.round(heroInkTopY - leadGap)
+        );
+        renderLeadLine(cleanTokens, leadBaselineY);
+      } else {
+        // Below / Torso slot with multiple words (matches frame 26s: "LIVING" top, "OUTSIDE" bottom):
+        const splitIdx = Math.ceil(cleanTokens.length / 2);
+        const topTokens = cleanTokens.slice(0, splitIdx);
+        const botTokens = cleanTokens.slice(splitIdx);
+        const topBaselineY = Math.max(Math.round(H * 0.04), Math.round(heroInkTopY - leadGap));
+        const botBaselineY = Math.min(Math.round(H * 0.95), Math.round(heroBaselineY + leadFontSize * 1.15 + leadGap));
+        renderLeadLine(topTokens, topBaselineY);
+        renderLeadLine(botTokens, botBaselineY);
       }
     }
   };
 
-  // Helper to split words into Big Anchor Hero Word (first word or key word) + Companion Lead Words
+  // Helper to split words into Big Anchor Hero Word + Companion Lead Words
   const pickHeroAndLead = (wordList) => {
     if (!wordList || wordList.length === 0) return { hero: null, lead: [] };
     if (wordList.length === 1) return { hero: Object.assign({}, wordList[0], { s: wordList[0].s }), lead: [] };
 
     let keyIdx = wordList.findIndex(w => Boolean(w.key));
     if (keyIdx === -1) {
-      // Big word comes first by default!
-      keyIdx = 0;
+      // 1. Check for digits / numbers ($100, 80, 50%) or number words (eighty, million, etc.)
+      const numIdx = wordList.findIndex(w => {
+        const t = String(w.t || w.word || '').toLowerCase();
+        return /\d+/.test(t) || /^(eighty|eight|nine|ninety|ten|twenty|thirty|forty|fifty|sixty|seventy|hundred|thousand|million|billion|first|second)$/i.test(t);
+      });
+      if (numIdx !== -1) {
+        keyIdx = numIdx;
+      }
     }
-    // Anchor hero word to the very start of the phrase so it enters immediately and holds for the full duration
+    if (keyIdx === -1) {
+      // 2. Pick longest substantive word (excluding short stop words)
+      const stopWords = new Set(['a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'about', 'into', 'over', 'after', 'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'ko', 'ka', 'ki', 'ke', 'par', 'se', 'hai', 'hain', 'ho', 'aur', 'or', 'and', 'but', 'if', 'so']);
+      let bestIdx = -1;
+      let maxLen = 0;
+      wordList.forEach((w, idx) => {
+        const clean = String(w.t || w.word || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!stopWords.has(clean) && clean.length > maxLen) {
+          maxLen = clean.length;
+          bestIdx = idx;
+        }
+      });
+      keyIdx = (bestIdx !== -1) ? bestIdx : 0;
+    }
+
     const cardStart = typeof wordList[0].s === 'number' ? wordList[0].s : 0;
     const hero = Object.assign({}, wordList[keyIdx], { s: cardStart });
     const lead = wordList.filter((_, idx) => idx !== keyIdx);
     return { hero, lead };
   };
 
-  // Sample Thumbnail / Showcase Fallback Card (matches ref frame pairing)
+  // Sample Thumbnail / Showcase Fallback Card (matches ref frame pairing 1:1)
   if (isSampleCard) {
     drawEditorialPair(
-      [{ t: 'ko' }, { t: 'edit' }, { t: 'karna' }],
-      { t: 'Videos', s: 0 },
+      [{ t: 'KILOMETER' }, { t: 'HIGHWAY' }],
+      { t: 'EIGHTY', s: 0 },
       'top',
       palettes[0],
-      1.0,
-      999,
-      true
-    );
-    drawEditorialPair(
-      [{ t: 'hain' }, { t: 'par' }, { t: 'kaun' }],
-      { t: 'chahte', s: 0 },
-      'waist',
-      palettes[1],
       1.0,
       999,
       true
@@ -5252,90 +5294,33 @@ function drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H
 
   const captionsArr2 = (typeof S !== 'undefined' && Array.isArray(S.captions)) ? S.captions : null;
   const nextCap = (captionsArr2 && capIdx >= 0 && capIdx + 1 < captionsArr2.length) ? captionsArr2[capIdx + 1] : null;
-  const prevCap = (captionsArr2 && capIdx > 0) ? captionsArr2[capIdx - 1] : null;
   const nextCapStart = (nextCap && typeof nextCap.start === 'number') ? nextCap.start : Infinity;
-  // Hold captions ~0.55s longer (at least ~1.4s for short beats), clamped cleanly before the next caption starts
-  const desiredEnd = Math.max(capEnd + 0.55, capStart + 1.40);
+  // Hold captions ~0.50s longer (at least ~1.3s for short beats), clamped cleanly before the next caption starts
+  const desiredEnd = Math.max(capEnd + 0.50, capStart + 1.30);
   const effCapEnd = Math.max(capEnd, Math.min(desiredEnd, nextCapStart - 0.03));
 
-  // Single long caption (>= 6 words): split naturally into paired Top + Waist scene
-  if (normWords.length >= 6) {
-    let splitAt = Math.ceil(normWords.length / 2);
-    for (let k = Math.max(2, splitAt - 1); k <= Math.min(normWords.length - 2, splitAt + 1); k++) {
-      if (/[,.;!?]$/.test(normWords[k - 1].t)) {
-        splitAt = k;
-        break;
-      }
-    }
-    const topSlice = normWords.slice(0, splitAt);
-    const waistSlice = normWords.slice(splitAt);
-    const timeRem = fullInstant ? 1.0 : Math.max(0, effCapEnd - evalT);
-    const exitFade = fullInstant ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.24));
-
-    const topPair = pickHeroAndLead(topSlice);
-    const waistPair = pickHeroAndLead(waistSlice);
-
-    drawEditorialPair(
-      topPair.lead,
-      topPair.hero,
-      'top',
-      palettes[(capIdx * 2) % palettes.length],
-      exitFade,
-      evalT,
-      fullInstant
-    );
-    drawEditorialPair(
-      waistPair.lead,
-      waistPair.hero,
-      'waist',
-      palettes[(capIdx * 2 + 1) % palettes.length],
-      exitFade,
-      evalT,
-      fullInstant
-    );
-    return;
+  // Default: 'alternate' (Top on even, Below on odd) unless user locked to 'top' or 'below'
+  const slotMode = (st && (st.editorialSlotMode || st.editorialPosition)) || (st && st.editorialSlot) || 'alternate';
+  let slot = 'top';
+  if (slotMode === 'top') {
+    slot = 'top';
+  } else if (slotMode === 'below' || slotMode === 'waist' || slotMode === 'torso') {
+    slot = 'below';
+  } else {
+    // 'alternate': Even captions sit Top (behind head), Odd captions sit Below (behind torso)
+    slot = (capIdx % 2 === 0) ? 'top' : 'below';
   }
+  const currPair = pickHeroAndLead(normWords);
 
-  // Standard <= 5 word caption cadence: Even captions render at Top; Odd captions render at Waist while lingering prev Top smoothly fades out
-  const isOddWaist = (capIdx % 2 === 1);
-
-  if (isOddWaist && prevCap) {
-    const prevGap = capStart - (typeof prevCap.end === 'number' ? prevCap.end : capStart);
-    if (prevGap <= 1.2) {
-      const pStart = typeof prevCap.start === 'number' ? prevCap.start : 0;
-      const pEnd = typeof prevCap.end === 'number' ? prevCap.end : capStart;
-      const prevWords = normalizeWords(prevCap.words || (prevCap.text || '').split(/\s+/).map(tx => ({ t: tx })), pStart, pEnd);
-      if (prevWords.length > 0) {
-        // Hold Top at 100% until 78% through Waist caption (including linger) so both sit comfortably longer, then fade cleanly out
-        const waistDur = Math.max(0.65, effCapEnd - capStart);
-        const waistProg = fullInstant ? 0.3 : Math.max(0, (evalT - capStart) / waistDur);
-        const topCarryFade = waistProg <= 0.78 ? 1.0 : Math.max(0, 1.0 - (waistProg - 0.78) / 0.22);
-        if (topCarryFade > 0.01) {
-          const prevPair = pickHeroAndLead(prevWords);
-          drawEditorialPair(
-            prevPair.lead,
-            prevPair.hero,
-            'top',
-            palettes[(capIdx - 1) % palettes.length],
-            topCarryFade,
-            evalT,
-            true // prev Top already finished entering; hold sharp while fading out
-          );
-        }
-      }
-    }
-  }
-
-  // Exit fade for current caption ("how it goes")
-  const holdIntoWaist = !isOddWaist && nextCap && ((nextCap.start - capEnd) <= 0.85);
+  // Smooth cross-fade / exit fade for current caption
   const timeRem = fullInstant ? 1.0 : Math.max(0, effCapEnd - evalT);
-  const currExitFade = (fullInstant || holdIntoWaist) ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.24));
+  const currExitFade = fullInstant ? 1.0 : Math.min(1, Math.max(0, timeRem / 0.18));
 
   const currPair = pickHeroAndLead(normWords);
   drawEditorialPair(
     currPair.lead,
     currPair.hero,
-    isOddWaist ? 'waist' : 'top',
+    slot,
     palettes[capIdx % palettes.length],
     currExitFade,
     evalT,
@@ -6905,6 +6890,521 @@ function drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       }
     }
   }
+}
+
+// ============================================================================
+// 📰 EDITORIAL ZINE DYNAMIC PASS (MULTI-VARIANT STORYBOARD / ZINE PRESET SYSTEM)
+// ============================================================================
+function drawEditorialZineDynamicPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+  // Front tactile layer preset; if behind pass is being rendered, return early
+  if (isBehind) return;
+
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
+
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitFade = fullInstant ? 1.0 : Math.min(1, timeRem / 0.12);
+  if (exitFade <= 0.005) return;
+
+  const capsList = (typeof S !== 'undefined' && S && Array.isArray(S.captions)) ? S.captions : [];
+  const foundIdx = (cap && capsList.length > 0) ? capsList.indexOf(cap) : -1;
+  const rawIdx = (cap && cap.index != null) ? Number(cap.index) - 1 : parseInt(cap && cap.id, 10) - 1;
+  const capIdx = foundIdx >= 0 ? foundIdx : (!isNaN(rawIdx) && rawIdx >= 0 ? rawIdx : 0);
+
+  // Variant selection: manual override on cap or auto-cycle (Sample card always shows hook banner)
+  const variantChoice = isSampleCard ? 'hook' : (cap?.cardVariant || 'auto');
+  let variant = variantChoice;
+  if (!variant || variant === 'auto') {
+    const cycle = ['hook', 'zine', 'stat', 'none'];
+    variant = cycle[capIdx % cycle.length];
+  }
+
+  // Animation timings
+  const timeIn = fullInstant ? 1.0 : Math.max(0, evalT - capStart);
+  const enterProgress = fullInstant ? 1.0 : Math.min(1, timeIn / 0.18);
+  const enterScale = 0.94 + 0.06 * Math.sin(Math.min(1, enterProgress) * Math.PI * 0.5);
+  const enterAlpha = Math.min(1, enterProgress * 1.5) * exitFade;
+
+  // Base dimension scale
+  const scale = Math.min(W, H) / 1080.0;
+  const fontScale = Math.max(0.6, Math.min(1.8, Number(st?.fontScale) || 1.0));
+
+  // Deterministic torn paper edge generator (stable across frames, zero jitter)
+  const drawTornPaperShape = (ctx, x, y, width, height, seed, tornTop = true, tornBottom = true) => {
+    const stepsX = Math.max(16, Math.round(width / 14));
+    const stepW = width / stepsX;
+    const amp = Math.max(2, Math.round(width * 0.006));
+    const pseudoNoise = (s, i) => {
+      const v = Math.sin(s * 613.41 + i * 291.73) * 10000;
+      return (v - Math.floor(v)) * 2 - 1; // -1 to +1
+    };
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+
+    // Top torn edge
+    if (tornTop) {
+      for (let i = 1; i < stepsX; i++) {
+        const px = x + i * stepW;
+        const py = y + pseudoNoise(seed + 1, i) * amp;
+        ctx.lineTo(px, py);
+      }
+    }
+    ctx.lineTo(x + width, y);
+
+    // Right edge
+    ctx.lineTo(x + width, y + height);
+
+    // Bottom torn edge (right to left)
+    if (tornBottom) {
+      for (let i = stepsX - 1; i > 0; i--) {
+        const px = x + i * stepW;
+        const py = y + height + pseudoNoise(seed + 5, i) * amp;
+        ctx.lineTo(px, py);
+      }
+    }
+    ctx.lineTo(x, y + height);
+
+    // Left edge
+    ctx.lineTo(x, y);
+    ctx.closePath();
+  };
+
+  // Helper: Draw washi tape strip
+  const drawWashiTapeTab = (ctx, cx, cy, width, height, angleDeg, color = 'rgba(215, 201, 178, 0.92)') => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((angleDeg * Math.PI) / 180);
+    ctx.fillStyle = color;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.16)';
+    ctx.shadowBlur = 6 * scale;
+    ctx.shadowOffsetY = 2 * scale;
+    const rx = -width / 2;
+    const ry = -height / 2;
+    ctx.fillRect(rx, ry, width, height);
+
+    // Subtle dashed fiber grid
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(rx, 0);
+    ctx.lineTo(rx + width, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  };
+
+  // Helper: Find focal / hero word
+  let heroIdx = -1;
+  for (let i = words.length - 1; i >= 0; i--) {
+    if (words[i]?.key) { heroIdx = i; break; }
+  }
+  if (heroIdx < 0) {
+    const stopSet = new Set(['a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'and', 'or', 'is', 'am', 'are', 'was', 'were', 'it', 'its', 'this', 'that', 'you', 'your', 'we', 'our', 'they', 'my', 'me']);
+    let bestScore = -999;
+    let bestI = 0;
+    for (let i = 0; i < words.length; i++) {
+      const txt = String(words[i]?.t || words[i]?.word || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!txt) continue;
+      let score = txt.length;
+      if (/\d+/.test(txt)) score += 25;
+      if (stopSet.has(txt)) score -= 15;
+      if (score > bestScore) { bestScore = score; bestI = i; }
+    }
+    heroIdx = bestI;
+  }
+
+  const heroWordObj = words[heroIdx] || words[0];
+  const heroTxt = String(heroWordObj?.t || heroWordObj?.word || '').replace(/[.,!?;:]+$/g, '');
+  const beforeWords = words.slice(0, heroIdx);
+  const afterWords = words.slice(heroIdx + 1);
+
+  // --------------------------------------------------------------------------
+  // 1. UNIVERSAL BOTTOM SUBTITLE PILL (TWO-TONE KARAOKE ACTIVE WORD TRACKING)
+  // --------------------------------------------------------------------------
+  const drawBottomPill = () => {
+    ctxFore.save();
+    try {
+      const pillY = (variant === 'stat') ? Math.round(H * 0.84) : Math.round(H * (st.position || st.subtitlePosition || 0.81));
+      const subFontSize = Math.max(16, Math.round(28 * scale * fontScale));
+      const chosenFont = st.font || 'Poppins';
+      ctxFore.font = `700 ${subFontSize}px "${chosenFont}", -apple-system, BlinkMacSystemFont, sans-serif`;
+
+      const spaceW = subFontSize * 0.28;
+      const wordMetrics = words.map((w) => {
+        const txt = String(w.t || w.word || '');
+        const mw = ctxFore.measureText(txt).width;
+        return { w, txt, width: mw };
+      });
+      const totalWordsW = wordMetrics.reduce((sum, item) => sum + item.width, 0) + Math.max(0, words.length - 1) * spaceW;
+
+      // Handle wide captions by slightly scaling down font if needed to stay within 88% screen width
+      const maxPillTextW = W * 0.84;
+      let effectiveFontSize = subFontSize;
+      let effectiveSpaceW = spaceW;
+      let measuredItems = wordMetrics;
+      if (totalWordsW > maxPillTextW && totalWordsW > 0) {
+        const compressFactor = Math.max(0.72, maxPillTextW / totalWordsW);
+        effectiveFontSize = Math.round(subFontSize * compressFactor);
+        effectiveSpaceW = effectiveFontSize * 0.28;
+        ctxFore.font = `700 ${effectiveFontSize}px "${chosenFont}", -apple-system, BlinkMacSystemFont, sans-serif`;
+        measuredItems = words.map((w) => {
+          const txt = String(w.t || w.word || '');
+          const mw = ctxFore.measureText(txt).width;
+          return { w, txt, width: mw };
+        });
+      }
+
+      const finalWordsW = measuredItems.reduce((sum, item) => sum + item.width, 0) + Math.max(0, words.length - 1) * effectiveSpaceW;
+      const padX = Math.max(18, Math.round(22 * scale));
+      const padY = Math.max(8, Math.round(11 * scale));
+      const pillW = finalWordsW + padX * 2;
+      const pillH = effectiveFontSize + padY * 2;
+      const pillX = Math.round((W - pillW) * 0.5);
+      const pillRadius = Math.round(pillH * 0.5);
+
+      // Pill container entrance & exit fade
+      ctxFore.globalAlpha = enterAlpha;
+
+      // Drop shadow for pill
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.22)';
+      ctxFore.shadowBlur = Math.round(12 * scale);
+      ctxFore.shadowOffsetY = Math.round(4 * scale);
+
+      // Cream background fill
+      ctxFore.fillStyle = '#FAF6ED';
+      ctxFore.beginPath();
+      if (typeof ctxFore.roundRect === 'function') {
+        ctxFore.roundRect(pillX, pillY - pillRadius, pillW, pillH, pillRadius);
+      } else {
+        ctxFore.arc(pillX + pillRadius, pillY, pillRadius, Math.PI * 0.5, Math.PI * 1.5);
+        ctxFore.lineTo(pillX + pillW - pillRadius, pillY - pillRadius);
+        ctxFore.arc(pillX + pillW - pillRadius, pillY, pillRadius, Math.PI * 1.5, Math.PI * 0.5);
+        ctxFore.closePath();
+      }
+      ctxFore.fill();
+
+      // Subtle warm border
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(215, 203, 185, 0.70)';
+      ctxFore.lineWidth = 1;
+      ctxFore.stroke();
+
+      // Render words with active word karaoke
+      let curX = pillX + padX;
+      const textBaselineY = Math.round(pillY + effectiveFontSize * 0.35);
+
+      measuredItems.forEach((item) => {
+        const ws = (item.w && typeof item.w.s === 'number') ? item.w.s : ((item.w && typeof item.w.start === 'number') ? item.w.start : capStart);
+        const we = (item.w && typeof item.w.e === 'number') ? item.w.e : ((item.w && typeof item.w.end === 'number') ? item.w.end : ws + 0.35);
+        const isCurrentActive = fullInstant ? true : (evalT >= ws && evalT < we);
+        const isAlreadySpoken = fullInstant ? false : (evalT >= we);
+
+        ctxFore.save();
+        if (isCurrentActive) {
+          // Current active spoken word: Crisp Charcoal Black (#111111) with subtle emphasis
+          ctxFore.fillStyle = '#111111';
+          ctxFore.font = `800 ${effectiveFontSize}px "${chosenFont}", -apple-system, BlinkMacSystemFont, sans-serif`;
+
+          // Subtle warm terracotta micro dot under active word
+          const dotRadius = Math.max(2, Math.round(2.5 * scale));
+          ctxFore.fillStyle = '#C8644A';
+          ctxFore.beginPath();
+          ctxFore.arc(curX + item.width * 0.5, textBaselineY + Math.round(4 * scale), dotRadius, 0, Math.PI * 2);
+          ctxFore.fill();
+          ctxFore.fillStyle = '#111111';
+        } else if (isAlreadySpoken) {
+          // Already spoken words: Deep charcoal (#1A1A1A)
+          ctxFore.fillStyle = '#222222';
+        } else {
+          // Upcoming words: Elegant warm sand grey (#8C857B)
+          ctxFore.fillStyle = '#8C857B';
+        }
+
+        ctxFore.fillText(item.txt, curX, textBaselineY);
+        ctxFore.restore();
+
+        curX += item.width + effectiveSpaceW;
+      });
+
+    } finally {
+      ctxFore.restore();
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 2. VARIANT 1: TORN CRAFT PAPER HOOK BANNER WITH WASHI TAPE TABS
+  // --------------------------------------------------------------------------
+  const drawVariantHook = () => {
+    ctxFore.save();
+    try {
+      const cardY = Math.round(H * 0.14);
+      const tagTxt = beforeWords.length
+        ? beforeWords.map(w => w.t || w.word || '').join(' ').toUpperCase()
+        : `RULE ${String(capIdx + 1).padStart(2, '0')} // HOOK`;
+      const headlineTxt = heroTxt.toUpperCase();
+
+      const tagSize = Math.max(12, Math.round(18 * scale * fontScale));
+      const headSize = Math.max(22, Math.round(38 * scale * fontScale));
+
+      ctxFore.font = `700 ${tagSize}px "Space Mono", monospace`;
+      const tagW = ctxFore.measureText(tagTxt).width;
+
+      ctxFore.font = `bold italic ${headSize}px "Playfair Display", "Poppins", serif`;
+      const headW = ctxFore.measureText(headlineTxt).width;
+
+      const contentW = Math.max(tagW, headW);
+      const padX = Math.max(24, Math.round(32 * scale));
+      const cardW = Math.min(W * 0.88, Math.max(W * 0.52, contentW + padX * 2));
+      const cardH = tagSize + headSize + Math.round(36 * scale);
+      const cardX = Math.round((W - cardW) * 0.5);
+
+      // Entrance animation
+      ctxFore.globalAlpha = enterAlpha;
+      ctxFore.translate(W * 0.5, cardY + cardH * 0.5);
+      ctxFore.scale(enterScale, enterScale);
+      ctxFore.translate(-W * 0.5, -(cardY + cardH * 0.5));
+
+      // Realistic Jagged Torn Craft Paper Card
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.26)';
+      ctxFore.shadowBlur = Math.round(14 * scale);
+      ctxFore.shadowOffsetY = Math.round(6 * scale);
+
+      ctxFore.fillStyle = '#E8DAC8'; // Warm tactile craft paper
+      drawTornPaperShape(ctxFore, cardX, cardY, cardW, cardH, capIdx * 19 + 7, true, true);
+      ctxFore.fill();
+
+      // Dual-tone inner fiber gradient tint
+      ctxFore.shadowColor = 'transparent';
+      const fiberGrad = ctxFore.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+      fiberGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+      fiberGrad.addColorStop(1, 'rgba(0, 0, 0, 0.05)');
+      ctxFore.fillStyle = fiberGrad;
+      ctxFore.fill();
+
+      // Top Washi Tape Tabs
+      const tapeW = Math.max(34, Math.round(48 * scale));
+      const tapeH = Math.max(14, Math.round(18 * scale));
+      drawWashiTapeTab(ctxFore, cardX + cardW * 0.22, cardY + 2, tapeW, tapeH, -3.5);
+      drawWashiTapeTab(ctxFore, cardX + cardW * 0.78, cardY + 3, tapeW, tapeH, 2.5);
+
+      // Line 1: Typewriter Monospace Tagline
+      ctxFore.fillStyle = '#2E2A25';
+      ctxFore.font = `700 ${tagSize}px "Space Mono", monospace`;
+      ctxFore.textAlign = 'center';
+      const tagY = cardY + tagSize + Math.round(18 * scale);
+      ctxFore.fillText(tagTxt, W * 0.5, tagY);
+
+      // Line 2: Bold Editorial Serif Headline
+      ctxFore.fillStyle = '#181614'; // Deep espresso charcoal
+      ctxFore.font = `bold italic ${headSize}px "Playfair Display", "Poppins", serif`;
+      const headY = tagY + headSize + Math.round(8 * scale);
+      ctxFore.fillText(headlineTxt, W * 0.5, headY);
+
+    } finally {
+      ctxFore.restore();
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 3. VARIANT 2: ANGLED DARK MATTE ATHLETIC ZINE BADGE WITH RED RIM
+  // --------------------------------------------------------------------------
+  const drawVariantZine = () => {
+    ctxFore.save();
+    try {
+      const cardY = Math.round(H * 0.16);
+      const cursiveTxt = beforeWords.length
+        ? beforeWords.map(w => w.t || w.word || '').join(' ')
+        : 'The real secret of';
+      const blockTxt = heroTxt.toUpperCase();
+      const redTagTxt = afterWords.length
+        ? afterWords.map(w => w.t || w.word || '').join(' ').toUpperCase()
+        : 'HIGH PERFORMANCE // NO EXCUSES';
+
+      const cursiveSize = Math.max(14, Math.round(22 * scale * fontScale));
+      const blockSize = Math.max(28, Math.round(48 * scale * fontScale));
+      const redTagSize = Math.max(10, Math.round(13 * scale * fontScale));
+
+      ctxFore.font = `400 italic ${cursiveSize}px "Yellowtail", cursive, serif`;
+      const cursiveW = ctxFore.measureText(cursiveTxt).width;
+
+      ctxFore.font = `900 ${blockSize}px "Anton", "Montserrat", sans-serif`;
+      const blockW = ctxFore.measureText(blockTxt).width;
+
+      ctxFore.font = `800 ${redTagSize}px "Poppins", sans-serif`;
+      const redTagW = ctxFore.measureText(redTagTxt).width;
+
+      const contentW = Math.max(cursiveW, blockW, redTagW);
+      const padX = Math.max(26, Math.round(36 * scale));
+      const cardW = Math.min(W * 0.90, Math.max(W * 0.56, contentW + padX * 2));
+      const cardH = cursiveSize + blockSize + redTagSize + Math.round(44 * scale);
+      const cardX = Math.round((W - cardW) * 0.5);
+
+      // Kinetic tilt angle (-3.5deg) & Entrance scale
+      const tiltAngle = -3.5;
+      ctxFore.globalAlpha = enterAlpha;
+      ctxFore.translate(W * 0.5, cardY + cardH * 0.5);
+      ctxFore.rotate((tiltAngle * Math.PI) / 180);
+      ctxFore.scale(enterScale, enterScale);
+      ctxFore.translate(-W * 0.5, -(cardY + cardH * 0.5));
+
+      // Dark Matte Tape Badge with Red Rim
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.40)';
+      ctxFore.shadowBlur = Math.round(18 * scale);
+      ctxFore.shadowOffsetY = Math.round(8 * scale);
+
+      ctxFore.fillStyle = '#161514'; // Dark matte charcoal
+      const rad = Math.round(8 * scale);
+      if (typeof ctxFore.roundRect === 'function') {
+        ctxFore.beginPath();
+        ctxFore.roundRect(cardX, cardY, cardW, cardH, rad);
+        ctxFore.fill();
+      } else {
+        ctxFore.fillRect(cardX, cardY, cardW, cardH);
+      }
+
+      // Bold Red Rim
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = '#D32F2F'; // Athletic Crimson Red
+      ctxFore.lineWidth = Math.max(2, Math.round(2.8 * scale));
+      if (typeof ctxFore.roundRect === 'function') {
+        ctxFore.beginPath();
+        ctxFore.roundRect(cardX, cardY, cardW, cardH, rad);
+        ctxFore.stroke();
+      } else {
+        ctxFore.strokeRect(cardX, cardY, cardW, cardH);
+      }
+
+      // Line 1: Script / Cursive in Warm White
+      ctxFore.fillStyle = '#FAF6ED';
+      ctxFore.font = `400 italic ${cursiveSize}px "Yellowtail", cursive, serif`;
+      ctxFore.textAlign = 'center';
+      const cY = cardY + cursiveSize + Math.round(14 * scale);
+      ctxFore.fillText(cursiveTxt, W * 0.5, cY);
+
+      // Line 2: Collegiate Athletic Block Lettering (Anton / Montserrat 900)
+      ctxFore.fillStyle = '#FFFFFF';
+      ctxFore.font = `900 ${blockSize}px "Anton", "Montserrat", sans-serif`;
+      const bY = cY + blockSize + Math.round(4 * scale);
+      ctxFore.fillText(blockTxt, W * 0.5, bY);
+
+      // Line 3: Red Accent Tag / Micro-tracked Label
+      ctxFore.fillStyle = '#E53935';
+      ctxFore.font = `800 ${redTagSize}px "Poppins", sans-serif`;
+      const rY = bY + redTagSize + Math.round(12 * scale);
+      ctxFore.fillText(redTagTxt, W * 0.5, rY);
+
+    } finally {
+      ctxFore.restore();
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 4. VARIANT 3: LOWER-THIRD TERRACOTTA RIPPED CARD WITH WATERMARK & STEP TAG
+  // --------------------------------------------------------------------------
+  const drawVariantStat = () => {
+    ctxFore.save();
+    try {
+      const cardY = Math.round(H * 0.63);
+      const stepTxt = `STEP ${String(capIdx + 1).padStart(2, '0')}`;
+      const statementTxt = heroTxt.toUpperCase();
+
+      const stepSize = Math.max(11, Math.round(15 * scale * fontScale));
+      const statementSize = Math.max(20, Math.round(36 * scale * fontScale));
+
+      ctxFore.font = `800 ${stepSize}px "Space Mono", monospace`;
+      const stepW = ctxFore.measureText(stepTxt).width;
+
+      ctxFore.font = `800 ${statementSize}px "Montserrat", "Poppins", sans-serif`;
+      const stmtW = ctxFore.measureText(statementTxt).width;
+
+      const contentW = Math.max(stepW + 60, stmtW);
+      const padX = Math.max(26, Math.round(34 * scale));
+      const cardW = Math.min(W * 0.88, Math.max(W * 0.58, contentW + padX * 2));
+      const cardH = statementSize + Math.round(48 * scale);
+      const cardX = Math.round((W - cardW) * 0.5);
+
+      // Entrance animation
+      ctxFore.globalAlpha = enterAlpha;
+      ctxFore.translate(W * 0.5, cardY + cardH * 0.5);
+      ctxFore.scale(enterScale, enterScale);
+      ctxFore.translate(-W * 0.5, -(cardY + cardH * 0.5));
+
+      // Terracotta torn card background
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.32)';
+      ctxFore.shadowBlur = Math.round(16 * scale);
+      ctxFore.shadowOffsetY = Math.round(7 * scale);
+
+      ctxFore.fillStyle = '#C8644A'; // Warm terracotta / rust
+      drawTornPaperShape(ctxFore, cardX, cardY, cardW, cardH, capIdx * 23 + 13, true, true);
+      ctxFore.fill();
+
+      // Translucent Watermark in Card Background (Right Anchor)
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.save();
+      const watermarkSize = Math.round(cardH * 1.35);
+      ctxFore.font = `900 ${watermarkSize}px "Playfair Display", serif`;
+      ctxFore.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      ctxFore.textAlign = 'right';
+      ctxFore.fillText('&', cardX + cardW - Math.round(16 * scale), cardY + cardH * 0.85);
+      ctxFore.restore();
+
+      // Top-Left Overlapping Cream Badge
+      const badgePadX = Math.max(10, Math.round(14 * scale));
+      const badgeH = stepSize + Math.round(10 * scale);
+      const badgeW = stepW + badgePadX * 2;
+      const badgeX = cardX + Math.round(18 * scale);
+      const badgeY = cardY - Math.round(badgeH * 0.45);
+      const badgeRad = Math.round(4 * scale);
+
+      ctxFore.fillStyle = '#FAF6ED';
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.20)';
+      ctxFore.shadowBlur = Math.round(6 * scale);
+      ctxFore.shadowOffsetY = Math.round(2 * scale);
+      if (typeof ctxFore.roundRect === 'function') {
+        ctxFore.beginPath();
+        ctxFore.roundRect(badgeX, badgeY, badgeW, badgeH, badgeRad);
+        ctxFore.fill();
+      } else {
+        ctxFore.fillRect(badgeX, badgeY, badgeW, badgeH);
+      }
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.fillStyle = '#1A1816';
+      ctxFore.font = `800 ${stepSize}px "Space Mono", monospace`;
+      ctxFore.textAlign = 'center';
+      ctxFore.fillText(stepTxt, badgeX + badgeW * 0.5, badgeY + stepSize + Math.round(1 * scale));
+
+      // Main Bold White Statement
+      ctxFore.fillStyle = '#FFFFFF';
+      ctxFore.font = `800 ${statementSize}px "Montserrat", "Poppins", sans-serif`;
+      ctxFore.textAlign = 'center';
+      const stmtY = cardY + Math.round(cardH * 0.65);
+      ctxFore.fillText(statementTxt, W * 0.5, stmtY);
+
+    } finally {
+      ctxFore.restore();
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 5. RENDER THE CHOSEN VARIANT CARD & UNIVERSAL BOTTOM SUBTITLE PILL
+  // --------------------------------------------------------------------------
+  if (variant === 'hook') {
+    drawVariantHook();
+  } else if (variant === 'zine') {
+    drawVariantZine();
+  } else if (variant === 'stat') {
+    drawVariantStat();
+  }
+  // All variants (including 'none') render the universal bottom subtitle pill!
+  drawBottomPill();
 }
 
 function drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
@@ -9196,6 +9696,276 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
 }
 
 /**
+ * DUAL-PLANE 3D HERO DEPTH PASS
+ * Implements Concept 1 (Headline Behind + Live Spoken Captions in Front):
+ * - Layer 1 (BEHIND): Giant 3D anchor keyword behind the speaker's head and shoulders.
+ *   Uses computeBehindCrownPlacement, 3D block shadow/extrusion, and soft rim illumination.
+ *   Supports auto-detected key word or custom topic hook from UI (st.customHeroKeyword).
+ * - Layer 2 (IN FRONT): Floating dark glassmorphic caption card in front of the speaker's chest.
+ *   Clean white text with vibrant active-word highlight pill (yellow-gold, amber, or cyan).
+ */
+function drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+  const capArg = (showAll && cap) ? Object.assign({}, cap, { _forceInstant: typeof t !== 'number' || isNaN(t) || t <= (cap.start || 0) + 0.04 }) : cap;
+  const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind);
+  if (rt.exitFade <= 0.005) return;
+
+  const {
+    isSampleCard, capStart, capEnd, evalT, fullInstant, exitFade, targetBehind,
+    heroX, fontScale, cleanTok, wordStart, easeOutCubic, progFactor, measureW, fitFont,
+    roundRectPath, pickHeroIdx, ov, posDeltaY, customHighlight, pickHi, pickBase, pickFontFam,
+    trackEmWith, applyGlow
+  } = rt;
+
+  // 1. RESOLVE BEHIND KEYWORD
+  const customKey = (st.customHeroKeyword || (typeof S !== 'undefined' && S.customHeroKeyword) || '').trim();
+  let behindTxt = '';
+  let bStart = capStart;
+  let bIdx = -1;
+
+  if (customKey) {
+    behindTxt = customKey.toUpperCase();
+  } else if (isSampleCard) {
+    behindTxt = st.previewWord || 'RETHINK';
+  } else {
+    bIdx = pickHeroIdx(words);
+    const rawHero = bIdx >= 0 && words[bIdx] ? cleanTok(words[bIdx].t || words[bIdx].word || '', false) : '';
+    behindTxt = (rawHero || st.previewWord || 'RETHINK').toUpperCase();
+    bStart = wordStart(words[bIdx], capStart + 0.04);
+  }
+
+  // ------------------------------------------------------------------------
+  // LAYER 1: BEHIND THE SPEAKER'S HEAD & SHOULDERS (3D CINEMATIC TYPOGRAPHY)
+  // ------------------------------------------------------------------------
+  const behindFam = pickFontFam(st.key?.font ? `"${st.key.font}", "Montserrat", sans-serif` : '"Montserrat", "Anton", sans-serif');
+  const bTrack = trackEmWith(st.key?.track != null ? st.key.track : 0.01);
+  const bFontFn = (sz) => `900 ${sz}px ${behindFam}`;
+
+  let bIdealSize = H * (st.depthAccentSize || 0.185) * fontScale;
+  if (behindTxt.length > 8) {
+    bIdealSize = Math.max(H * 0.10, bIdealSize * (8 / behindTxt.length));
+  }
+  const fallbackYRatio = typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.20;
+
+  const bPlace = computeBehindCrownPlacement(targetBehind, behindTxt, {
+    W, H,
+    fontFn: bFontFn,
+    preferredSize: Math.round(bIdealSize),
+    minSize: Math.round(H * 0.08),
+    trackEm: bTrack,
+    isSampleCard,
+    fallbackCrownRatio: fallbackYRatio
+  });
+
+  const bP = progFactor(bStart, 0.18);
+  if (bP > 0.01) {
+    const bep = easeOutCubic(bP);
+    const bScale = fullInstant ? 1.0 : (0.95 + 0.05 * bep);
+    const bAlpha = exitFade * bep;
+
+    targetBehind.save();
+    try {
+      targetBehind.globalAlpha = bAlpha;
+      targetBehind.translate(heroX, bPlace.centerY);
+      targetBehind.scale(bScale, bScale);
+      targetBehind.translate(-heroX, -bPlace.centerY);
+
+      targetBehind.font = bFontFn(bPlace.size);
+      if ('letterSpacing' in targetBehind) targetBehind.letterSpacing = `${bTrack}em`;
+      targetBehind.textAlign = 'center';
+      targetBehind.textBaseline = 'alphabetic';
+
+      const bWidth = measureW(targetBehind, behindTxt, bPlace.size, bTrack);
+
+      // Deep drop shadow onto background wall
+      targetBehind.shadowColor = 'rgba(0, 0, 0, 0.80)';
+      targetBehind.shadowBlur = Math.round(H * 0.022);
+      targetBehind.shadowOffsetX = 0;
+      targetBehind.shadowOffsetY = Math.round(H * 0.008);
+
+      // 3D block extrusion / bevel layers (gives physical depth in room)
+      const extrudeSteps = Math.max(2, Math.round(H * 0.004));
+      targetBehind.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      for (let step = extrudeSteps; step >= 1; step--) {
+        targetBehind.fillText(behindTxt, heroX, bPlace.baseY + step * 1.2);
+      }
+
+      // Front face fill
+      targetBehind.shadowColor = 'transparent';
+      const presetId = st.id || '';
+      if (customHighlight) {
+        targetBehind.fillStyle = customHighlight;
+      } else if (presetId.includes('amber') || st.dualPlaneVariant === 'amber') {
+        const ag = targetBehind.createLinearGradient(0, bPlace.inkTopY, 0, bPlace.inkBotY);
+        ag.addColorStop(0.00, '#FFE899');
+        ag.addColorStop(0.40, '#FFB300');
+        ag.addColorStop(1.00, '#D97706');
+        targetBehind.fillStyle = ag;
+      } else if (presetId.includes('cyber') || st.dualPlaneVariant === 'cyber') {
+        const cg = targetBehind.createLinearGradient(heroX - bWidth * 0.5, 0, heroX + bWidth * 0.5, 0);
+        cg.addColorStop(0.00, '#00F0FF');
+        cg.addColorStop(0.50, '#38BDF8');
+        cg.addColorStop(1.00, '#C084FC');
+        targetBehind.fillStyle = cg;
+      } else {
+        // Studio Ivory (warm architectural white with bevel reflection)
+        const ig = targetBehind.createLinearGradient(0, bPlace.inkTopY, 0, bPlace.inkBotY);
+        ig.addColorStop(0.00, '#FFFFFF');
+        ig.addColorStop(0.60, '#FAF7EE');
+        ig.addColorStop(1.00, '#E2DCD2');
+        targetBehind.fillStyle = ig;
+      }
+      targetBehind.fillText(behindTxt, heroX, bPlace.baseY);
+
+      // Specular rim light / light wrap sheen
+      const rimSize = Number(st.behindGlowSize || 12);
+      if (rimSize > 0) {
+        let rimColor = 'rgba(255, 255, 255, 0.45)';
+        if (presetId.includes('amber')) rimColor = 'rgba(255, 179, 0, 0.55)';
+        else if (presetId.includes('cyber')) rimColor = 'rgba(0, 240, 255, 0.60)';
+        applyGlow(targetBehind, rimColor, Math.max(4, Math.round(rimSize * (H / 1080))));
+        targetBehind.strokeStyle = rimColor;
+        targetBehind.lineWidth = Math.max(1.2, Math.round(H * 0.0016));
+        targetBehind.strokeText(behindTxt, heroX, bPlace.baseY);
+      }
+    } finally {
+      targetBehind.restore();
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // LAYER 2: FOREGROUND FLOATING GLASS CARD (IN FRONT OF CHEST / LOWER-THIRD)
+  // ------------------------------------------------------------------------
+  const frontFam = pickFontFam(st.filler?.font ? `"${st.filler.font}", "Inter", sans-serif` : '"Inter", "Poppins", sans-serif');
+  const fTrack = trackEmWith(0.00);
+  const fFontSize = Math.round(H * 0.038 * fontScale);
+  const fFontFn = (sz, weight = '600') => `${weight} ${sz}px ${frontFam}`;
+
+  const spokenWords = words.map(w => ({
+    raw: String(w.t || w.word || ''),
+    txt: cleanTok(w.t || w.word || '', true),
+    s: typeof w.s === 'number' ? w.s : capStart,
+    e: typeof w.e === 'number' ? w.e : capEnd,
+    key: Boolean(w.key || w.isKey)
+  })).filter(w => w.txt);
+
+  if (spokenWords.length === 0) return;
+
+  const fStart = spokenWords[0].s;
+  const fP = progFactor(fStart, 0.14);
+  if (fP <= 0.01) return;
+
+  const fep = easeOutCubic(fP);
+  const fScale = fullInstant ? 1.0 : (0.96 + 0.04 * fep);
+  const fAlpha = exitFade * fep;
+
+  ctxFore.save();
+  try {
+    ctxFore.globalAlpha = fAlpha;
+
+    ctxFore.font = fFontFn(fFontSize, '600');
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${fTrack}em`;
+
+    const wordSpaceW = measureW(ctxFore, ' ', fFontSize, fTrack);
+    const measuredWords = spokenWords.map(w => {
+      const wW = measureW(ctxFore, w.raw, fFontSize, fTrack);
+      const isActive = !fullInstant && (evalT >= w.s - 0.01 && evalT < w.e + 0.04);
+      return { ...w, width: wW, isActive };
+    });
+
+    const totalTextW = measuredWords.reduce((sum, w, i) => sum + w.width + (i < measuredWords.length - 1 ? wordSpaceW : 0), 0);
+
+    const padX = Math.round(fFontSize * 0.75);
+    const padY = Math.round(fFontSize * 0.42);
+    const cardW = Math.min(Math.round(W * 0.92), Math.round(totalTextW + padX * 2));
+    const cardH = Math.round(fFontSize + padY * 2);
+
+    const subYRatio = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.66;
+    const cardCy = Math.round(H * subYRatio + posDeltaY);
+    const cardX = Math.round(heroX - cardW * 0.5);
+    const cardY = Math.round(cardCy - cardH * 0.5);
+
+    ov.recordSceneBox(cap, W, H, cardX, cardY, cardW, cardH);
+
+    ctxFore.translate(heroX, cardCy);
+    ctxFore.scale(fScale, fScale);
+    ctxFore.translate(-heroX, -cardCy);
+
+    // Dark Glassmorphic Card Background
+    ctxFore.save();
+    try {
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
+      ctxFore.shadowBlur = Math.round(H * 0.018);
+      ctxFore.shadowOffsetY = Math.round(H * 0.005);
+
+      const glassGrad = ctxFore.createLinearGradient(0, cardY, 0, cardY + cardH);
+      glassGrad.addColorStop(0.00, 'rgba(15, 23, 42, 0.78)');
+      glassGrad.addColorStop(1.00, 'rgba(8, 12, 22, 0.90)');
+
+      roundRectPath(ctxFore, cardX, cardY, cardW, cardH, Math.round(cardH * 0.38));
+      ctxFore.fillStyle = glassGrad;
+      ctxFore.fill();
+
+      ctxFore.shadowColor = 'transparent';
+      ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctxFore.lineWidth = Math.max(1.0, Math.round(H * 0.0012));
+      ctxFore.stroke();
+    } finally {
+      ctxFore.restore();
+    }
+
+    // Render Spoken Words Inside Card
+    let cursorX = Math.round(heroX - totalTextW * 0.5);
+    const textBaselineY = Math.round(cardCy + fFontSize * 0.34);
+
+    measuredWords.forEach(w => {
+      const hiColor = pickHi(st.highlightColor || '#FACC15');
+
+      if (w.isActive) {
+        ctxFore.save();
+        try {
+          const pillPadX = Math.round(fFontSize * 0.32);
+          const pillPadY = Math.round(fFontSize * 0.20);
+          const pillW = Math.round(w.width + pillPadX * 2);
+          const pillH = Math.round(fFontSize + pillPadY * 2);
+          const pillX = Math.round(cursorX - pillPadX);
+          const pillY = Math.round(cardCy - pillH * 0.5);
+
+          applyGlow(ctxFore, hiColor, Math.max(6, Math.round(H * 0.010)));
+          roundRectPath(ctxFore, pillX, pillY, pillW, pillH, Math.round(pillH * 0.40));
+          ctxFore.fillStyle = hiColor;
+          ctxFore.fill();
+
+          ctxFore.shadowColor = 'transparent';
+          ctxFore.font = fFontFn(fFontSize, '800');
+          ctxFore.fillStyle = '#0B0F19';
+          ctxFore.fillText(w.raw, cursorX, textBaselineY);
+        } finally {
+          ctxFore.restore();
+        }
+      } else {
+        ctxFore.save();
+        try {
+          ctxFore.font = fFontFn(fFontSize, '600');
+          ctxFore.fillStyle = pickBase('#FFFFFF');
+          ctxFore.shadowColor = 'rgba(0, 0, 0, 0.45)';
+          ctxFore.shadowBlur = 4;
+          ctxFore.shadowOffsetY = 1;
+          ctxFore.fillText(w.raw, cursorX, textBaselineY);
+        } finally {
+          ctxFore.restore();
+        }
+      }
+
+      cursorX += Math.round(w.width + wordSpaceW);
+    });
+
+  } finally {
+    ctxFore.restore();
+  }
+}
+
+/**
  * SUFI DIVINE CALLIGRAPHY & 3D GLITTER DEPTH PASS
  * EXACT 1:1 match to the reference reel (Osho: "छल्ले छल्ले", "काला", "हथ हथ मारे"):
  * - Authentic Turquoise Sequin Star filled with sparkling cyan & aquamarine glitter disks
@@ -9221,10 +9991,17 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
   const safeT = typeof evalT === 'number' && !isNaN(evalT) ? evalT : (capStart + 0.1);
   const timeSec = safeT - capStart;
 
-  // Position coordinates: responsive to position slider (st.position / st.posY) & posDeltaY
-  const basePosRatio = (st && Number.isFinite(Number(st.position ?? st.posY))) ? Number(st.position ?? st.posY) : 0.52;
+  // Position coordinates with Automatic Face & Chin Avoidance Guard:
+  // When speaker is close to camera, automatically drop centerY safely below chin so lower words never cover face/mouth!
+  const basePosRatio = getFaceSafeVerticalRatio(st, H, 0.52, 2);
   const centerY = Math.round(H * basePosRatio + posDeltaY);
   const centerX = Math.round(W * 0.5);
+
+  const maskStats = (typeof getSubjectMaskStats === 'function' && !isSampleCard) ? getSubjectMaskStats() : null;
+  const headTop = (maskStats && typeof maskStats.headTopRatio === 'number')
+    ? maskStats.headTopRatio
+    : (typeof window !== 'undefined' && typeof window._editorialHeadTopRatio === 'number' ? window._editorialHeadTopRatio : null);
+  const isCloseUp = Boolean(headTop !== null && (headTop < 0.22 || (maskStats && maskStats.centerCoverage > 0.40)));
 
   // =========================================================================
   // EXACT REFERENCE ASSET RENDERERS
@@ -9487,21 +10264,22 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     ? '"Amita", "Playfair Display", "Cinzel", "Georgia", serif'
     : '"Amita", "Rozha One", "Yatra One", "Kalam", serif';
 
-  const lines = [];
-  if (wordsTexts.length <= 2) {
-    lines.push(wordsTexts.join(' '));
-  } else if (wordsTexts.length <= 4) {
-    const half = Math.ceil(wordsTexts.length / 2);
-    lines.push(wordsTexts.slice(0, half).join(' '));
-    lines.push(wordsTexts.slice(half).join(' '));
+  const lineWords = [];
+  if (words.length <= 2) {
+    lineWords.push(words);
+  } else if (words.length <= 4) {
+    const half = Math.ceil(words.length / 2);
+    lineWords.push(words.slice(0, half));
+    lineWords.push(words.slice(half));
   } else {
-    lines.push(wordsTexts.slice(0, 3).join(' '));
-    lines.push(wordsTexts.slice(3).join(' '));
+    lineWords.push(words.slice(0, 3));
+    lineWords.push(words.slice(3));
   }
 
-  // Refined 1:1 editorial scale (0.068 height matches reference reel)
-  const baseFontSize = Math.round(H * 0.068 * fontScale);
-  const totalHeight = lines.length * baseFontSize * 1.20;
+  // Refined 1:1 editorial scale (in close-ups, slightly compact line gap to keep 2 lines tight)
+  const lineGapMult = isCloseUp ? 1.10 : 1.20;
+  const baseFontSize = Math.round(H * (isCloseUp ? 0.062 : 0.068) * fontScale);
+  const totalHeight = lineWords.length * baseFontSize * lineGapMult;
   const startY = centerY - (totalHeight * 0.5) + (baseFontSize * 0.85);
 
   const pFactor = progFactor(capStart, 0.22);
@@ -9519,50 +10297,81 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
     behindLayer.font = `700 ${baseFontSize}px ${fontFam}`;
 
     let maxMeasuredW = 0;
+    const computedWordBoxes = [];
+    const curCapDx = (Number(cap && cap.dx) || 0) * W;
+    const curCapDy = (Number(cap && cap.dy) || 0) * H;
 
-    lines.forEach((lineText, idx) => {
-      const lineY = startY + idx * (baseFontSize * 1.20);
-      const measuredW = behindLayer.measureText(lineText).width;
-      if (measuredW > maxMeasuredW) maxMeasuredW = measuredW;
+    lineWords.forEach((lWords, idx) => {
+      const lineY = startY + idx * (baseFontSize * lineGapMult);
+      const spaceW = behindLayer.measureText(' ').width;
 
-      // Soft atmospheric drop shadow (blends into video depth)
-      behindLayer.save();
-      behindLayer.shadowColor = 'rgba(0, 0, 0, 0.88)';
-      behindLayer.shadowBlur = Math.round(H * 0.016);
-      behindLayer.shadowOffsetX = 0;
-      behindLayer.shadowOffsetY = Math.round(H * 0.004);
-      behindLayer.fillStyle = 'rgba(10, 10, 10, 0.80)';
-      behindLayer.fillText(lineText, centerX, lineY);
-      behindLayer.restore();
+      const wordMetrics = lWords.map(w => {
+        const text = cleanTok(w.t || w.word || '', false);
+        const wW = behindLayer.measureText(text).width;
+        return { w, text, wW };
+      });
 
-      // Delicate golden edge outline defining the calligraphic loops
-      behindLayer.save();
-      behindLayer.strokeStyle = 'rgba(255, 238, 190, 0.40)';
-      behindLayer.lineWidth = Math.max(1.2, Math.round(H * 0.0022));
-      behindLayer.strokeText(lineText, centerX, lineY);
-      behindLayer.restore();
+      const totalLineW = wordMetrics.reduce((sum, item) => sum + item.wW, 0) + Math.max(0, lWords.length - 1) * spaceW;
+      if (totalLineW > maxMeasuredW) maxMeasuredW = totalLineW;
 
-      // Warm luminous ivory-cream fill (#FFFDF2)
-      behindLayer.save();
-      const textGrad = behindLayer.createLinearGradient(0, lineY - baseFontSize, 0, lineY + baseFontSize * 0.2);
-      textGrad.addColorStop(0.0, '#FFFFFF');
-      textGrad.addColorStop(0.40, '#FFFDF5');
-      textGrad.addColorStop(0.85, '#FDF6E2');
-      textGrad.addColorStop(1.0, '#F5E6C8');
-      behindLayer.fillStyle = textGrad;
+      let currentX = centerX - (totalLineW * 0.5);
 
-      // Soft ambient golden bloom
-      applyGlow(behindLayer, 'rgba(255, 240, 190, 0.45)', 10, 1);
-      behindLayer.fillText(lineText, centerX, lineY);
-      behindLayer.restore();
+      wordMetrics.forEach(item => {
+        const wordGlobalIdx = words.indexOf(item.w);
+        const wDx = (Number(item.w.dx) || 0) * W;
+        const wDy = (Number(item.w.dy) || 0) * H;
+        const drawX = currentX + (item.wW * 0.5) + wDx;
+        const drawY = lineY + wDy;
+
+        // Record accurate word box for interactive single-word dragging
+        computedWordBoxes.push({
+          wordIndex: wordGlobalIdx >= 0 ? wordGlobalIdx : computedWordBoxes.length,
+          word: item.w,
+          box: {
+            x: Math.max(0.01, Math.min(0.95, (currentX + wDx + curCapDx) / W)),
+            y: Math.max(0.01, Math.min(0.95, (lineY - baseFontSize * 0.9 + wDy + curCapDy) / H)),
+            w: Math.max(0.04, Math.min(0.95, item.wW / W)),
+            h: Math.max(0.03, Math.min(0.95, (baseFontSize * 1.1) / H))
+          }
+        });
+
+        // 1. Soft atmospheric drop shadow (blends into video depth)
+        behindLayer.save();
+        behindLayer.shadowColor = 'rgba(0, 0, 0, 0.88)';
+        behindLayer.shadowBlur = Math.round(H * 0.016);
+        behindLayer.shadowOffsetX = 0;
+        behindLayer.shadowOffsetY = Math.round(H * 0.004);
+        behindLayer.fillStyle = 'rgba(10, 10, 10, 0.80)';
+        behindLayer.fillText(item.text, drawX, drawY);
+        behindLayer.restore();
+
+        // 2. Delicate golden edge outline defining the calligraphic loops
+        behindLayer.save();
+        behindLayer.strokeStyle = 'rgba(255, 238, 190, 0.40)';
+        behindLayer.lineWidth = Math.max(1.2, Math.round(H * 0.0022));
+        behindLayer.strokeText(item.text, drawX, drawY);
+        behindLayer.restore();
+
+        // 3. Warm luminous ivory-cream fill (#FFFDF2)
+        behindLayer.save();
+        const textGrad = behindLayer.createLinearGradient(0, drawY - baseFontSize, 0, drawY + baseFontSize * 0.2);
+        textGrad.addColorStop(0.0, '#FFFFFF');
+        textGrad.addColorStop(0.40, '#FFFDF5');
+        textGrad.addColorStop(0.85, '#FDF6E2');
+        textGrad.addColorStop(1.0, '#F5E6C8');
+        behindLayer.fillStyle = textGrad;
+        applyGlow(behindLayer, 'rgba(255, 240, 190, 0.45)', 10, 1);
+        behindLayer.fillText(item.text, drawX, drawY);
+        behindLayer.restore();
+
+        currentX += item.wW + spaceW;
+      });
     });
 
-    // Record interactive bounding box into S.cachedLayoutBoxes for drag hit-testing
+    // Record interactive bounding box and word boxes into S.cachedLayoutBoxes
     if (typeof S !== 'undefined' && Array.isArray(S.cachedLayoutBoxes) && cap && cap.id) {
       const boxW = Math.max(maxMeasuredW * 1.15, W * 0.32);
       const boxH = Math.max(totalHeight * 1.35, H * 0.10);
-      const curCapDx = (Number(cap.dx) || 0) * W;
-      const curCapDy = (Number(cap.dy) || 0) * H;
       const bx0 = (centerX + curCapDx - boxW * 0.5) / W;
       const by0 = (centerY + curCapDy - boxH * 0.5) / H;
       const bw = boxW / W;
@@ -9570,13 +10379,14 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
       const existIdx = S.cachedLayoutBoxes.findIndex(b => b.capId === cap.id);
       const boxEntry = {
         capId: cap.id,
+        isExact: true,
         box: {
           x: Math.max(0.01, Math.min(0.95, bx0)),
           y: Math.max(0.01, Math.min(0.95, by0)),
           w: Math.max(0.08, Math.min(0.98, bw)),
           h: Math.max(0.05, Math.min(0.95, bh))
         },
-        wordBoxes: []
+        wordBoxes: computedWordBoxes
       };
       if (existIdx >= 0) S.cachedLayoutBoxes[existIdx] = boxEntry;
       else S.cachedLayoutBoxes.push(boxEntry);
@@ -9584,6 +10394,375 @@ function drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, is
   } finally {
     behindLayer.restore();
   }
+}
+
+/**
+ * Renders the "Side-by-Side Head Framing" bilateral depth caption style (Reference Video 1:1)
+ * - Words split horizontally across the speaker's head into Left Wing and Right Wing
+ * - Left Wing: Solid electric lemon yellow (#FFE600), heavy geometric sans
+ * - Right Wing: Hollow neon stroke / outline (#FFE600) with transparent interior
+ * - Superscript connector badge perched in top-left of Left Wing (e.g. "MY", "AND", "SAID")
+ * - 4-point camera autofocus viewfinder UI brackets framing the face
+ * - Crisp floating subtitle across the chest with active-word karaoke lighting
+ * - 3-Plane depth compositing: wings behind person, chest subtitle in front
+ */
+function drawSideBySideDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+  const capArg = (showAll && cap) ? Object.assign({}, cap, { _forceInstant: typeof t !== 'number' || isNaN(t) || t <= (cap.start || 0) + 0.04 }) : cap;
+  const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind);
+  if (rt.exitFade <= 0.005) return;
+
+  const {
+    isSampleCard, capStart, capEnd, evalT, fullInstant, exitFade, targetBehind,
+    fontScale, cleanTok, wordStart, easeOutCubic, progFactor, measureW,
+    posDeltaY, customHighlight, pickFontFam
+  } = rt;
+
+  const highlightCol = customHighlight || st.highlightColor || '#FFE600';
+  const baseCol = st.baseColor || '#FFFFFF';
+  const fontFam = pickFontFam(st.key?.font ? `"${st.key.font}", "Montserrat", "Poppins", sans-serif` : '"Montserrat", "Poppins", sans-serif');
+
+  // Token Extraction & Wing Word Allocation
+  const CONNECTORS = new Set(['a', 'an', 'the', 'my', 'your', 'his', 'her', 'our', 'their', 'and', 'or', 'but', 'so', 'is', 'not', 'said', 'get', 'got', 'he', 'she', 'we', 'they', 'in', 'to', 'for', 'on', 'at', 'by', 'from']);
+
+  let connTxt = '';
+  let leftTxt = '';
+  let rightTxt = '';
+  let subWords = words;
+
+  if (isSampleCard) {
+    connTxt = 'MY';
+    leftTxt = 'BACH';
+    rightTxt = 'DEGREE';
+  } else {
+    const rawTokens = words.map(w => cleanTok(w.t || w.word || '', false)).filter(Boolean);
+    if (rawTokens.length === 1) {
+      const t0 = rawTokens[0];
+      if (t0.includes('/')) {
+        const parts = t0.split('/');
+        leftTxt = parts[0];
+        rightTxt = parts[1] || '';
+      } else if (t0.length >= 6 && !/\d/.test(t0)) {
+        const mid = Math.ceil(t0.length / 2);
+        leftTxt = t0.slice(0, mid);
+        rightTxt = t0.slice(mid);
+      } else if (/\d/.test(t0) && /[a-zA-Z]/.test(t0)) {
+        const m = t0.match(/^(\D*)(\d+)(\D*)$/);
+        if (m) {
+          leftTxt = (m[1] || '') + m[2];
+          rightTxt = m[3] || '';
+        } else {
+          leftTxt = t0;
+        }
+      } else {
+        leftTxt = t0;
+      }
+    } else if (rawTokens.length === 2) {
+      leftTxt = rawTokens[0];
+      rightTxt = rawTokens[1];
+    } else if (rawTokens.length === 3) {
+      if (CONNECTORS.has(rawTokens[0].toLowerCase())) {
+        connTxt = rawTokens[0];
+        leftTxt = rawTokens[1];
+        rightTxt = rawTokens[2];
+      } else {
+        leftTxt = rawTokens[0];
+        rightTxt = rawTokens[1] + ' ' + rawTokens[2];
+      }
+    } else {
+      let startI = 0;
+      if (CONNECTORS.has(rawTokens[0].toLowerCase())) {
+        connTxt = rawTokens[0];
+        startI = 1;
+      }
+      const keyIndices = [];
+      words.forEach((kw, ki) => { if (kw.key || kw.isKey) keyIndices.push(ki); });
+      if (keyIndices.length >= 2) {
+        leftTxt = rawTokens[keyIndices[0]] || rawTokens[startI] || '';
+        rightTxt = rawTokens[keyIndices[1]] || rawTokens[startI + 1] || '';
+      } else if (keyIndices.length === 1) {
+        const ki = keyIndices[0];
+        leftTxt = rawTokens[ki] || '';
+        rightTxt = rawTokens[ki + 1] || rawTokens[ki - 1] || '';
+      } else {
+        const subToks = rawTokens.slice(startI);
+        const sorted = subToks.map((tok, idx) => ({ tok, idx, score: (/\d/.test(tok) ? 10 : 0) + tok.length }))
+          .sort((a, b) => b.score - a.score);
+        if (sorted.length >= 2) {
+          let i1 = sorted[0].idx;
+          let i2 = sorted[1].idx;
+          if (i1 > i2) { const tmp = i1; i1 = i2; i2 = tmp; }
+          leftTxt = subToks[i1] || '';
+          rightTxt = subToks[i2] || '';
+        } else {
+          leftTxt = subToks[0] || rawTokens[0] || '';
+          rightTxt = subToks[1] || '';
+        }
+      }
+    }
+  }
+
+  leftTxt = (leftTxt || '').toUpperCase();
+  rightTxt = (rightTxt || '').toUpperCase();
+  connTxt = (connTxt || '').toUpperCase();
+
+  // Layout Coordinates
+  const leftCenterX = Math.round(W * 0.22);
+  const rightCenterX = Math.round(W * 0.78);
+  const wingYRatio = typeof st.depthAccentY === 'number' ? st.depthAccentY : 0.23;
+  const wingCenterY = Math.round(H * wingYRatio + posDeltaY);
+  const subYRatio = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.46;
+  const subCenterY = Math.round(H * subYRatio + posDeltaY);
+  const subCenterX = Math.round(W * 0.50);
+
+  // Typography sizing & max-width face clearance guard
+  let wingFontSize = Math.round(H * 0.125 * fontScale);
+  if (leftTxt.length > 5) {
+    wingFontSize = Math.round(wingFontSize * (5.0 / leftTxt.length));
+  }
+  wingFontSize = Math.max(22, wingFontSize);
+
+  // Animation progress
+  const pEntry = progFactor(capStart, 0.18);
+  const ep = easeOutCubic(pEntry);
+  const scale = fullInstant ? 1.0 : (0.92 + 0.08 * ep);
+  const alpha = exitFade * (fullInstant ? 1.0 : ep);
+  const slideLeftX = fullInstant ? 0 : Math.round((1 - ep) * -16);
+  const slideRightX = fullInstant ? 0 : Math.round((1 - ep) * 16);
+
+  // -------------------------------------------------------------------------
+  // LAYER 1: BEHIND SPEAKER - LEFT WING (Solid Yellow Hero Word)
+  // -------------------------------------------------------------------------
+  if (leftTxt) {
+    targetBehind.save();
+    targetBehind.globalAlpha = alpha;
+    targetBehind.translate(leftCenterX + slideLeftX, wingCenterY);
+    if (scale !== 1.0) targetBehind.scale(scale, scale);
+
+    targetBehind.font = `900 ${wingFontSize}px ${fontFam}`;
+    targetBehind.textAlign = 'center';
+    targetBehind.textBaseline = 'middle';
+
+    // Drop shadow
+    targetBehind.shadowColor = 'rgba(0, 0, 0, 0.70)';
+    targetBehind.shadowBlur = Math.round(wingFontSize * 0.12);
+    targetBehind.shadowOffsetY = Math.round(wingFontSize * 0.04);
+
+    // Dark stroke outline for razor-sharp edge separation
+    targetBehind.strokeStyle = 'rgba(0, 0, 0, 0.90)';
+    targetBehind.lineWidth = Math.max(2.5, Math.round(wingFontSize * 0.04));
+    targetBehind.strokeText(leftTxt, 0, 0);
+
+    // Solid lemon yellow fill
+    targetBehind.fillStyle = highlightCol;
+    targetBehind.fillText(leftTxt, 0, 0);
+
+    // Measure left wing for superscript positioning
+    const leftMetrics = targetBehind.measureText(leftTxt);
+    const leftWidth = (leftMetrics && leftMetrics.width) ? leftMetrics.width : (leftTxt.length * wingFontSize * 0.6);
+
+    targetBehind.restore();
+
+    // -----------------------------------------------------------------------
+    // LAYER 1: SUPERSCRIPT CONNECTOR BADGE (e.g. "MY", "AND", "SAID")
+    // -----------------------------------------------------------------------
+    if (connTxt) {
+      const connSize = Math.max(12, Math.round(wingFontSize * 0.32));
+      const connY = wingCenterY - Math.round(wingFontSize * 0.54);
+      const connX = Math.round(leftCenterX - leftWidth * 0.30) + slideLeftX;
+
+      targetBehind.save();
+      targetBehind.globalAlpha = alpha;
+      targetBehind.translate(connX, connY);
+      if (scale !== 1.0) targetBehind.scale(scale, scale);
+
+      targetBehind.font = `800 ${connSize}px ${fontFam}`;
+      targetBehind.textAlign = 'center';
+      targetBehind.textBaseline = 'middle';
+
+      const connMetrics = targetBehind.measureText(connTxt);
+      const connW = (connMetrics && connMetrics.width) ? connMetrics.width : (connTxt.length * connSize * 0.6);
+      const padX = Math.max(5, Math.round(connSize * 0.32));
+      const padY = Math.max(2, Math.round(connSize * 0.18));
+
+      // Dark capsule backdrop
+      targetBehind.fillStyle = 'rgba(10, 10, 10, 0.75)';
+      if (typeof targetBehind.roundRect === 'function') {
+        targetBehind.beginPath();
+        targetBehind.roundRect(-connW / 2 - padX, -connSize / 2 - padY, connW + padX * 2, connSize + padY * 2, 4);
+        targetBehind.fill();
+      } else {
+        targetBehind.fillRect(-connW / 2 - padX, -connSize / 2 - padY, connW + padX * 2, connSize + padY * 2);
+      }
+
+      // Border outline
+      targetBehind.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      targetBehind.lineWidth = 1.0;
+      targetBehind.stroke();
+
+      // Text
+      targetBehind.fillStyle = '#FFFFFF';
+      targetBehind.shadowColor = 'rgba(0,0,0,0.8)';
+      targetBehind.shadowBlur = 4;
+      targetBehind.fillText(connTxt, 0, 0);
+
+      targetBehind.restore();
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // LAYER 1: BEHIND SPEAKER - RIGHT WING (Hollow Neon Contour Word)
+  // -------------------------------------------------------------------------
+  if (rightTxt) {
+    targetBehind.save();
+    targetBehind.globalAlpha = alpha;
+    targetBehind.translate(rightCenterX + slideRightX, wingCenterY);
+    if (scale !== 1.0) targetBehind.scale(scale, scale);
+
+    targetBehind.font = `900 ${wingFontSize}px ${fontFam}`;
+    targetBehind.textAlign = 'center';
+    targetBehind.textBaseline = 'middle';
+
+    // Electric Neon Outer Aura Glow
+    targetBehind.shadowColor = highlightCol;
+    targetBehind.shadowBlur = Math.round(wingFontSize * 0.18);
+
+    // Hollow Stroke
+    targetBehind.strokeStyle = highlightCol;
+    targetBehind.lineWidth = Math.max(3.5, Math.round(wingFontSize * 0.052));
+    targetBehind.lineJoin = 'round';
+    targetBehind.strokeText(rightTxt, 0, 0);
+    // Draw twice for bright neon saturation
+    targetBehind.strokeText(rightTxt, 0, 0);
+
+    // Subtle translucent inner sheen for high legibility
+    targetBehind.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    targetBehind.fillText(rightTxt, 0, 0);
+
+    targetBehind.restore();
+  }
+
+  // -------------------------------------------------------------------------
+  // LAYER 3: FOREGROUND - CAMERA AUTOFOCUS VIEWFINDER UI BRACKETS [ ]
+  // -------------------------------------------------------------------------
+  ctxFore.save();
+  ctxFore.globalAlpha = exitFade * Math.min(1.0, ep * 0.85);
+
+  const bLeft = Math.round(W * 0.34);
+  const bRight = Math.round(W * 0.66);
+  const bTop = Math.round(H * 0.13);
+  const bBottom = Math.round(H * 0.36);
+  const tick = Math.round(W * 0.042);
+
+  ctxFore.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+  ctxFore.lineWidth = 1.6;
+  ctxFore.lineCap = 'square';
+
+  // 1. Top-Left Bracket
+  ctxFore.beginPath();
+  ctxFore.moveTo(bLeft, bTop + tick);
+  ctxFore.lineTo(bLeft, bTop);
+  ctxFore.lineTo(bLeft + tick, bTop);
+  ctxFore.stroke();
+
+  // 2. Top-Right Bracket
+  ctxFore.beginPath();
+  ctxFore.moveTo(bRight - tick, bTop);
+  ctxFore.lineTo(bRight, bTop);
+  ctxFore.lineTo(bRight, bTop + tick);
+  ctxFore.stroke();
+
+  // 3. Bottom-Left Bracket
+  ctxFore.beginPath();
+  ctxFore.moveTo(bLeft, bBottom - tick);
+  ctxFore.lineTo(bLeft, bBottom);
+  ctxFore.lineTo(bLeft + tick, bBottom);
+  ctxFore.stroke();
+
+  // 4. Bottom-Right Bracket
+  ctxFore.beginPath();
+  ctxFore.moveTo(bRight - tick, bBottom);
+  ctxFore.lineTo(bRight, bBottom);
+  ctxFore.lineTo(bRight, bBottom - tick);
+  ctxFore.stroke();
+
+  // Tech micro-tag at top of bracket
+  ctxFore.font = `700 ${Math.round(W * 0.018)}px ${fontFam}`;
+  ctxFore.fillStyle = 'rgba(255, 255, 255, 0.65)';
+  ctxFore.textAlign = 'center';
+  ctxFore.textBaseline = 'bottom';
+  ctxFore.fillText('[ AF-TRACK ]', Math.round((bLeft + bRight) / 2), bTop - 4);
+
+  ctxFore.restore();
+
+  // -------------------------------------------------------------------------
+  // LAYER 3: FOREGROUND - FLOATING CHEST SUBTITLE WITH ACTIVE KARAOKE HIGHLIGHT
+  // -------------------------------------------------------------------------
+  const subFontSize = Math.round(H * 0.046 * fontScale);
+  ctxFore.save();
+  ctxFore.globalAlpha = alpha;
+  ctxFore.font = `700 ${subFontSize}px ${fontFam}`;
+  ctxFore.textAlign = 'left';
+  ctxFore.textBaseline = 'middle';
+
+  // Measure full subtitle line
+  const wordTokens = (isSampleCard
+    ? [{ t: 'my', s: 0 }, { t: 'bachelors', s: 0 }, { t: 'degree', s: 0 }]
+    : subWords
+  ).map(w => ({
+    text: String(w.t || w.word || '').toUpperCase(),
+    s: (typeof w.s === 'number') ? w.s : (typeof w.start === 'number' ? w.start : capStart),
+    e: (typeof w.e === 'number') ? w.e : (typeof w.end === 'number' ? w.end : capEnd),
+  }));
+
+  const spaceW = ctxFore.measureText(' ').width || (subFontSize * 0.28);
+  const measuredSub = wordTokens.map(wt => {
+    const m = ctxFore.measureText(wt.text);
+    return { ...wt, width: m.width };
+  });
+
+  const totalSubW = measuredSub.reduce((acc, item) => acc + item.width, 0) + Math.max(0, measuredSub.length - 1) * spaceW;
+  let curX = Math.round(subCenterX - totalSubW / 2);
+
+  // Subtle dark capsule pill backdrop behind chest subtitle for 100% readability
+  const pillPadX = Math.round(subFontSize * 0.45);
+  const pillPadY = Math.round(subFontSize * 0.25);
+  const pillH = subFontSize + pillPadY * 2;
+  const pillW = totalSubW + pillPadX * 2;
+
+  ctxFore.fillStyle = 'rgba(12, 14, 18, 0.68)';
+  if (typeof ctxFore.roundRect === 'function') {
+    ctxFore.beginPath();
+    ctxFore.roundRect(curX - pillPadX, subCenterY - pillH / 2, pillW, pillH, Math.round(pillH * 0.32));
+    ctxFore.fill();
+  } else {
+    ctxFore.fillRect(curX - pillPadX, subCenterY - pillH / 2, pillW, pillH);
+  }
+
+  // Draw each word with active karaoke highlighting
+  measuredSub.forEach((wt, idx) => {
+    const isWordActive = fullInstant || (evalT >= wt.s - 0.04 && evalT <= wt.e + 0.05);
+
+    ctxFore.save();
+    // Drop shadow
+    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctxFore.shadowBlur = 6;
+    ctxFore.shadowOffsetY = 2;
+
+    // Dark outline
+    ctxFore.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+    ctxFore.lineWidth = 2.5;
+    ctxFore.strokeText(wt.text, curX, subCenterY);
+
+    // Fill: active word lights up in electric yellow, others in white
+    ctxFore.fillStyle = isWordActive ? highlightCol : baseCol;
+    ctxFore.fillText(wt.text, curX, subCenterY);
+
+    ctxFore.restore();
+    curX += wt.width + spaceW;
+  });
+
+  ctxFore.restore();
 }
 
 /**
@@ -11337,6 +12516,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawPrismGlassDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.kineticCollage || st.id === 'kinetic_collage') {
         drawKineticCollagePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.editorialZineDynamic || st.id === 'editorial_zine_dynamic') {
+        drawEditorialZineDynamicPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.obsidianGoldCouture || st.id === 'obsidian_gold_couture') {
         drawObsidianCouturePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.auroraSpatialDepth || st.id === 'aurora_spatial_depth') {
@@ -11347,6 +12528,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawCelestialMonolithPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.sufiDivineDepth || st.id === 'sufi_divine_depth') {
         drawSufiDivineDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.sideBySideDepth || st.id === 'side_by_side_depth' || st.layout === 'side_by_side') {
+        drawSideBySideDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.dualPlaneHero || st.id === 'dual_plane_hero' || st.id === 'dual_plane_amber' || st.id === 'dual_plane_cyber' || (st.id && st.id.startsWith('dual_plane'))) {
+        drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if ((st.highlight && st.highlight.mode === 'box') || st.category === 'box' || presetId === 'box_pop' || presetId === 'yellow_box' || st.box || st.pill) {
         drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, isBehind, showAll);
       } else if (isBehind || (st.layout === 'stack' || st.isDuo) && (st.mode === 'emphasis' || st.category === 'duo' || !st.mode)) {
@@ -13451,6 +14636,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
             voiceoverText.value = S.captions.map(c => c.text).join(' ');
           }
         } catch (e) {}
+
+        // Automatically match and insert Coverr B-roll clips according to the video speech!
+        setTimeout(() => {
+          try {
+            autoAddBrolls({ silent: true });
+          } catch (_) {}
+        }, 500);
       }, 400);
 
     } catch (err) {
@@ -13499,33 +14691,48 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         };
       }).filter(w => w.t);
 
+      // Strictly clamp word durations so no single word can ever stretch across seconds or swallow captions
+      for (let j = 0; j < normalizedWords.length; j++) {
+        const nextWordStart = (j + 1 < normalizedWords.length) ? normalizedWords[j + 1].s : (normalizedWords[j].s + 0.85);
+        const maxWe = Math.min(normalizedWords[j].s + 0.85, Math.max(normalizedWords[j].s + 0.1, nextWordStart));
+        if (normalizedWords[j].e > maxWe) {
+          normalizedWords[j].e = maxWe;
+          normalizedWords[j].end = maxWe;
+        }
+      }
+
       // Close micro word gaps
       for (let j = 0; j < normalizedWords.length - 1; j++) {
         const wGap = normalizedWords[j + 1].s - normalizedWords[j].e;
-        if (wGap > 0 && wGap <= 0.35) {
+        if (wGap > 0 && wGap <= 0.25) {
           normalizedWords[j].e = normalizedWords[j + 1].s;
           normalizedWords[j].end = normalizedWords[j + 1].s;
         }
       }
 
+      const safeStart = parseFloat(c.start) || 0;
+      let safeEnd = parseFloat(c.end) || 0;
+      if (normalizedWords.length > 0) {
+        safeEnd = Math.max(safeStart + 0.2, normalizedWords[normalizedWords.length - 1].e);
+      }
+
       return {
         id: c.id || ('cap_' + (i + 1)),
-        start: parseFloat(c.start) || 0,
-        end: parseFloat(c.end) || 0,
+        start: safeStart,
+        end: safeEnd,
         text: cleanCaptionText(c.text || normalizedWords.map(w => w.t).join(' ')),
         words: normalizedWords
       };
     });
 
-    // Close inter-caption gaps (eliminate flickering between sentences)
+    // Enforce strict non-overlapping boundaries so no caption can EVER hide or delete the next caption!
     for (let i = 0; i < list.length - 1; i++) {
-      const interGap = list[i + 1].start - list[i].end;
-      if (interGap > 0 && interGap <= 0.85) {
+      if (list[i].end > list[i + 1].start) {
         list[i].end = list[i + 1].start;
-        if (list[i].words && list[i].words.length) {
-          const lastW = list[i].words[list[i].words.length - 1];
-          lastW.e = list[i + 1].start;
-          lastW.end = list[i + 1].start;
+      } else {
+        const interGap = list[i + 1].start - list[i].end;
+        if (interGap > 0 && interGap <= 0.75) {
+          list[i].end = list[i + 1].start;
         }
       }
     }
@@ -13538,7 +14745,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   function setupTransportHandlers() {
     btnPlayPause.addEventListener('click', togglePlay);
-    vid.addEventListener('click', togglePlay);
+    vid.addEventListener('click', (e) => {
+      if (window._suppressVideoClickUntil && performance.now() < window._suppressVideoClickUntil) {
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
+      togglePlay();
+    });
 
     vid.addEventListener('play', () => {
       iconPlay.classList.add('hidden');
@@ -13617,6 +14831,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         stage.style.aspectRatio = `${vid.videoWidth} / ${vid.videoHeight}`;
       }
       fitCanvas();
+      if (typeof window.applyVideoFraming === 'function') {
+        window.applyVideoFraming(S.pullDownY || 0, S.autoPullDown !== false);
+      }
+      if (typeof ensureSegmenterLoaded === 'function') {
+        ensureSegmenterLoaded().then(() => {
+          if (typeof renderCanvas === 'function') renderCanvas(true);
+        }).catch(() => {});
+      }
       renderTimeline();
       renderCanvas();
     });
@@ -15018,7 +16240,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       (preset.roles && preset.roles.accent && preset.roles.accent.layer === 'behind') ||
       (preset.name && preset.name.toLowerCase().includes('(behind)'))
     );
-    if (isBehind) tag = '👑 BEHIND';
+    if (isBehind && !preset.badge) tag = '👑 BEHIND';
 
     // Visual Art Container
     const art = document.createElement('div');
@@ -15032,39 +16254,76 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     tagSpan.textContent = tag;
     art.appendChild(tagSpan);
 
-    if (preset.isDuo) {
-      const small = document.createElement('span');
-      small.className = 'preset-card-small';
-      small.textContent = 'SOME MOMENTS';
-      art.appendChild(small);
-    }
+    if (preset.id === 'side_by_side_depth' || preset.layout === 'side_by_side') {
+      const splitRow = document.createElement('div');
+      splitRow.style.display = 'flex';
+      splitRow.style.alignItems = 'center';
+      splitRow.style.justifyContent = 'space-between';
+      splitRow.style.width = '88%';
+      splitRow.style.zIndex = '1';
+      splitRow.style.fontFamily = `'${font}', sans-serif`;
+      splitRow.style.fontSize = '17px';
+      splitRow.style.fontWeight = '900';
+      splitRow.style.letterSpacing = '-0.5px';
 
-    const big = document.createElement('strong');
-    big.className = 'preset-card-big';
-    big.textContent = previewWord;
-    big.style.fontFamily = `'${font}', sans-serif`;
-    big.style.fontStyle = isItalic;
-    big.style.fontWeight = weight;
-    big.style.textTransform = textTransform;
+      const lSpan = document.createElement('span');
+      lSpan.textContent = 'BACH';
+      lSpan.style.color = color;
+      lSpan.style.textShadow = '0 2px 8px rgba(0,0,0,0.8)';
 
-    const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
-    if (preset.pill) {
-      big.style.background = preset.pill;
-      big.style.padding = '3px 8px';
-      big.style.borderRadius = '5px';
-      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
-    } else if (paint && paint.startsWith('linear-gradient(')) {
-      big.style.backgroundImage = paint;
-      big.style.webkitBackgroundClip = 'text';
-      big.style.backgroundClip = 'text';
-      big.style.color = 'transparent';
+      const rSpan = document.createElement('span');
+      rSpan.textContent = 'DEGREE';
+      rSpan.style.webkitTextStroke = `1.5px ${color}`;
+      rSpan.style.color = 'transparent';
+      rSpan.style.filter = `drop-shadow(0 0 6px ${color}88)`;
+
+      splitRow.appendChild(lSpan);
+      splitRow.appendChild(rSpan);
+      art.appendChild(splitRow);
+
+      const subSmall = document.createElement('span');
+      subSmall.className = 'preset-card-small';
+      subSmall.textContent = 'MY BACHELORS DEGREE';
+      subSmall.style.fontSize = '8.5px';
+      subSmall.style.color = 'rgba(255,255,255,0.85)';
+      subSmall.style.marginTop = '4px';
+      subSmall.style.zIndex = '3';
+      art.appendChild(subSmall);
     } else {
-      big.style.color = color;
-      if (kRole.glow || preset.glow) {
-        big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+      if (preset.isDuo) {
+        const small = document.createElement('span');
+        small.className = 'preset-card-small';
+        small.textContent = 'SOME MOMENTS';
+        art.appendChild(small);
       }
+
+      const big = document.createElement('strong');
+      big.className = 'preset-card-big';
+      big.textContent = previewWord;
+      big.style.fontFamily = `'${font}', sans-serif`;
+      big.style.fontStyle = isItalic;
+      big.style.fontWeight = weight;
+      big.style.textTransform = textTransform;
+
+      const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
+      if (preset.pill) {
+        big.style.background = preset.pill;
+        big.style.padding = '3px 8px';
+        big.style.borderRadius = '5px';
+        big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
+      } else if (paint && paint.startsWith('linear-gradient(')) {
+        big.style.backgroundImage = paint;
+        big.style.webkitBackgroundClip = 'text';
+        big.style.backgroundClip = 'text';
+        big.style.color = 'transparent';
+      } else {
+        big.style.color = color;
+        if (kRole.glow || preset.glow) {
+          big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+        }
+      }
+      art.appendChild(big);
     }
-    art.appendChild(big);
 
     // Person silhouette in front of behind cards preview
     if (isBehind) {
@@ -15133,8 +16392,83 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     return card;
   }
 
+  function syncDualPlaneUI() {
+    const card = $('cardDualPlaneSettings');
+    if (!card) return;
+    const isBehind = Boolean(
+      S.style && (
+        S.style.dualPlaneHero ||
+        S.style.behindPerson ||
+        S.style.depthAccent ||
+        (S.style.id && S.style.id.startsWith('dual_plane')) ||
+        (S.style.roles && S.style.roles.accent && S.style.roles.accent.layer === 'behind')
+      )
+    );
+    card.classList.toggle('hidden', !isBehind);
+
+    const kwInput = $('inputDualPlaneKeyword');
+    if (kwInput) kwInput.value = S.style?.customHeroKeyword || S.customHeroKeyword || '';
+
+    const behindY = $('inputDualPlaneBehindY');
+    const valBehindY = $('valDualPlaneBehindY');
+    const curBehindY = Math.round((S.style?.depthAccentY != null ? S.style.depthAccentY : 0.20) * 100);
+    if (behindY) behindY.value = String(curBehindY);
+    if (valBehindY) valBehindY.textContent = `${curBehindY}%`;
+
+    const frontY = $('inputDualPlaneFrontY');
+    const valFrontY = $('valDualPlaneFrontY');
+    const curFrontY = Math.round((S.style?.subtitlePosition != null ? S.style.subtitlePosition : 0.66) * 100);
+    if (frontY) frontY.value = String(curFrontY);
+    if (valFrontY) valFrontY.textContent = `${curFrontY}%`;
+
+    const glowSlider = $('inputDualPlaneGlow');
+    const valGlow = $('valDualPlaneGlow');
+    const curGlow = Math.round(S.style?.behindGlowSize != null ? S.style.behindGlowSize : 12);
+    if (glowSlider) glowSlider.value = String(curGlow);
+    if (valGlow) valGlow.textContent = `${curGlow}px`;
+  }
+
+  function syncEditorialUI() {
+    const card = $('cardEditorialSettings');
+    if (!card) return;
+    const isEditorial = Boolean(S.style && (S.style.id === 'editorial_depth_stack' || S.style.id === 'spatial_sandwich_syne'));
+    card.classList.toggle('hidden', !isEditorial);
+    if (!isEditorial) return;
+
+    // 1. Placement (Alternate vs Top vs Below)
+    const slotMode = S.style.editorialSlotMode || S.style.editorialPosition || 'alternate';
+    const btnAlt = $('btnEditorialPosAlt');
+    const btnTop = $('btnEditorialPosTop');
+    const btnBelow = $('btnEditorialPosBelow');
+    if (btnAlt) btnAlt.classList.toggle('active', slotMode === 'alternate');
+    if (btnTop) btnTop.classList.toggle('active', slotMode === 'top');
+    if (btnBelow) btnBelow.classList.toggle('active', slotMode === 'below');
+
+    // 2. Blend Type
+    const blendSelect = $('selectEditorialBlend');
+    const valBlend = $('valEditorialBlend');
+    const curBlend = S.style.editorialBlend || S.style.blendMode || S.style.blend || 'overlay';
+    if (blendSelect) blendSelect.value = curBlend;
+    if (valBlend) valBlend.textContent = curBlend.charAt(0).toUpperCase() + curBlend.slice(1);
+
+    // 3. See-Through Opacity
+    const opSlider = $('inputEditorialOpacity');
+    const valOp = $('valEditorialOpacity');
+    const curOp = Math.round((S.style.editorialOpacity != null ? S.style.editorialOpacity : (S.style.blendOpacity != null ? S.style.blendOpacity : 0.78)) * 100);
+    if (opSlider) opSlider.value = String(curOp);
+    if (valOp) valOp.textContent = `${curOp}%`;
+
+    // 4. Torso Level (Below Height)
+    const torsoSlider = $('inputEditorialTorsoY');
+    const valTorso = $('valEditorialTorsoY');
+    const curTorso = Math.round((S.style.depthAccentY != null && S.style.depthAccentY > 0.35 ? S.style.depthAccentY : 0.58) * 100);
+    if (torsoSlider) torsoSlider.value = String(curTorso);
+    if (valTorso) valTorso.textContent = `${curTorso}%`;
+  }
+
   function syncBehindSliders() {
-    // Behind person removed per user request
+    syncDualPlaneUI();
+    syncEditorialUI();
   }
 
   function applyPreset(preset, showGenToast = false) {
@@ -15234,6 +16568,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     if (typeof syncVideoTplCustomizerUI === 'function') {
       syncVideoTplCustomizerUI();
     }
+    if (typeof window.checkAutoHeadroom === 'function') {
+      const headTop = (typeof window._editorialHeadTopRatio === 'number') ? window._editorialHeadTopRatio : 0.16;
+      window.checkAutoHeadroom(headTop);
+    }
     if (chkWhiteSplash) {
       chkWhiteSplash.checked = (preset.whiteSplash !== false);
     }
@@ -15279,6 +16617,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     renderCanvas();
     renderTimeline();
+    renderCaptionsList();
 
     if (showGenToast) {
       showToast(`✨ Generated with ${preset.name}!`);
@@ -15340,9 +16679,9 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       captionCenter.appendChild(captionInput);
 
       // 1-Click Word Chips for instant 👑 Hero Highlight
-      if (!Array.isArray(cap.words) || cap.words.length === 0 || cap.words.length !== (cap.text || '').trim().split(/\s+/).filter(Boolean).length) {
+      const textTokens = (cap.text || '').trim().split(/\s+/).filter(Boolean);
+      if (!Array.isArray(cap.words) || cap.words.length === 0 || cap.words.length !== textTokens.length) {
         updateCaptionWordTimings(cap);
-        const textTokens = (cap.text || '').trim().split(/\s+/).filter(Boolean);
         const existingWords = Array.isArray(cap.words) ? cap.words : [];
         const dur = Math.max(0.1, cap.end - cap.start);
         const wDur = dur / Math.max(textTokens.length, 1);
@@ -15355,6 +16694,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           end: Math.round((cap.start + (idx + 1) * wDur) * 100) / 100,
           key: existingWords[idx] ? Boolean(existingWords[idx].key) : false
         }));
+      } else {
+        // Synchronize word text in case spelling was edited in textarea!
+        cap.words.forEach((w, idx) => {
+          if (textTokens[idx] && (w.t !== textTokens[idx] || w.word !== textTokens[idx])) {
+            w.t = textTokens[idx];
+            w.word = textTokens[idx];
+          }
+        });
       }
       if (Array.isArray(cap.words) && cap.words.length > 0) {
         const wordsRow = document.createElement('div');
@@ -15404,6 +16751,69 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         captionCenter.appendChild(wordsRow);
       }
 
+      // Multi-Variant Card Selector for Editorial Zine Dynamic Storyboard
+      const isZineDynamic = Boolean(S.style && (S.style.editorialZineDynamic || S.style.id === 'editorial_zine_dynamic'));
+      if (isZineDynamic) {
+        const variantRow = document.createElement('div');
+        variantRow.className = 'caption-variant-picker-row';
+        variantRow.style.cssText = 'display:flex; align-items:center; gap:6px; margin-top:6px;';
+
+        const variantLabel = document.createElement('span');
+        variantLabel.style.cssText = 'font-size:11px; font-weight:700; color:#E53935; text-transform:uppercase; letter-spacing:0.04em; display:flex; align-items:center; gap:3px;';
+        variantLabel.innerHTML = '📰 Card:';
+
+        const variantSelect = document.createElement('select');
+        variantSelect.className = 'caption-variant-select';
+        variantSelect.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:5px; background:#1e293b; color:#f8fafc; border:1px solid #334155; cursor:pointer; font-weight:600; outline:none; max-width:240px; text-overflow:ellipsis;';
+
+        const autoVariants = ['hook', 'zine', 'stat', 'none'];
+        const autoName = autoVariants[idx % autoVariants.length];
+        const autoLabels = {
+          hook: '📜 Craft Hook Banner',
+          zine: '🏷️ Athletic Zine Badge',
+          stat: '📊 Terracotta Stat Card',
+          none: '💬 Subtitle Only'
+        };
+
+        const optAuto = document.createElement('option');
+        optAuto.value = 'auto';
+        optAuto.textContent = `⚡ Auto (${autoLabels[autoName]})`;
+
+        const optHook = document.createElement('option');
+        optHook.value = 'hook';
+        optHook.textContent = '📜 Torn Craft Hook Banner';
+
+        const optZine = document.createElement('option');
+        optZine.value = 'zine';
+        optZine.textContent = '🏷️ Athletic Zine Badge';
+
+        const optStat = document.createElement('option');
+        optStat.value = 'stat';
+        optStat.textContent = '📊 Terracotta Stat Card';
+
+        const optNone = document.createElement('option');
+        optNone.value = 'none';
+        optNone.textContent = '💬 Subtitle Only (Breathing Room)';
+
+        variantSelect.appendChild(optAuto);
+        variantSelect.appendChild(optHook);
+        variantSelect.appendChild(optZine);
+        variantSelect.appendChild(optStat);
+        variantSelect.appendChild(optNone);
+
+        variantSelect.value = cap.cardVariant || 'auto';
+
+        variantSelect.addEventListener('change', (e) => {
+          e.stopPropagation();
+          cap.cardVariant = e.target.value;
+          renderCanvas(true);
+        });
+
+        variantRow.appendChild(variantLabel);
+        variantRow.appendChild(variantSelect);
+        captionCenter.appendChild(variantRow);
+      }
+
       row.addEventListener('click', (e) => {
         if (e.target.closest('button') || e.target.closest('textarea')) return;
         selectCaption(cap.id);
@@ -15440,21 +16850,37 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         cap.text = cleanValue;
         const rawTokens = rawValue.split(/\s+/).filter(Boolean);
         const words = cleanValue.split(/\s+/).filter(Boolean);
-        const dur = (cap.end - cap.start) / Math.max(words.length, 1);
-        cap.words = words.map((w, wIdx) => {
-          const hasAsterisk = rawTokens[wIdx] ? rawTokens[wIdx].includes('*') : false;
-          return {
-            t: w,
-            word: w,
-            s: cap.start + wIdx * dur,
-            start: cap.start + wIdx * dur,
-            e: cap.start + (wIdx + 1) * dur,
-            end: cap.start + (wIdx + 1) * dur,
-            key: hasAsterisk
-          };
-        });
+        if (Array.isArray(cap.words) && cap.words.length === words.length) {
+          // Same word count (e.g. spelling correction in a middle word):
+          // Keep precise timing and only update word text & highlight keys
+          words.forEach((w, wIdx) => {
+            const hasAsterisk = rawTokens[wIdx] ? rawTokens[wIdx].includes('*') : false;
+            cap.words[wIdx].t = w;
+            cap.words[wIdx].word = w;
+            if (hasAsterisk) cap.words[wIdx].key = true;
+          });
+        } else {
+          // Word count changed: re-slice timing proportionally
+          const dur = (cap.end - cap.start) / Math.max(words.length, 1);
+          cap.words = words.map((w, wIdx) => {
+            const hasAsterisk = rawTokens[wIdx] ? rawTokens[wIdx].includes('*') : false;
+            return {
+              t: w,
+              word: w,
+              s: Math.round((cap.start + wIdx * dur) * 100) / 100,
+              start: Math.round((cap.start + wIdx * dur) * 100) / 100,
+              e: Math.round((cap.start + (wIdx + 1) * dur) * 100) / 100,
+              end: Math.round((cap.start + (wIdx + 1) * dur) * 100) / 100,
+              key: hasAsterisk
+            };
+          });
+        }
         renderCanvas();
         renderTimeline();
+      });
+
+      textarea.addEventListener('blur', () => {
+        renderCaptionsList();
       });
 
       row.querySelector('.caption-delete-btn').addEventListener('click', (e) => {
@@ -15561,50 +16987,85 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const btnStepSizeUp = $('btnStepSizeUp');
     const btnResetSize = $('btnResetSize');
 
-    const updateFontScaleUI = () => {
+    const getActiveScaleTarget = () => {
+      const curCap = (S.captions && S.selectedCaptionId) ? S.captions.find(c => c.id === S.selectedCaptionId) : null;
+      const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && curCap && curCap.words && curCap.words[S.selectedWordIndex]);
+      if (isWordMode) {
+        return { type: 'word', cap: curCap, word: curCap.words[S.selectedWordIndex], scale: Number(curCap.words[S.selectedWordIndex].scale) || 1.0 };
+      }
+      if (S.adjustScope === 'one' && curCap) {
+        return { type: 'caption', cap: curCap, scale: Number(curCap.scale) || 1.0 };
+      }
       if (!S.style) S.style = {};
-      if (typeof S.style.fontScale !== 'number') S.style.fontScale = 1.0;
-      const px = Math.round(S.style.fontScale * 48);
-      const pct = Math.round(S.style.fontScale * 100);
-      if (valFontSize) valFontSize.textContent = `${pct}% (${px}px)`;
+      return { type: 'global', scale: Number(S.style.fontScale) || 1.0 };
+    };
+
+    const setActiveScale = (newScale, actionName = 'Change size') => {
+      const clamped = Math.round(Math.max(0.4, Math.min(3.0, newScale)) * 100) / 100;
+      const target = getActiveScaleTarget();
+      if (target.type === 'word') {
+        target.word.scale = clamped;
+        if (target.cap) target.cap._cachedExportWords = null;
+        pushHistoryState(actionName);
+        if (typeof updateTransformHud === 'function') updateTransformHud(`Word: ${clamped.toFixed(2)}×`, false);
+      } else if (target.type === 'caption') {
+        target.cap.scale = clamped;
+        pushHistoryState(actionName);
+        if (typeof updateTransformHud === 'function') updateTransformHud(`${clamped.toFixed(2)}×`, false);
+      } else {
+        if (!S.style) S.style = {};
+        S.style.fontScale = clamped;
+        pushHistoryState(actionName);
+      }
+      updateFontScaleUI();
+      renderCanvas();
+      if (typeof updateVideoEditOverlay === 'function') updateVideoEditOverlay();
+    };
+
+    const updateFontScaleUI = () => {
+      const target = getActiveScaleTarget();
+      const currentScale = target.scale;
+      const px = Math.round(currentScale * 48);
+      const pct = Math.round(currentScale * 100);
+      if (valFontSize) {
+        if (target.type === 'word') {
+          valFontSize.textContent = `Word "${target.word.t}": ${pct}% (${px}px)`;
+        } else if (target.type === 'caption') {
+          valFontSize.textContent = `This caption: ${pct}% (${px}px)`;
+        } else {
+          valFontSize.textContent = `${pct}% (${px}px)`;
+        }
+      }
       if (inputFontSize) inputFontSize.value = String(pct);
       $$('.btn-size-preset').forEach(b => {
         const s = parseFloat(b.getAttribute('data-scale')) || 1.0;
-        b.classList.toggle('active', Math.abs(s - S.style.fontScale) < 0.05);
+        b.classList.toggle('active', Math.abs(s - currentScale) < 0.05);
       });
     };
+    window.updateFontScaleUI = updateFontScaleUI;
+
     if (inputFontSize) {
       inputFontSize.addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10) || 100;
-        if (!S.style) S.style = {};
-        S.style.fontScale = Math.round(val) / 100;
-        updateFontScaleUI();
-        renderCanvas();
+        setActiveScale(Math.round(val) / 100, 'Adjust font scale');
       });
     }
 
     if (btnStepSizeDown) {
       btnStepSizeDown.addEventListener('click', () => {
-        if (!S.style) S.style = {};
-        S.style.fontScale = Math.max(0.6, Math.round(((S.style.fontScale || 1.0) - 0.1) * 10) / 10);
-        updateFontScaleUI();
-        renderCanvas();
+        const target = getActiveScaleTarget();
+        setActiveScale(target.scale - 0.1, 'Step size down');
       });
     }
     if (btnStepSizeUp) {
       btnStepSizeUp.addEventListener('click', () => {
-        if (!S.style) S.style = {};
-        S.style.fontScale = Math.min(1.8, Math.round(((S.style.fontScale || 1.0) + 0.1) * 10) / 10);
-        updateFontScaleUI();
-        renderCanvas();
+        const target = getActiveScaleTarget();
+        setActiveScale(target.scale + 0.1, 'Step size up');
       });
     }
     if (btnResetSize) {
       btnResetSize.addEventListener('click', () => {
-        if (!S.style) S.style = {};
-        S.style.fontScale = 1.0;
-        updateFontScaleUI();
-        renderCanvas();
+        setActiveScale(1.0, 'Reset size');
       });
     }
 
@@ -15792,6 +17253,143 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
     });
 
+    // 🎬 Video Framing / Safe Headroom (Auto Face Protection)
+    const inputPullDown = $('inputPullDown');
+    const valPullDown = $('valPullDown');
+    const btnResetPullDown = $('btnResetPullDown');
+    const chkAutoPullDown = $('chkAutoPullDown');
+
+    if (S.autoPullDown === undefined) S.autoPullDown = true;
+
+    function applyVideoFraming(pullVal, isAuto = false) {
+      if (typeof pullVal !== 'number' || isNaN(pullVal)) pullVal = 0;
+      pullVal = Math.max(0, Math.min(0.25, pullVal));
+      S.pullDownY = pullVal;
+
+      const pct = Math.round(pullVal * 100);
+      if (valPullDown) {
+        if (isAuto || S.autoPullDown) {
+          if (pct === 0) {
+            valPullDown.textContent = '⚡ Auto: Safe (0%)';
+          } else {
+            valPullDown.textContent = `⚡ Auto: ${pct}% Drop`;
+          }
+        } else {
+          if (pct === 0) {
+            valPullDown.textContent = '0% (Default)';
+          } else if (pct <= 7) {
+            valPullDown.textContent = `${pct}% (Slight Drop)`;
+          } else if (pct <= 16) {
+            valPullDown.textContent = `${pct}% (Safe Headroom)`;
+          } else {
+            valPullDown.textContent = `${pct}% (Deep Drop)`;
+          }
+        }
+      }
+      if (inputPullDown && parseInt(inputPullDown.value, 10) !== pct) {
+        inputPullDown.value = String(pct);
+      }
+
+      const vid = $('vid');
+      const personCanvas = $('personCanvas');
+      const brollStageLayer = $('brollStageLayer');
+
+      if (pullVal === 0) {
+        S.videoZoom = 1.0;
+        if (vid) {
+          vid.style.transform = '';
+          vid.style.transformOrigin = '';
+        }
+        if (personCanvas) {
+          personCanvas.style.transform = '';
+          personCanvas.style.transformOrigin = '';
+        }
+        if (brollStageLayer) {
+          brollStageLayer.style.transform = '';
+          brollStageLayer.style.transformOrigin = '';
+        }
+      } else {
+        const zoom = 1.0 + pullVal * 2.1;
+        S.videoZoom = zoom;
+        const transformStr = `translate3d(0, ${pullVal * 100}%, 0) scale(${zoom})`;
+        const originStr = 'center center';
+
+        if (vid) {
+          vid.style.transform = transformStr;
+          vid.style.transformOrigin = originStr;
+        }
+        if (personCanvas) {
+          personCanvas.style.transform = transformStr;
+          personCanvas.style.transformOrigin = originStr;
+        }
+        if (brollStageLayer) {
+          brollStageLayer.style.transform = transformStr;
+          brollStageLayer.style.transformOrigin = originStr;
+        }
+      }
+
+      renderCanvas();
+    }
+    window.applyVideoFraming = applyVideoFraming;
+
+    // Automatic Face Protection Solver
+    function checkAutoHeadroom(headRatio) {
+      if (S.autoPullDown === false) return;
+      if (typeof headRatio !== 'number' || isNaN(headRatio)) return;
+
+      const st = S.style || {};
+      const pos = typeof st.posY === 'number' ? st.posY : (typeof st.position === 'number' ? st.position : 0.67);
+      const isTopOrDepth = Boolean(
+        st.behindPerson ||
+        st.isDuo ||
+        st.isSpecial ||
+        st.layout === 'stack' ||
+        pos <= 0.52 ||
+        (st.id && (st.id.includes('depth') || st.id.includes('hero') || st.id.includes('editorial') || st.id.includes('stack') || st.id.includes('zine')))
+      );
+
+      const targetHeadY = isTopOrDepth ? 0.26 : 0.0;
+      let neededDrop = 0;
+      if (targetHeadY > 0 && headRatio < targetHeadY) {
+        neededDrop = Math.max(0, Math.min(0.24, targetHeadY - headRatio));
+      }
+
+      const autoPullVal = Math.round(neededDrop * 100) / 100;
+      const curPull = S.pullDownY || 0;
+      if (Math.abs(autoPullVal - curPull) >= 0.015 || (S.autoPullLatched !== true && autoPullVal > 0)) {
+        S.autoPullLatched = true;
+        applyVideoFraming(autoPullVal, true);
+      }
+    }
+    window.checkAutoHeadroom = checkAutoHeadroom;
+
+    if (inputPullDown) {
+      inputPullDown.addEventListener('input', (e) => {
+        S.autoPullDown = false;
+        if (chkAutoPullDown) chkAutoPullDown.checked = false;
+        applyVideoFraming(parseFloat(e.target.value) / 100, false);
+      });
+    }
+    if (chkAutoPullDown) {
+      chkAutoPullDown.addEventListener('change', (e) => {
+        S.autoPullDown = e.target.checked;
+        if (S.autoPullDown) {
+          S.autoPullLatched = false;
+          const headTop = (typeof window._editorialHeadTopRatio === 'number') ? window._editorialHeadTopRatio : 0.16;
+          checkAutoHeadroom(headTop);
+        } else {
+          applyVideoFraming(S.pullDownY || 0, false);
+        }
+      });
+    }
+    if (btnResetPullDown) {
+      btnResetPullDown.addEventListener('click', () => {
+        S.autoPullDown = false;
+        if (chkAutoPullDown) chkAutoPullDown.checked = false;
+        applyVideoFraming(0, false);
+      });
+    }
+
     const chkWhiteSplash = $('chkWhiteSplash');
     const chkWhiteBloom = $('chkWhiteBloom');
     const cardDubaiEffects = $('cardDubaiEffects');
@@ -15807,6 +17405,106 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       chkWhiteBloom.addEventListener('change', (e) => {
         if (!S.style) S.style = {};
         S.style.whiteBloom = e.target.checked;
+        renderCanvas();
+      });
+    }
+
+    // Dual-Plane 3D Depth Settings Listeners
+    const inputDualPlaneKeyword = $('inputDualPlaneKeyword');
+    if (inputDualPlaneKeyword) {
+      inputDualPlaneKeyword.addEventListener('input', (e) => {
+        if (!S.style) S.style = {};
+        S.style.customHeroKeyword = e.target.value.trim();
+        S.customHeroKeyword = S.style.customHeroKeyword;
+        renderCanvas();
+      });
+    }
+
+    const inputDualPlaneBehindY = $('inputDualPlaneBehindY');
+    const valDualPlaneBehindY = $('valDualPlaneBehindY');
+    if (inputDualPlaneBehindY) {
+      inputDualPlaneBehindY.addEventListener('input', (e) => {
+        const pct = parseInt(e.target.value, 10) || 20;
+        if (valDualPlaneBehindY) valDualPlaneBehindY.textContent = `${pct}%`;
+        if (!S.style) S.style = {};
+        S.style.depthAccentY = pct / 100;
+        renderCanvas();
+      });
+    }
+
+    const inputDualPlaneFrontY = $('inputDualPlaneFrontY');
+    const valDualPlaneFrontY = $('valDualPlaneFrontY');
+    if (inputDualPlaneFrontY) {
+      inputDualPlaneFrontY.addEventListener('input', (e) => {
+        const pct = parseInt(e.target.value, 10) || 66;
+        if (valDualPlaneFrontY) valDualPlaneFrontY.textContent = `${pct}%`;
+        if (!S.style) S.style = {};
+        S.style.subtitlePosition = pct / 100;
+        renderCanvas();
+      });
+    }
+
+    const inputDualPlaneGlow = $('inputDualPlaneGlow');
+    const valDualPlaneGlow = $('valDualPlaneGlow');
+    if (inputDualPlaneGlow) {
+      inputDualPlaneGlow.addEventListener('input', (e) => {
+        const px = parseInt(e.target.value, 10) || 12;
+        if (valDualPlaneGlow) valDualPlaneGlow.textContent = `${px}px`;
+        if (!S.style) S.style = {};
+        S.style.behindGlowSize = px;
+        renderCanvas();
+      });
+    }
+
+    // Editorial Depth Stack Controls Event Listeners
+    $$('#groupEditorialPosition .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#groupEditorialPosition .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        const pos = btn.getAttribute('data-pos') || 'alternate';
+        if (!S.style) S.style = {};
+        S.style.editorialSlotMode = pos;
+        S.style.editorialPosition = pos;
+        showToast('📍 Editorial Position: ' + (pos === 'top' ? 'Above Head' : (pos === 'below' ? 'Behind Torso' : 'Alternate')));
+        renderCanvas();
+      });
+    });
+
+    const selectEditorialBlend = $('selectEditorialBlend');
+    const valEditorialBlend = $('valEditorialBlend');
+    if (selectEditorialBlend) {
+      selectEditorialBlend.addEventListener('change', (e) => {
+        const blend = e.target.value || 'overlay';
+        if (valEditorialBlend) valEditorialBlend.textContent = blend.charAt(0).toUpperCase() + blend.slice(1);
+        if (!S.style) S.style = {};
+        S.style.editorialBlend = blend;
+        S.style.blendMode = blend;
+        S.style.blend = blend;
+        showToast('🎨 Blend Type: ' + blend);
+        renderCanvas();
+      });
+    }
+
+    const inputEditorialOpacity = $('inputEditorialOpacity');
+    const valEditorialOpacity = $('valEditorialOpacity');
+    if (inputEditorialOpacity) {
+      inputEditorialOpacity.addEventListener('input', (e) => {
+        const pct = parseInt(e.target.value, 10) || 78;
+        if (valEditorialOpacity) valEditorialOpacity.textContent = `${pct}%`;
+        if (!S.style) S.style = {};
+        S.style.editorialOpacity = pct / 100;
+        S.style.blendOpacity = pct / 100;
+        renderCanvas();
+      });
+    }
+
+    const inputEditorialTorsoY = $('inputEditorialTorsoY');
+    const valEditorialTorsoY = $('valEditorialTorsoY');
+    if (inputEditorialTorsoY) {
+      inputEditorialTorsoY.addEventListener('input', (e) => {
+        const pct = parseInt(e.target.value, 10) || 58;
+        if (valEditorialTorsoY) valEditorialTorsoY.textContent = `${pct}%`;
+        if (!S.style) S.style = {};
+        S.style.depthAccentY = pct / 100;
         renderCanvas();
       });
     }
@@ -16086,12 +17784,16 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const handler = (e) => {
         e.preventDefault();
         const scale = parseFloat(btn.getAttribute('data-scale')) || 1.0;
-        if (!S.style) S.style = {};
-        S.style.fontScale = scale;
-        updateFontScaleUI();
-        syncTypographyUI();
-        showToast(`📏 Caption Size: ${Math.round(scale * 100)}%`);
-        renderCanvas(true);
+        if (typeof setActiveScale === 'function') {
+          setActiveScale(scale, 'Set size preset');
+        } else {
+          if (!S.style) S.style = {};
+          S.style.fontScale = scale;
+          if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
+          renderCanvas(true);
+        }
+        if (typeof syncTypographyUI === 'function') syncTypographyUI();
+        showToast(`📏 Size: ${Math.round(scale * 100)}%`);
       };
       btn.addEventListener('click', handler);
       btn.addEventListener('pointerup', handler);
@@ -16732,14 +18434,32 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   function setupCaptionDragging() {
     const hint = $('captionDragHint');
     let drag = null;
+    let stageDragRafId = null;
+
+    const scheduleStageDragRaf = () => {
+      if (stageDragRafId) return;
+      stageDragRafId = requestAnimationFrame(() => {
+        stageDragRafId = null;
+        renderCanvas();
+        updateVideoEditOverlay();
+      });
+    };
+
     stage.addEventListener('pointerdown', (event) => {
-      if (!S.captions.length || !S.style || event.target.closest('button') || event.target.closest('#captionBoundingBox')) return;
+      if (!S.captions.length || !S.style || event.target.closest('button') || event.target.closest('#captionBoundingBox') || event.target.closest('#videoEditMiniToolbar') || event.target.closest('#captionContextNavBar')) return;
+      if (S.editMode === 'word') return;
       if (!event.isPrimary) { drag = null; return; }
       const rect = stage.getBoundingClientRect();
       if (!rect.height || !rect.width) return;
 
       const curT = vid ? (vid.currentTime || 0) : 0;
-      const activeCap = S.captions.find(c => curT >= c.start && curT <= c.end) || null;
+      let activeCap = S.captions.find(c => curT >= c.start && curT <= c.end) || null;
+      if (!activeCap && S.selectedCaptionId) {
+        activeCap = S.captions.find(c => c.id === S.selectedCaptionId) || null;
+      }
+      if (!activeCap && S.captions.length) {
+        activeCap = S.captions.reduce((prev, curr) => Math.abs(curr.start - curT) < Math.abs(prev.start - curT) ? curr : prev, S.captions[0]);
+      }
       drag = {
         id: event.pointerId,
         startX: event.clientX,
@@ -16758,13 +18478,15 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (!drag || drag.id !== event.pointerId) return;
       const dX = event.clientX - drag.startX;
       const dY = event.clientY - drag.startY;
-      if (!drag.moved && Math.hypot(dX, dY) < 5) return;
+      if (!drag.moved && Math.hypot(dX, dY) < 10) return;
       if (!drag.moved) {
         try { stage.setPointerCapture(event.pointerId); } catch (e) {}
         if (drag.activeCap && S.selectedCaptionId !== drag.activeCap.id) {
           S.selectedCaptionId = drag.activeCap.id;
-          S.editMode = 'whole';
-          S.selectedWordIndex = -1;
+          if (S.editMode !== 'word') {
+            S.editMode = 'whole';
+            S.selectedWordIndex = -1;
+          }
         }
       }
       drag.moved = true;
@@ -16778,20 +18500,26 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           c.dy = snap.dy;
         });
         updateSnapGuidesDOM(snap.snapV, snap.snapH);
-        updateTransformHud(`${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
-        if (hint) hint.textContent = '✥ Dragging caption · snap to center';
-        renderCanvas();
-        updateVideoEditOverlay();
+        const scopeBadge = S.adjustScope === 'all' ? '🌐 All' : '📍 This';
+        updateTransformHud(`${scopeBadge}: ${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
+        if (hint) hint.textContent = `${scopeBadge} caption: ${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`;
+        scheduleStageDragRaf();
       } else {
         const nextPos = Math.max(0.08, Math.min(0.92, drag.origPos + dY / drag.rectH));
-        S.style.position = nextPos;
-        S.style.posY = nextPos;
+        if (S.style) {
+          S.style.position = nextPos;
+          S.style.posY = nextPos;
+        }
         if (hint) hint.textContent = '↕ Caption Position: ' + Math.round(nextPos * 100) + '%';
-        renderCanvas();
+        scheduleStageDragRaf();
       }
     });
 
     const finish = (event) => {
+      if (stageDragRafId) {
+        cancelAnimationFrame(stageDragRafId);
+        stageDragRafId = null;
+      }
       if (!drag || drag.id !== event.pointerId) return;
       const d = drag;
       drag = null;
@@ -16800,9 +18528,18 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       if (typeof updateTransformHud === 'function') updateTransformHud('', false);
       if (hint) hint.textContent = '💡 Tap or drag caption to move · pinch corners to resize';
       if (d.moved) {
-        if (d.activeCap) pushHistoryState('Move caption on screen');
+        if (d.activeCap) {
+          S.selectedCaptionId = d.activeCap.id;
+          pushHistoryState('Move caption on screen');
+          if (typeof updateVideoEditOverlay === 'function') updateVideoEditOverlay();
+        }
         renderCanvas();
-        if (d.activeCap && typeof updateVideoEditOverlay === 'function') updateVideoEditOverlay();
+      } else {
+        // Immediate 0ms tap execution without holding or waiting for browser click dispatch
+        window._suppressVideoClickUntil = performance.now() + 600;
+        if (typeof handleStageTapToEdit === 'function') {
+          handleStageTapToEdit(event);
+        }
       }
     };
     stage.addEventListener('pointerup', finish);
@@ -17814,6 +19551,9 @@ function updateEditorialHeadTopRatio(floats, mW, mH) {
     window._editorialHeadTopRatio = (typeof window._editorialHeadTopRatio === 'number')
       ? (window._editorialHeadTopRatio * 0.70 + detectedRatio * 0.30)
       : detectedRatio;
+    if (typeof window.checkAutoHeadroom === 'function') {
+      window.checkAutoHeadroom(window._editorialHeadTopRatio);
+    }
   }
 
   // Copy a compact 48x64 mask grid so live preview & export share frame-safe anti-occlusion & face-avoiding stats
@@ -18299,8 +20039,10 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       ctx.scale(dpr, dpr);
 
       if (behindCanvas) {
-        behindCanvas.style.mixBlendMode = '';
-        behindCanvas.style.opacity = '';
+        const isEdPreset = Boolean(S.style && (S.style.id === 'editorial_depth_stack' || S.style.id === 'spatial_sandwich_syne'));
+        const edBlend = isEdPreset ? (S.style.editorialBlend || S.style.blendMode || 'overlay') : '';
+        behindCanvas.style.mixBlendMode = (edBlend && edBlend !== 'normal') ? edBlend : '';
+        behindCanvas.style.opacity = isEdPreset ? String(S.style.editorialOpacity != null ? S.style.editorialOpacity : 0.85) : '';
       }
       if (behindCtx) {
         behindCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -18314,7 +20056,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       }
 
       t = (vid && typeof vid.currentTime === 'number') ? vid.currentTime : 0;
-      activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+      const candidates = S.captions.filter(c => t >= c.start && t <= c.end);
+      activeCap = candidates.length > 0 ? candidates[candidates.length - 1] : null;
       if (!activeCap && vid.paused && S.selectedCaptionId) {
         activeCap = S.captions.find(c => c.id === S.selectedCaptionId) || null;
       }
@@ -18322,26 +20065,26 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       // Requirement 6: Do less work when nothing changes / no active caption
       if (!activeCap) {
         if (S.captions.length > 0) {
-          // If paused OR within first 1.2s of playback, show the first/closest caption
-          if (vid.paused || t <= 1.2) {
-            activeCap = S.captions.find(c => t <= c.end) || S.captions[0];
+          // Keep most recently finished caption on screen during brief speech pauses (< 1.2s)
+          const recentCap = findLatestLingerCaption(S.captions, t, 1.2);
+          if (recentCap) {
+            activeCap = recentCap;
+          } else if (vid.paused) {
+            // When paused, show closest caption to current playhead
+            activeCap = S.captions.find(c => t <= c.end) || S.captions.reduce((prev, curr) => Math.abs(curr.start - t) < Math.abs(prev.start - t) ? curr : prev, S.captions[0]);
+          } else if (t <= 1.2) {
+            activeCap = S.captions[0];
           } else {
-            // Keep most recently finished caption on screen during brief speech pauses (< 0.8s) so captions do not flash off
-            const recentCap = findLatestLingerCaption(S.captions, t, 0.8);
-            if (recentCap) {
-              activeCap = recentCap;
-            } else {
-              if (!_overlayWasCleared) {
-                drawWatermark(ctx, w, h);
-                _overlayWasCleared = true;
-              }
-              if (isPreview) {
-                const elp = performance.now() - drawStart;
-                recordPreviewDrawTime(elp);
-                updateDebugBadge(elp, effQuality);
-              }
-              return;
+            if (!_overlayWasCleared) {
+              drawWatermark(ctx, w, h);
+              _overlayWasCleared = true;
             }
+            if (isPreview) {
+              const elp = performance.now() - drawStart;
+              recordPreviewDrawTime(elp);
+              updateDebugBadge(elp, effQuality);
+            }
+            return;
           }
         } else {
           drawSampleCaptionPreview(ctx, w, h, S.style || {});
@@ -18361,7 +20104,11 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         t: w.t || w.word || '',
         s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
         e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
-        key: Boolean(w.key)
+        key: Boolean(w.key),
+        dx: Number(w.dx) || 0,
+        dy: Number(w.dy) || 0,
+        scale: (typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0,
+        color: w.color || undefined
       }));
 
       // Fallback: if activeCap text exists but words array is empty, construct words from text
@@ -18373,8 +20120,42 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           t: pt,
           s: (activeCap.start || 0) + pIdx * step,
           e: (activeCap.start || 0) + (pIdx + 1) * step,
-          key: pIdx === 0
+          key: pIdx === 0,
+          dx: 0,
+          dy: 0
         }));
+        if (!Array.isArray(activeCap.words) || !activeCap.words.length) {
+          activeCap.words = words.map(w => ({ ...w }));
+        }
+      }
+
+      // Check for Multi-Frame Custom Video Templates (Chrono Vault HUD / Atelier Zine Studio)
+      const activeVideoTpl = (S.style && S.style.videoTemplate) || '';
+      if (activeVideoTpl === 'chronoVault' || activeVideoTpl === 'atelierZine') {
+        if (vid && vid.style.opacity !== '1') vid.style.opacity = '1';
+        if (segmenterInstance && vid && vid.readyState >= 2) {
+          if (!vid.paused) {
+            const now = performance.now();
+            if (now - lastLiveSegTime >= cfg.minMaskInterval) {
+              lastLiveSegTime = now;
+              getLivePersonMask(vid, Math.round(t * 1000), w, h, false, cfg.maskDownscaleTarget, false);
+            }
+          } else if (Math.abs(t - lastPausedSegTime) > 0.02 || !window._subjectMaskStats) {
+            lastPausedSegTime = t;
+            getLivePersonMask(vid, Math.round(t * 1000), w, h, true, 160, false);
+          }
+        } else if (!segmenterInstance && !segmenterLoadingPromise && !segmenterLoadFailed) {
+          ensureSegmenterLoaded().catch(() => {});
+        }
+        drawCustomVideoTemplateFrame(activeVideoTpl, ctx, behindCtx || ctx, t, w, h, isPreview, null);
+        drawWatermark(ctx, w, h);
+
+        if (isPreview) {
+          const elp = performance.now() - drawStart;
+          recordPreviewDrawTime(elp);
+          updateDebugBadge(elp, effQuality);
+        }
+        return;
       }
 
       // Check for Multi-Frame Custom Video Templates (Chrono Vault HUD / Atelier Zine Studio)
@@ -18702,54 +20483,28 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       let addedBrollsCount = 0;
 
       if (duration > 2) {
-        const suggestRes = await fetch('/api/broll/suggest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ captions: S.captions, duration })
-        });
-        const suggestData = await suggestRes.json();
-        const slots = suggestData.slots || [];
-
-        if (slots.length > 0) {
-          const layoutPattern = ['circle', 'above', 'below', 'window', 'full'];
-          const newBrolls = [];
-
-          for (let i = 0; i < slots.length; i++) {
-            const slot = slots[i];
-            try {
-              const searchRes = await fetch('/api/broll/search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: slot.query, orientation: pexelsOrientation })
-              });
-              const searchData = await searchRes.json();
-              const results = searchData.results || [];
-              if (results.length > 0) {
-                const pick = results[0];
-                const layout = layoutPattern[i % layoutPattern.length];
-                newBrolls.push({
-                  id: 'broll_' + Date.now() + '_' + i,
-                  query: slot.query,
-                  text: slot.text || slot.query,
-                  start: Number(slot.start),
-                  end: Number(slot.end),
-                  url: pick.url,
-                  thumb: pick.thumb,
-                  duration: pick.duration || (slot.end - slot.start),
-                  credit: pick.credit || '',
-                  layout: layout
-                });
-              }
-            } catch (_) {}
-          }
+        try {
+          const autoRes = await fetch('/api/broll/auto_generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              captions: S.captions,
+              duration: duration,
+              orientation: pexelsOrientation || 'portrait'
+            })
+          });
+          const autoData = await autoRes.json();
+          const newBrolls = autoData.brolls || [];
 
           if (newBrolls.length > 0) {
             S.brolls = newBrolls;
             addedBrollsCount = newBrolls.length;
             renderBrollTab();
             syncBrollPlayback();
+            if (typeof renderTimeline === 'function') renderTimeline();
+            if (typeof renderCanvas === 'function') renderCanvas(true);
           }
-        }
+        } catch (_) {}
       }
 
       // 4. Feedback
@@ -18868,29 +20623,35 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       });
     }
 
-    // Check if server already has Pexels key
+    // Check if server already has Coverr or Pexels key
     fetch('/api/broll/config')
       .then(r => r.json())
       .then(d => {
         const badge = $('brollKeyBadge');
         if (badge) {
-          badge.textContent = d.has_key ? '✓ Pexels Connected' : 'Pexels Free Library';
+          if (d.provider === 'coverr' || d.coverr_active) {
+            badge.textContent = '✓ Coverr Connected';
+          } else if (d.has_key) {
+            badge.textContent = '✓ Stock Video Connected';
+          } else {
+            badge.textContent = 'Free Stock Video Library';
+          }
         }
       })
       .catch(() => {});
   }
 
-  // Auto-detect caption moments & fetch B-roll clips from Pexels
-  async function autoAddBrolls() {
+  // Auto-detect caption moments & fetch B-roll clips from Coverr according to video speech
+  async function autoAddBrolls(opts = {}) {
     if (isAutoBrolling) return;
     if (!S.captions || S.captions.length === 0) {
-      showToast('Please add or transcribe captions first!');
+      if (!opts.silent) showToast('Please add or transcribe captions first!');
       return;
     }
 
     const duration = vid.duration || S.probe?.duration || 0;
     if (duration <= 2) {
-      showToast('Video duration is too short for B-Roll');
+      if (!opts.silent) showToast('Video duration is too short for B-Roll');
       return;
     }
 
@@ -18906,85 +20667,54 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     if (btn) btn.disabled = true;
 
     try {
-      setMsg('🔍 Analyzing captions to detect key viral moments...');
+      setMsg('🔍 Analyzing speech context to match Coverr stock videos...');
+      if (!opts.silent) showToast('🔍 Matching Coverr videos to your speech...');
 
-      const suggestRes = await fetch('/api/broll/suggest', {
+      const autoRes = await fetch('/api/broll/auto_generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ captions: S.captions, duration })
+        body: JSON.stringify({
+          captions: S.captions,
+          duration: duration,
+          orientation: pexelsOrientation || 'portrait'
+        })
       });
-      const suggestData = await suggestRes.json();
-      const slots = suggestData.slots || [];
 
-      if (slots.length === 0) {
-        setMsg('No suitable B-Roll keywords found in captions. Try searching manually below!');
-        showToast('No B-Roll slots found');
-        return;
-      }
-
-      setMsg(`✨ Found ${slots.length} moments! Fetching stock videos from Pexels...`);
-
-      // Intelligent layout rotation: Circle, Above, Below, Window, Full
-      const layoutPattern = ['circle', 'above', 'below', 'window', 'full'];
-      const newBrolls = [];
-
-      for (let i = 0; i < slots.length; i++) {
-        const slot = slots[i];
-        setMsg(`🎬 Fetching clip ${i + 1}/${slots.length} for "${slot.query}"...`);
-
-        try {
-          const searchRes = await fetch('/api/broll/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: slot.query, orientation: pexelsOrientation })
-          });
-          const searchData = await searchRes.json();
-          const results = searchData.results || [];
-          if (results.length > 0) {
-            const pick = results[0];
-            const layout = layoutPattern[i % layoutPattern.length];
-            newBrolls.push({
-              id: 'broll_' + Date.now() + '_' + i,
-              query: slot.query,
-              text: slot.text || slot.query,
-              start: Number(slot.start),
-              end: Number(slot.end),
-              url: pick.url,
-              thumb: pick.thumb,
-              duration: pick.duration || (slot.end - slot.start),
-              credit: pick.credit || '',
-              layout: layout
-            });
-          }
-        } catch (clipErr) {
-          console.warn('Failed to fetch clip for slot:', slot, clipErr);
-        }
-      }
+      const autoData = await autoRes.json();
+      const newBrolls = autoData.brolls || [];
 
       if (newBrolls.length > 0) {
         S.brolls = newBrolls;
         renderBrollTab();
         syncBrollPlayback();
-        setMsg(`✓ Successfully added ${newBrolls.length} B-Rolls with smart layouts!`);
-        showToast(`✨ Added ${newBrolls.length} B-Rolls!`);
+        if (typeof renderTimeline === 'function') renderTimeline();
+        if (typeof renderCanvas === 'function') renderCanvas(true);
+        setMsg(`✓ Successfully added ${newBrolls.length} Coverr B-Rolls with smart layouts!`);
+        showToast(`✨ Automatically added ${newBrolls.length} matching Coverr videos!`);
       } else {
-        setMsg('Could not find videos on Pexels for those keywords. Search manually below.');
+        if (!opts.silent) {
+          setMsg('No matching Coverr clips found for these keywords. Search manually below.');
+          showToast('No B-Roll moments found');
+        }
       }
     } catch (err) {
-      setMsg('Error adding B-roll: ' + err.message);
-      showToast(err.message);
+      console.warn('Auto broll error:', err);
+      if (!opts.silent) {
+        setMsg('Error adding B-roll: ' + err.message);
+        showToast(err.message);
+      }
     } finally {
       isAutoBrolling = false;
       if (btn) btn.disabled = false;
     }
   }
 
-  // Search Pexels with query
+  // Search stock videos (Coverr / Pexels) with query
   async function searchPexels(query) {
     const grid = $('pexelsResultsGrid');
     if (!grid) return;
     grid.classList.remove('hidden');
-    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#a1a1aa;">Searching Pexels for "' + escapeHtml(query) + '"...</div>';
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#a1a1aa;">Searching stock library for "' + escapeHtml(query) + '"...</div>';
 
     try {
       const res = await fetch('/api/broll/search', {
@@ -18993,7 +20723,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         body: JSON.stringify({ query, orientation: pexelsOrientation })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to search Pexels');
+      if (!res.ok) throw new Error(data.error || 'Failed to search stock library');
       const results = data.results || [];
 
       if (results.length === 0) {
@@ -19005,13 +20735,14 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       results.forEach((item, idx) => {
         const card = document.createElement('div');
         card.className = 'pexels-card';
+        const providerName = (item.provider === 'coverr' ? 'Coverr' : (item.credit || 'Free Stock'));
         card.innerHTML = `
           <div class="pexels-thumb-wrap">
-            <img src="${escapeHtml(item.thumb)}" class="pexels-thumb-img" alt="Pexels Video" loading="lazy">
+            <img src="${escapeHtml(item.thumb)}" class="pexels-thumb-img" alt="Stock Video" loading="lazy">
             <span class="pexels-dur-badge">${Math.round(item.duration || 0)}s</span>
           </div>
           <div class="pexels-card-info">
-            <span class="pexels-credit">By ${escapeHtml(item.credit || 'Pexels')}</span>
+            <span class="pexels-credit">By ${escapeHtml(item.credit || providerName)}</span>
             <button type="button" class="btn-add-broll" data-idx="${idx}">+ Add to Video</button>
           </div>
         `;
@@ -20262,7 +21993,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         lastExportTimestampMs = frameMs;
 
         // Binary/fast caption lookup by time (for Editorial Depth Stack, linger up to +0.55s in pauses so short captions sit longer)
-        let activeCap = S.captions.find(c => t >= c.start && t <= c.end);
+        const exportCaps = S.captions.filter(c => t >= c.start && t <= c.end);
+        let activeCap = exportCaps.length > 0 ? exportCaps[exportCaps.length - 1] : null;
         if (!activeCap && S.style && (S.style.id === 'editorial_depth_stack' || S.style.id === 'spatial_sandwich_syne')) {
           activeCap = findLatestLingerCaption(S.captions, t, 0.85);
         }
@@ -20284,7 +22016,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         const hasWatermark = Boolean(S.watermark && S.watermark.text && S.watermark.text.trim());
 
         // Skip all extra drawing work on frames with no active caption or overlay (except full-frame custom templates)
-        if (!isCustomVideoTplExport && !isZoomed && !activeBroll && !hasProgressBar && !activeCap && !hasWatermark) {
+        if (!isCustomVideoTplExport && !isZoomed && !(S.pullDownY > 0) && !activeBroll && !hasProgressBar && !activeCap && !hasWatermark) {
           sample.draw(ctx, 0, 0, W, H);
           lastExportMaskCanvas = null;
           exportMaskFrameIdx = 0;
@@ -20304,12 +22036,14 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           }
           segExportCleanCtx.clearRect(0, 0, W, H);
           const rePunch = ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) ? getRealEstateCameraPunch(t, S.captions) : 1.0;
-          const effZoom = isZoomed ? ((az && az.scale) || 1.10) * rePunch : rePunch;
-          if (effZoom > 1.001) {
+          const pullY = S.pullDownY || 0;
+          const basePullZoom = pullY > 0 ? (1.0 + pullY * 2.1) : 1.0;
+          const effZoom = (isZoomed ? ((az && az.scale) || 1.10) * rePunch : rePunch) * basePullZoom;
+          if (effZoom > 1.001 || pullY > 0) {
             const zW = W * effZoom;
             const zH = H * effZoom;
             const zX = (W - zW) / 2;
-            const zY = (H - zH) / 2;
+            const zY = (H - zH) / 2 + (pullY * H);
             sample.draw(segExportCleanCtx, zX, zY, zW, zH);
           } else {
             sample.draw(segExportCleanCtx, 0, 0, W, H);
@@ -20360,12 +22094,14 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         dbgFrameCount++;
         const _tVideo0 = performance.now();
         const reExportPunch = ((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.cameraPunch !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) ? getRealEstateCameraPunch(t, S.captions) : 1.0;
-        const effExportZoom = isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch;
-        if (effExportZoom > 1.001) {
+        const pullY = S.pullDownY || 0;
+        const basePullZoom = pullY > 0 ? (1.0 + pullY * 2.1) : 1.0;
+        const effExportZoom = (isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch) * basePullZoom;
+        if (effExportZoom > 1.001 || pullY > 0) {
           const zW = W * effExportZoom;
           const zH = H * effExportZoom;
           const zX = (W - zW) / 2;
-          const zY = (H - zH) / 2;
+          const zY = (H - zH) / 2 + (pullY * H);
           sample.draw(ctx, zX, zY, zW, zH);
         } else {
           sample.draw(ctx, 0, 0, W, H);
@@ -20464,6 +22200,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
               e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
               key: Boolean(w.key),
+              dx: Number(w.dx) || 0,
+              dy: Number(w.dy) || 0,
               color: w.color || undefined
             }));
           }
@@ -20523,9 +22261,29 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               console.log('[BEHIND]', exportFrameIndex, maskOk ? 'mask ok' : 'mask missing');
             }
 
+            const isEdPreset = Boolean(S.style && (S.style.id === 'editorial_depth_stack' || S.style.id === 'spatial_sandwich_syne'));
+            const edBlend = isEdPreset ? (S.style.editorialBlend || S.style.blendMode || 'overlay') : null;
+            const edOpacity = isEdPreset ? Number(S.style.editorialOpacity != null ? S.style.editorialOpacity : 0.85) : 1.0;
+            const drawBehindSegCanvas = () => {
+              if (edBlend && edBlend !== 'normal') {
+                ctx.save();
+                try { ctx.globalCompositeOperation = edBlend; } catch (_) {}
+                if (edOpacity < 1.0) ctx.globalAlpha = edOpacity;
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+                ctx.restore();
+              } else if (edOpacity < 1.0) {
+                ctx.save();
+                ctx.globalAlpha = edOpacity;
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+                ctx.restore();
+              } else {
+                ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              }
+            };
+
             if (!maskOk) {
               // Person not detected in this frame: safely draw captions in front without aborting export
-              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              drawBehindSegCanvas();
               ctx.drawImage(segExportForeCanvas, 0, 0, W, H);
               drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
             } else {
@@ -20534,7 +22292,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               // PROBLEM A Point 3: Per-frame order:
               // a) video frame (already drawn to ctx)
               // b) behind captions/graphics
-              ctx.drawImage(segExportBehindCanvas, 0, 0, W, H);
+              drawBehindSegCanvas();
 
               // Special Real Estate: Person Glow behind person cutout
               if (((S.realEstateConfig && S.realEstateConfig.enabled && S.realEstateConfig.personGlow !== false) || (S.style && S.style.videoTemplate === 'specialRealEstate')) && maskCanvas) {
@@ -20832,6 +22590,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           s: typeof w.s === 'number' ? w.s : (typeof w.start === 'number' ? w.start : 0),
           e: typeof w.e === 'number' ? w.e : (typeof w.end === 'number' ? w.end : 0),
           key: Boolean(w.key),
+          dx: Number(w.dx) || 0,
+          dy: Number(w.dy) || 0,
           color: w.color || undefined
         }));
         drawCanvasTypography(recCtx, null, activeCap, words, targetTime, S.style || {}, W, H, isBehind, false);
@@ -21046,7 +22806,9 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         zoom: Boolean(S.autoZoom && S.autoZoom.enabled),
         progressBar: S.progressBar,
         watermark: S.watermark,
-        auto_sfx: Boolean(S.autoSfx !== false)
+        auto_sfx: Boolean(S.autoSfx !== false),
+        pullDownY: S.pullDownY || 0,
+        videoZoom: S.videoZoom || 1.0
       };
       if (S.brolls && S.brolls.length > 0) {
         payload.broll = S.brolls.filter(b => b.url && b.end > b.start).map((b, idx) => ({
@@ -21341,7 +23103,7 @@ window._hasScrubbedTimeline = false;
 S.selectedCaptionId = null;
 S.selectedWordIndex = -1;
 S.editMode = 'whole'; // 'whole' | 'word'
-S.adjustScope = 'all'; // 'all' | 'one'
+S.adjustScope = 'one'; // 'one' | 'all' (Default to 'one' so dragging or adjusting moves only the selected caption)
 S.cachedLayoutBoxes = [];
 
 function getTargetCaptionsForEdit(cap) {
@@ -21419,22 +23181,24 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
     let curX = centerX - (lWords.length * estFs * 2.2) / 2;
     lWords.forEach(w => {
       const wIdx = words.indexOf(w);
+      const wScale = (typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0;
       const estW = Math.max(estFs * 1.2, (w.t || '').length * estFs * 0.55);
+      const scaledEstW = estW * wScale;
       const wDx = (Number(w.dx) || 0) * W;
       const wDy = (Number(w.dy) || 0) * H;
       const wx = curX + wDx + capDx;
       const wy = lY + wDy + capDy;
       wordBoxes.push({
-        wordIndex: wIdx,
+        wordIndex: wIdx >= 0 ? wIdx : wordBoxes.length,
         word: w,
         box: {
-          x: Math.max(0, Math.min(1, wx / W)),
-          y: Math.max(0, Math.min(1, wy / H)),
-          w: Math.max(0.04, Math.min(1, (estW * capScale) / W)),
-          h: Math.max(0.02, Math.min(1, (estFs * capScale) / H))
+          x: Math.max(0, Math.min(1, (wx - scaledEstW * 0.5) / W)),
+          y: Math.max(0, Math.min(1, (wy - estFs * wScale * 0.6) / H)),
+          w: Math.max(0.04, Math.min(1, (scaledEstW * capScale) / W)),
+          h: Math.max(0.03, Math.min(1, (estFs * 1.2 * capScale * wScale) / H))
         }
       });
-      curX += estW + estFs * 0.25;
+      curX += scaledEstW + estFs * 0.25;
       totalW = Math.max(totalW, curX - (centerX - (lWords.length * estFs * 2.2) / 2));
     });
   });
@@ -21455,7 +23219,9 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
 
   const existIdx = S.cachedLayoutBoxes.findIndex(b => b.capId === cap.id);
   if (existIdx >= 0) {
-    S.cachedLayoutBoxes[existIdx] = entry;
+    if (!S.cachedLayoutBoxes[existIdx].isExact) {
+      S.cachedLayoutBoxes[existIdx] = entry;
+    }
   } else {
     S.cachedLayoutBoxes.push(entry);
   }
@@ -21465,6 +23231,12 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
  * Select a caption for editing
  */
 function selectCaption(capId, wordIndex = -1) {
+  // Always pause video when selecting a caption for editing, and suppress trailing click play
+  window._suppressVideoClickUntil = performance.now() + 600;
+  if (vid && !vid.paused) {
+    try { vid.pause(); } catch (_) {}
+  }
+
   S.selectedCaptionId = capId;
   const capIdx = S.captions.findIndex(c => c.id === capId);
   if (capIdx === -1) {
@@ -21475,6 +23247,8 @@ function selectCaption(capId, wordIndex = -1) {
   if (wordIndex >= 0) {
     S.selectedWordIndex = wordIndex;
     S.editMode = 'word';
+  } else if (S.editMode === 'word') {
+    S.selectedWordIndex = (S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]) ? S.selectedWordIndex : 0;
   } else {
     S.selectedWordIndex = -1;
     S.editMode = 'whole';
@@ -21489,17 +23263,25 @@ function selectCaption(capId, wordIndex = -1) {
     }
   });
 
+  // Switch downwards bottom toolbar into contextual caption controls (Back, Edit, Impact, Text, Colour, Style)
+  const standardNav = $('bottomNavBar');
+  const capContextNav = $('captionContextNavBar');
+  if (standardNav) standardNav.classList.add('hidden');
+  if (capContextNav) capContextNav.classList.remove('hidden');
+
   // Show timeline action bar
   const actionBar = $('timelineClipActionBar');
   if (actionBar) actionBar.classList.remove('hidden');
 
-  // Sync playhead to start of clip
-  if (Math.abs((vid.currentTime || 0) - cap.start) > 0.05) {
+  // Sync playhead to start of clip only if currentTime is strictly outside clip time range
+  const curT = vid ? (vid.currentTime || 0) : 0;
+  if (curT < (cap.start - 0.05) || curT > (cap.end + 0.05)) {
     vid.currentTime = cap.start;
     syncTimelinePlayhead();
   }
 
   updateVideoEditOverlay();
+  if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
 
   // Show first-time hint
   if (!window._hasShownTapEditHint) {
@@ -21517,14 +23299,24 @@ function deselectCaption() {
   S.selectedCaptionId = null;
   S.selectedWordIndex = -1;
   S.editMode = 'whole';
+  if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
 
   $$('.timeline-block').forEach(b => b.classList.remove('selected'));
+
+  // Restore standard downwards bottom toolbar (Auto Edit, Captions, Templates, Style, Voice)
+  const standardNav = $('bottomNavBar');
+  const capContextNav = $('captionContextNavBar');
+  if (standardNav) standardNav.classList.remove('hidden');
+  if (capContextNav) capContextNav.classList.add('hidden');
 
   const actionBar = $('timelineClipActionBar');
   if (actionBar) actionBar.classList.add('hidden');
 
   const overlay = $('videoEditOverlayContainer');
-  if (overlay) overlay.classList.add('hidden');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('is-active');
+  }
 
   const snapV = $('snapGuideV'); if (snapV) snapV.classList.add('hidden');
   const snapH = $('snapGuideH'); if (snapH) snapH.classList.add('hidden');
@@ -21547,6 +23339,7 @@ function updateVideoEditOverlay() {
   if (!overlay || !bbox || !miniToolbar || !stage || !stageWrapper) return;
   if (!S.selectedCaptionId) {
     overlay.classList.add('hidden');
+    overlay.classList.remove('is-active');
     return;
   }
 
@@ -21558,30 +23351,33 @@ function updateVideoEditOverlay() {
   const cap = S.captions[capIdx];
 
   overlay.classList.remove('hidden');
+  overlay.classList.add('is-active');
   bbox.classList.remove('hidden');
   miniToolbar.classList.remove('hidden');
 
-  // Update scope & mode pills
+  // Update mode pills in docked mini toolbar: All | Line | Words
   const btnScopeAll = $('btnAdjustScopeAll');
   const btnScopeOne = $('btnAdjustScopeOne');
-  if (btnScopeAll && btnScopeOne) {
-    btnScopeAll.classList.toggle('active', S.adjustScope === 'all');
-    btnScopeOne.classList.toggle('active', S.adjustScope !== 'all');
-  }
-  const btnWhole = $('btnEditModeWhole');
   const btnWord = $('btnEditModeWord');
-  if (btnWhole && btnWord) {
+  if (btnScopeAll && btnScopeOne) {
     if (S.editMode === 'word') {
-      btnWord.classList.add('active');
-      btnWhole.classList.remove('active');
+      if (btnWord) btnWord.classList.add('active');
+      btnScopeAll.classList.remove('active');
+      btnScopeOne.classList.remove('active');
       if (boxLabel) {
         boxLabel.classList.remove('hidden');
         const curWord = (cap.words && S.selectedWordIndex >= 0 && cap.words[S.selectedWordIndex]) ? cap.words[S.selectedWordIndex].t : 'word';
         boxLabel.textContent = `word: "${curWord}"`;
       }
+    } else if (S.adjustScope === 'all') {
+      btnScopeAll.classList.add('active');
+      btnScopeOne.classList.remove('active');
+      if (btnWord) btnWord.classList.remove('active');
+      if (boxLabel) boxLabel.classList.add('hidden');
     } else {
-      btnWhole.classList.add('active');
-      btnWord.classList.remove('active');
+      btnScopeOne.classList.add('active');
+      btnScopeAll.classList.remove('active');
+      if (btnWord) btnWord.classList.remove('active');
       if (boxLabel) boxLabel.classList.add('hidden');
     }
   }
@@ -21599,8 +23395,27 @@ function updateVideoEditOverlay() {
   const layoutItem = (S.cachedLayoutBoxes || []).find(item => item.capId === cap.id);
   let targetNormBox = layoutItem ? layoutItem.box : null;
 
-  if (S.editMode === 'word' && S.selectedWordIndex >= 0 && layoutItem && layoutItem.wordBoxes && layoutItem.wordBoxes[S.selectedWordIndex]) {
-    targetNormBox = layoutItem.wordBoxes[S.selectedWordIndex].box;
+  if (S.editMode === 'word' && S.selectedWordIndex >= 0) {
+    let matchedWb = null;
+    if (layoutItem && Array.isArray(layoutItem.wordBoxes) && layoutItem.wordBoxes.length > 0) {
+      matchedWb = layoutItem.wordBoxes.find(w => w.wordIndex === S.selectedWordIndex) || layoutItem.wordBoxes[S.selectedWordIndex];
+    }
+    if (matchedWb && matchedWb.box) {
+      targetNormBox = matchedWb.box;
+    } else if (cap.words && cap.words[S.selectedWordIndex]) {
+      const curWord = cap.words[S.selectedWordIndex];
+      const wDx = Number(curWord.dx) || 0;
+      const wDy = Number(curWord.dy) || 0;
+      const cDx = Number(cap.dx) || 0;
+      const cDy = Number(cap.dy) || 0;
+      const cyNorm = (Number(S.style?.position || S.style?.posY) || 0.72);
+      targetNormBox = {
+        x: Math.max(0.02, Math.min(0.88, 0.5 + cDx + wDx - 0.10)),
+        y: Math.max(0.02, Math.min(0.88, cyNorm + cDy + wDy - 0.04)),
+        w: 0.20,
+        h: 0.08
+      };
+    }
   }
 
   if (!targetNormBox) {
@@ -21629,27 +23444,40 @@ function updateVideoEditOverlay() {
   const rotDeg = S.editMode === 'word' ? 0 : (Number(cap.rot) || 0);
   bbox.style.transform = rotDeg ? `rotate(${rotDeg}deg)` : '';
 
-  // Position mini toolbar centered near the box and safely inside wrapperRect
-  const tbW = miniToolbar.offsetWidth || Math.min(wrapperRect.width - 16, 330);
-  const tbH = miniToolbar.offsetHeight || 42;
-  let toolbarY = boxY + boxH + 40; // leave room for bottom rotation handle
-  if (toolbarY + tbH > wrapperRect.height - 8) {
-    toolbarY = Math.max(8, boxY - tbH - 12);
+  // Resize handle: enable for BOTH whole caption and single word!
+  const handleSe = bbox.querySelector('.box-handle-se');
+  if (handleSe) {
+    handleSe.style.display = 'flex';
   }
-  const halfTb = tbW * 0.5;
-  const toolbarCenterX = Math.max(halfTb + 8, Math.min(wrapperRect.width - halfTb - 8, boxX + boxW * 0.5));
 
-  miniToolbar.style.left = Math.round(toolbarCenterX) + 'px';
-  miniToolbar.style.top = Math.round(toolbarY) + 'px';
+  // Dock control pill cleanly at the bottom edge of the player (Moonshot Style: Never covers faces or captions)
+  miniToolbar.style.left = '50%';
+  miniToolbar.style.bottom = '12px';
+  miniToolbar.style.top = 'auto';
+  miniToolbar.style.transform = 'translateX(-50%)';
 }
 
 /**
  * Handle tap on video preview to select caption or word
  */
 function handleStageTapToEdit(e) {
-  if (e.target.closest('#videoEditMiniToolbar') || e.target.closest('.box-handle') || e.target.closest('#timelineClipActionBar') || e.target.closest('#btnStageSettings')) {
+  if (e && typeof e.stopPropagation === 'function') {
+    e.stopPropagation();
+  }
+  if (e && typeof e.preventDefault === 'function') {
+    e.preventDefault();
+  }
+  window._suppressVideoClickUntil = performance.now() + 600;
+
+  if (e && e.target && (e.target.closest('#videoEditMiniToolbar') || e.target.closest('.box-handle') || e.target.closest('#timelineClipActionBar') || e.target.closest('#btnStageSettings'))) {
     return;
   }
+  const now = performance.now();
+  if (window._lastStageTapHandledTime && (now - window._lastStageTapHandledTime) < 180) {
+    return;
+  }
+  window._lastStageTapHandledTime = now;
+
   const stage = $('stage');
   const stageWrapper = $('stageWrapper');
   if (!stage || !stageWrapper) return;
@@ -21663,37 +23491,50 @@ function handleStageTapToEdit(e) {
     return;
   }
 
-  const t = vid.currentTime || 0;
-  const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
-  const matches = (S.cachedLayoutBoxes || []).filter(item => {
-    const b = item.box;
-    return normX >= b.x - 0.05 && normX <= b.x + b.w + 0.05 &&
-           normY >= b.y - 0.05 && normY <= b.y + b.h + 0.05;
-  });
+  const t = vid ? (vid.currentTime || 0) : 0;
+  // 1. Identify the caption visible right now on screen at current playback time
+  let activeCap = S.captions.find(c => t >= (c.start - 0.15) && t <= (c.end + 0.15));
+  if (!activeCap && S.selectedCaptionId) {
+    activeCap = S.captions.find(c => c.id === S.selectedCaptionId) || null;
+  }
+  if (!activeCap && S.captions.length) {
+    activeCap = findLatestLingerCaption(S.captions, t, 1.5) ||
+                S.captions.reduce((prev, curr) => Math.abs(curr.start - t) < Math.abs(prev.start - t) ? curr : prev, S.captions[0]);
+  }
 
-  if (matches.length > 0) {
-    if (!vid.paused) {
+  // 2. Only hit-test against the visible active caption's layout box (never jump to captions[0] from earlier in the video)
+  const activeLayoutItem = (S.cachedLayoutBoxes || []).find(item => activeCap && item.capId === activeCap.id);
+  const b = activeLayoutItem ? activeLayoutItem.box : null;
+  const isInsideCaptionBox = b
+    ? (normX >= b.x - 0.12 && normX <= b.x + b.w + 0.12 && normY >= b.y - 0.12 && normY <= b.y + b.h + 0.12)
+    : (normY >= 0.20 && normY <= 0.88);
+
+  if (activeCap && isInsideCaptionBox) {
+    if (vid && !vid.paused) {
       try { vid.pause(); } catch(_) {}
-    }
-    let targetItem = matches[0];
-    if (matches.length > 1 && S.selectedCaptionId === targetItem.capId) {
-      targetItem = matches[1];
     }
     let matchedWordIdx = -1;
-    if (targetItem.wordBoxes && targetItem.wordBoxes.length > 0) {
-      const matchedWord = targetItem.wordBoxes.find(wb => {
+    if (activeLayoutItem && activeLayoutItem.wordBoxes && activeLayoutItem.wordBoxes.length > 0) {
+      let matchedWord = activeLayoutItem.wordBoxes.find(wb => {
         const wbBox = wb.box;
-        return normX >= wbBox.x - 0.02 && normX <= wbBox.x + wbBox.w + 0.02 &&
-               normY >= wbBox.y - 0.02 && normY <= wbBox.y + wbBox.h + 0.02;
+        return normX >= wbBox.x - 0.06 && normX <= wbBox.x + wbBox.w + 0.06 &&
+               normY >= wbBox.y - 0.06 && normY <= wbBox.y + wbBox.h + 0.06;
       });
+      if (!matchedWord && S.editMode === 'word') {
+        let minDist = Infinity;
+        activeLayoutItem.wordBoxes.forEach(wb => {
+          const cx = wb.box.x + wb.box.w * 0.5;
+          const cy = wb.box.y + wb.box.h * 0.5;
+          const dist = Math.hypot(normX - cx, normY - cy);
+          if (dist < minDist) {
+            minDist = dist;
+            matchedWord = wb;
+          }
+        });
+      }
       if (matchedWord) matchedWordIdx = matchedWord.wordIndex;
     }
-    selectCaption(targetItem.capId, matchedWordIdx);
-  } else if (activeCap) {
-    if (!vid.paused) {
-      try { vid.pause(); } catch(_) {}
-    }
-    selectCaption(activeCap.id);
+    selectCaption(activeCap.id, matchedWordIdx);
   } else {
     deselectCaption();
   }
@@ -21721,8 +23562,11 @@ function setupVideoOverlayInteractions() {
     return capIdx === -1 ? null : { capIdx, cap: S.captions[capIdx] };
   };
 
+  let overlayRafId = null;
   const commitFrameUpdate = () => {
-    requestAnimationFrame(() => {
+    if (overlayRafId) return;
+    overlayRafId = requestAnimationFrame(() => {
+      overlayRafId = null;
       renderCanvas();
       updateVideoEditOverlay();
     });
@@ -21740,21 +23584,25 @@ function setupVideoOverlayInteractions() {
       S.editMode = 'whole';
       S.selectedWordIndex = -1;
     }
+    const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]);
+    const targetObj = isWordMode ? cap.words[S.selectedWordIndex] : cap;
     const [p1, p2] = pts;
     const stageRect = stage.getBoundingClientRect();
     drag = null;
     pinch = {
       cap,
+      isWordMode,
+      targetObj,
       stageW: Math.max(1, stageRect.width),
       stageH: Math.max(1, stageRect.height),
       startDist: Math.max(12, Math.hypot(p2.x - p1.x, p2.y - p1.y)),
       startAngle: Math.atan2(p2.y - p1.y, p2.x - p1.x) * (180 / Math.PI),
       startMidX: (p1.x + p2.x) * 0.5,
       startMidY: (p1.y + p2.y) * 0.5,
-      origScale: Number(cap.scale) || 1.0,
+      origScale: Number(targetObj.scale) || 1.0,
       origRot: Number(cap.rot) || 0,
-      origDx: Number(cap.dx) || 0,
-      origDy: Number(cap.dy) || 0
+      origDx: Number(targetObj.dx) || 0,
+      origDy: Number(targetObj.dy) || 0
     };
   };
 
@@ -21799,6 +23647,8 @@ function setupVideoOverlayInteractions() {
         };
       } else {
         const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+        const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]);
+        const targetObj = isWordMode ? cap.words[S.selectedWordIndex] : cap;
         drag = {
           type: 'scale',
           pointerId: e.pointerId,
@@ -21806,9 +23656,12 @@ function setupVideoOverlayInteractions() {
           centerX,
           centerY,
           startDist: Math.max(10, startDist),
-          origScale: Number(cap.scale) || 1.0,
+          origScale: Number(targetObj.scale) || 1.0,
+          isWordMode,
+          targetObj,
           capIdx,
           cap,
+          wordIdx: isWordMode ? S.selectedWordIndex : -1,
           moved: false
         };
       }
@@ -21847,18 +23700,27 @@ function setupVideoOverlayInteractions() {
       const midX = (p1.x + p2.x) * 0.5;
       const midY = (p1.y + p2.y) * 0.5;
 
-      const nextScale = Math.round(Math.max(0.4, Math.min(2.5, pinch.origScale * (curDist / pinch.startDist))) * 100) / 100;
+      const nextScale = Math.round(Math.max(0.4, Math.min(3.0, pinch.origScale * (curDist / pinch.startDist))) * 100) / 100;
       const nextRot = snapRotationDeg(pinch.origRot + (curAngle - pinch.startAngle));
       const snap = snapAndClampDelta(pinch.origDx + (midX - pinch.startMidX) / pinch.stageW, pinch.origDy + (midY - pinch.startMidY) / pinch.stageH);
 
-      applyCaptionTransform(pinch.cap, (c) => {
-        c.scale = nextScale;
-        c.rot = nextRot;
-        c.dx = snap.dx;
-        c.dy = snap.dy;
-      });
-      updateSnapGuidesDOM(snap.snapV, snap.snapH);
-      updateTransformHud(`${nextScale.toFixed(2)}× · ${nextRot}°`, true);
+      if (pinch.isWordMode && pinch.targetObj) {
+        pinch.targetObj.scale = nextScale;
+        pinch.targetObj.dx = snap.dx;
+        pinch.targetObj.dy = snap.dy;
+        if (pinch.cap) pinch.cap._cachedExportWords = null;
+        updateSnapGuidesDOM(snap.snapV, snap.snapH);
+        updateTransformHud(`Word: ${nextScale.toFixed(2)}×`, true);
+      } else {
+        applyCaptionTransform(pinch.cap, (c) => {
+          c.scale = nextScale;
+          c.rot = nextRot;
+          c.dx = snap.dx;
+          c.dy = snap.dy;
+        });
+        updateSnapGuidesDOM(snap.snapV, snap.snapH);
+        updateTransformHud(`${nextScale.toFixed(2)}× · ${nextRot}°`, true);
+      }
       commitFrameUpdate();
       return;
     }
@@ -21869,9 +23731,17 @@ function setupVideoOverlayInteractions() {
       drag.moved = true;
       const curDist = Math.hypot(e.clientX - drag.centerX, e.clientY - drag.centerY);
       const scaleFactor = curDist / drag.startDist;
-      const newScale = Math.round(Math.max(0.4, Math.min(2.5, drag.origScale * scaleFactor)) * 100) / 100;
-      applyCaptionTransform(drag.cap, (c) => { c.scale = newScale; });
-      updateTransformHud(`${newScale.toFixed(2)}×`, true);
+      const newScale = Math.round(Math.max(0.4, Math.min(3.0, drag.origScale * scaleFactor)) * 100) / 100;
+      if (drag.isWordMode && drag.targetObj) {
+        drag.targetObj.scale = newScale;
+        if (drag.cap) drag.cap._cachedExportWords = null;
+        updateTransformHud(`Word: ${newScale.toFixed(2)}×`, true);
+        if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
+      } else {
+        applyCaptionTransform(drag.cap, (c) => { c.scale = newScale; });
+        updateTransformHud(`${newScale.toFixed(2)}×`, true);
+        if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
+      }
       commitFrameUpdate();
     } else if (drag.type === 'rotate') {
       drag.moved = true;
@@ -21886,33 +23756,41 @@ function setupVideoOverlayInteractions() {
       if (!drag.moved && Math.hypot(deltaX, deltaY) < 3) return;
       drag.moved = true;
 
-      const snap = snapAndClampDelta(drag.origDx + (deltaX / drag.stageW), drag.origDy + (deltaY / drag.stageH));
-      updateSnapGuidesDOM(snap.snapV, snap.snapH);
-      if ((snap.snapV || snap.snapH) && navigator.vibrate) {
-        try { navigator.vibrate(8); } catch (_) {}
-      }
-
       if (drag.isWordMode) {
-        drag.targetObj.dx = snap.dx;
-        drag.targetObj.dy = snap.dy;
+        const nextDx = Math.round(Math.max(-0.6, Math.min(0.6, drag.origDx + (deltaX / drag.stageW))) * 1000) / 1000;
+        const nextDy = Math.round(Math.max(-0.6, Math.min(0.6, drag.origDy + (deltaY / drag.stageH))) * 1000) / 1000;
+        drag.targetObj.dx = nextDx;
+        drag.targetObj.dy = nextDy;
+        if (drag.cap) drag.cap._cachedExportWords = null;
+        updateTransformHud(`Word: ${Math.round(nextDx * 100)}%, ${Math.round(nextDy * 100)}%`, true);
       } else {
+        const snap = snapAndClampDelta(drag.origDx + (deltaX / drag.stageW), drag.origDy + (deltaY / drag.stageH));
+        updateSnapGuidesDOM(snap.snapV, snap.snapH);
+        if ((snap.snapV || snap.snapH) && navigator.vibrate) {
+          try { navigator.vibrate(8); } catch (_) {}
+        }
         applyCaptionTransform(drag.cap, (c) => {
           c.dx = snap.dx;
           c.dy = snap.dy;
         });
+        updateTransformHud(`${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
       }
-      updateTransformHud(`${Math.round(snap.dx * 100)}%, ${Math.round(snap.dy * 100)}%`, true);
       commitFrameUpdate();
     }
   };
 
   const onPointerUp = (e) => {
+    if (overlayRafId) {
+      cancelAnimationFrame(overlayRafId);
+      overlayRafId = null;
+    }
     activePointers.delete(e.pointerId);
     if (pinch && activePointers.size < 2) {
       pinch = null;
       updateSnapGuidesDOM(false, false);
       updateTransformHud('', false);
       pushHistoryState('Pinch adjust caption');
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
       renderCanvas();
       updateVideoEditOverlay();
     }
@@ -21926,14 +23804,23 @@ function setupVideoOverlayInteractions() {
     updateTransformHud('', false);
 
     if (d.type === 'scale' && d.moved) {
-      pushHistoryState('Scale caption');
-      console.log('[EDIT]', 'scale', d.capIdx, -1, d.cap.scale);
+      if (d.isWordMode && d.targetObj) {
+        pushHistoryState('Scale single word');
+        console.log('[EDIT]', 'scale_word', d.capIdx, d.wordIdx, d.targetObj.scale);
+      } else {
+        pushHistoryState('Scale caption');
+        console.log('[EDIT]', 'scale', d.capIdx, -1, d.cap.scale);
+      }
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
     } else if (d.type === 'rotate' && d.moved) {
       pushHistoryState('Rotate caption');
       console.log('[EDIT]', 'rotate', d.capIdx, -1, d.cap.rot);
     } else if (d.type === 'move' && d.moved) {
-      pushHistoryState('Move caption position');
+      pushHistoryState(d.isWordMode ? 'Move single word position' : 'Move caption position');
       console.log('[EDIT]', 'move', d.capIdx, d.wordIdx, { dx: d.targetObj.dx, dy: d.targetObj.dy });
+    } else if (d.type === 'move' && !d.moved) {
+      // Tap on bounding box (instant word selection or pause/select)
+      handleStageTapToEdit(e);
     }
     renderCanvas();
     updateVideoEditOverlay();
@@ -21946,43 +23833,54 @@ function setupVideoOverlayInteractions() {
     if (!found) return;
     e.preventDefault();
     e.stopPropagation();
+    const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && found.cap.words && found.cap.words[S.selectedWordIndex]);
+    const targetObj = isWordMode ? found.cap.words[S.selectedWordIndex] : found.cap;
     const step = e.deltaY < 0 ? 0.06 : -0.06;
-    const nextScale = Math.round(Math.max(0.4, Math.min(2.5, (Number(found.cap.scale) || 1.0) + step)) * 100) / 100;
-    applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
-    updateTransformHud(`${nextScale.toFixed(2)}×`, true);
+    const nextScale = Math.round(Math.max(0.4, Math.min(3.0, (Number(targetObj.scale) || 1.0) + step)) * 100) / 100;
+    if (isWordMode) {
+      targetObj.scale = nextScale;
+      if (found.cap) found.cap._cachedExportWords = null;
+      updateTransformHud(`Word: ${nextScale.toFixed(2)}×`, true);
+    } else {
+      applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
+      updateTransformHud(`${nextScale.toFixed(2)}×`, true);
+    }
     renderCanvas();
     updateVideoEditOverlay();
+    if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
     clearTimeout(wheelHistoryTimer);
     wheelHistoryTimer = setTimeout(() => {
       updateTransformHud('', false);
-      pushHistoryState('Resize caption');
+      pushHistoryState(isWordMode ? 'Resize single word' : 'Resize caption');
     }, 350);
   }, { passive: false });
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
   window.addEventListener('pointercancel', onPointerUp);
 
-  // Mini toolbar button handlers
-  const bindScopeBtn = (id, scope) => {
-    const btn = $(id);
-    if (!btn) return;
-    btn.addEventListener('click', (e) => {
+  // Mini toolbar button handlers: All | Line | Words (Moonshot segmented control)
+  const btnScopeAll = $('btnAdjustScopeAll');
+  if (btnScopeAll) {
+    btnScopeAll.addEventListener('click', (e) => {
       e.stopPropagation();
-      S.adjustScope = scope;
-      updateVideoEditOverlay();
-      showToast(scope === 'all' ? 'Editing all captions together' : 'Editing only this caption');
-    });
-  };
-  bindScopeBtn('btnAdjustScopeAll', 'all');
-  bindScopeBtn('btnAdjustScopeOne', 'one');
-
-  const btnWhole = $('btnEditModeWhole');
-  if (btnWhole) {
-    btnWhole.addEventListener('click', (e) => {
-      e.stopPropagation();
+      S.adjustScope = 'all';
       S.editMode = 'whole';
       updateVideoEditOverlay();
-      console.log('[EDIT]', 'mode_whole', S.selectedCaptionId, -1, 'whole');
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
+      showToast('Editing all captions together');
+    });
+  }
+
+  const btnScopeOne = $('btnAdjustScopeOne');
+  if (btnScopeOne) {
+    btnScopeOne.addEventListener('click', (e) => {
+      e.stopPropagation();
+      S.adjustScope = 'one';
+      S.editMode = 'whole';
+      S.selectedWordIndex = -1;
+      updateVideoEditOverlay();
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
+      showToast('Editing this caption line');
     });
   }
 
@@ -21991,24 +23889,106 @@ function setupVideoOverlayInteractions() {
     btnWord.addEventListener('click', (e) => {
       e.stopPropagation();
       S.editMode = 'word';
-      if (S.selectedWordIndex < 0) S.selectedWordIndex = 0;
-      updateVideoEditOverlay();
-      console.log('[EDIT]', 'mode_word', S.selectedCaptionId, S.selectedWordIndex, 'word');
+      const found = getSelectedCap();
+      if (found && found.cap) {
+        if ((!Array.isArray(found.cap.words) || !found.cap.words.length) && found.cap.text) {
+          const parts = found.cap.text.trim().split(/\s+/).filter(Boolean);
+          const segDur = Math.max(0.5, (found.cap.end || 1) - (found.cap.start || 0));
+          const step = segDur / Math.max(1, parts.length);
+          found.cap.words = parts.map((pt, pIdx) => ({
+            t: pt,
+            s: (found.cap.start || 0) + pIdx * step,
+            e: (found.cap.start || 0) + (pIdx + 1) * step,
+            key: pIdx === 0,
+            dx: 0,
+            dy: 0
+          }));
+        }
+        if (found.cap.words && found.cap.words.length > 0) {
+          if (S.selectedWordIndex < 0 || S.selectedWordIndex >= found.cap.words.length) {
+            S.selectedWordIndex = 0;
+          }
+        } else {
+          S.selectedWordIndex = 0;
+        }
+      } else {
+        S.selectedWordIndex = 0;
+      }
+      commitFrameUpdate();
+      if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
+      showToast('Tap any word to select & drag it');
     });
   }
 
   const stepScale = (delta) => {
     const found = getSelectedCap();
     if (!found) return;
-    const nextScale = Math.round(Math.max(0.4, Math.min(2.5, (Number(found.cap.scale) || 1.0) + delta)) * 100) / 100;
-    applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
-    pushHistoryState('Scale caption');
+    const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && found.cap.words && found.cap.words[S.selectedWordIndex]);
+    const targetObj = isWordMode ? found.cap.words[S.selectedWordIndex] : found.cap;
+    const nextScale = Math.round(Math.max(0.4, Math.min(3.0, (Number(targetObj.scale) || 1.0) + delta)) * 100) / 100;
+    if (isWordMode) {
+      targetObj.scale = nextScale;
+      if (found.cap) found.cap._cachedExportWords = null;
+      updateTransformHud(`Word: ${nextScale.toFixed(2)}×`, true);
+      pushHistoryState('Scale single word');
+    } else {
+      applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
+      updateTransformHud(`${nextScale.toFixed(2)}×`, true);
+      pushHistoryState('Scale caption');
+    }
     renderCanvas();
     updateVideoEditOverlay();
-    updateTransformHud(`${nextScale.toFixed(2)}×`, true);
+    if (typeof updateFontScaleUI === 'function') updateFontScaleUI();
     clearTimeout(wheelHistoryTimer);
     wheelHistoryTimer = setTimeout(() => updateTransformHud('', false), 700);
   };
+
+  const nudgeCaption = (dDx, dDy) => {
+    const curT = vid ? (vid.currentTime || 0) : 0;
+    const found = getSelectedCap();
+    const cap = (found && found.cap) ||
+                S.captions.find(c => curT >= c.start && curT <= c.end) ||
+                (S.captions && S.captions[0]) || null;
+    if (!cap) {
+      showToast('Select or scrub to a caption first');
+      return;
+    }
+    if (S.selectedCaptionId !== cap.id) {
+      selectCaption(cap.id);
+    }
+
+    if (S.adjustScope === 'all') {
+      const curPos = Number(S.style?.position || S.style?.posY || 0.68);
+      const nextPos = Math.max(0.12, Math.min(0.88, Math.round((curPos + dDy) * 100) / 100));
+      if (!S.style) S.style = {};
+      S.style.position = nextPos;
+      S.style.posY = nextPos;
+      if (dDx !== 0) {
+        S.captions.forEach(c => {
+          c.dx = Math.round(Math.max(-0.45, Math.min(0.45, (Number(c.dx) || 0) + dDx)) * 1000) / 1000;
+        });
+      }
+      updateTransformHud(`🌐 All: ${Math.round(nextPos * 100)}% Y`, true);
+    } else {
+      cap.dx = Math.round(Math.max(-0.45, Math.min(0.45, (Number(cap.dx) || 0) + dDx)) * 1000) / 1000;
+      cap.dy = Math.round(Math.max(-0.45, Math.min(0.45, (Number(cap.dy) || 0) + dDy)) * 1000) / 1000;
+      updateTransformHud(`📍 This: ${Math.round(cap.dx * 100)}%, ${Math.round(cap.dy * 100)}%`, true);
+    }
+
+    renderCanvas();
+    updateVideoEditOverlay();
+    pushHistoryState('Nudge caption position');
+  };
+  window.nudgeCaption = nudgeCaption;
+
+  const btnMiniNudgeUp = $('btnMiniNudgeUp');
+  if (btnMiniNudgeUp) btnMiniNudgeUp.addEventListener('click', (e) => { e.stopPropagation(); nudgeCaption(0, -0.02); });
+  const btnMiniNudgeDown = $('btnMiniNudgeDown');
+  if (btnMiniNudgeDown) btnMiniNudgeDown.addEventListener('click', (e) => { e.stopPropagation(); nudgeCaption(0, 0.02); });
+  const btnMiniNudgeLeft = $('btnMiniNudgeLeft');
+  if (btnMiniNudgeLeft) btnMiniNudgeLeft.addEventListener('click', (e) => { e.stopPropagation(); nudgeCaption(-0.02, 0); });
+  const btnMiniNudgeRight = $('btnMiniNudgeRight');
+  if (btnMiniNudgeRight) btnMiniNudgeRight.addEventListener('click', (e) => { e.stopPropagation(); nudgeCaption(0.02, 0); });
 
   const btnScaleDown = $('btnMiniScaleDown');
   if (btnScaleDown) btnScaleDown.addEventListener('click', (e) => { e.stopPropagation(); stepScale(-0.10); });
@@ -22021,14 +24001,23 @@ function setupVideoOverlayInteractions() {
       e.stopPropagation();
       const found = getSelectedCap();
       if (!found) return;
-      applyCaptionTransform(found.cap, (c) => {
-        c.dx = 0;
-        c.rot = 0;
-      });
-      pushHistoryState('Center caption');
-      renderCanvas();
-      updateVideoEditOverlay();
-      showToast('Centered & leveled caption');
+      if (S.editMode === 'word' && S.selectedWordIndex >= 0 && found.cap.words && found.cap.words[S.selectedWordIndex]) {
+        found.cap.words[S.selectedWordIndex].dx = 0;
+        found.cap.words[S.selectedWordIndex].dy = 0;
+        found.cap.words[S.selectedWordIndex].scale = 1.0;
+        found.cap._cachedExportWords = null;
+        pushHistoryState('Reset word position');
+        commitFrameUpdate();
+        showToast('Word position reset to original');
+      } else {
+        applyCaptionTransform(found.cap, (c) => {
+          c.dx = 0;
+          c.rot = 0;
+        });
+        pushHistoryState('Center caption');
+        commitFrameUpdate();
+        showToast('Centered & leveled caption');
+      }
     });
   }
 
@@ -22111,6 +24100,60 @@ function setupVideoOverlayInteractions() {
  * Setup Timeline Action Bar Handlers (Split, Edit, Duplicate, Merge, Nudge, Delete, Undo, Redo)
  */
 function setupTimelineActionBar() {
+  const btnClipNudgeUp = $('btnClipNudgeUp');
+  if (btnClipNudgeUp) {
+    btnClipNudgeUp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof window.nudgeCaption === 'function') window.nudgeCaption(0, -0.02);
+    });
+  }
+
+  const btnClipNudgeDown = $('btnClipNudgeDown');
+  if (btnClipNudgeDown) {
+    btnClipNudgeDown.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof window.nudgeCaption === 'function') window.nudgeCaption(0, 0.02);
+    });
+  }
+
+  const btnClipResetPos = $('btnClipResetPos');
+  if (btnClipResetPos) {
+    btnClipResetPos.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      cap.dx = 0;
+      cap.dy = 0;
+      cap.scale = 1.0;
+      cap.rot = 0;
+      pushHistoryState('Reset caption position');
+      renderCanvas();
+      updateVideoEditOverlay();
+      showToast('Position reset to default');
+    });
+  }
+
+  const btnClipSyncAll = $('btnClipSyncAll');
+  if (btnClipSyncAll) {
+    btnClipSyncAll.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) return;
+      const cap = S.captions[capIdx];
+      S.captions.forEach((c) => {
+        c.dx = cap.dx || 0;
+        c.dy = cap.dy || 0;
+        c.scale = cap.scale || 1.0;
+        c.rot = cap.rot || 0;
+      });
+      pushHistoryState('Apply position to all captions');
+      renderCanvas();
+      updateVideoEditOverlay();
+      showToast('Synced position to all captions');
+    });
+  }
+
   const btnClipSplit = $('btnClipSplit');
   if (btnClipSplit) {
     btnClipSplit.addEventListener('click', (e) => {
@@ -22294,6 +24337,116 @@ function setupTimelineActionBar() {
       redo();
     });
   }
+
+  // =========================================================================
+  // CONTEXTUAL CAPTION BOTTOM BAR HANDLERS (Back, Edit, Impact, Text, Colour, Style)
+  // =========================================================================
+  const btnCapNavBack = $('btnCapNavBack');
+  if (btnCapNavBack) {
+    btnCapNavBack.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deselectCaption();
+    });
+  }
+
+  const btnCapNavEdit = $('btnCapNavEdit');
+  if (btnCapNavEdit) {
+    btnCapNavEdit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (S.selectedCaptionId) {
+        openCaptionEditSheet(S.selectedCaptionId);
+      } else {
+        showToast('Select a caption first');
+      }
+    });
+  }
+
+  const btnCapNavImpact = $('btnCapNavImpact');
+  if (btnCapNavImpact) {
+    btnCapNavImpact.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const capIdx = S.captions.findIndex(c => c.id === S.selectedCaptionId);
+      if (capIdx === -1) {
+        showToast('Select a caption first');
+        return;
+      }
+      const cap = S.captions[capIdx];
+      if (!Array.isArray(cap.words) || !cap.words.length) {
+        if (cap.text) {
+          const parts = cap.text.trim().split(/\s+/).filter(Boolean);
+          const segDur = Math.max(0.5, (cap.end || 1) - (cap.start || 0));
+          const step = segDur / Math.max(1, parts.length);
+          cap.words = parts.map((pt, pIdx) => ({
+            t: pt,
+            s: (cap.start || 0) + pIdx * step,
+            e: (cap.start || 0) + (pIdx + 1) * step,
+            key: pIdx === 0,
+            dx: 0,
+            dy: 0
+          }));
+        }
+      }
+
+      if (cap.words && cap.words.length > 0) {
+        let curWordIdx = (S.selectedWordIndex >= 0 && S.selectedWordIndex < cap.words.length) ? S.selectedWordIndex : 0;
+        let nextIdx = (curWordIdx + 1) % cap.words.length;
+        if (S.selectedWordIndex < 0) nextIdx = 0;
+        S.selectedWordIndex = nextIdx;
+        S.editMode = 'word';
+
+        cap.words.forEach((w, i) => {
+          w.key = (i === nextIdx);
+        });
+
+        const activeWord = cap.words[nextIdx];
+        showToast(`💥 Impact word: "${activeWord.t}" highlighted!`);
+        pushHistoryState('Impact word highlight');
+        renderCanvas(true);
+        updateVideoEditOverlay();
+      } else {
+        showToast('💥 Impact emphasis applied');
+        renderCanvas(true);
+      }
+    });
+  }
+
+  const btnCapNavText = $('btnCapNavText');
+  if (btnCapNavText) {
+    btnCapNavText.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDrawerTab('tabStyle');
+      const textPill = document.querySelector('#styleSectionPills .cat-pill[data-style-group="text"]');
+      if (textPill) textPill.click();
+      const card = $('cardFontFamily');
+      if (card) {
+        const sc = document.querySelector('#drawerPanel .drawer-content');
+        if (sc) sc.scrollTop = Math.max(0, card.offsetTop - 20);
+      }
+    });
+  }
+
+  const btnCapNavColour = $('btnCapNavColour');
+  if (btnCapNavColour) {
+    btnCapNavColour.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDrawerTab('tabStyle');
+      const colorPill = document.querySelector('#styleSectionPills .cat-pill[data-style-group="color"]');
+      if (colorPill) colorPill.click();
+      const card = $('colorSwatches') || document.querySelector('[data-style-group="color"]');
+      if (card) {
+        const sc = document.querySelector('#drawerPanel .drawer-content');
+        if (sc) sc.scrollTop = Math.max(0, card.offsetTop - 20);
+      }
+    });
+  }
+
+  const btnCapNavStyle = $('btnCapNavStyle');
+  if (btnCapNavStyle) {
+    btnCapNavStyle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDrawerTab('tabTemplates');
+    });
+  }
 }
 
 /**
@@ -22444,14 +24597,25 @@ function setupCaptionEditSheet() {
       cap.text = newText;
       const textWords = newText.split(/\s+/).filter(Boolean);
       if (textWords.length !== (cap.words || []).length) {
-        // Words changed in text input, re-distribute proportionally
+        // Words count changed in text input, re-distribute proportionally
         const dur = Math.max(0.2, cap.end - cap.start);
         const wDur = dur / Math.max(1, textWords.length);
         cap.words = textWords.map((t, i) => ({
-          t,
+          t: t,
+          word: t,
           s: Math.round((cap.start + i * wDur) * 100) / 100,
-          e: Math.round((cap.start + (i + 1) * wDur) * 100) / 100
+          start: Math.round((cap.start + i * wDur) * 100) / 100,
+          e: Math.round((cap.start + (i + 1) * wDur) * 100) / 100,
+          end: Math.round((cap.start + (i + 1) * wDur) * 100) / 100,
+          key: (cap.words && cap.words[i]) ? Boolean(cap.words[i].key) : false
         }));
+      } else {
+        // Same word count (e.g. spelling mistake corrected in a word):
+        // Update each word token in place while preserving timing & key highlight!
+        cap.words.forEach((w, i) => {
+          w.t = textWords[i];
+          w.word = textWords[i];
+        });
       }
 
       pushHistoryState('Edit caption text & word timings');
@@ -23431,10 +25595,25 @@ function drawCoverVideo(ctx, videoEl, dx, dy, dw, dh) {
     sy = (vh - sh) / 2;
   }
 
+  const pullY = S.pullDownY || 0;
+  if (pullY > 0) {
+    const shift = (vh - sh) * pullY;
+    sy = Math.max(0, sy - shift);
+  }
+
   try {
     if (typeof videoEl.draw === 'function') {
       // Mediabunny VideoSample
-      videoEl.draw(ctx, dx, dy, dw, dh);
+      if (pullY > 0) {
+        const effZoom = 1.0 + pullY * 2.1;
+        const pW = dw * effZoom;
+        const pH = dh * effZoom;
+        const pX = dx + (dw - pW) / 2;
+        const pY = dy + (dh - pH) / 2 + (pullY * dh);
+        videoEl.draw(ctx, pX, pY, pW, pH);
+      } else {
+        videoEl.draw(ctx, dx, dy, dw, dh);
+      }
     } else {
       ctx.drawImage(videoEl, sx, sy, sw, sh, dx, dy, dw, dh);
     }

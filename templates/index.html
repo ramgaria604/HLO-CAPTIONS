@@ -338,44 +338,21 @@
 
             <div id="captionBoundingBox" class="caption-bounding-box hidden">
               <span id="boxLabelMode" class="box-label-mode hidden">word</span>
-              <span id="boxTransformHud" class="box-transform-hud hidden">1.00× · 0°</span>
-              <div class="box-handle box-handle-nw" data-handle="nw"></div>
-              <div class="box-handle box-handle-ne" data-handle="ne"></div>
-              <div class="box-handle box-handle-sw" data-handle="sw"></div>
-              <div class="box-handle box-handle-se" data-handle="se"></div>
-              <div class="box-handle box-handle-rot" data-handle="rot" title="Drag to rotate caption" aria-label="Rotate caption">↻</div>
+              <span id="boxTransformHud" class="box-transform-hud hidden">1.00×</span>
+              <div class="box-handle box-handle-se" data-handle="se" title="Drag to resize">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              </div>
             </div>
 
+            <!-- Sleek Docked Control Bar (Moonshot Style: Pinned at bottom of player) -->
             <div id="videoEditMiniToolbar" class="video-edit-mini-toolbar hidden">
-              <div class="edit-mode-pill-group" title="Adjust all captions or only this clip">
-                <button type="button" class="btn-edit-mode active" id="btnAdjustScopeAll">All</button>
-                <button type="button" class="btn-edit-mode" id="btnAdjustScopeOne">This</button>
+              <div class="edit-mode-pill-group" title="Adjust all captions, this line, or single word">
+                <button type="button" class="btn-edit-mode" id="btnAdjustScopeAll" title="All captions">All</button>
+                <button type="button" class="btn-edit-mode active" id="btnAdjustScopeOne" title="This line only">Line</button>
+                <button type="button" class="btn-edit-mode" id="btnEditModeWord" title="Single word">Words</button>
               </div>
-              <div class="edit-mode-pill-group">
-                <button type="button" class="btn-edit-mode active" id="btnEditModeWhole">Whole</button>
-                <button type="button" class="btn-edit-mode" id="btnEditModeWord">Word</button>
-              </div>
-              <div class="edit-toolbar-icons">
-                <button type="button" class="btn-mini-tool" id="btnMiniScaleDown" title="Smaller caption" aria-label="Smaller caption">A-</button>
-                <button type="button" class="btn-mini-tool" id="btnMiniScaleUp" title="Larger caption" aria-label="Larger caption">A+</button>
-                <button type="button" class="btn-mini-tool" id="btnMiniCenter" title="Center horizontally & level" aria-label="Center horizontally">⌖</button>
-                <button type="button" class="btn-mini-tool" id="btnMiniEditText" title="Edit text" aria-label="Edit text">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                </button>
-                <button type="button" class="btn-mini-tool" id="btnMiniResetPos" title="Reset position, size & angle" aria-label="Reset position">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                </button>
-                <button type="button" class="btn-mini-tool" id="btnMiniApplyAll" title="Copy this position to all captions" aria-label="Apply to all captions">
-                  <span>Sync All</span>
-                </button>
-                <button type="button" class="btn-mini-tool btn-mini-style" id="btnMiniStyle" title="Colors, Font & Spacing" aria-label="Style settings">
-                  <span>Style</span>
-                </button>
-                <button type="button" class="btn-mini-tool btn-mini-done" id="btnMiniDone" title="Done" aria-label="Done editing">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Done</span>
-                </button>
-              </div>
+              <button type="button" class="btn-mini-tool" id="btnMiniCenter" title="Center horizontally" aria-label="Center horizontally">⌖</button>
+              <button type="button" class="btn-mini-tool btn-mini-done" id="btnMiniDone" title="Done" aria-label="Done editing">✕</button>
             </div>
           </div>
 
@@ -510,6 +487,22 @@
         <!-- Timeline Clip Selected Action Bar -->
         <div id="timelineClipActionBar" class="timeline-clip-action-bar hidden">
           <div class="clip-actions-scroll">
+            <button type="button" class="btn-clip-action btn-clip-pos" id="btnClipNudgeUp" title="Move caption up" aria-label="Nudge caption up">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="18 15 12 9 6 15"/></svg>
+              <span>▲ Up</span>
+            </button>
+            <button type="button" class="btn-clip-action btn-clip-pos" id="btnClipNudgeDown" title="Move caption down" aria-label="Nudge caption down">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"/></svg>
+              <span>▼ Down</span>
+            </button>
+            <button type="button" class="btn-clip-action btn-clip-pos" id="btnClipResetPos" title="Reset position to default" aria-label="Reset position">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              <span>Reset</span>
+            </button>
+            <button type="button" class="btn-clip-action btn-clip-pos" id="btnClipSyncAll" title="Sync this position to all captions" aria-label="Sync all captions">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              <span>Sync All</span>
+            </button>
             <button type="button" class="btn-clip-action" id="btnClipSplit" title="Split at playhead" aria-label="Split caption">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
               <span>Split</span>
@@ -807,6 +800,55 @@
               </div>
             </div>
 
+            <!-- MULTI-FRAME VIDEO TEMPLATE CUSTOMIZER (Chrono Vault HUD / Atelier Zine Studio) -->
+            <div id="videoTemplateCustomizer" class="vtemplate-customizer hidden" aria-label="Customize Multi-Frame Video Template">
+              <div class="vt-custom-head">
+                <div class="vt-custom-title-wrap">
+                  <span class="vt-custom-pill">🎬 4-FRAME TEMPLATE</span>
+                  <strong id="vtCustomName">Chrono Vault HUD</strong>
+                </div>
+                <button type="button" id="btnResetVideoTplConfig" class="vt-reset-btn" title="Reset template fields to default">Reset</button>
+              </div>
+              <div class="vt-scene-row">
+                <span class="vt-row-lbl">Scene Frame:</span>
+                <div class="vt-scene-pills" id="vtSceneModeGroup">
+                  <button type="button" class="vt-scene-btn active" data-scene="auto">Auto (4)</button>
+                  <button type="button" class="vt-scene-btn" data-scene="0">F1 Hook</button>
+                  <button type="button" class="vt-scene-btn" data-scene="1">F2 Card</button>
+                  <button type="button" class="vt-scene-btn" data-scene="2">F3 Focus</button>
+                  <button type="button" class="vt-scene-btn" data-scene="3">F4 Climax</button>
+                </div>
+              </div>
+              <div class="vt-inputs-grid">
+                <label class="vt-field">
+                  <span>Header / Issue</span>
+                  <input type="text" id="vtInputHeader" maxlength="36" placeholder="EP. 04 • VIRAL SYSTEM">
+                </label>
+                <label class="vt-field">
+                  <span>Badge / Tag</span>
+                  <input type="text" id="vtInputTag" maxlength="24" placeholder="STEP 02">
+                </label>
+                <label class="vt-field">
+                  <span>Stat / Index</span>
+                  <input type="text" id="vtInputStat" maxlength="16" placeholder="+340%">
+                </label>
+                <label class="vt-field">
+                  <span>Stat Label</span>
+                  <input type="text" id="vtInputStatLabel" maxlength="28" placeholder="RETENTION BOOST">
+                </label>
+                <label class="vt-field vt-field-wide">
+                  <span>Quote / Callout</span>
+                  <input type="text" id="vtInputQuote" maxlength="64" placeholder="Make it unforgettable.">
+                </label>
+              </div>
+              <div class="vt-toggles-row">
+                <label class="vt-chk"><input type="checkbox" id="vtToggleHeader" checked><span>Header HUD</span></label>
+                <label class="vt-chk"><input type="checkbox" id="vtToggleCard" checked><span>Cards &amp; Stickers</span></label>
+                <label class="vt-chk"><input type="checkbox" id="vtToggleTimeline" checked><span>Progress Rail</span></label>
+                <label class="vt-chk"><input type="checkbox" id="vtToggleCaptions" checked><span>Kinetic Captions</span></label>
+              </div>
+            </div>
+
 <!-- Horizontal/Scrollable Presets Cards Grid -->
             <div class="presets-grid" id="presetsGrid">
               <!-- Populated via JavaScript -->
@@ -1073,6 +1115,99 @@
                 </div>
               </div>
 
+              <!-- Dual-Plane 3D Depth Settings (Behind Head + Front Subtitles) -->
+              <div class="control-card" id="cardDualPlaneSettings" data-style-group="motion" style="background: linear-gradient(135deg, rgba(15,23,42,0.92), rgba(20,28,48,0.85)); border: 1px solid rgba(250, 204, 21, 0.25);">
+                <div class="control-header">
+                  <label style="color: #fde047; font-weight: 700;">👑 Behind Person 3D Controls</label>
+                  <span id="valDualPlaneBadge" class="val-badge badge-green">DUAL-PLANE</span>
+                </div>
+                <p class="voiceover-help">Cinematic 3D title behind the head with live spoken captions in front of the chest.</p>
+                
+                <!-- Keyword Mode: Auto-Detect vs Custom Word -->
+                <div style="margin-top: 10px;">
+                  <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: block; margin-bottom: 4px;">🎯 Behind Keyword / Hook</label>
+                  <input type="text" id="inputDualPlaneKeyword" placeholder="Auto-detect key word (or type e.g. RETHINK)" class="text-input" style="width: 100%; font-size: 13px; padding: 7px 10px; background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff;">
+                </div>
+
+                <!-- Behind Text Height Slider -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>⬆️ Behind Text Height (Head Level)</span>
+                    <span id="valDualPlaneBehindY" style="color: #fde047; font-weight: 600;">20%</span>
+                  </div>
+                  <input type="range" id="inputDualPlaneBehindY" min="10" max="40" value="20" class="styled-slider" style="width: 100%;">
+                </div>
+
+                <!-- Front Caption Height Slider -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>⬇️ Front Captions Height (Chest Level)</span>
+                    <span id="valDualPlaneFrontY" style="color: #fde047; font-weight: 600;">66%</span>
+                  </div>
+                  <input type="range" id="inputDualPlaneFrontY" min="45" max="85" value="66" class="styled-slider" style="width: 100%;">
+                </div>
+
+                <!-- Depth Mask Feather / Rim Glow -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>✨ Rim Glow &amp; Light Wrap</span>
+                    <span id="valDualPlaneGlow" style="color: #fde047; font-weight: 600;">12px</span>
+                  </div>
+                  <input type="range" id="inputDualPlaneGlow" min="0" max="30" value="12" class="styled-slider" style="width: 100%;">
+                </div>
+              </div>
+
+              <!-- Editorial Depth Stack Controls (See-Through Blend & Above Head / Below Torso) -->
+              <div class="control-card hidden" id="cardEditorialSettings" data-style-group="motion" style="background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(24,24,37,0.90)); border: 1px solid rgba(34, 197, 94, 0.35);">
+                <div class="control-header">
+                  <label style="color: #4ade80; font-weight: 700;">👑 Editorial Depth Stack Controls</label>
+                  <span id="valEditorialBadge" class="val-badge badge-green">SEE-THROUGH BLEND</span>
+                </div>
+                <p class="voiceover-help">Giant 3D see-through keyword behind the speaker with crisp white companion text.</p>
+
+                <!-- 1. Position Mode (Top vs Below vs Alternate) -->
+                <div style="margin-top: 10px;">
+                  <label style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: block; margin-bottom: 6px;">📍 Placement (Above Head / Below Torso)</label>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;" id="groupEditorialPosition">
+                    <button type="button" class="btn-toggle active" id="btnEditorialPosAlt" data-pos="alternate" style="font-size: 11px; padding: 6px 4px;">⚡ Alternate</button>
+                    <button type="button" class="btn-toggle" id="btnEditorialPosTop" data-pos="top" style="font-size: 11px; padding: 6px 4px;">⬆️ Above Head</button>
+                    <button type="button" class="btn-toggle" id="btnEditorialPosBelow" data-pos="below" style="font-size: 11px; padding: 6px 4px;">⬇️ Behind Torso</button>
+                  </div>
+                </div>
+
+                <!-- 2. Blend Mode (Overlay / Screen / Soft Light / Normal) -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>🎨 Blend Type (See-Through Style)</span>
+                    <span id="valEditorialBlend" style="color: #4ade80; font-weight: 600;">Overlay</span>
+                  </div>
+                  <select id="selectEditorialBlend" class="text-input" style="width: 100%; font-size: 12px; padding: 6px 10px; background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff;">
+                    <option value="overlay" selected>Overlay (Reference Video Texture Bleed)</option>
+                    <option value="soft-light">Soft Light (Subtle Ambient Bleed)</option>
+                    <option value="screen">Screen (Luminous Jewel Glow)</option>
+                    <option value="normal">Normal (Translucent Clean Tint)</option>
+                  </select>
+                </div>
+
+                <!-- 3. See-Through Opacity Slider -->
+                <div style="margin-top: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>👁️ See-Through Opacity</span>
+                    <span id="valEditorialOpacity" style="color: #4ade80; font-weight: 600;">78%</span>
+                  </div>
+                  <input type="range" id="inputEditorialOpacity" min="30" max="100" value="78" class="styled-slider" style="width: 100%;">
+                </div>
+
+                <!-- 4. Behind Torso Level Slider (When in Below or Alternate mode) -->
+                <div style="margin-top: 12px;" id="rowEditorialTorsoY">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: #cbd5e1; margin-bottom: 4px;">
+                    <span>⬇️ Below Height (Torso / Chest Level)</span>
+                    <span id="valEditorialTorsoY" style="color: #4ade80; font-weight: 600;">58%</span>
+                  </div>
+                  <input type="range" id="inputEditorialTorsoY" min="45" max="75" value="58" class="styled-slider" style="width: 100%;">
+                </div>
+              </div>
+
 
               <!-- 1. Words per line Stepper (Chunk Pacing) -->
               <div class="stepper-card" data-style-group="text">
@@ -1209,6 +1344,39 @@
                 </div>
                 <div style="margin-top: 8px;">
                   <input type="range" id="inputCustomPos" min="15" max="85" value="67" class="styled-slider" style="width: 100%;">
+                </div>
+              </div>
+
+              <!-- 🎬 Video Framing / Safe Headroom (Auto Face Protection) -->
+              <div class="stepper-card" data-style-group="motion" style="margin-top: 14px;">
+                <div class="stepper-header-row">
+                  <div class="stepper-label-col">
+                    <label class="stepper-label">🎬 Video Framing (Safe Headroom)</label>
+                    <span class="stepper-sub">Automatically pulls video down so captions never cover the face</span>
+                  </div>
+                  <span class="stepper-value" id="valPullDown" style="color: #FACC15; font-weight: 600;">⚡ Auto Active</span>
+                  <button type="button" class="btn-step-reset" id="btnResetPullDown" title="Reset video framing">Reset</button>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 7px 12px; background: rgba(250, 204, 21, 0.08); border: 1px solid rgba(250, 204, 21, 0.25); border-radius: 8px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 15px;">⚡</span>
+                    <div>
+                      <strong style="font-size: 12px; color: #FACC15;">Auto Face Protection</strong>
+                      <p style="font-size: 11px; color: #94a3b8; margin: 1px 0 0 0;">AI senses head crown & auto-drops video for clear caption headroom</p>
+                    </div>
+                  </div>
+                  <label class="switch-toggle" style="margin: 0;">
+                    <input type="checkbox" id="chkAutoPullDown" checked>
+                    <span class="switch-slider"></span>
+                  </label>
+                </div>
+                <div style="margin-top: 10px;">
+                  <input type="range" id="inputPullDown" min="0" max="25" value="0" step="1" class="styled-slider" style="width: 100%;">
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                  <span>0% (Default)</span>
+                  <span style="color: #FACC15; font-weight: 600;">8-14% (Safe Headroom)</span>
+                  <span>25% (Max Drop)</span>
                 </div>
               </div>
 
@@ -1640,8 +1808,8 @@
                 <div class="broll-hero-content">
                   <div class="broll-hero-icon">✨</div>
                   <div class="broll-hero-text">
-                    <strong>Auto B-Roll with Pexels</strong>
-                    <span>Automatically detects key moments in captions & inserts relevant stock video clips</span>
+                    <strong>Auto B-Roll with Coverr / Stock Library</strong>
+                    <span>Automatically detects key moments in captions & inserts relevant free stock video clips</span>
                   </div>
                 </div>
                 <div class="broll-actions-row">
@@ -1654,7 +1822,7 @@
                     <span>🎬 Auto B-Rolls Only</span>
                   </button>
                   <button type="button" id="btnTogglePexelsSearch" class="btn-subaction">
-                    <span>🔍 Search Pexels</span>
+                    <span>🔍 Search Stock Videos</span>
                   </button>
                 </div>
                 <div id="brollStatusMsg" class="broll-status-msg hidden"></div>
@@ -1663,8 +1831,8 @@
               <!-- Pexels Search Box -->
               <div class="control-card" id="brollSearchCard">
                 <div class="control-header">
-                  <label>🔍 Search Pexels Stock Videos</label>
-                  <span id="brollKeyBadge" class="val-badge badge-green">Pexels Free</span>
+                  <label>🔍 Search Coverr & Pexels Stock Videos</label>
+                  <span id="brollKeyBadge" class="val-badge badge-green">✓ Coverr Connected</span>
                 </div>
                 <div class="broll-search-row">
                   <input type="text" id="brollSearchInput" class="styled-text-input" placeholder="Search clips (e.g. money, nature, city, business)...">
@@ -1695,22 +1863,22 @@
                   <div class="broll-empty-state" id="brollEmptyState">
                     <div class="empty-icon">🎬</div>
                     <p>No B-Rolls added yet.</p>
-                    <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search Pexels above.</p>
+                    <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search stock videos above.</p>
                   </div>
                 </div>
               </div>
 
-              <!-- Pexels API Key Settings (Collapsible) -->
+              <!-- Stock Video API Key Settings (Collapsible) -->
               <div class="control-card broll-config-card">
                 <details class="broll-key-details" id="brollKeyDetails">
-                  <summary class="broll-key-summary">🔑 Pexels API Key Settings</summary>
+                  <summary class="broll-key-summary">🔑 Stock Video API Key Settings</summary>
                   <div class="broll-key-body">
                     <p class="broll-help-text">
-                      Pexels provides 100% free stock videos for your reels. Add your free Pexels API key below or use the built-in library.
-                      <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">Get free API key ↗</a>
+                      Coverr & Pexels provide 100% free stock videos for your reels. Built-in Coverr API key is pre-connected! You can also add a custom key below.
+                      <a href="https://coverr.co" target="_blank" rel="noopener">Coverr Library ↗</a> | <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">Pexels ↗</a>
                     </p>
                     <div class="broll-search-row">
-                      <input type="password" id="inputPexelsKey" class="styled-text-input" placeholder="Paste Pexels API key here...">
+                      <input type="password" id="inputPexelsKey" class="styled-text-input" placeholder="Paste Coverr or Pexels API key here...">
                       <button type="button" id="btnSavePexelsKey" class="btn-subaction">Save Key</button>
                     </div>
                     <span id="pexelsKeyStatus" class="broll-key-status"></span>
@@ -1758,6 +1926,46 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
           </span>
           <span class="nav-btn-label">Voice</span>
+        </button>
+      </nav>
+
+      <!-- CONTEXTUAL CAPTION BOTTOM BAR (Preview Tap: Back, Edit, Impact, Text, Colour, Style) -->
+      <nav class="bottom-nav-bar caption-context-nav hidden" id="captionContextNavBar">
+        <button class="bottom-nav-btn cap-context-btn" id="btnCapNavBack" title="Back to Settings">
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+          </span>
+          <span class="nav-btn-label">Back</span>
+        </button>
+        <button class="bottom-nav-btn cap-context-btn" id="btnCapNavEdit" title="Edit Caption & Words">
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+          </span>
+          <span class="nav-btn-label">Edit</span>
+        </button>
+        <button class="bottom-nav-btn cap-context-btn" id="btnCapNavImpact" title="Impact Emphasis">
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </span>
+          <span class="nav-btn-label">Impact</span>
+        </button>
+        <button class="bottom-nav-btn cap-context-btn" id="btnCapNavText" title="Font & Sizing">
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
+          </span>
+          <span class="nav-btn-label">Text</span>
+        </button>
+        <button class="bottom-nav-btn cap-context-btn" id="btnCapNavColour" title="Highlight & Base Colors">
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+          </span>
+          <span class="nav-btn-label">Colour</span>
+        </button>
+        <button class="bottom-nav-btn cap-context-btn" id="btnCapNavStyle" title="Templates & Style Presets">
+          <span class="nav-btn-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+          </span>
+          <span class="nav-btn-label">Style</span>
         </button>
       </nav>
   </main>
@@ -1973,8 +2181,25 @@
           <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
           <span>Continue with Google</span>
         </button>
+
+        <!-- Divider -->
+        <div style="display:flex; align-items:center; gap:8px; width:100%; margin:2px 0;">
+          <div style="flex:1; height:1px; background:rgba(255,255,255,0.14);"></div>
+          <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:600; text-transform:uppercase; letter-spacing:0.06em;">or sign in with email</span>
+          <div style="flex:1; height:1px; background:rgba(255,255,255,0.14);"></div>
+        </div>
+
+        <!-- Quick Email/Gmail Form (Works 100% reliably in local, test and mobile environments) -->
+        <form id="quickLoginForm" style="width:100%; display:flex; flex-direction:column; gap:10px;">
+          <input type="email" id="inputLoginEmail" placeholder="Enter your Gmail address" style="width:100%; padding:12px 14px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.20); border-radius:8px; color:#fff; font-size:14px; outline:none; box-sizing:border-box;" />
+          <input type="text" id="inputLoginName" placeholder="Your Name (Optional)" style="width:100%; padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.16); border-radius:8px; color:#fff; font-size:13px; outline:none; box-sizing:border-box;" />
+          <button type="submit" id="btnQuickLoginSubmit" class="btn-primary" style="width:100%; padding:12px; font-weight:700; border-radius:8px; font-size:14px; cursor:pointer;">
+            🚀 Sign In & Unlock Export
+          </button>
+        </form>
+
         <p style="font-size:12px; color:rgba(255,255,255,0.6); text-align:center; margin:0;">
-          🔒 Secure 1-Click login directly verified by Google. No password required.
+          🔒 Secure 1-Click login directly verified. No password required.
         </p>
       </div>
     </div>
@@ -2068,20 +2293,6 @@
           </div>
           <div class="q-check-circle">✓</div>
         </div>
-      </div>
-
-      <!-- PRICING PACKAGES STRIP AT EXPORT TIME (Rule: Transparent Pricing at Export) -->
-      <div class="export-quality-pricing-strip" style="margin: 14px 0 6px 0; padding: 12px 14px; background: rgba(139, 92, 246, 0.10); border: 1px solid rgba(139, 92, 246, 0.28); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 20px;">⚡</span>
-          <div>
-            <div style="font-size: 13px; font-weight: 700; color: #fff;">1 Export Credit Consumed</div>
-            <div style="font-size: 11px; color: #a1a1aa;">Recharge plans: ₹10 (1 Video) &bull; ₹50 (7 Videos for 7 Days)</div>
-          </div>
-        </div>
-        <button type="button" id="btnExportQualityViewPlans" class="btn-mini" style="background: rgba(255,255,255,0.12); color: #fff; font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.20); cursor: pointer; white-space: nowrap;">
-          View Plans
-        </button>
       </div>
 
       <div class="quality-modal-footer">

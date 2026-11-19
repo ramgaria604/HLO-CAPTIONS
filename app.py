@@ -277,6 +277,10 @@ def pexels_key():
     return os.environ.get("PEXELS_API_KEY") or load_config().get("pexels_key", "")
 
 
+def coverr_key():
+    return os.environ.get("COVERR_API_KEY") or load_config().get("coverr_key", "") or broll.DEFAULT_COVERR_KEY
+
+
 def probe(path):
     fp = ffprobe_path()
     if fp:
@@ -1124,18 +1128,18 @@ def auth_google():
         user_data["created_at"] = existing.get("created_at", user_data["created_at"])
 
     dev_data = load_device_credits_data()
-    email_rec = dev_data.get(email) if isinstance(dev_data.get(email), dict) else {}
+    email_rec = dev_data.get(email) if isinstance(dev_data.get(email), dict) else None
 
     # Credits tied directly to Gmail account
     credits_candidates = [
         existing.get("credits") if isinstance(existing, dict) else None,
-        email_rec.get("credits") if isinstance(email_rec, dict) else None,
+        email_rec.get("credits") if email_rec else None,
     ]
     valid_credits = [int(c) for c in credits_candidates if isinstance(c, (int, float))]
     merged_credits = max(0, valid_credits[0]) if valid_credits else 0
 
     has_legit = bool(
-        (existing and existing.get("has_paid")) or
+        existing.get("has_paid") or
         (email_rec and email_rec.get("has_paid")) or
         has_verified_credit_proof(user_email=email, user_id=user_id, dev_data=dev_data)
     )
@@ -1575,6 +1579,74 @@ def get_model(size):
     return _MODELS[size]
 
 
+def transcribe_audio_gap(audio_path, gap_start, gap_end, lang_code="hi-IN", is_hinglish=True):
+    """Failsafe recovery: transcribes unvoiced or skipped audio gaps > 2.5s using Google Speech AI."""
+    if not module_ok("speech_recognition"):
+        return []
+    import speech_recognition as sr
+    import wave
+    gap_dur = float(gap_end) - float(gap_start)
+    if gap_dur < 1.0:
+        return []
+    wav_chunk = WORK / f"gap_{uuid.uuid4().hex[:8]}.wav"
+    try:
+        subprocess.run([
+            ffmpeg_path(), "-y",
+            "-i", str(audio_path), "-ss", str(gap_start), "-to", str(gap_end), "-vn",
+            "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_chunk)
+        ], capture_output=True, check=True)
+
+        wf = wave.open(str(wav_chunk), "rb")
+        framerate = wf.getframerate()
+        num_frames = wf.getnframes()
+        raw_bytes = wf.readframes(num_frames)
+        wf.close()
+        wav_chunk.unlink(missing_ok=True)
+
+        audio_data = sr.AudioData(raw_bytes, framerate, 2)
+        r = sr.Recognizer()
+        r.energy_threshold = 45
+        r.dynamic_energy_threshold = True
+
+        txt = None
+        langs_to_try = [lang_code] if lang_code else []
+        if is_hinglish and "hi-IN" not in langs_to_try:
+            langs_to_try.append("hi-IN")
+        if "en-IN" not in langs_to_try:
+            langs_to_try.append("en-IN")
+        if "en-US" not in langs_to_try:
+            langs_to_try.append("en-US")
+
+        for l_try in langs_to_try:
+            try:
+                txt = r.recognize_google(audio_data, language=l_try)
+                if txt and txt.strip():
+                    break
+            except Exception:
+                continue
+
+        if not txt:
+            return []
+
+        tokens = [t.strip() for t in txt.split() if t.strip()]
+        if not tokens:
+            return []
+
+        token_dur = max(0.12, gap_dur / len(tokens))
+        gap_words = []
+        for j, tok in enumerate(tokens):
+            w_s = round(gap_start + j * token_dur, 3)
+            w_e = round(gap_start + (j + 1) * token_dur, 3)
+            if is_hinglish and hinglish.is_devanagari(tok):
+                tok = hinglish.devanagari_to_hinglish(tok)
+            gap_words.append((w_s, w_e, tok))
+        return gap_words
+    except Exception:
+        if wav_chunk.exists():
+            wav_chunk.unlink(missing_ok=True)
+        return []
+
+
 @app.post("/api/transcribe")
 def transcribe():
     d = request.get_json(force=True)
@@ -1582,7 +1654,7 @@ def transcribe():
         name = safe_name(d.get("filename", ""))
     except FileNotFoundError as e:
         return err(str(e), 404)
-    size = d.get("model") if d.get("model") in ("tiny", "base", "small", "medium") else "base"
+    size = d.get("model") if d.get("model") in ("tiny", "base", "small", "medium") else "small"
     raw_lang = (d.get("language") or "").strip().lower()
 
     # Intelligent language detection and Hinglish mapping
@@ -1592,7 +1664,7 @@ def transcribe():
         recognition_lang = "hi-IN"
         target_label = "Hinglish"
         whisper_lang = "hi"
-        whisper_prompt = "Transcribe in Hinglish Roman English script: dosto, video, like, subscribe, viral, ye, woh, hai, toh, ready, creator."
+        whisper_prompt = "Hinglish, Hindi, English dialogue."
     elif raw_lang in ("hi", "hi-in", "hindi"):
         is_hinglish = False
         recognition_lang = "hi-IN"
@@ -1604,13 +1676,13 @@ def transcribe():
         recognition_lang = "en-US"
         target_label = "Auto Detect"
         whisper_lang = None
-        whisper_prompt = "High accuracy transcription with clean punctuation and Hinglish: dosto, video, viral, creator."
+        whisper_prompt = "Hinglish, Hindi, English casual dialogue."
     elif raw_lang in ("en", "en-us", "english"):
         is_hinglish = False
         recognition_lang = "en-US"
         target_label = "English (US)"
         whisper_lang = "en"
-        whisper_prompt = "English dialogue with clean punctuation."
+        whisper_prompt = "English dialogue."
     elif raw_lang in ("en-gb", "uk"):
         is_hinglish = False
         recognition_lang = "en-GB"
@@ -1667,41 +1739,36 @@ def transcribe():
     groq_key = (os.environ.get("GROQ_API_KEY") or d.get("groq_api_key") or _DEFAULT_GROQ_KEY).strip()
     groq_model = d.get("groq_model") or os.environ.get("GROQ_MODEL")
     if groq_model not in ("whisper-large-v3", "whisper-large-v3-turbo"):
-        groq_model = "whisper-large-v3-turbo"
-    groq_engine_name = "Groq Whisper Large v3 Turbo" if groq_model.endswith("-turbo") else "Groq Whisper Large v3"
+        groq_model = "whisper-large-v3"
+    groq_engine_name = "Groq Whisper Large v3" if groq_model == "whisper-large-v3" else "Groq Whisper Large v3 Turbo"
     if groq_key:
         audio_for_groq = WORK / f"{name}_groq.mp3"
         try:
-            try:
-                subprocess.run([
-                    ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
-                    "-af", "dynaudnorm=f=75:g=15:m=10.0,highpass=f=80,lowpass=f=7500,volume=1.5",
-                    "-ar", "16000", "-ac", "1", "-b:a", "64k", str(audio_for_groq)
-                ], capture_output=True, check=True)
-            except Exception:
-                subprocess.run([
-                    ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
-                    "-ar", "16000", "-ac", "1", "-b:a", "64k", str(audio_for_groq)
-                ], capture_output=True, check=True)
+            # Clean vocal extraction: clean 16kHz resampling + 2.0s trailing padding (no distortion/rumble)
+            subprocess.run([
+                ffmpeg_path(), "-y", "-threads", "0", "-i", str(WORK / name), "-vn",
+                "-af", "aresample=16000,apad=pad_dur=2.0",
+                "-ar", "16000", "-ac", "1", "-b:a", "128k", str(audio_for_groq)
+            ], capture_output=True, check=True)
 
             with open(audio_for_groq, "rb") as af:
-                post_data = [
-                    ("model", groq_model),
-                    ("response_format", "verbose_json"),
-                    ("timestamp_granularities[]", "word"),
-                    ("timestamp_granularities[]", "segment"),
-                ]
-                if whisper_lang:
-                    post_data.append(("language", whisper_lang))
-                if whisper_prompt:
-                    post_data.append(("prompt", whisper_prompt))
-
+                current_groq_model = groq_model
                 headers = {"Authorization": f"Bearer {groq_key}"}
                 import requests, time
                 groq_resp = None
                 for attempt in range(2):
                     af.seek(0)
                     files = {"file": (f"{name}.mp3", af, "audio/mpeg")}
+                    post_data = [
+                        ("model", current_groq_model),
+                        ("response_format", "verbose_json"),
+                        ("timestamp_granularities[]", "word"),
+                        ("timestamp_granularities[]", "segment"),
+                    ]
+                    if whisper_lang:
+                        post_data.append(("language", whisper_lang))
+                    if whisper_prompt:
+                        post_data.append(("prompt", whisper_prompt))
                     try:
                         groq_resp = requests.post(
                             "https://api.groq.com/openai/v1/audio/transcriptions",
@@ -1713,11 +1780,13 @@ def transcribe():
                         if groq_resp.ok:
                             break
                         if groq_resp.status_code in (429, 500, 502, 503, 504) and attempt == 0:
-                            time.sleep(2)
+                            current_groq_model = "whisper-large-v3" if current_groq_model.endswith("-turbo") else "whisper-large-v3-turbo"
+                            time.sleep(1.5)
                             continue
                     except (requests.Timeout, requests.RequestException):
                         if attempt == 0:
-                            time.sleep(2)
+                            current_groq_model = "whisper-large-v3" if current_groq_model.endswith("-turbo") else "whisper-large-v3-turbo"
+                            time.sleep(1.5)
                             continue
                         break
 
@@ -1743,27 +1812,31 @@ def transcribe():
                         if t:
                             if is_hinglish and hinglish.is_devanagari(t):
                                 t = hinglish.devanagari_to_hinglish(t)
+                            t = hinglish.standardize_spelling(t)
                             words.append((float(w.get("start", 0)), float(w.get("end", 0)), t))
 
-                    # Crucial: Ensure NO segments across the full video are skipped even if word timestamps ended early
+                    # If raw_words missed words in a segment, recover that segment's tokens smoothly across its duration
                     for seg in res_json.get("segments", []):
                         s_start = float(seg.get("start", 0))
                         s_end = float(seg.get("end", s_start + 1.0))
                         seg_text = (seg.get("text") or "").strip()
                         if not seg_text:
                             continue
-                        # If no words exist inside this segment's duration, parse its tokens
-                        has_words = any(s_start <= w[0] < s_end for w in words)
-                        if not has_words:
-                            seg_tokens = seg_text.split()
-                            if seg_tokens:
-                                dur_per_token = max(0.08, (s_end - s_start) / len(seg_tokens))
-                                for idx_t, tok in enumerate(seg_tokens):
-                                    w_s = round(s_start + idx_t * dur_per_token, 3)
-                                    w_e = round(s_start + (idx_t + 1) * dur_per_token, 3)
-                                    if is_hinglish and hinglish.is_devanagari(tok):
-                                        tok = hinglish.devanagari_to_hinglish(tok)
-                                    words.append((w_s, w_e, tok))
+                        seg_tokens = [t.strip() for t in seg_text.split() if t.strip()]
+                        if not seg_tokens:
+                            continue
+                        seg_words = [w for w in words if (s_start - 0.05) <= w[0] < (s_end + 0.05)]
+                        # If word-level timestamps dropped more than 30% of this segment's words:
+                        if len(seg_words) < len(seg_tokens) * 0.7:
+                            words = [w for w in words if not (s_start <= w[0] < s_end)]
+                            dur_per_token = max(0.12, (s_end - s_start) / len(seg_tokens))
+                            for idx_t, tok in enumerate(seg_tokens):
+                                w_s = round(s_start + idx_t * dur_per_token, 3)
+                                w_e = round(s_start + (idx_t + 1) * dur_per_token, 3)
+                                if is_hinglish and hinglish.is_devanagari(tok):
+                                    tok = hinglish.devanagari_to_hinglish(tok)
+                                tok = hinglish.standardize_spelling(tok)
+                                words.append((w_s, w_e, tok))
 
                     if not words and res_json.get("text"):
                         full_text = res_json.get("text", "")
@@ -1779,9 +1852,44 @@ def transcribe():
                                 w_e = round((idx_t + 1) * token_dur, 3)
                                 if is_hinglish and hinglish.is_devanagari(tok):
                                     tok = hinglish.devanagari_to_hinglish(tok)
+                                tok = hinglish.standardize_spelling(tok)
                                 words.append((w_s, w_e, tok))
 
                     words.sort(key=lambda x: x[0])
+
+                    # Failsafe: check for any wide audio gaps (> 2.8s) where speech might have been skipped
+                    gap_fillers = []
+                    for idx_g in range(len(words) - 1):
+                        g_start = words[idx_g][1]
+                        g_end = words[idx_g + 1][0]
+                        if (g_end - g_start) > 2.8:
+                            recovered = transcribe_audio_gap(WORK / name, g_start, g_end,
+                                                             lang_code=recognition_lang, is_hinglish=is_hinglish)
+                            if recovered:
+                                gap_fillers.extend(recovered)
+
+                    if words:
+                        first_s = words[0][0]
+                        if first_s > 3.0:
+                            recovered = transcribe_audio_gap(WORK / name, 0.0, first_s,
+                                                             lang_code=recognition_lang, is_hinglish=is_hinglish)
+                            if recovered:
+                                gap_fillers.extend(recovered)
+                        last_e = words[-1][1]
+                        try:
+                            vid_dur = float(probe(WORK / name).get("duration") or (last_e + 1.0))
+                            if (vid_dur - last_e) > 3.0:
+                                recovered = transcribe_audio_gap(WORK / name, last_e, vid_dur,
+                                                                 lang_code=recognition_lang, is_hinglish=is_hinglish)
+                                if recovered:
+                                    gap_fillers.extend(recovered)
+                        except Exception:
+                            pass
+
+                    if gap_fillers:
+                        words.extend(gap_fillers)
+                        words.sort(key=lambda x: x[0])
+
                     if words:
                         transcription_engine = groq_engine_name
         except Exception as groq_err:
@@ -1804,12 +1912,40 @@ def transcribe():
                 initial_prompt=whisper_prompt, condition_on_previous_text=True
             )
             for seg in segs:
-                for w in seg.words or []:
-                    t = w.word.strip()
+                seg_text = (seg.text or "").strip()
+                tokens = [t.strip() for t in seg_text.split() if t.strip()]
+                seg_words = seg.words or []
+                valid_w = []
+                for w in seg_words:
+                    t = (w.word or "").strip()
                     if t:
-                        if is_hinglish and hinglish.is_devanagari(t):
-                            t = hinglish.devanagari_to_hinglish(t)
-                        words.append((float(w.start), float(w.end), t))
+                        valid_w.append((float(w.start), float(w.end), t))
+
+                if len(valid_w) == len(tokens):
+                    for ws, we, wt in valid_w:
+                        if is_hinglish and hinglish.is_devanagari(wt):
+                            wt = hinglish.devanagari_to_hinglish(wt)
+                        words.append((ws, we, wt))
+                elif len(valid_w) > 0:
+                    for ws, we, wt in valid_w:
+                        if is_hinglish and hinglish.is_devanagari(wt):
+                            wt = hinglish.devanagari_to_hinglish(wt)
+                        words.append((ws, we, wt))
+                    missing = tokens[len(valid_w):]
+                    tail_start = max(float(seg.start), valid_w[-1][1])
+                    tail_end = max(tail_start + 0.25, float(seg.end))
+                    step = (tail_end - tail_start) / len(missing)
+                    for idx_m, m_tok in enumerate(missing):
+                        if is_hinglish and hinglish.is_devanagari(m_tok):
+                            m_tok = hinglish.devanagari_to_hinglish(m_tok)
+                        words.append((round(tail_start + idx_m * step, 3), round(tail_start + (idx_m + 1) * step, 3), m_tok))
+                elif tokens:
+                    dur = max(0.2, float(seg.end) - float(seg.start))
+                    step = dur / len(tokens)
+                    for idx_t, tok in enumerate(tokens):
+                        if is_hinglish and hinglish.is_devanagari(tok):
+                            tok = hinglish.devanagari_to_hinglish(tok)
+                        words.append((round(float(seg.start) + idx_t * step, 3), round(float(seg.start) + (idx_t + 1) * step, 3), tok))
             if hasattr(info, "language"):
                 detected_lang = target_label if is_hinglish else info.language
             if words:
@@ -1821,18 +1957,11 @@ def transcribe():
     if not words and module_ok("speech_recognition"):
         wav_path = WORK / f"{name}_speech.wav"
         try:
-            # Extract vocal track with dynamic audio normalization, voice frequency pass & clarity gain
-            try:
-                subprocess.run([
-                    ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
-                    "-af", "dynaudnorm=f=75:g=15:m=10.0,highpass=f=80,lowpass=f=7500,volume=1.6",
-                    "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_path)
-                ], capture_output=True, check=True)
-            except Exception:
-                subprocess.run([
-                    ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
-                    "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_path)
-                ], capture_output=True, check=True)
+            # Extract vocal track directly without delay-causing filter buffers
+            subprocess.run([
+                ffmpeg_path(), "-y", "-i", str(WORK / name), "-vn",
+                "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", str(wav_path)
+            ], capture_output=True, check=True)
 
             import speech_recognition as sr
             import wave, math, struct
@@ -2043,16 +2172,25 @@ def silence():
 # ------------------------------------------------------------------ b-roll
 @app.get("/api/broll/config")
 def broll_get_config():
-    return jsonify(has_key=bool(pexels_key()))
+    p_key = pexels_key()
+    c_key = coverr_key()
+    has_key = bool(p_key or c_key)
+    provider = "pexels" if p_key else "coverr"
+    return jsonify(has_key=has_key, provider=provider, coverr_active=bool(c_key), pexels_active=bool(p_key))
 
 
 @app.post("/api/broll/config")
 def broll_config():
-    key = str((request.get_json(force=True) or {}).get("key", "")).strip()
+    d = request.get_json(force=True) or {}
+    key = str(d.get("key", "")).strip()
+    provider = str(d.get("provider", "")).strip().lower()
     if not re.fullmatch(r"[A-Za-z0-9_\-]{20,120}", key):
-        return err("That does not look like a Pexels API key.")
+        return err("That does not look like a valid API key.")
     cfg = load_config()
-    cfg["pexels_key"] = key
+    if provider == "coverr" or len(key) == 32:
+        cfg["coverr_key"] = key
+    else:
+        cfg["pexels_key"] = key
     CONFIG.write_text(json.dumps(cfg), encoding="utf-8")
     return jsonify(ok=True)
 
@@ -2304,6 +2442,21 @@ def broll_suggest():
     return jsonify(slots=slots)
 
 
+@app.post("/api/broll/auto_generate")
+def broll_auto_generate():
+    d = request.get_json(force=True) or {}
+    captions = d.get("captions", [])
+    duration = float(d.get("duration", 0))
+    orient = d.get("orientation") if d.get("orientation") in ("portrait", "landscape", "square") else "portrait"
+    max_slots = int(d.get("max_slots", 6))
+    key = coverr_key()
+    try:
+        brolls = broll.auto_generate_brolls(captions, duration, key=key, orientation=orient, max_slots=max_slots)
+        return jsonify(brolls=brolls, count=len(brolls))
+    except Exception as exc:
+        return err(f"Auto B-roll error: {str(exc)}", 500)
+
+
 @app.post("/api/broll/search")
 def broll_search():
     d = request.get_json(force=True)
@@ -2311,13 +2464,14 @@ def broll_search():
     if not q:
         return err("Type what you want to search for.")
     orient = d.get("orientation") if d.get("orientation") in ("portrait", "landscape", "square") else "portrait"
-    key = str(d.get("key", "")).strip() or pexels_key()
+    provider = str(d.get("provider", "auto")).lower()
+    key = str(d.get("key", "")).strip() or (coverr_key() if provider == "coverr" else (pexels_key() or coverr_key()))
     try:
-        return jsonify(results=broll.search(q, key, orient))
+        return jsonify(results=broll.search(q, key, orient, provider=provider))
     except RuntimeError as e:
         return err(str(e), 502)
     except Exception as e:
-        return err(f"Could not reach Pexels: {str(e)}", 502)
+        return err(f"Could not reach stock video provider: {str(e)}", 502)
 
 
 # ------------------------------------------------------------------ studio voice enhancer
@@ -2394,8 +2548,24 @@ def cut_filter(keep, W, H, fps, zoom, has_audio):
     return ";".join(parts)
 
 
-def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None, front_ass_name=None):
-    parts = [f"[0:v]scale={W}:{H},setsar=1,format=yuv420p[base0]"]
+def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None, front_ass_name=None, pull_down_y=0.0, zoom_val=1.0):
+    if pull_down_y and pull_down_y > 0.001:
+        eff_zoom = max(zoom_val, 1.0 + pull_down_y * 2.1)
+        scaled_w = int(round(W * eff_zoom))
+        scaled_w = scaled_w if scaled_w % 2 == 0 else scaled_w + 1
+        scaled_h = int(round(H * eff_zoom))
+        scaled_h = scaled_h if scaled_h % 2 == 0 else scaled_h + 1
+        crop_x = int(round((scaled_w - W) / 2.0))
+        crop_x = crop_x if crop_x % 2 == 0 else crop_x - 1
+        crop_y_center = int(round((scaled_h - H) / 2.0))
+        offset = int(round(H * pull_down_y))
+        crop_y = max(0, min(scaled_h - H, crop_y_center - offset))
+        crop_y = crop_y if crop_y % 2 == 0 else crop_y - 1
+        crop_y = max(0, crop_y)
+        parts = [f"[0:v]scale={scaled_w}:{scaled_h},crop={W}:{H}:{crop_x}:{crop_y},setsar=1,format=yuv420p[base0]"]
+    else:
+        scaled_w, scaled_h, crop_x, crop_y = W, H, 0, 0
+        parts = [f"[0:v]scale={W}:{H},setsar=1,format=yuv420p[base0]"]
     for i, b in enumerate(brolls):
         s, e = b["start"], b["end"]
         layout = b.get("layout", "full")
@@ -2439,7 +2609,10 @@ def overlay_filter(W, H, fps, brolls, ass_name, person_name=None, duration=None,
         # Behind person mode: hero keyword on background, person cutout on top, front subtitles on top of person
         parts.append(f"[{last}]ass={ass_name}:fontsdir=fonts[captioned]")
         person_input = 1 + len(brolls)
-        parts.append(f"[{person_input}:v]fps={fps},scale={W}:{H},setsar=1,format=rgba[person]")
+        if pull_down_y and pull_down_y > 0.001:
+            parts.append(f"[{person_input}:v]fps={fps},scale={scaled_w}:{scaled_h},crop={W}:{H}:{crop_x}:{crop_y},setsar=1,format=rgba[person]")
+        else:
+            parts.append(f"[{person_input}:v]fps={fps},scale={W}:{H},setsar=1,format=rgba[person]")
         parts.append("[captioned][person]overlay=shortest=1:format=auto[subject]")
     elif ass_name:
         parts.append(f"[{last}]ass={ass_name}:fontsdir=fonts[subject]")
@@ -2554,8 +2727,10 @@ def export_worker(job_id, d):
                 (d.get("style") or {}).get("behindPerson") or
                 (d.get("style") or {}).get("behind_person")
             )
+            pull_down_y = float(d.get("pullDownY", 0.0) or (d.get("style") or {}).get("pullDownY", 0.0) or 0.0)
+            zoom_val = float(d.get("videoZoom", 1.0) or (1.0 + pull_down_y * 2.1))
             is_remotion = requested_engine == "remotion" or (
-                requested_engine != "ffmpeg" and is_remotion_available() and (bool(d.get("is_remotion")) or (preset_id in REMOTION_PRESET_IDS and not is_behind))
+                requested_engine != "ffmpeg" and is_remotion_available() and (bool(d.get("is_remotion")) or (preset_id in REMOTION_PRESET_IDS and not is_behind and not (pull_down_y > 0.001)))
             )
 
             if is_remotion:
@@ -2666,7 +2841,7 @@ def export_worker(job_id, d):
                 # Streamlined fast ASS caption generation (behind-person cutout removed per user request)
                 ass_name = f"{job_id}.ass"
                 temp.append(WORK / ass_name)
-                if st.get("layout") == "stack" or st.get("isDuo") or st.get("isSpecial"):
+                if st.get("layout") in ("stack", "side_by_side") or st.get("sideBySideDepth") or st.get("isDuo") or st.get("isSpecial"):
                     (WORK / ass_name).write_text(stylelib.build_stack_ass(caps, st, W, H, layer_filter="all"), encoding="utf-8")
                 else:
                     (WORK / ass_name).write_text(stylelib.build_ass(caps, st, W, H), encoding="utf-8")
@@ -2722,7 +2897,7 @@ def export_worker(job_id, d):
                     g["end"] = remap(float(g["end"]))
 
             # Build overlay filter
-            base_filter = overlay_filter(W, H, fps, brolls, ass_name, person_name, cur_duration, front_ass_name)
+            base_filter = overlay_filter(W, H, fps, brolls, ass_name, person_name, cur_duration, front_ass_name, pull_down_y=pull_down_y, zoom_val=zoom_val)
 
             final_v = "[vout]"
             if graphics:

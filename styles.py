@@ -107,15 +107,30 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.85, max_len=3.4):
     """Group timed words into plain-text captions with seamless gap-closing and no misplaced words."""
     caps, cur = [], []
 
+    # Sanitize and clamp all word durations: no single spoken word ever exceeds 0.85s or overlaps next word
+    clamped_input_words = []
+    for idx_w, w in enumerate(words):
+        ws = float(w[0])
+        we = float(w[1])
+        wt = str(w[2]).strip()
+        if not wt:
+            continue
+        next_s = float(words[idx_w + 1][0]) if (idx_w + 1 < len(words)) else (ws + 0.85)
+        max_allowed_e = min(ws + 0.85, max(ws + 0.1, next_s))
+        we = min(we, max_allowed_e)
+        if we <= ws:
+            we = ws + 0.2
+        clamped_input_words.append((round(ws, 3), round(we, 3), wt))
+
     # Filter out immediate duplicate stutters (e.g. "tum tum", "the the")
     clean_words = []
-    for w in words:
+    for w in clamped_input_words:
         wt = str(w[2]).strip()
         if clean_words:
             prev_wt = str(clean_words[-1][2]).strip()
             # If identical word spoken within 0.7s of each other, merge into one
             if wt.lower() == prev_wt.lower() and (w[0] - clean_words[-1][1]) <= 0.7:
-                clean_words[-1] = (clean_words[-1][0], max(clean_words[-1][1], w[1]), clean_words[-1][2])
+                clean_words[-1] = (clean_words[-1][0], min(clean_words[-1][0] + 0.85, max(clean_words[-1][1], w[1])), clean_words[-1][2])
                 continue
         clean_words.append(w)
 
@@ -133,15 +148,6 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.85, max_len=3.4):
                           "end": round(word[1], 2), "e": round(word[1], 2)}
                          for word, token in zip(cur, toks) if token["t"]]
 
-        # Prevent misplaced orphan 1-word captions by merging with preceding caption if appropriate
-        if len(caption_words) == 1 and caps and len(caps[-1]["words"]) < 4:
-            prev = caps[-1]
-            prev["words"].extend(caption_words)
-            prev["text"] = prev["text"] + " " + text
-            prev["end"] = round(cur[-1][1], 2)
-            prev["wt"].extend([[round(w[0], 2), round(w[1], 2)] for w in cur])
-            return
-
         caps.append({"id": len(caps) + 1, "start": round(cur[0][0], 2), "end": round(cur[-1][1], 2),
                      "text": text, "words": caption_words,
                      "wt": [[round(w[0], 2), round(w[1], 2)] for w in cur]})
@@ -158,12 +164,14 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.85, max_len=3.4):
             cur = []
     flush()
 
-    # Seamless gap-closing: keep caption container visible between sentences
-    # but do NOT stretch the word's own pronunciation boundary artificially
+    # Enforce non-overlapping boundaries so no caption can EVER swallow or delete the next caption!
     for i in range(len(caps) - 1):
-        inter_gap = caps[i + 1]["start"] - caps[i]["end"]
-        if 0 < inter_gap <= 0.75:
+        if caps[i]["end"] > caps[i + 1]["start"]:
             caps[i]["end"] = caps[i + 1]["start"]
+        else:
+            inter_gap = caps[i + 1]["start"] - caps[i]["end"]
+            if 0 < inter_gap <= 0.85:
+                caps[i]["end"] = caps[i + 1]["start"]
 
     return caps
 
@@ -574,16 +582,17 @@ def load_presets():
                     "animation": accent.get("enter", "slide-up"),
                     "wordsPerCaption": int(p.get("wordsPerPage", 3)),
                     "maxKeys": int(p.get("maxKeys", 1)),
-                    "position": (0.18 if is_behind
+                    "position": (float(p.get("position", 0.18)) if is_behind
                                   else (float(p["position"]) if "position" in p else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48)))),
                     "posCycle": None if is_behind else p.get("posCycle"),
                     "behindPerson": is_behind,
                     "depthAccent": is_behind,
-                    "depthAccentSize": round(_safe_float(accent.get("size", 230)) / 1080.0, 3) if _safe_float(accent.get("size", 230)) > 1.0 else round(_safe_float(accent.get("size", 0.088), 0.088), 3),
-                    "topY": top_y if is_behind else 0.10,
-                    "depthAccentY": 0.18 if is_behind else preset_y,
-                    "subtitlePosition": 0.72 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))),
-                    "subtitleSize": round(_safe_float(base.get("size", 62)) / 1080.0, 3) if _safe_float(base.get("size", 62)) > 1.0 else round(_safe_float(base.get("size", 0.044), 0.044), 3),
+                    "dualPlaneHero": bool(p.get("dualPlaneHero", False)),
+                    "depthAccentSize": round(_safe_float(p.get("depthAccentSize") or accent.get("size", 230)) / 1080.0, 3) if _safe_float(accent.get("size", 230)) > 1.0 else round(_safe_float(p.get("depthAccentSize") or accent.get("size", 0.088), 0.088), 3),
+                    "topY": float(p.get("topY", top_y if is_behind else 0.10)),
+                    "depthAccentY": float(p.get("depthAccentY", 0.18 if is_behind else preset_y)),
+                    "subtitlePosition": float(p.get("subtitlePosition", 0.72 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))))),
+                    "subtitleSize": round(_safe_float(p.get("subtitleSize") or base.get("size", 62)) / 1080.0, 3) if _safe_float(base.get("size", 62)) > 1.0 else round(_safe_float(p.get("subtitleSize") or base.get("size", 0.044), 0.044), 3),
                     "blend": p.get("blend", "screen"),
                     "blendMode": p.get("blend", "screen"),
                     "highlightColor": accent_color,
@@ -636,6 +645,7 @@ def load_presets():
                     "chromeLiquid", "tornZine", "acidVoltTicker",
                     "porcelainRibbon", "holoAuraPill", "analogFilmStrip",
                     "wordRiseCascade", "velvetSpotlight", "prismTileKinetic",
+                    "editorialZineDynamic",
                 ):
                     if p.get(_flag):
                         duo_item[_flag] = True
@@ -758,6 +768,74 @@ def load_presets():
     }
     out.insert(0, sufi_item)
 
+    # Side-by-Side Head Framing & Depth Preset (Reference Video 1:1)
+    side_by_side_item = {
+        "id": "side_by_side_depth",
+        "name": "Side-by-Side Head Framing ⚡",
+        "category": "behind",
+        "mode": "emphasis",
+        "layout": "side_by_side",
+        "animation": "pop",
+        "wordsPerCaption": 3,
+        "maxKeys": 1,
+        "position": 0.46,
+        "behindPerson": True,
+        "depthAccent": True,
+        "sideBySideDepth": True,
+        "highlightColor": "#FFE600",
+        "textColor": "#FFFFFF",
+        "baseColor": "#FFFFFF",
+        "fontFamily": "Montserrat",
+        "fontScale": 1.0,
+        "depthAccentY": 0.23,
+        "subtitlePosition": 0.46,
+        "hollowRight": True,
+        "previewWord": "BACHELORS DEGREE",
+        "badge": "⚡ SIDE-BY-SIDE",
+        "badgeTextColor": "#FFE600",
+        "roles": {
+            "accent": {
+                "font": "Montserrat",
+                "color": "#FFE600",
+                "layer": "behind",
+                "bold": True,
+                "weight": 900,
+                "shadow": 0.08,
+                "shadowColor": "#000000"
+            },
+            "base": {
+                "font": "Montserrat",
+                "color": "#FFFFFF",
+                "layer": "front",
+                "bold": True,
+                "weight": 700,
+                "shadow": 0.06,
+                "shadowColor": "#000000"
+            }
+        },
+        "key": {
+            "font": "Montserrat",
+            "size": 0.13,
+            "color": "#FFE600",
+            "bold": True,
+            "weight": 900,
+            "italic": False,
+            "shadow": 0.08,
+            "shadowColor": "#000000"
+        },
+        "filler": {
+            "font": "Montserrat",
+            "size": 0.05,
+            "color": "#FFFFFF",
+            "bold": True,
+            "weight": 700,
+            "italic": False,
+            "shadow": 0.06,
+            "shadowColor": "#000000"
+        }
+    }
+    out.insert(0, side_by_side_item)
+
     return out
 
 
@@ -789,17 +867,22 @@ def _text(v, default, n=60):
 
 def clean_role(r, d):
     r = r or {}
+    d = d or {}
     out = {
-        "font": _text(r.get("font"), d["font"]), "fallback": _text(r.get("fallback"), d["fallback"]),
-        "size": _num(r.get("size"), 0.02, 0.30, d["size"]),
-        "color": r.get("color") or d["color"],
-        "outline": _num(r.get("outline"), 0, 0.25, d["outline"]),
-        "outlineColor": r.get("outlineColor") or d["outlineColor"],
-        "glow": r.get("glow") or d["glow"], "glowSize": _num(r.get("glowSize"), 0, 0.25, d["glowSize"]),
-        "shadow": _num(r.get("shadow"), 0, 0.2, d["shadow"]),
-        "shadowColor": r.get("shadowColor") or d["shadowColor"],
+        "font": _text(r.get("font"), d.get("font", "Arial")),
+        "fallback": _text(r.get("fallback"), d.get("fallback", "Arial")),
+        "size": _num(r.get("size"), 0.02, 0.30, d.get("size", 0.08)),
+        "color": r.get("color") or d.get("color", "#FFFFFF"),
+        "outline": _num(r.get("outline"), 0, 0.25, d.get("outline", 0)),
+        "outlineColor": r.get("outlineColor") or d.get("outlineColor", "#000000"),
+        "glow": r.get("glow") or d.get("glow", "#FFFFFF"),
+        "glowSize": _num(r.get("glowSize"), 0, 0.25, d.get("glowSize", 0)),
+        "shadow": _num(r.get("shadow"), 0, 0.2, d.get("shadow", 0)),
+        "shadowColor": r.get("shadowColor") or d.get("shadowColor", "#000000"),
         "track": float(_num(r.get("track"), -0.5, 0.5, 0.0)),
-        "italic": bool(r.get("italic")), "bold": bool(r.get("bold")), "upper": bool(r.get("upper")),
+        "italic": bool(r.get("italic")),
+        "bold": bool(r.get("bold")),
+        "upper": bool(r.get("upper")),
     }
     if "keyGradient" in r:
         out["keyGradient"] = r["keyGradient"]
@@ -845,7 +928,7 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
-        "layout": s.get("layout") if s.get("layout") in ("stack", "line") else ("stack" if s.get("isDuo") else "line"),
+        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side") else ("stack" if s.get("isDuo") else "line"),
         "animation": anim,
         "anim": anim,
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",
@@ -853,6 +936,10 @@ def clean_style(s):
         "maxKeys": int(_num(s.get("maxKeys"), 0, 3, 1)),
         "position": _num(s.get("position"), 0.1, 0.95, 0.68),
         "opacity": _num(s.get("opacity"), 0.4, 1.0, 1.0),
+        "sideBySideDepth": bool(s.get("sideBySideDepth", False)),
+        "hollowRight": bool(s.get("hollowRight", True)),
+        "depthAccentY": float(s.get("depthAccentY", 0.23)) if s.get("depthAccentY") is not None else 0.23,
+        "subtitlePosition": float(s.get("subtitlePosition", 0.46)) if s.get("subtitlePosition") is not None else 0.46,
         "highlightColor": s.get("highlightColor") or key_role.get("color") or "#FFE600",
         "baseColor": s.get("baseColor") or filler_role.get("color") or "#FFFFFF",
         "_customColorActive": bool(s.get("_customColorActive", False)),
@@ -1244,6 +1331,16 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
     norm_caps = []
     for c in captions:
         w_list = c.get("words", [])
+        if not w_list and c.get("text"):
+            toks = [t for t in c.get("text", "").split() if t]
+            dur = max(0.5, float(c.get("end", 1)) - float(c.get("start", 0)))
+            step = dur / max(1, len(toks))
+            w_list = [{
+                "t": t, "word": t,
+                "s": float(c.get("start", 0)) + i * step,
+                "e": float(c.get("start", 0)) + (i + 1) * step,
+                "key": (i == 0)
+            } for i, t in enumerate(toks)]
         if not w_list:
             continue
         clean_w = []
@@ -1262,7 +1359,8 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             "start": float(c.get("start", 0)),
             "end": float(c.get("end", 0)),
             "words": clean_w,
-            "text": c.get("text", "")
+            "text": c.get("text", ""),
+            "cardVariant": c.get("cardVariant")
         })
     caps = sorted(norm_caps, key=lambda c: c["start"])
     rows = []
@@ -1320,45 +1418,192 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             ("(behind)" in str(style.get("name", "")).lower())
         )
 
+        if style.get("id") == "side_by_side_depth" or style.get("layout") == "side_by_side" or style.get("sideBySideDepth"):
+            # Bilateral Side-by-Side Head Framing (Reference Video 1:1)
+            clean_tokens = [re.sub(r"[^\w$€£%.,'-]", "", str(w.get("t") or w.get("word") or "")).strip() for w in words]
+            clean_tokens = [t for t in clean_tokens if t]
+            if not clean_tokens:
+                continue
+
+            CONNECTORS = {"a", "an", "the", "my", "your", "his", "her", "our", "their", "and", "or", "but", "so", "is", "not", "said", "get", "got", "he", "she", "we", "they", "in", "to", "for", "on", "at", "by", "from"}
+
+            conn_txt = ""
+            left_txt = ""
+            right_txt = ""
+
+            if len(clean_tokens) == 1:
+                t = clean_tokens[0]
+                if "/" in t:
+                    parts = t.split("/", 1)
+                    left_txt, right_txt = parts[0], parts[1]
+                elif len(t) >= 6 and not any(c.isdigit() for c in t):
+                    mid = len(t) // 2
+                    left_txt = t[:mid]
+                    right_txt = t[mid:]
+                elif any(c.isdigit() for c in t) and any(c.isalpha() for c in t):
+                    m = re.match(r"^(\D*)(\d+)(\D*)$", t)
+                    if m:
+                        left_txt = m.group(1) + m.group(2)
+                        right_txt = m.group(3) if m.group(3) else ""
+                    else:
+                        left_txt = t
+                else:
+                    left_txt = t
+            elif len(clean_tokens) == 2:
+                left_txt = clean_tokens[0]
+                right_txt = clean_tokens[1]
+            elif len(clean_tokens) == 3:
+                if clean_tokens[0].lower() in CONNECTORS:
+                    conn_txt = clean_tokens[0]
+                    left_txt = clean_tokens[1]
+                    right_txt = clean_tokens[2]
+                else:
+                    left_txt = clean_tokens[0]
+                    right_txt = clean_tokens[1] + " " + clean_tokens[2]
+            else:
+                start_i = 0
+                if clean_tokens[0].lower() in CONNECTORS:
+                    conn_txt = clean_tokens[0]
+                    start_i = 1
+
+                key_indices = [ki for ki, kw in enumerate(words) if kw.get("key")]
+                if len(key_indices) >= 2:
+                    left_txt = clean_tokens[key_indices[0]]
+                    right_txt = clean_tokens[key_indices[1]]
+                elif len(key_indices) == 1:
+                    ki = key_indices[0]
+                    left_txt = clean_tokens[ki]
+                    right_txt = clean_tokens[ki+1] if ki+1 < len(clean_tokens) else (clean_tokens[ki-1] if ki > 0 else "")
+                else:
+                    sub_toks = clean_tokens[start_i:]
+                    sorted_toks = sorted(enumerate(sub_toks), key=lambda x: (any(c.isdigit() for c in x[1]), len(x[1])), reverse=True)
+                    if len(sorted_toks) >= 2:
+                        idx1 = sorted_toks[0][0]
+                        idx2 = sorted_toks[1][0]
+                        if idx1 > idx2:
+                            idx1, idx2 = idx2, idx1
+                        left_txt = sub_toks[idx1]
+                        right_txt = sub_toks[idx2]
+                    else:
+                        left_txt = sub_toks[0] if sub_toks else clean_tokens[0]
+                        right_txt = sub_toks[1] if len(sub_toks) > 1 else ""
+
+            up = lambda x: x.upper() if uppercase else x
+            left_txt = up(left_txt)
+            right_txt = up(right_txt)
+            conn_txt = up(conn_txt)
+            sub_text = " ".join(up(w.get("t") or w.get("word") or "") for w in words)
+
+            hl_col = style.get("highlightColor") or "#FFE600"
+            base_col = style.get("baseColor") or "#FFFFFF"
+
+            accent_font_file = find_font_file(accent_role)
+            base_font_file = find_font_file(base_role)
+            accent_font_name, accent_ratio = get_ass_font_info(accent_font_file)
+            base_font_name, base_ratio = get_ass_font_info(base_font_file)
+
+            font_scale = float(style.get("fontScale") or 1.0)
+            wing_size_raw = H * 0.125 * font_scale
+            if len(left_txt) > 5:
+                wing_size_raw *= (5.0 / len(left_txt))
+            wing_fs = max(24.0, wing_size_raw * accent_ratio)
+            conn_fs = max(14.0, wing_fs * 0.32)
+            sub_fs = max(18.0, H * 0.046 * font_scale * base_ratio)
+
+            left_x = round(W * 0.22)
+            right_x = round(W * 0.78)
+            wing_y = round(H * float(style.get("depthAccentY", 0.23)))
+            sub_x = round(W * 0.50)
+            sub_y = round(H * float(style.get("subtitlePosition", 0.46)))
+            conn_y = round(wing_y - wing_fs * 0.54)
+            conn_x = round(left_x - wing_fs * 0.15)
+
+            st_ts = ts(ev_start)
+            et_ts = ts(ev_end)
+
+            anim_tags = r"\fscx88\fscy88\alpha&HFF&\t(0,40,\alpha&H00&)\t(0,200,0.4,\fscx100\fscy100)"
+
+            if layer_filter in ("depth", "all"):
+                left_tags = f"\\an5\\pos({left_x},{wing_y})\\fn{accent_font_name}\\fs{wing_fs:.1f}\\b1\\1c{_c(hl_col)}\\bord3.5\\3c&H000000&\\shad2\\4c&H000000&" + anim_tags
+                rows.append(f"Dialogue: 1,{st_ts},{et_ts},Default,,0,0,0,,{{{left_tags}}}{_esc(left_txt)}")
+
+                if right_txt:
+                    right_tags = f"\\an5\\pos({right_x},{wing_y})\\fn{accent_font_name}\\fs{wing_fs:.1f}\\b1\\1a&HFF&\\bord4.5\\3c{_c(hl_col)}\\shad0" + anim_tags
+                    rows.append(f"Dialogue: 1,{st_ts},{et_ts},Default,,0,0,0,,{{{right_tags}}}{_esc(right_txt)}")
+
+                if conn_txt:
+                    conn_tags = f"\\an5\\pos({conn_x},{conn_y})\\fn{accent_font_name}\\fs{conn_fs:.1f}\\b1\\1c{_c(base_col)}\\bord2\\3c&H000000&\\shad1\\4c&H000000&" + anim_tags
+                    rows.append(f"Dialogue: 1,{st_ts},{et_ts},Default,,0,0,0,,{{{conn_tags}}}{_esc(conn_txt)}")
+
+            if layer_filter in ("subtitle", "all"):
+                sub_tags = f"\\an5\\pos({sub_x},{sub_y})\\fn{base_font_name}\\fs{sub_fs:.1f}\\b1\\1c{_c(base_col)}\\bord3\\3c&H000000&\\shad1.5\\4c&H000000&" + anim_tags
+                rows.append(f"Dialogue: 3,{st_ts},{et_ts},Default,,0,0,0,,{{{sub_tags}}}{_esc(sub_text)}")
+
+            continue
+
         if style.get("id") in ("editorial_depth_stack", "spatial_sandwich_syne"):
             # Editorial Depth Stack: Big Anchor Word comes first (or user-marked key word),
             # starts immediately at card start so it never disappears fast,
-            # and alternates Top (even captions) & Waist (odd captions).
+            # and stays Top behind the speaker's head crown (matching reference video).
             key_idx = -1
             for ki, kw in enumerate(words):
                 if kw.get("key"):
                     key_idx = ki
                     break
             if key_idx == -1:
-                key_idx = 0  # Big word comes first!
+                # 1. Check for digits / numbers ($100, 80, 50%) or number words (eighty, million, etc.)
+                for ki, kw in enumerate(words):
+                    wt = str(kw.get("t") or kw.get("word") or "").lower()
+                    if re.search(r"\d+", wt) or re.match(r"^(eighty|eight|nine|ninety|ten|twenty|thirty|forty|fifty|sixty|seventy|hundred|thousand|million|billion|first|second)$", wt):
+                        key_idx = ki
+                        break
+            if key_idx == -1:
+                # 2. Pick longest substantive word (excluding short stop words)
+                stop_words = {"a", "an", "the", "in", "on", "at", "to", "for", "of", "with", "by", "from", "up", "about", "into", "over", "after", "is", "am", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "ko", "ka", "ki", "ke", "par", "se", "hai", "hain", "ho", "aur", "or", "and", "but", "if", "so"}
+                best_idx = -1
+                max_l = 0
+                for ki, kw in enumerate(words):
+                    clean = re.sub(r"[^a-zA-Z0-9]", "", str(kw.get("t") or kw.get("word") or "").lower())
+                    if clean not in stop_words and len(clean) > max_l:
+                        max_l = len(clean)
+                        best_idx = ki
+                key_idx = best_idx if best_idx != -1 else 0
 
             hero_word_data = dict(words[key_idx])
             hero_word_data["s"] = ev_start
             hero_w = [hero_word_data]
             supp_w = [words[i] for i in range(len(words)) if i != key_idx]
 
-            slot_is_top = (cap_idx % 2 == 0)
+            slot_mode = style.get("editorialSlotMode") or style.get("editorialPosition") or "alternate"
+            if slot_mode == "top":
+                slot_is_top = True
+            elif slot_mode in ("below", "waist", "torso"):
+                slot_is_top = False
+            else:
+                slot_is_top = (cap_idx % 2 == 0)
+
             if slot_is_top:
-                hero_pos_y = 0.22
-                lead_pos_y = max(0.06, hero_pos_y - (big_size + small_size) * 0.46 / H)
+                hero_pos_y = 0.20
+                lead_pos_y = max(0.05, hero_pos_y - (big_size + small_size) * 0.46 / H)
                 lead_above = True
             else:
-                hero_pos_y = 0.62
-                lead_pos_y = min(0.88, hero_pos_y + (big_size + small_size) * 0.46 / H)
-                lead_above = False
+                torso_y = float(style.get("depthAccentY", 0.58))
+                hero_pos_y = torso_y if torso_y > 0.35 else 0.58
+                lead_pos_y = max(0.42, hero_pos_y - (big_size + small_size) * 0.46 / H)
+                lead_above = True
 
             editorial_palettes = [
-                "#3828D6", # 0 Purple ("Videos")
-                "#00D2FF", # 1 Cyan / Teal ("chahte")
-                "#00FF66", # 2 Neon Lime Green ("AI")
-                "#FF0099", # 3 Magenta ("samajh")
-                "#0066FF", # 4 Royal Blue ("video")
-                "#FF8800", # 5 Orange
-                "#9933FF", # 6 Violet
-                "#00E5FF", # 7 Ocean Blue
+                "#22C55E", # 0 Emerald Green ("EIGHTY")
+                "#7C3AED", # 1 Royal Purple ("THIS", "AND")
+                "#2563EB", # 2 Cobalt Blue ("DIRECT", "EASIER")
+                "#84CC16", # 3 Acid Lime ("MAKE")
+                "#EA580C", # 4 Amber Copper ("MUCH")
+                "#E11D48", # 5 Crimson Ruby
+                "#14B8A6", # 6 Jade Teal
             ]
             pal_col = editorial_palettes[cap_idx % len(editorial_palettes)]
-            ed_hero_role = {**accent_role, "color": pal_col}
+            ed_hero_role = {**accent_role, "color": pal_col, "layer": "behind" if slot_is_top else "front"}
+            ed_base_role = {**base_role, "layer": "front"}
 
             lay = []
             if lead_above and supp_w:
@@ -1369,7 +1614,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     "size": small_size * 0.92,
                     "track": float(base_role.get("track", 0.0)),
                     "words": supp_w,
-                    "role": base_role,
+                    "role": ed_base_role,
                     "is_hero": False,
                     "is_top": True
                 }
@@ -1396,11 +1641,134 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     "size": small_size * 0.92,
                     "track": float(base_role.get("track", 0.0)),
                     "words": supp_w,
-                    "role": base_role,
+                    "role": ed_base_role,
                     "is_hero": False,
                     "is_top": False
                 }
                 lay += ink_layout.layout_stack([desc_bottom], W, H, pos_x=pos_x, pos_y=lead_pos_y, ink_gap=ink_gap)
+        elif style.get("id") == "editorial_zine_dynamic" or style.get("editorialZineDynamic"):
+            # Editorial Zine Dynamic Multi-Variant Storyboard:
+            # Universal bottom subtitle pill with karaoke word tracking
+            # Dynamic / selectable top or mid cards (hook, zine, stat, none)
+            c_variant = c.get("cardVariant") or style.get("cardVariant")
+            if not c_variant or c_variant == "auto":
+                cycle = ["hook", "zine", "stat", "none"]
+                c_variant = cycle[cap_idx % len(cycle)]
+
+            sub_y = 0.84 if c_variant == "stat" else 0.82
+            desc_sub = {
+                "text": " ".join(str(w.get("t") or w.get("word") or "") for w in words),
+                "font_file": base_font_file,
+                "size": small_size * 0.95,
+                "track": float(base_role.get("track", 0.01)),
+                "words": words,
+                "role": {**base_role, "color": "#111111", "bold": True},
+                "is_hero": False,
+                "is_top": False
+            }
+            lay = ink_layout.layout_stack([desc_sub], W, H, pos_x=pos_x, pos_y=sub_y, ink_gap=ink_gap)
+
+            if c_variant != "none":
+                key_idx = -1
+                for ki, kw in enumerate(words):
+                    if kw.get("key"):
+                        key_idx = ki
+                        break
+                if key_idx == -1:
+                    stop_words = {"a", "an", "the", "in", "on", "at", "to", "for", "of", "with", "by", "from", "and", "or", "is", "am", "are", "was", "were", "it", "this", "that", "you", "your"}
+                    best_idx = 0
+                    max_l = 0
+                    for ki, kw in enumerate(words):
+                        clean = re.sub(r"[^a-zA-Z0-9]", "", str(kw.get("t") or kw.get("word") or "").lower())
+                        if clean not in stop_words and len(clean) > max_l:
+                            max_l = len(clean)
+                            best_idx = ki
+                    key_idx = best_idx
+
+                hero_w = [words[key_idx]]
+                before_w = words[:key_idx]
+                after_w = words[key_idx + 1:]
+
+                if c_variant == "hook":
+                    hook_y = 0.16
+                    lead_txt = " ".join(str(w.get("t") or w.get("word") or "") for w in before_w) if before_w else "RULE 01 // HOOK"
+                    hero_txt = str(hero_w[0].get("t") or hero_w[0].get("word") or "").upper()
+                    desc_hook_top = {
+                        "text": lead_txt.upper(),
+                        "font_file": find_font_file({"font": "Space Mono"}),
+                        "size": max(24.0 * scale_h, small_size * 0.60),
+                        "track": 0.04,
+                        "words": before_w if before_w else hero_w,
+                        "role": {"color": "#2E2A25", "bold": True},
+                        "is_hero": False,
+                        "is_top": True
+                    }
+                    desc_hook_main = {
+                        "text": hero_txt,
+                        "font_file": find_font_file({"font": "Playfair Display", "italic": True}),
+                        "size": max(54.0 * scale_h, big_size * 0.70),
+                        "track": 0.01,
+                        "words": hero_w,
+                        "role": {"color": "#181614", "bold": True, "italic": True},
+                        "is_hero": True,
+                        "is_top": False
+                    }
+                    card_lay = ink_layout.layout_stack([desc_hook_top, desc_hook_main], W, H, pos_x=pos_x, pos_y=hook_y, ink_gap=ink_gap)
+                    lay = card_lay + lay
+
+                elif c_variant == "zine":
+                    badge_y = 0.18
+                    script_txt = " ".join(str(w.get("t") or w.get("word") or "") for w in before_w) if before_w else "The real secret"
+                    block_txt = str(hero_w[0].get("t") or hero_w[0].get("word") or "").upper()
+                    desc_zine_script = {
+                        "text": script_txt,
+                        "font_file": find_font_file({"font": "Yellowtail"}),
+                        "size": max(28.0 * scale_h, small_size * 0.72),
+                        "track": 0.01,
+                        "words": before_w if before_w else hero_w,
+                        "role": {"color": "#FAF6ED", "bold": False, "italic": True},
+                        "is_hero": False,
+                        "is_top": True
+                    }
+                    desc_zine_block = {
+                        "text": block_txt,
+                        "font_file": find_font_file({"font": "Anton"}),
+                        "size": max(72.0 * scale_h, big_size * 0.85),
+                        "track": 0.03,
+                        "words": hero_w,
+                        "role": {"color": "#FFFFFF", "bold": True},
+                        "is_hero": True,
+                        "is_top": False
+                    }
+                    card_lay = ink_layout.layout_stack([desc_zine_script, desc_zine_block], W, H, pos_x=pos_x, pos_y=badge_y, ink_gap=ink_gap)
+                    lay = card_lay + lay
+
+                elif c_variant == "stat":
+                    stat_y = 0.63
+                    stat_step = f"STEP {cap_idx + 1:02d}"
+                    stat_txt = str(hero_w[0].get("t") or hero_w[0].get("word") or "").upper()
+                    desc_stat_tag = {
+                        "text": stat_step,
+                        "font_file": find_font_file({"font": "Space Mono"}),
+                        "size": max(22.0 * scale_h, small_size * 0.55),
+                        "track": 0.04,
+                        "words": [hero_w[0]],
+                        "role": {"color": "#1A1816", "bold": True},
+                        "is_hero": False,
+                        "is_top": True
+                    }
+                    desc_stat_main = {
+                        "text": stat_txt,
+                        "font_file": find_font_file({"font": "Montserrat"}),
+                        "size": max(50.0 * scale_h, big_size * 0.65),
+                        "track": 0.01,
+                        "words": hero_w,
+                        "role": {"color": "#FFFFFF", "bold": True},
+                        "is_hero": True,
+                        "is_top": False
+                    }
+                    card_lay = ink_layout.layout_stack([desc_stat_tag, desc_stat_main], W, H, pos_x=pos_x, pos_y=stat_y, ink_gap=ink_gap)
+                    lay = card_lay + lay
         elif is_behind:
             hero_y = float(style.get("depthAccentY", 0.25))
             font_span = (big_size + small_size) * 0.5 / H + 0.008
@@ -1646,7 +2014,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
             if style.get("id") == "spatial_sandwich_syne" and is_hero:
                 col = r.get("color") or user_hl or "#0052FF"
             elif style.get("id") == "editorial_depth_stack" and is_hero:
-                col = r.get("color") or user_hl or "#3828D6"
+                col = r.get("color") or user_hl or "#22C55E"
             elif is_hero:
                 col = user_hl or r.get("color") or (grad_colors[-1] if grad_colors else "#FFE600")
             else:
@@ -1698,6 +2066,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 style.get("acidVoltTicker") or style.get("id") == "acid_volt_ticker" or
                 style.get("holoAuraPill") or style.get("id") == "holo_aura_pill" or
                 style.get("analogFilmStrip") or style.get("id") == "espresso_analog_film" or
+                style.get("editorialZineDynamic") or style.get("id") == "editorial_zine_dynamic" or
                 style.get("id") in ("box_pop", "yellow_box") or
                 style.get("category") == "box" or
                 style.get("box") or
@@ -1714,6 +2083,9 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                 elif style.get("analogFilmStrip") or style.get("id") == "espresso_analog_film":
                     pill_bg = style.get("highlightColor") or "#B45309"
                     pill_fg = "#FFF7E6"
+                elif style.get("editorialZineDynamic") or style.get("id") == "editorial_zine_dynamic":
+                    pill_bg = "#FAF6ED"
+                    pill_fg = "#111111"
                 else:
                     pill_bg = style.get("highlightColor") or "#FFE600"
                     pill_fg = "#111111"
@@ -1766,9 +2138,15 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
                     f"\\i{italic}",
                     f"\\1c{_c(word_color)}",
                 ]
-                if style.get("id") in ("editorial_depth_stack", "spatial_sandwich_syne") and is_hero:
+                if style.get("id") == "spatial_sandwich_syne" and is_hero:
                     # Translucent organic texture blend (~85% fill opacity so background video bleeds through)
                     tags.append(r"\1a&H24&")
+                elif style.get("id") == "editorial_depth_stack" and is_hero:
+                    # Calculate exact hex alpha from see-through opacity (default ~78% opacity -> 22% see-through)
+                    op_val = float(style.get("editorialOpacity", style.get("blendOpacity", 0.78)))
+                    op_val = max(0.2, min(1.0, op_val))
+                    alpha_hex = int(round((1.0 - op_val) * 255))
+                    tags.append(f"\\1a&H{alpha_hex:02X}&")
                 if outline_px > 0:
                     tags += [f"\\bord{outline_px:.1f}", f"\\3c{_c(outline_col)}"]
                 else:
@@ -1840,7 +2218,7 @@ def build_stack_ass(captions, style, W, H, layer_filter="all"):
 def build_depth_ass(captions, style, W, H):
     """Return a large behind-person keyword and readable foreground subtitle."""
     base = clean_style(style)
-    if (base.get("behindPerson") or base.get("depthAccent") or base.get("layout") == "stack" or base.get("isDuo") or (base.get("isSpecial") and base.get("mode") == "emphasis")):
+    if (base.get("sideBySideDepth") or base.get("layout") == "side_by_side" or base.get("behindPerson") or base.get("depthAccent") or base.get("layout") == "stack" or base.get("isDuo") or (base.get("isSpecial") and base.get("mode") == "emphasis")):
         return build_stack_ass(captions, base, W, H, layer_filter="depth"), build_stack_ass(captions, base, W, H, layer_filter="subtitle")
     if base.get("estateVariant"):
         line_style = copy.deepcopy(base)
@@ -1919,7 +2297,7 @@ def build_depth_ass(captions, style, W, H):
 def build_ass(captions, style, W, H):
     """captions: list of {'start','end','words':[{'t','key','s','e'}]} already on the OUTPUT timeline."""
     style = clean_style(style)
-    if style.get("layout") == "stack" or style.get("isDuo") or (style.get("isSpecial") and style.get("mode") == "emphasis"):
+    if style.get("layout") in ("stack", "side_by_side") or style.get("sideBySideDepth") or style.get("isDuo") or (style.get("isSpecial") and style.get("mode") == "emphasis"):
         return build_stack_ass(captions, style, W, H, layer_filter="all")
 
     k_role = style.get("key") or {}
@@ -1959,6 +2337,16 @@ def build_ass(captions, style, W, H):
     norm_caps = []
     for c in captions:
         w_list = c.get("words", [])
+        if not w_list and c.get("text"):
+            toks = [t for t in c.get("text", "").split() if t]
+            dur = max(0.5, float(c.get("end", 1)) - float(c.get("start", 0)))
+            step = dur / max(1, len(toks))
+            w_list = [{
+                "t": t, "word": t,
+                "s": float(c.get("start", 0)) + i * step,
+                "e": float(c.get("start", 0)) + (i + 1) * step,
+                "key": (i == 0)
+            } for i, t in enumerate(toks)]
         if not w_list:
             continue
         clean_w = []
@@ -1977,7 +2365,8 @@ def build_ass(captions, style, W, H):
             "start": float(c.get("start", 0)),
             "end": float(c.get("end", 0)),
             "words": clean_w,
-            "text": c.get("text", "")
+            "text": c.get("text", ""),
+            "cardVariant": c.get("cardVariant")
         })
     caps = sorted(norm_caps, key=lambda c: c["start"])
     rows = []
@@ -2107,6 +2496,10 @@ def build_ass(captions, style, W, H):
                 else:
                     tags.append(r"\bord0")
                 tags.append(f"\\shad{max(1.0, round(fs * 0.03, 1)):.1f}\\4c&H000000&")
+                w_scale = float(w.get("scale") or 1.0)
+                if w_scale != 1.0:
+                    scale_pct = round(100 * w_scale)
+                    tags.append(f"\\fscx{scale_pct}\\fscy{scale_pct}")
                 tags += anim_tags
 
                 # Check if highlight mode is 'box' (e.g. Yellow Box Pop - word-by-word karaoke box)
