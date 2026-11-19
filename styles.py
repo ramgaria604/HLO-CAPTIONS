@@ -133,15 +133,6 @@ def build_captions(words, per=3, max_keys=1, max_gap=0.85, max_len=3.4):
                           "end": round(word[1], 2), "e": round(word[1], 2)}
                          for word, token in zip(cur, toks) if token["t"]]
 
-        # Prevent misplaced orphan 1-word captions by merging with preceding caption if appropriate
-        if len(caption_words) == 1 and caps and len(caps[-1]["words"]) < 4:
-            prev = caps[-1]
-            prev["words"].extend(caption_words)
-            prev["text"] = prev["text"] + " " + text
-            prev["end"] = round(cur[-1][1], 2)
-            prev["wt"].extend([[round(w[0], 2), round(w[1], 2)] for w in cur])
-            return
-
         caps.append({"id": len(caps) + 1, "start": round(cur[0][0], 2), "end": round(cur[-1][1], 2),
                      "text": text, "words": caption_words,
                      "wt": [[round(w[0], 2), round(w[1], 2)] for w in cur]})
