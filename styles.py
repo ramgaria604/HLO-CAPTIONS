@@ -2496,6 +2496,10 @@ def build_ass(captions, style, W, H):
                 else:
                     tags.append(r"\bord0")
                 tags.append(f"\\shad{max(1.0, round(fs * 0.03, 1)):.1f}\\4c&H000000&")
+                w_scale = float(w.get("scale") or 1.0)
+                if w_scale != 1.0:
+                    scale_pct = round(100 * w_scale)
+                    tags.append(f"\\fscx{scale_pct}\\fscy{scale_pct}")
                 tags += anim_tags
 
                 # Check if highlight mode is 'box' (e.g. Yellow Box Pop - word-by-word karaoke box)

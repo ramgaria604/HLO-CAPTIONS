@@ -406,14 +406,15 @@
   // 133+ PRESETS TYPOGRAPHY ENGINE (DualNeon, KineticLens, Crimson3D, ChromeStudio, EstateDepth, SpecialFront, Standard)
 
 function getWordPop(w, t, showAll, anim) {
-  if (showAll || !w) return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
+  const wScale = (w && typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0;
+  if (showAll || !w) return { visible: true, scale: wScale, dx: 0, dy: 0, opacity: 1.0 };
 
   if (typeof w.s === 'number') {
     const dt = t - w.s;
 
     // Word not yet reached in speech: hidden, keep layout position
     if (dt < 0) {
-      return { visible: false, scale: 1.0, dx: 0, dy: 0, opacity: 0.0 };
+      return { visible: false, scale: wScale, dx: 0, dy: 0, opacity: 0.0 };
     }
 
     const isSlide = (anim === 'slide-up' || anim === 'slide-down' || anim === 'slide-left' || anim === 'slide-right');
@@ -440,14 +441,14 @@ function getWordPop(w, t, showAll, anim) {
       } else if (enterAnim === 'none' || enterAnim === 'static') {
         scale = 1.0;
       }
-      return { visible: true, scale, dx, dy, opacity: (enterAnim === 'none' || enterAnim === 'static') ? 1.0 : ease };
+      return { visible: true, scale: scale * wScale, dx, dy, opacity: (enterAnim === 'none' || enterAnim === 'static') ? 1.0 : ease };
     }
 
     // Word already spoken: stays fully visible and stable at exactly (0,0)
-    return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
+    return { visible: true, scale: wScale, dx, dy, opacity: 1.0 };
   }
 
-  return { visible: true, scale: 1.0, dx: 0, dy: 0, opacity: 1.0 };
+  return { visible: true, scale: wScale, dx: 0, dy: 0, opacity: 1.0 };
 }
 
 // Configurable threshold: lines whose vertical center is <= this ratio are 'behind', lines below are 'front'
@@ -14736,7 +14737,14 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   // ==========================================================================
   function setupTransportHandlers() {
     btnPlayPause.addEventListener('click', togglePlay);
-    vid.addEventListener('click', togglePlay);
+    vid.addEventListener('click', (e) => {
+      if (window._suppressVideoClickUntil && performance.now() < window._suppressVideoClickUntil) {
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
+      togglePlay();
+    });
 
     vid.addEventListener('play', () => {
       iconPlay.classList.add('hidden');
@@ -18464,6 +18472,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         renderCanvas();
       } else {
         // Immediate 0ms tap execution without holding or waiting for browser click dispatch
+        window._suppressVideoClickUntil = performance.now() + 600;
         if (typeof handleStageTapToEdit === 'function') {
           handleStageTapToEdit(event);
         }
@@ -20034,6 +20043,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         key: Boolean(w.key),
         dx: Number(w.dx) || 0,
         dy: Number(w.dy) || 0,
+        scale: (typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0,
         color: w.color || undefined
       }));
 
@@ -23078,6 +23088,7 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
     let curX = centerX - (lWords.length * estFs * 2.2) / 2;
     lWords.forEach(w => {
       const wIdx = words.indexOf(w);
+      const wScale = (typeof w.scale === 'number' && w.scale > 0) ? w.scale : 1.0;
       const estW = Math.max(estFs * 1.2, (w.t || '').length * estFs * 0.55);
       const wDx = (Number(w.dx) || 0) * W;
       const wDy = (Number(w.dy) || 0) * H;
@@ -23087,10 +23098,10 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
         wordIndex: wIdx >= 0 ? wIdx : wordBoxes.length,
         word: w,
         box: {
-          x: Math.max(0, Math.min(1, (wx - estW * 0.5) / W)),
-          y: Math.max(0, Math.min(1, (wy - estFs * 0.6) / H)),
-          w: Math.max(0.04, Math.min(1, (estW * capScale) / W)),
-          h: Math.max(0.03, Math.min(1, (estFs * 1.2 * capScale) / H))
+          x: Math.max(0, Math.min(1, (wx - estW * wScale * 0.5) / W)),
+          y: Math.max(0, Math.min(1, (wy - estFs * wScale * 0.6) / H)),
+          w: Math.max(0.04, Math.min(1, (estW * capScale * wScale) / W)),
+          h: Math.max(0.03, Math.min(1, (estFs * 1.2 * capScale * wScale) / H))
         }
       });
       curX += estW + estFs * 0.25;
@@ -23126,6 +23137,12 @@ function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capS
  * Select a caption for editing
  */
 function selectCaption(capId, wordIndex = -1) {
+  // Always pause video when selecting a caption for editing, and suppress trailing click play
+  window._suppressVideoClickUntil = performance.now() + 600;
+  if (vid && !vid.paused) {
+    try { vid.pause(); } catch (_) {}
+  }
+
   S.selectedCaptionId = capId;
   const capIdx = S.captions.findIndex(c => c.id === capId);
   if (capIdx === -1) {
@@ -23331,10 +23348,10 @@ function updateVideoEditOverlay() {
   const rotDeg = S.editMode === 'word' ? 0 : (Number(cap.rot) || 0);
   bbox.style.transform = rotDeg ? `rotate(${rotDeg}deg)` : '';
 
-  // Resize handle: hide in word mode so entire box drags the word cleanly
+  // Resize handle: enable for BOTH whole caption and single word!
   const handleSe = bbox.querySelector('.box-handle-se');
   if (handleSe) {
-    handleSe.style.display = S.editMode === 'word' ? 'none' : 'flex';
+    handleSe.style.display = 'flex';
   }
 
   // Dock control pill cleanly at the bottom edge of the player (Moonshot Style: Never covers faces or captions)
@@ -23348,7 +23365,15 @@ function updateVideoEditOverlay() {
  * Handle tap on video preview to select caption or word
  */
 function handleStageTapToEdit(e) {
-  if (e.target && (e.target.closest('#videoEditMiniToolbar') || e.target.closest('.box-handle') || e.target.closest('#timelineClipActionBar') || e.target.closest('#btnStageSettings'))) {
+  if (e && typeof e.stopPropagation === 'function') {
+    e.stopPropagation();
+  }
+  if (e && typeof e.preventDefault === 'function') {
+    e.preventDefault();
+  }
+  window._suppressVideoClickUntil = performance.now() + 600;
+
+  if (e && e.target && (e.target.closest('#videoEditMiniToolbar') || e.target.closest('.box-handle') || e.target.closest('#timelineClipActionBar') || e.target.closest('#btnStageSettings'))) {
     return;
   }
   const now = performance.now();
@@ -23462,21 +23487,25 @@ function setupVideoOverlayInteractions() {
       S.editMode = 'whole';
       S.selectedWordIndex = -1;
     }
+    const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]);
+    const targetObj = isWordMode ? cap.words[S.selectedWordIndex] : cap;
     const [p1, p2] = pts;
     const stageRect = stage.getBoundingClientRect();
     drag = null;
     pinch = {
       cap,
+      isWordMode,
+      targetObj,
       stageW: Math.max(1, stageRect.width),
       stageH: Math.max(1, stageRect.height),
       startDist: Math.max(12, Math.hypot(p2.x - p1.x, p2.y - p1.y)),
       startAngle: Math.atan2(p2.y - p1.y, p2.x - p1.x) * (180 / Math.PI),
       startMidX: (p1.x + p2.x) * 0.5,
       startMidY: (p1.y + p2.y) * 0.5,
-      origScale: Number(cap.scale) || 1.0,
+      origScale: Number(targetObj.scale) || 1.0,
       origRot: Number(cap.rot) || 0,
-      origDx: Number(cap.dx) || 0,
-      origDy: Number(cap.dy) || 0
+      origDx: Number(targetObj.dx) || 0,
+      origDy: Number(targetObj.dy) || 0
     };
   };
 
@@ -23521,6 +23550,8 @@ function setupVideoOverlayInteractions() {
         };
       } else {
         const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+        const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && cap.words && cap.words[S.selectedWordIndex]);
+        const targetObj = isWordMode ? cap.words[S.selectedWordIndex] : cap;
         drag = {
           type: 'scale',
           pointerId: e.pointerId,
@@ -23528,9 +23559,12 @@ function setupVideoOverlayInteractions() {
           centerX,
           centerY,
           startDist: Math.max(10, startDist),
-          origScale: Number(cap.scale) || 1.0,
+          origScale: Number(targetObj.scale) || 1.0,
+          isWordMode,
+          targetObj,
           capIdx,
           cap,
+          wordIdx: isWordMode ? S.selectedWordIndex : -1,
           moved: false
         };
       }
@@ -23569,18 +23603,27 @@ function setupVideoOverlayInteractions() {
       const midX = (p1.x + p2.x) * 0.5;
       const midY = (p1.y + p2.y) * 0.5;
 
-      const nextScale = Math.round(Math.max(0.4, Math.min(2.5, pinch.origScale * (curDist / pinch.startDist))) * 100) / 100;
+      const nextScale = Math.round(Math.max(0.4, Math.min(3.0, pinch.origScale * (curDist / pinch.startDist))) * 100) / 100;
       const nextRot = snapRotationDeg(pinch.origRot + (curAngle - pinch.startAngle));
       const snap = snapAndClampDelta(pinch.origDx + (midX - pinch.startMidX) / pinch.stageW, pinch.origDy + (midY - pinch.startMidY) / pinch.stageH);
 
-      applyCaptionTransform(pinch.cap, (c) => {
-        c.scale = nextScale;
-        c.rot = nextRot;
-        c.dx = snap.dx;
-        c.dy = snap.dy;
-      });
-      updateSnapGuidesDOM(snap.snapV, snap.snapH);
-      updateTransformHud(`${nextScale.toFixed(2)}× · ${nextRot}°`, true);
+      if (pinch.isWordMode && pinch.targetObj) {
+        pinch.targetObj.scale = nextScale;
+        pinch.targetObj.dx = snap.dx;
+        pinch.targetObj.dy = snap.dy;
+        if (pinch.cap) pinch.cap._cachedExportWords = null;
+        updateSnapGuidesDOM(snap.snapV, snap.snapH);
+        updateTransformHud(`Word: ${nextScale.toFixed(2)}×`, true);
+      } else {
+        applyCaptionTransform(pinch.cap, (c) => {
+          c.scale = nextScale;
+          c.rot = nextRot;
+          c.dx = snap.dx;
+          c.dy = snap.dy;
+        });
+        updateSnapGuidesDOM(snap.snapV, snap.snapH);
+        updateTransformHud(`${nextScale.toFixed(2)}× · ${nextRot}°`, true);
+      }
       commitFrameUpdate();
       return;
     }
@@ -23591,9 +23634,15 @@ function setupVideoOverlayInteractions() {
       drag.moved = true;
       const curDist = Math.hypot(e.clientX - drag.centerX, e.clientY - drag.centerY);
       const scaleFactor = curDist / drag.startDist;
-      const newScale = Math.round(Math.max(0.4, Math.min(2.5, drag.origScale * scaleFactor)) * 100) / 100;
-      applyCaptionTransform(drag.cap, (c) => { c.scale = newScale; });
-      updateTransformHud(`${newScale.toFixed(2)}×`, true);
+      const newScale = Math.round(Math.max(0.4, Math.min(3.0, drag.origScale * scaleFactor)) * 100) / 100;
+      if (drag.isWordMode && drag.targetObj) {
+        drag.targetObj.scale = newScale;
+        if (drag.cap) drag.cap._cachedExportWords = null;
+        updateTransformHud(`Word: ${newScale.toFixed(2)}×`, true);
+      } else {
+        applyCaptionTransform(drag.cap, (c) => { c.scale = newScale; });
+        updateTransformHud(`${newScale.toFixed(2)}×`, true);
+      }
       commitFrameUpdate();
     } else if (drag.type === 'rotate') {
       drag.moved = true;
@@ -23651,8 +23700,13 @@ function setupVideoOverlayInteractions() {
     updateTransformHud('', false);
 
     if (d.type === 'scale' && d.moved) {
-      pushHistoryState('Scale caption');
-      console.log('[EDIT]', 'scale', d.capIdx, -1, d.cap.scale);
+      if (d.isWordMode && d.targetObj) {
+        pushHistoryState('Scale single word');
+        console.log('[EDIT]', 'scale_word', d.capIdx, d.wordIdx, d.targetObj.scale);
+      } else {
+        pushHistoryState('Scale caption');
+        console.log('[EDIT]', 'scale', d.capIdx, -1, d.cap.scale);
+      }
     } else if (d.type === 'rotate' && d.moved) {
       pushHistoryState('Rotate caption');
       console.log('[EDIT]', 'rotate', d.capIdx, -1, d.cap.rot);
@@ -23674,16 +23728,24 @@ function setupVideoOverlayInteractions() {
     if (!found) return;
     e.preventDefault();
     e.stopPropagation();
+    const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && found.cap.words && found.cap.words[S.selectedWordIndex]);
+    const targetObj = isWordMode ? found.cap.words[S.selectedWordIndex] : found.cap;
     const step = e.deltaY < 0 ? 0.06 : -0.06;
-    const nextScale = Math.round(Math.max(0.4, Math.min(2.5, (Number(found.cap.scale) || 1.0) + step)) * 100) / 100;
-    applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
-    updateTransformHud(`${nextScale.toFixed(2)}×`, true);
+    const nextScale = Math.round(Math.max(0.4, Math.min(3.0, (Number(targetObj.scale) || 1.0) + step)) * 100) / 100;
+    if (isWordMode) {
+      targetObj.scale = nextScale;
+      if (found.cap) found.cap._cachedExportWords = null;
+      updateTransformHud(`Word: ${nextScale.toFixed(2)}×`, true);
+    } else {
+      applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
+      updateTransformHud(`${nextScale.toFixed(2)}×`, true);
+    }
     renderCanvas();
     updateVideoEditOverlay();
     clearTimeout(wheelHistoryTimer);
     wheelHistoryTimer = setTimeout(() => {
       updateTransformHud('', false);
-      pushHistoryState('Resize caption');
+      pushHistoryState(isWordMode ? 'Resize single word' : 'Resize caption');
     }, 350);
   }, { passive: false });
   window.addEventListener('pointermove', onPointerMove);
@@ -23752,12 +23814,21 @@ function setupVideoOverlayInteractions() {
   const stepScale = (delta) => {
     const found = getSelectedCap();
     if (!found) return;
-    const nextScale = Math.round(Math.max(0.4, Math.min(2.5, (Number(found.cap.scale) || 1.0) + delta)) * 100) / 100;
-    applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
-    pushHistoryState('Scale caption');
+    const isWordMode = (S.editMode === 'word' && S.selectedWordIndex >= 0 && found.cap.words && found.cap.words[S.selectedWordIndex]);
+    const targetObj = isWordMode ? found.cap.words[S.selectedWordIndex] : found.cap;
+    const nextScale = Math.round(Math.max(0.4, Math.min(3.0, (Number(targetObj.scale) || 1.0) + delta)) * 100) / 100;
+    if (isWordMode) {
+      targetObj.scale = nextScale;
+      if (found.cap) found.cap._cachedExportWords = null;
+      updateTransformHud(`Word: ${nextScale.toFixed(2)}×`, true);
+      pushHistoryState('Scale single word');
+    } else {
+      applyCaptionTransform(found.cap, (c) => { c.scale = nextScale; });
+      updateTransformHud(`${nextScale.toFixed(2)}×`, true);
+      pushHistoryState('Scale caption');
+    }
     renderCanvas();
     updateVideoEditOverlay();
-    updateTransformHud(`${nextScale.toFixed(2)}×`, true);
     clearTimeout(wheelHistoryTimer);
     wheelHistoryTimer = setTimeout(() => updateTransformHud('', false), 700);
   };
@@ -23823,6 +23894,7 @@ function setupVideoOverlayInteractions() {
       if (S.editMode === 'word' && S.selectedWordIndex >= 0 && found.cap.words && found.cap.words[S.selectedWordIndex]) {
         found.cap.words[S.selectedWordIndex].dx = 0;
         found.cap.words[S.selectedWordIndex].dy = 0;
+        found.cap.words[S.selectedWordIndex].scale = 1.0;
         found.cap._cachedExportWords = null;
         pushHistoryState('Reset word position');
         commitFrameUpdate();
