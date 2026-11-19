@@ -20001,26 +20001,26 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       // Requirement 6: Do less work when nothing changes / no active caption
       if (!activeCap) {
         if (S.captions.length > 0) {
-          // If paused OR within first 1.2s of playback, show the first/closest caption
-          if (vid.paused || t <= 1.2) {
-            activeCap = S.captions.find(c => t <= c.end) || S.captions[0];
+          // Keep most recently finished caption on screen during brief speech pauses (< 1.2s)
+          const recentCap = findLatestLingerCaption(S.captions, t, 1.2);
+          if (recentCap) {
+            activeCap = recentCap;
+          } else if (vid.paused) {
+            // When paused, show closest caption to current playhead
+            activeCap = S.captions.find(c => t <= c.end) || S.captions.reduce((prev, curr) => Math.abs(curr.start - t) < Math.abs(prev.start - t) ? curr : prev, S.captions[0]);
+          } else if (t <= 1.2) {
+            activeCap = S.captions[0];
           } else {
-            // Keep most recently finished caption on screen during brief speech pauses (< 0.8s) so captions do not flash off
-            const recentCap = findLatestLingerCaption(S.captions, t, 0.8);
-            if (recentCap) {
-              activeCap = recentCap;
-            } else {
-              if (!_overlayWasCleared) {
-                drawWatermark(ctx, w, h);
-                _overlayWasCleared = true;
-              }
-              if (isPreview) {
-                const elp = performance.now() - drawStart;
-                recordPreviewDrawTime(elp);
-                updateDebugBadge(elp, effQuality);
-              }
-              return;
+            if (!_overlayWasCleared) {
+              drawWatermark(ctx, w, h);
+              _overlayWasCleared = true;
             }
+            if (isPreview) {
+              const elp = performance.now() - drawStart;
+              recordPreviewDrawTime(elp);
+              updateDebugBadge(elp, effQuality);
+            }
+            return;
           }
         } else {
           drawSampleCaptionPreview(ctx, w, h, S.style || {});
@@ -23396,34 +23396,37 @@ function handleStageTapToEdit(e) {
   }
 
   const t = vid ? (vid.currentTime || 0) : 0;
-  const activeCap = S.captions.find(c => t >= c.start && t <= c.end);
-  const matches = (S.cachedLayoutBoxes || []).filter(item => {
-    const b = item.box;
-    // Generous touch buffer (+10% on each side) for mobile fingers
-    return normX >= b.x - 0.10 && normX <= b.x + b.w + 0.10 &&
-           normY >= b.y - 0.10 && normY <= b.y + b.h + 0.10;
-  });
+  // 1. Identify the caption visible right now on screen at current playback time
+  let activeCap = S.captions.find(c => t >= (c.start - 0.15) && t <= (c.end + 0.15));
+  if (!activeCap && S.selectedCaptionId) {
+    activeCap = S.captions.find(c => c.id === S.selectedCaptionId) || null;
+  }
+  if (!activeCap && S.captions.length) {
+    activeCap = findLatestLingerCaption(S.captions, t, 1.5) ||
+                S.captions.reduce((prev, curr) => Math.abs(curr.start - t) < Math.abs(prev.start - t) ? curr : prev, S.captions[0]);
+  }
 
-  if (matches.length > 0) {
+  // 2. Only hit-test against the visible active caption's layout box (never jump to captions[0] from earlier in the video)
+  const activeLayoutItem = (S.cachedLayoutBoxes || []).find(item => activeCap && item.capId === activeCap.id);
+  const b = activeLayoutItem ? activeLayoutItem.box : null;
+  const isInsideCaptionBox = b
+    ? (normX >= b.x - 0.12 && normX <= b.x + b.w + 0.12 && normY >= b.y - 0.12 && normY <= b.y + b.h + 0.12)
+    : (normY >= 0.20 && normY <= 0.88);
+
+  if (activeCap && isInsideCaptionBox) {
     if (vid && !vid.paused) {
       try { vid.pause(); } catch(_) {}
     }
-    let targetItem = matches[0];
-    if (matches.length > 1 && S.selectedCaptionId === targetItem.capId) {
-      targetItem = matches[1];
-    }
     let matchedWordIdx = -1;
-    if (targetItem.wordBoxes && targetItem.wordBoxes.length > 0) {
-      // 1. Direct hit with generous touch buffer (+6%)
-      let matchedWord = targetItem.wordBoxes.find(wb => {
+    if (activeLayoutItem && activeLayoutItem.wordBoxes && activeLayoutItem.wordBoxes.length > 0) {
+      let matchedWord = activeLayoutItem.wordBoxes.find(wb => {
         const wbBox = wb.box;
         return normX >= wbBox.x - 0.06 && normX <= wbBox.x + wbBox.w + 0.06 &&
                normY >= wbBox.y - 0.06 && normY <= wbBox.y + wbBox.h + 0.06;
       });
-      // 2. In word mode, find the nearest word by Euclidean distance to center
       if (!matchedWord && S.editMode === 'word') {
         let minDist = Infinity;
-        targetItem.wordBoxes.forEach(wb => {
+        activeLayoutItem.wordBoxes.forEach(wb => {
           const cx = wb.box.x + wb.box.w * 0.5;
           const cy = wb.box.y + wb.box.h * 0.5;
           const dist = Math.hypot(normX - cx, normY - cy);
@@ -23435,12 +23438,7 @@ function handleStageTapToEdit(e) {
       }
       if (matchedWord) matchedWordIdx = matchedWord.wordIndex;
     }
-    selectCaption(targetItem.capId, matchedWordIdx);
-  } else if (activeCap && normY >= 0.22 && normY <= 0.88) {
-    if (vid && !vid.paused) {
-      try { vid.pause(); } catch(_) {}
-    }
-    selectCaption(activeCap.id);
+    selectCaption(activeCap.id, matchedWordIdx);
   } else {
     deselectCaption();
   }
