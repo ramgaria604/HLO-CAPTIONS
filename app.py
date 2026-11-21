@@ -1289,8 +1289,8 @@ DEFAULT_COUPONS = {
     "NIKHIL604": {"credits": 100, "unlimited": True},
     "PRO100": {"credits": 100, "unlimited": True},
     # Checkout Discount Coupons
-    "KEIZ 15": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
-    "KEIZ15": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
+    "KEIX 15": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
+    "KEIX15": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
     # 10 Exclusive Single-Use Codes (max 1 use total each, 2 free credits each)
     "VAULT4A": {"credits": 2, "max_uses": 1},
     "ZINE9K": {"credits": 2, "max_uses": 1},
@@ -1531,17 +1531,17 @@ def redeem_coupon():
     if not code:
         return err("Please enter a coupon code.")
 
-    # 1. Check for payment discount coupons (e.g. keiz 15 / KEIZ15)
-    if norm_code == "KEIZ15":
+    # 1. Check for payment discount coupons (e.g. keix 15 / KEIX15)
+    if norm_code == "KEIX15":
         return jsonify(
             ok=True,
             discount=True,
-            code="keiz 15",
+            code="keix 15",
             discount_pack10=5,
             discount_pack50=10,
             price_pack10=15,
             price_pack50=40,
-            message="🎉 Coupon 'keiz 15' applied! Single Pass is now ₹15 (₹5 OFF) & Weekly Pack is now ₹40 (₹10 OFF)."
+            message="🎉 Coupon 'keix 15' applied! Single Pass is now ₹15 (₹5 OFF) & Weekly Pack is now ₹40 (₹10 OFF)."
         )
 
     coupons = load_coupons()

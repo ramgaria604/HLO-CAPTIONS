@@ -41,8 +41,8 @@ PACKS = {
 }
 
 DISCOUNT_COUPONS = {
-    "KEIZ15": {
-        "code": "keiz 15",
+    "KEIX15": {
+        "code": "keix 15",
         "discounts": {
             "pack10": 5,
             "pack20": 5,
