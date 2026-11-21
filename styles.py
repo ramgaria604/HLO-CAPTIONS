@@ -869,8 +869,43 @@ def load_presets():
             "shadowColor": "#000000"
         }
     }
-    out.insert(0, wealth_broll_item)
-    out.insert(1, side_by_side_item)
+    sky_kinetic_item = {
+        "id": "sky_kinetic_duo",
+        "name": "✨ Sky Kinetic Stack (Aesthetic Glow)",
+        "category": "trending",
+        "badge": "AESTHETIC ✨",
+        "layout": "sky_kinetic",
+        "animation": "slide-left",
+        "wordsPerCaption": 2,
+        "maxKeys": 1,
+        "position": 0.72,
+        "highlightColor": "#38BDF8",
+        "baseColor": "#FFFFFF",
+        "hasSkyGlow": True,
+        "fontFamily": "Syne",
+        "fontScale": 1.08,
+        "key": {
+            "font": "Syne",
+            "size": 0.088,
+            "color": "#38BDF8",
+            "bold": True,
+            "weight": 900,
+            "shadow": 0.12,
+            "shadowColor": "rgba(56,189,248,0.75)"
+        },
+        "filler": {
+            "font": "Syne",
+            "size": 0.076,
+            "color": "#FFFFFF",
+            "bold": True,
+            "weight": 800,
+            "shadow": 0.06,
+            "shadowColor": "rgba(0,0,0,0.85)"
+        }
+    }
+    out.insert(0, sky_kinetic_item)
+    out.insert(1, wealth_broll_item)
+    out.insert(2, side_by_side_item)
 
     return out
 
@@ -964,7 +999,7 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
-        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side") else ("stack" if s.get("isDuo") else "line"),
+        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic") else ("stack" if s.get("isDuo") else "line"),
         "animation": anim,
         "anim": anim,
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",

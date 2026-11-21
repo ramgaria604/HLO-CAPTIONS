@@ -6036,6 +6036,207 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
   if (line3Text) drawKineticLine(line3Text, 900, l3FontSize, trk3, x3, l3BaseY, ekBase, line3Start, 14);
 }
 
+/**
+ * Aesthetic Sky Blue & White Kinetic Preset:
+ * - Dynamic Rhythmic Variations (never boring):
+ *   1) Two-Tier Sideways Kinetic Stack (Word 1 from left in White, Word 2 from right in glowing Sky Blue)
+ *   2) Sleek Full-Line Runner (for longer sentences with glowing Sky Blue karaoke sweep)
+ *   3) Solo Power Word (for single punch words with multi-layered ambient bloom)
+ */
+function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+
+  const ov = resolveSceneStyleOverrides(st, H);
+  const skyFont = ov.pickFontFam('"Syne", "Montserrat", "Outfit", sans-serif');
+  const skyBlue = ov.pickHi('#38BDF8');
+  const whiteColor = ov.pickBase('#FFFFFF');
+  const inactiveColor = 'rgba(226, 232, 240, 0.60)';
+  const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const userCase = st && st.textCase;
+
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
+
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitAlpha = fullInstant ? 1.0 : Math.min(1, timeRem / 0.08);
+  if (exitAlpha <= 0.005) return;
+
+  const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+  const easeOutBack = (x) => {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+  };
+
+  const cleanWord = (raw) => String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim();
+  const formatWord = (str) => {
+    if (userCase === 'upper') return str.toUpperCase();
+    if (userCase === 'lower') return str.toLowerCase();
+    if (userCase === 'title') return str.replace(/\b\w/g, (c) => c.toUpperCase());
+    return str.toUpperCase();
+  };
+
+  const posRatio = Number(st && (st.position || st.posY)) || 0.72;
+  const centerY = H * posRatio;
+  const centerX = W * 0.5;
+
+  const isSolo = words.length === 1;
+  const isTwoTier = words.length === 2;
+  const isLineRunner = words.length >= 3;
+
+  // 1. TWO-TIER SIDEWAYS KINETIC STACK
+  if (isTwoTier || isSampleCard) {
+    const w1 = words[0];
+    const w2 = isSampleCard ? { t: 'SETTLE', s: capStart + 0.25 } : words[1];
+    const t1 = formatWord(cleanWord(w1.t || w1.word || 'NEVER'));
+    const t2 = formatWord(cleanWord(w2.t || w2.word || 'SETTLE'));
+
+    const s1 = (w1 && typeof w1.s === 'number') ? w1.s : capStart;
+    const s2 = (w2 && typeof w2.s === 'number') ? w2.s : capStart + 0.20;
+
+    const baseFontSize = Math.round(W * 0.108 * fontScale);
+    const lineGap = Math.round(baseFontSize * 1.05);
+
+    const p1 = fullInstant ? 1.0 : Math.max(0, Math.min(1, (evalT - s1) / 0.28));
+    const p2 = fullInstant ? 1.0 : Math.max(0, Math.min(1, (evalT - s2) / 0.28));
+
+    const ease1 = easeOutCubic(p1);
+    const ease2 = easeOutCubic(p2);
+
+    const x1 = centerX - (1 - ease1) * (W * 0.14);
+    const x2 = centerX + (1 - ease2) * (W * 0.14);
+
+    const y1 = centerY - lineGap * 0.52;
+    const y2 = centerY + lineGap * 0.52;
+
+    if (p1 > 0) {
+      ctxFore.save();
+      ctxFore.globalAlpha = exitAlpha * Math.min(1, p1 * 2);
+      ctxFore.font = `800 ${baseFontSize}px ${skyFont}`;
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.75)';
+      ctxFore.shadowBlur = Math.round(8 * (W / 1080));
+      ctxFore.shadowOffsetY = Math.round(4 * (W / 1080));
+      ctxFore.fillStyle = whiteColor;
+      ctxFore.fillText(t1, x1, y1);
+      ctxFore.restore();
+    }
+
+    if (p2 > 0) {
+      ctxFore.save();
+      ctxFore.globalAlpha = exitAlpha * Math.min(1, p2 * 2);
+      ctxFore.font = `900 ${baseFontSize}px ${skyFont}`;
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+
+      // Luminous Multi-layer Sky Blue Glow
+      ctxFore.shadowColor = 'rgba(56, 189, 248, 0.85)';
+      ctxFore.shadowBlur = Math.round(24 * (W / 1080));
+      ctxFore.shadowOffsetX = 0;
+      ctxFore.shadowOffsetY = 0;
+      ctxFore.fillStyle = skyBlue;
+      ctxFore.fillText(t2, x2, y2);
+
+      // Inner core pop
+      ctxFore.shadowColor = 'rgba(125, 211, 252, 0.95)';
+      ctxFore.shadowBlur = Math.round(10 * (W / 1080));
+      ctxFore.fillText(t2, x2, y2);
+      ctxFore.restore();
+    }
+    return;
+  }
+
+  // 2. SOLO POWER WORD
+  if (isSolo) {
+    const w = words[0];
+    const text = formatWord(cleanWord(w.t || w.word || 'FOCUS'));
+    const s = (w && typeof w.s === 'number') ? w.s : capStart;
+    const progress = fullInstant ? 1.0 : Math.max(0, Math.min(1, (evalT - s) / 0.26));
+    const scale = fullInstant ? 1.0 : (0.80 + 0.20 * easeOutBack(progress));
+    const soloFontSize = Math.round(W * 0.125 * fontScale);
+
+    ctxFore.save();
+    ctxFore.translate(centerX, centerY);
+    ctxFore.scale(scale, scale);
+    ctxFore.globalAlpha = exitAlpha * Math.min(1, progress * 2.5);
+    ctxFore.font = `900 ${soloFontSize}px ${skyFont}`;
+    ctxFore.textAlign = 'center';
+    ctxFore.textBaseline = 'middle';
+
+    ctxFore.shadowColor = 'rgba(56, 189, 248, 0.90)';
+    ctxFore.shadowBlur = Math.round(28 * (W / 1080));
+    ctxFore.fillStyle = skyBlue;
+    ctxFore.fillText(text, 0, 0);
+
+    ctxFore.shadowColor = 'rgba(255, 255, 255, 0.70)';
+    ctxFore.shadowBlur = Math.round(6 * (W / 1080));
+    ctxFore.fillText(text, 0, 0);
+    ctxFore.restore();
+    return;
+  }
+
+  // 3. SLEEK FULL-LINE RUNNER
+  if (isLineRunner) {
+    const runnerFontSize = Math.round(W * 0.076 * fontScale);
+    ctxFore.save();
+    ctxFore.font = `800 ${runnerFontSize}px ${skyFont}`;
+    ctxFore.textBaseline = 'middle';
+
+    const spaceW = ctxFore.measureText(' ').width;
+    const wordItems = words.map(w => {
+      const txt = formatWord(cleanWord(w.t || w.word || ''));
+      const width = ctxFore.measureText(txt).width;
+      const wStart = (w && typeof w.s === 'number') ? w.s : capStart;
+      const wEnd = (w && typeof w.e === 'number') ? w.e : (wStart + 0.30);
+      const isPast = fullInstant || evalT >= wEnd;
+      const isActive = !isPast && (evalT >= wStart);
+      return { w, txt, width, wStart, wEnd, isPast, isActive };
+    });
+
+    const totalW = wordItems.reduce((acc, item) => acc + item.width, 0) + (wordItems.length - 1) * spaceW;
+    let currentX = centerX - totalW / 2;
+
+    wordItems.forEach(item => {
+      ctxFore.save();
+      if (item.isActive) {
+        const wordT = Math.max(0, Math.min(1, (evalT - item.wStart) / 0.14));
+        const activeScale = 1.0 + 0.08 * Math.sin(wordT * Math.PI);
+        const wCx = currentX + item.width / 2;
+
+        ctxFore.translate(wCx, centerY);
+        ctxFore.scale(activeScale, activeScale);
+        ctxFore.translate(-wCx, -centerY);
+
+        ctxFore.globalAlpha = exitAlpha;
+        ctxFore.shadowColor = 'rgba(56, 189, 248, 0.90)';
+        ctxFore.shadowBlur = Math.round(20 * (W / 1080));
+        ctxFore.fillStyle = skyBlue;
+        ctxFore.fillText(item.txt, currentX, centerY);
+      } else if (item.isPast) {
+        ctxFore.globalAlpha = exitAlpha * 0.95;
+        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctxFore.shadowBlur = Math.round(6 * (W / 1080));
+        ctxFore.fillStyle = whiteColor;
+        ctxFore.fillText(item.txt, currentX, centerY);
+      } else {
+        ctxFore.globalAlpha = exitAlpha * 0.45;
+        ctxFore.fillStyle = inactiveColor;
+        ctxFore.fillText(item.txt, currentX, centerY);
+      }
+      ctxFore.restore();
+
+      currentX += item.width + spaceW;
+    });
+
+    ctxFore.restore();
+  }
+}
+
 function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
   if (!ctxFore || !words || !words.length) return;
 
@@ -12506,6 +12707,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.id === 'real_estate_depth_split') {
         drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.id === 'sky_kinetic_duo' || st.hasSkyGlow || st.layout === 'sky_kinetic') {
+        drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.id === 'electric_kinetic_stack') {
         drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.crazySunsetStack || st.id === 'crazy_sunset_stack') {
