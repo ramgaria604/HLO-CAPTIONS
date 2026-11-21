@@ -1,5 +1,6 @@
 import db
 import os
+import re
 import json
 import time
 import hmac
@@ -14,11 +15,19 @@ RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "JSGjwLe03beKLM5w7yN
 
 PACKS = {
     "pack10": {
-        "amount_inr": 10,
-        "amount_paise": 1000,
+        "amount_inr": 20,
+        "amount_paise": 2000,
         "credits": 1,
         "days": None,
-        "title": "₹10 Instant Single Export Pass",
+        "title": "₹20 Instant Single Export Pass",
+        "description": "1 Video Export (1080p Ultra HD)"
+    },
+    "pack20": {
+        "amount_inr": 20,
+        "amount_paise": 2000,
+        "credits": 1,
+        "days": None,
+        "title": "₹20 Instant Single Export Pass",
         "description": "1 Video Export (1080p Ultra HD)"
     },
     "pack50": {
@@ -28,6 +37,17 @@ PACKS = {
         "days": 7,
         "title": "₹50 Weekly Creator Pack",
         "description": "7 Video Exports (Valid for 7 Days)"
+    }
+}
+
+DISCOUNT_COUPONS = {
+    "KEIZ15": {
+        "code": "keiz 15",
+        "discounts": {
+            "pack10": 5,
+            "pack20": 5,
+            "pack50": 10
+        }
     }
 }
 
@@ -48,14 +68,25 @@ def register_razorpay_routes(app, WORK):
 
     @app.post("/api/payment/create-order")
     def create_order():
-        """Creates an official Razorpay Order ID for ₹10 or ₹50 pack."""
+        """Creates an official Razorpay Order ID for ₹20 (Single) or ₹50 (Weekly) pack, with optional discount coupons."""
         data = request.get_json(force=True) or {}
         pack_id = data.get("pack_id", "pack10")
         if pack_id not in PACKS:
             return jsonify(ok=False, error="Invalid pack selected"), 400
 
         pack = PACKS[pack_id]
-        amount_paise = pack["amount_paise"]
+        raw_code = (data.get("coupon_code") or "").strip()
+        norm_code = re.sub(r"\s+", "", raw_code.upper())
+
+        discount_inr = 0
+        applied_coupon = None
+        if norm_code in DISCOUNT_COUPONS:
+            coupon_info = DISCOUNT_COUPONS[norm_code]
+            discount_inr = coupon_info["discounts"].get(pack_id, 0)
+            applied_coupon = coupon_info["code"]
+
+        final_amount_inr = max(1, pack["amount_inr"] - discount_inr)
+        amount_paise = final_amount_inr * 100
         receipt_id = f"rcpt_{int(time.time())}_{pack_id}"
 
         if not rzp_client:
@@ -75,7 +106,10 @@ def register_razorpay_routes(app, WORK):
                     "user_id": str(data.get("user_id") or ""),
                     "email": str(data.get("email") or ""),
                     "phone": str(data.get("phone") or ""),
-                    "device_id": str(data.get("device_id") or "")
+                    "device_id": str(data.get("device_id") or ""),
+                    "coupon_code": applied_coupon or "",
+                    "discount_inr": str(discount_inr),
+                    "amount_inr": str(final_amount_inr)
                 }
             }
             rzp_order = rzp_client.order.create(data=order_data)
@@ -84,6 +118,9 @@ def register_razorpay_routes(app, WORK):
                 "ok": True,
                 "order_id": rzp_order.get("id"),
                 "amount": amount_paise,
+                "amount_inr": final_amount_inr,
+                "discount_inr": discount_inr,
+                "coupon_code": applied_coupon,
                 "currency": "INR",
                 "key_id": RAZORPAY_KEY_ID,
                 "pack": pack
@@ -123,6 +160,17 @@ def register_razorpay_routes(app, WORK):
         valid_days = pack["days"]
         expires_at = (time.time() + valid_days * 86400) if valid_days else None
 
+        amount_paid_inr = pack["amount_inr"]
+        coupon_applied = None
+        if rzp_client and razorpay_order_id:
+            try:
+                order_info = rzp_client.order.fetch(razorpay_order_id)
+                if order_info:
+                    amount_paid_inr = order_info.get("amount", pack["amount_paise"]) // 100
+                    coupon_applied = (order_info.get("notes") or {}).get("coupon_code")
+            except Exception:
+                pass
+
         # Record payment transaction
         import cloud_storage
         payments_file = (WORK.parent / "data") / "razorpay_payments.json"
@@ -142,7 +190,8 @@ def register_razorpay_routes(app, WORK):
             "order_id": razorpay_order_id,
             "payment_id": razorpay_payment_id,
             "pack_id": pack_id,
-            "amount_inr": pack["amount_inr"],
+            "amount_inr": amount_paid_inr,
+            "coupon_code": coupon_applied,
             "credits": credits_to_add,
             "device_id": device_id,
             "email": user_email,
@@ -273,7 +322,8 @@ def register_razorpay_routes(app, WORK):
                 if pay_status == "captured":
                     payment_verified = True
                     notes = payment_info.get("notes") or {}
-                    pack_id = notes.get("pack_id") or ("pack50" if payment_info.get("amount") == 5000 else "pack10")
+                    paid_amt = payment_info.get("amount") or 0
+                    pack_id = notes.get("pack_id") or ("pack50" if paid_amt in (4000, 5000) else "pack10")
                     device_id = notes.get("device_id") or ""
                     user_email = notes.get("email") or ""
                     user_name = notes.get("name") or notes.get("user_id") or ""
@@ -320,11 +370,13 @@ def register_razorpay_routes(app, WORK):
                 try: payments_data = json.loads(payments_file.read_text(encoding="utf-8"))
                 except Exception: pass
 
+            callback_paid_inr = (payment_info.get("amount", 0) // 100) if (rzp_client and payment_info and payment_info.get("amount")) else pack["amount_inr"]
             payment_record = {
                 "order_id": razorpay_order_id or razorpay_payment_link_id or "",
                 "payment_id": razorpay_payment_id,
                 "pack_id": pack_id,
-                "amount_inr": pack["amount_inr"],
+                "amount_inr": callback_paid_inr,
+                "coupon_code": (notes.get("coupon_code") if 'notes' in locals() and isinstance(notes, dict) else None),
                 "credits": credits_to_add,
                 "device_id": device_id,
                 "email": user_email,
