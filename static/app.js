@@ -13476,6 +13476,43 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       });
     }
 
+    let _appliedDiscountCoupon = null;
+
+    const applyDiscountToUI = (couponCode, price10, price50, disc10, disc50) => {
+      _appliedDiscountCoupon = couponCode;
+      window.__appliedDiscountCoupon = couponCode;
+
+      const amt10 = $('payAmountPack10');
+      const amt50 = $('payAmountPack50');
+      const btn10 = $('btnPayPack10');
+      const btn50 = $('btnPayPack50');
+      const btn10Text = $('btnPayPack10Text');
+      const btn50Text = $('btnPayPack50Text');
+
+      if (amt10) {
+        amt10.innerHTML = `<span style="text-decoration: line-through; opacity: 0.55; font-size: 0.7em; margin-right: 4px;">₹20</span> ₹${price10}`;
+      }
+      if (amt50) {
+        amt50.innerHTML = `<span style="text-decoration: line-through; opacity: 0.55; font-size: 0.7em; margin-right: 4px;">₹50</span> ₹${price50}`;
+      }
+      if (btn10Text) {
+        btn10Text.textContent = `📲 Pay ₹${price10} via UPI / Card (₹${disc10} OFF applied)`;
+      } else if (btn10) {
+        btn10.innerHTML = `<span>📲 Pay ₹${price10} via UPI / Card (₹${disc10} OFF applied)</span>`;
+      }
+      if (btn50Text) {
+        btn50Text.textContent = `⚡ Pay ₹${price50} via UPI / Card (₹${disc50} OFF applied)`;
+      } else if (btn50) {
+        btn50.innerHTML = `<span>⚡ Pay ₹${price50} via UPI / Card (₹${disc50} OFF applied)</span>`;
+      }
+
+      // Also update landing page button if present
+      const btnFront10 = $('btnFrontPayPack10');
+      if (btnFront10) {
+        btnFront10.innerHTML = `<span>📲 Get 1 Export (₹${price10} · ₹${disc10} OFF)</span>`;
+      }
+    };
+
     const redeemAction = async () => {
       const code = (inputCode && inputCode.value.trim().toUpperCase()) || '';
       if (!code) {
@@ -13511,6 +13548,24 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         const data = await res.json();
         if (!res.ok || !data.ok) {
           throw new Error(data.error || 'Invalid code');
+        }
+
+        // Handle checkout discount coupons (e.g. keix 15 / KEIX15)
+        if (data.discount) {
+          applyDiscountToUI(
+            data.code || 'keix 15',
+            data.price_pack10 || 15,
+            data.price_pack50 || 40,
+            data.discount_pack10 || 5,
+            data.discount_pack50 || 10
+          );
+          if (msg) {
+            msg.innerHTML = `🎉 Coupon <strong>${escapeHtml(data.code || 'keix 15')}</strong> applied! <strong>₹5 OFF</strong> on Single Pass (Now ₹15) & <strong>₹10 OFF</strong> on Weekly Pack (Now ₹40)! Select a pack above to checkout.`;
+            msg.className = 'coupon-msg success';
+            msg.classList.remove('hidden');
+          }
+          showToast(`🎉 Coupon "${data.code || 'keix 15'}" applied! Prices discounted.`);
+          return;
         }
 
         const newBalance = typeof data.total_credits === 'number' ? data.total_credits : ((S.credits || 0) + (data.added_credits || 10));
@@ -13569,12 +13624,13 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         const userEmail = S.user ? (S.user.email || '').trim().toLowerCase() : '';
         const userName = S.user ? (S.user.name || '') : '';
 
-        // 1. Create Order on backend
+        // 1. Create Order on backend with optional coupon
         const orderRes = await fetch('/api/payment/create-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             pack_id: packId,
+            coupon_code: _appliedDiscountCoupon || window.__appliedDiscountCoupon || '',
             device_id: devId,
             email: userEmail,
             name: userName

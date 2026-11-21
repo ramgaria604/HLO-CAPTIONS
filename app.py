@@ -1288,6 +1288,9 @@ DEFAULT_COUPONS = {
     "NIKHILNOTTA1": {"credits": 100, "unlimited": True},
     "NIKHIL604": {"credits": 100, "unlimited": True},
     "PRO100": {"credits": 100, "unlimited": True},
+    # Checkout Discount Coupons
+    "KEIX 15": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
+    "KEIX15": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
     # 10 Exclusive Single-Use Codes (max 1 use total each, 2 free credits each)
     "VAULT4A": {"credits": 2, "max_uses": 1},
     "ZINE9K": {"credits": 2, "max_uses": 1},
@@ -1522,10 +1525,25 @@ def admin_users_summary():
 def redeem_coupon():
     d = request.get_json(force=True)
     code = (d.get("code") or "").strip().upper()
+    norm_code = re.sub(r"\s+", "", code)
     user_id = d.get("user_id") or d.get("device_id") or "guest"
     device_id = d.get("device_id") or user_id
     if not code:
         return err("Please enter a coupon code.")
+
+    # 1. Check for payment discount coupons (e.g. keix 15 / KEIX15)
+    if norm_code == "KEIX15":
+        return jsonify(
+            ok=True,
+            discount=True,
+            code="keix 15",
+            discount_pack10=5,
+            discount_pack50=10,
+            price_pack10=15,
+            price_pack50=40,
+            message="🎉 Coupon 'keix 15' applied! Single Pass is now ₹15 (₹5 OFF) & Weekly Pack is now ₹40 (₹10 OFF)."
+        )
+
     coupons = load_coupons()
     if code not in coupons:
         return err("Invalid coupon code. Please check and try again.", 400)
