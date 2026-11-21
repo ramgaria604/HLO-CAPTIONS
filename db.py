@@ -29,6 +29,8 @@ DEFAULT_COUPONS = {
     # Checkout Discount Coupons
     "KEIX 15": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
     "KEIX15": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
+    "FAIZAN 30": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
+    "FAIZAN30": {"discount": True, "discount_pack10": 5, "discount_pack50": 10},
     # 10 Exclusive Single-Use Codes (max 1 use total each, 2 free credits each)
     "VAULT4A": {"credits": 2, "max_uses": 1},
     "ZINE9K": {"credits": 2, "max_uses": 1},

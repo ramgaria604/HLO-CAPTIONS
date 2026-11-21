@@ -13344,21 +13344,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           throw new Error(data.error || 'Invalid code');
         }
 
-        // Handle checkout discount coupons (e.g. keix 15 / KEIX15)
+        // Handle checkout discount coupons (e.g. keix 15 / faizan 30)
         if (data.discount) {
+          const appliedCode = data.code || 'Discount';
           applyDiscountToUI(
-            data.code || 'keix 15',
+            appliedCode,
             data.price_pack10 || 15,
             data.price_pack50 || 40,
             data.discount_pack10 || 5,
             data.discount_pack50 || 10
           );
           if (msg) {
-            msg.innerHTML = `🎉 Coupon <strong>${escapeHtml(data.code || 'keix 15')}</strong> applied! <strong>₹5 OFF</strong> on Single Pass (Now ₹15) & <strong>₹10 OFF</strong> on Weekly Pack (Now ₹40)! Select a pack above to checkout.`;
+            msg.innerHTML = `🎉 Coupon <strong>${escapeHtml(appliedCode)}</strong> applied! <strong>₹5 OFF</strong> on Single Pass (Now ₹15) & <strong>₹10 OFF</strong> on Weekly Pack (Now ₹40)! Select a pack above to checkout.`;
             msg.className = 'coupon-msg success';
             msg.classList.remove('hidden');
           }
-          showToast(`🎉 Coupon "${data.code || 'keix 15'}" applied! Prices discounted.`);
+          showToast(`🎉 Coupon "${appliedCode}" applied! Prices discounted.`);
           return;
         }
 
