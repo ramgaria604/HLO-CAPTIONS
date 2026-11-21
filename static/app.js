@@ -21145,7 +21145,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       thumb: item.thumb,
       duration: item.duration || 3.0,
       credit: item.credit || '',
-      layout: 'full'
+      layout: 'drawer'
     };
 
     if (!S.brolls) S.brolls = [];
@@ -21182,8 +21182,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     brolls.forEach((b, idx) => {
       const card = document.createElement('div');
       card.className = 'broll-card';
-      const layout = b.layout || 'above';
-      const anim = b.animation || (layout === 'above' ? 'slide-down' : (layout === 'circle' || layout === 'window' ? 'pop' : 'fade'));
+      const layout = b.layout || 'drawer';
+      const anim = b.animation || (layout === 'drawer' || layout === 'above' ? 'slide-down' : (layout === 'circle' || layout === 'window' ? 'pop' : 'fade'));
 
       card.innerHTML = `
         <div class="broll-card-top">
@@ -21202,21 +21202,21 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         <div class="broll-layout-selector-wrap">
           <span class="broll-layout-label">Display Layout</span>
           <div class="broll-layout-selector" style="grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));">
-            <button type="button" class="broll-layout-btn ${layout === 'above' ? 'active' : ''}" data-layout="above" title="50% Top Split (Auto-Safe Headroom)">
-              <span class="layout-btn-icon">⬆️</span>
-              <span>50/50</span>
+            <button type="button" class="broll-layout-btn ${layout === 'drawer' || layout === 'above' ? 'active' : ''}" data-layout="drawer" title="Screen Drawer (Main Video Slides Down, B-Roll Above)">
+              <span class="layout-btn-icon">📥</span>
+              <span>Drawer</span>
             </button>
-            <button type="button" class="broll-layout-btn ${layout === 'zoom_corners' ? 'active' : ''}" data-layout="zoom_corners" title="Zoom-Out + 4-Corner Motion Stickers">
-              <span class="layout-btn-icon">🔍</span>
-              <span>Zoom 4C</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Corner Floating Card">
+            <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Corner Floating Card (Face-Safe PiP)">
               <span class="layout-btn-icon">🪟</span>
               <span>Card</span>
             </button>
             <button type="button" class="broll-layout-btn ${layout === 'circle' ? 'active' : ''}" data-layout="circle" title="Circular Bubble">
               <span class="layout-btn-icon">⭕</span>
               <span>Circle</span>
+            </button>
+            <button type="button" class="broll-layout-btn ${layout === 'zoom_corners' ? 'active' : ''}" data-layout="zoom_corners" title="Zoom-Out + 4-Corner Motion Stickers">
+              <span class="layout-btn-icon">🔍</span>
+              <span>Zoom 4C</span>
             </button>
             <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
               <span class="layout-btn-icon">🖥️</span>
@@ -21438,6 +21438,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   function syncBrollPlayback() {
     const brollLayer = $('brollStageLayer');
     const brollVid = $('brollVid');
+    const stage = $('stage');
     if (!brollLayer || !brollVid) return;
 
     const t = vid.currentTime || 0;
@@ -21449,6 +21450,9 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         brollVid.pause();
       }
       lastActiveBrollId = null;
+      if (stage && stage.classList.contains('stage-drawer-active')) {
+        stage.classList.remove('stage-drawer-active');
+      }
       if (vid.style.transform) {
         vid.style.transition = 'transform 0.35s ease';
         vid.style.transform = '';
@@ -21468,34 +21472,26 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     brollLayer.classList.remove('hidden');
 
     // Update layout classes
-    brollLayer.classList.remove('broll-layout-full', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window', 'broll-layout-circle', 'broll-layout-zoom_corners');
-    const layout = activeBroll.layout || 'above';
-
-    // 50% Top Split Safety Check: Only shift down if speaker headroom is safe!
-    // If speaker is too close to the top, shifting down 28% would cut their face.
-    // In that case, safely fall back to zoom_corners so face is never cut off!
-    const headTop = (window._subjectMaskStats && typeof window._subjectMaskStats.headTopRatio === 'number')
-      ? window._subjectMaskStats.headTopRatio
-      : 0.22;
-
-    let effectiveLayout = layout;
-    if (layout === 'above' && headTop < 0.16) {
-      effectiveLayout = 'zoom_corners';
-    }
+    brollLayer.classList.remove('broll-layout-full', 'broll-layout-drawer', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window', 'broll-layout-circle', 'broll-layout-zoom_corners');
+    const layout = activeBroll.layout || 'drawer';
+    let effectiveLayout = (layout === 'above') ? 'drawer' : layout;
 
     brollLayer.classList.add('broll-layout-' + effectiveLayout);
 
-    // Instant zero-delay video shift
-    if (effectiveLayout === 'above') {
-      vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
-      vid.style.transform = 'translateY(28%)';
-    } else if (effectiveLayout === 'zoom_corners') {
-      vid.style.transition = 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)';
-      vid.style.transform = 'scale(0.85)';
+    // Screen Drawer Mode: Smoothly slide video and canvases down to bottom half
+    if (effectiveLayout === 'drawer') {
+      if (stage) stage.classList.add('stage-drawer-active');
+      vid.style.transform = ''; // Handled by CSS on .stage.stage-drawer-active
     } else {
-      if (vid.style.transform) {
-        vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
-        vid.style.transform = '';
+      if (stage) stage.classList.remove('stage-drawer-active');
+      if (effectiveLayout === 'zoom_corners') {
+        vid.style.transition = 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)';
+        vid.style.transform = 'scale(0.85)';
+      } else {
+        if (vid.style.transform) {
+          vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
+          vid.style.transform = '';
+        }
       }
     }
 
@@ -22594,7 +22590,17 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         const pullY = S.pullDownY || 0;
         const basePullZoom = pullY > 0 ? (1.0 + pullY * 2.1) : 1.0;
         const effExportZoom = (isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch) * basePullZoom;
-        if (exportCleanFrameCanvas) {
+        const isBrollDrawer = activeBroll && (activeBroll.layout === 'drawer' || activeBroll.layout === 'above');
+        if (isBrollDrawer) {
+          const drawerSplitY = H * 0.48;
+          ctx.fillStyle = '#0b0c10';
+          ctx.fillRect(0, 0, W, H);
+          if (exportCleanFrameCanvas) {
+            ctx.drawImage(exportCleanFrameCanvas, 0, drawerSplitY, W, H - drawerSplitY);
+          } else {
+            sample.draw(ctx, 0, drawerSplitY, W, H - drawerSplitY);
+          }
+        } else if (exportCleanFrameCanvas) {
           // Zero-cost GPU copy of already decoded frame (avoids decoding video twice per frame)
           ctx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
         } else if (effExportZoom > 1.001 || pullY > 0) {
@@ -22614,15 +22620,38 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           if (Math.abs(bv.currentTime - brollT) > 0.15) {
             try { bv.currentTime = brollT; } catch (_) {}
           }
-          const layout = activeBroll.layout || 'full';
-          if (layout === 'above') {
-            ctx.drawImage(bv, 0, 0, W, H / 2);
-            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-            ctx.lineWidth = 2;
+          const layout = activeBroll.layout || 'drawer';
+          if (layout === 'drawer' || layout === 'above') {
+            const drawerSplitY = H * 0.48;
+            ctx.save();
             ctx.beginPath();
-            ctx.moveTo(0, H / 2);
-            ctx.lineTo(W, H / 2);
+            ctx.rect(0, 0, W, drawerSplitY);
+            ctx.clip();
+            ctx.drawImage(bv, 0, 0, W, drawerSplitY);
+            ctx.restore();
+
+            // Glowing divider line
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = 'rgba(0,0,0,0.6)';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.moveTo(0, drawerSplitY);
+            ctx.lineTo(W, drawerSplitY);
             ctx.stroke();
+
+            // Drawer pull pill indicator
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            const pillW = W * 0.12;
+            const pillH = 4;
+            const pillX = (W - pillW) / 2;
+            const pillY = drawerSplitY - pillH - 4;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, 9999);
+            else ctx.rect(pillX, pillY, pillW, pillH);
+            ctx.fill();
+            ctx.restore();
           } else if (layout === 'below') {
             ctx.drawImage(bv, 0, H / 2, W, H / 2);
             ctx.strokeStyle = 'rgba(255,255,255,0.4)';
@@ -25672,6 +25701,28 @@ function getOrRenderStickerSprite(beat, u, W) {
 }
 
 /**
+ * Calculates dynamic face-safe positioning for stickers so they never cover the speaker's face.
+ * - When Screen Drawer / B-Roll is open: place in the top drawer (centerY = H * 0.22)
+ * - When headroom is available: place in upper third (centerY = H * 0.15)
+ * - Otherwise: place in lower safe-zone (centerY = H * 0.70) safely below chest and above subtitles
+ */
+function getFaceSafeStickerCenter(beat, t, W, H, isBrollActive) {
+  if (isBrollActive) {
+    return { x: W / 2, y: H * 0.22, inDrawer: true };
+  }
+
+  const headTop = (window._subjectMaskStats && typeof window._subjectMaskStats.headTopRatio === 'number')
+    ? window._subjectMaskStats.headTopRatio
+    : 0.22;
+
+  if (headTop >= 0.18) {
+    return { x: W / 2, y: Math.max(H * 0.13, (headTop * H) / 2), inDrawer: false };
+  }
+
+  return { x: W / 2, y: H * 0.70, inDrawer: false };
+}
+
+/**
  * Draw Animated Sticker Card onto Context
  */
 function drawPopStickerCard(ctx, beat, t, centerX, centerY, u, W) {
@@ -26045,18 +26096,55 @@ function drawPopSceneS5(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource)
     brollEl = (typeof brollElements !== 'undefined' && brollElements[activeBroll.id]) ? brollElements[activeBroll.id] : $('brollVid');
   }
 
-  // Draw full frame B-roll or original video (never crop into an occluding card/capsule)
-  if (brollEl && brollEl.readyState && brollEl.readyState >= 2) {
-    drawCoverVideo(ctx, brollEl, 0, 0, W, H);
-  } else if (videoSource) {
-    drawCoverVideo(ctx, videoSource, 0, 0, W, H);
+  const isDrawer = !activeBroll || activeBroll.layout === 'drawer' || activeBroll.layout === 'above';
+
+  if (isDrawer && videoSource && brollEl && brollEl.readyState && brollEl.readyState >= 2) {
+    // Screen Drawer layout: B-Roll in top 48% drawer, main speaker video on bottom 52%
+    const drawerH = H * 0.48;
+    ctx.fillStyle = '#0b0c10';
+    ctx.fillRect(0, 0, W, H);
+    drawCoverVideo(ctx, videoSource, 0, drawerH, W, H - drawerH);
+    drawCoverVideo(ctx, brollEl, 0, 0, W, drawerH);
+
+    // Glowing Divider line
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(0, drawerH);
+    ctx.lineTo(W, drawerH);
+    ctx.stroke();
+
+    // Drawer handle indicator
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    const pillW = W * 0.12;
+    const pillH = 4;
+    const pillX = (W - pillW) / 2;
+    const pillY = drawerH - pillH - 4;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, 9999);
+    else ctx.rect(pillX, pillY, pillW, pillH);
+    ctx.fill();
+    ctx.restore();
+
+    // Title sticker inside top drawer
+    drawPopStickerCard(ctx, beat, t, W / 2, drawerH * 0.46, u, W);
+
+    // Subtitles in lower section
+    drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.88, u, W);
+  } else {
+    // Full frame B-roll or original video
+    if (brollEl && brollEl.readyState && brollEl.readyState >= 2) {
+      drawCoverVideo(ctx, brollEl, 0, 0, W, H);
+    } else if (videoSource) {
+      drawCoverVideo(ctx, videoSource, 0, 0, W, H);
+    }
+    const safePos = getFaceSafeStickerCenter(beat, t, W, H, true);
+    drawPopStickerCard(ctx, beat, t, safePos.x, safePos.y, u, W);
+    drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.82, u, W);
   }
-
-  // Title sticker centered at ~60%
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.60, u, W);
-
-  // Subtitles / karaoke line at ~76%
-  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.76, u, W);
 }
 
 /**
@@ -26161,11 +26249,13 @@ function drawPopSceneS1(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource)
     ctx.restore();
   }
 
-  // 2. Title sticker centered at ~60%
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.60, u, W);
+  // 2. Title sticker placed at face-safe coordinates (never covers speaker face)
+  const isBrollActive = (S.brolls || []).some(b => b.url && t >= b.start && t <= b.end);
+  const stickerPos = getFaceSafeStickerCenter(beat, t, W, H, isBrollActive);
+  drawPopStickerCard(ctx, beat, t, stickerPos.x, stickerPos.y, u, W);
 
-  // 3. Karaoke line at ~76%
-  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.76, u, W);
+  // 3. Karaoke line at ~78%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.78, u, W);
 }
 
 /**
@@ -26177,11 +26267,13 @@ function drawPopSceneS2(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource)
     drawCoverVideo(ctx, videoSource, 0, 0, W, H);
   }
 
-  // Title sticker centered at ~60%
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.60, u, W);
+  // Title sticker placed at face-safe coordinates
+  const isBrollActive = (S.brolls || []).some(b => b.url && t >= b.start && t <= b.end);
+  const stickerPos = getFaceSafeStickerCenter(beat, t, W, H, isBrollActive);
+  drawPopStickerCard(ctx, beat, t, stickerPos.x, stickerPos.y, u, W);
 
-  // Karaoke line at ~76%
-  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.76, u, W);
+  // Karaoke line at ~78%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.78, u, W);
 }
 
 /**
@@ -26222,8 +26314,10 @@ function drawPopSceneS3(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource,
   heroTargetCtx.fillText(displayHero, W / 2, heroY);
   heroTargetCtx.restore();
 
-  // 2. Small sticker chip with supporting words in FRONT near lower third
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.65, u, W);
+  // 2. Small sticker chip with supporting words in safe lower area
+  const isBrollActive = (S.brolls || []).some(b => b.url && t >= b.start && t <= b.end);
+  const stickerPos = getFaceSafeStickerCenter(beat, t, W, H, isBrollActive);
+  drawPopStickerCard(ctx, beat, t, stickerPos.x, Math.max(stickerPos.y, H * 0.70), u, W);
 
   // 3. Karaoke line at ~80%
   drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.80, u, W);
