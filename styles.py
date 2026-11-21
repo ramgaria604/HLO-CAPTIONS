@@ -872,8 +872,10 @@ def load_presets():
     sky_kinetic_item = {
         "id": "sky_kinetic_duo",
         "name": "✨ Sky Kinetic Stack (Aesthetic Glow)",
-        "category": "trending",
+        "category": "duo",
+        "isDuo": True,
         "badge": "AESTHETIC ✨",
+        "previewWord": "NEVER SETTLE",
         "layout": "sky_kinetic",
         "animation": "slide-left",
         "wordsPerCaption": 2,

@@ -13890,39 +13890,68 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     tagSpan.textContent = tag;
     art.appendChild(tagSpan);
 
-    if (preset.isDuo) {
-      const small = document.createElement('span');
-      small.className = 'front-card-small';
-      small.textContent = 'SOME MOMENTS';
-      art.appendChild(small);
-    }
+    if (preset.id === 'sky_kinetic_duo' || preset.layout === 'sky_kinetic') {
+      const stackBox = document.createElement('div');
+      stackBox.style.display = 'flex';
+      stackBox.style.flexDirection = 'column';
+      stackBox.style.alignItems = 'center';
+      stackBox.style.justifyContent = 'center';
+      stackBox.style.lineHeight = '1.05';
+      stackBox.style.marginTop = '4px';
 
-    const big = document.createElement('strong');
-    big.className = 'front-card-big';
-    big.textContent = previewWord;
-    big.style.fontFamily = `'${font}', sans-serif`;
-    big.style.fontStyle = isItalic;
-    big.style.fontWeight = weight;
-    big.style.textTransform = textTransform;
+      const line1 = document.createElement('span');
+      line1.textContent = 'NEVER';
+      line1.style.fontFamily = `'Syne', sans-serif`;
+      line1.style.fontWeight = '800';
+      line1.style.fontSize = '16px';
+      line1.style.color = '#FFFFFF';
+      line1.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
 
-    const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
-    if (preset.pill) {
-      big.style.background = preset.pill;
-      big.style.padding = '3px 8px';
-      big.style.borderRadius = '5px';
-      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
-    } else if (paint && paint.startsWith('linear-gradient(')) {
-      big.style.backgroundImage = paint;
-      big.style.webkitBackgroundClip = 'text';
-      big.style.backgroundClip = 'text';
-      big.style.color = 'transparent';
+      const line2 = document.createElement('span');
+      line2.textContent = 'SETTLE';
+      line2.style.fontFamily = `'Syne', sans-serif`;
+      line2.style.fontWeight = '900';
+      line2.style.fontSize = '17px';
+      line2.style.color = '#38BDF8';
+      line2.style.textShadow = '0 0 12px rgba(56,189,248,0.9), 0 0 4px rgba(125,211,252,0.95)';
+
+      stackBox.append(line1, line2);
+      art.appendChild(stackBox);
     } else {
-      big.style.color = color;
-      if (kRole.glow || preset.glow) {
-        big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+      if (preset.isDuo) {
+        const small = document.createElement('span');
+        small.className = 'front-card-small';
+        small.textContent = 'SOME MOMENTS';
+        art.appendChild(small);
       }
+
+      const big = document.createElement('strong');
+      big.className = 'front-card-big';
+      big.textContent = previewWord;
+      big.style.fontFamily = `'${font}', sans-serif`;
+      big.style.fontStyle = isItalic;
+      big.style.fontWeight = weight;
+      big.style.textTransform = textTransform;
+
+      const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
+      if (preset.pill) {
+        big.style.background = preset.pill;
+        big.style.padding = '3px 8px';
+        big.style.borderRadius = '5px';
+        big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
+      } else if (paint && paint.startsWith('linear-gradient(')) {
+        big.style.backgroundImage = paint;
+        big.style.webkitBackgroundClip = 'text';
+        big.style.backgroundClip = 'text';
+        big.style.color = 'transparent';
+      } else {
+        big.style.color = color;
+        if (kRole.glow || preset.glow) {
+          big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+        }
+      }
+      art.appendChild(big);
     }
-    art.appendChild(big);
 
     // Name & Selected Check
     const nameRow = document.createElement('div');
@@ -14050,7 +14079,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.28.0';
+    const CURRENT_PRESET_VER = 'v7.29.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -14062,6 +14091,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // 0. Ensure default presets exist immediately so screen is NEVER blank
     if (!S.presets || S.presets.length === 0) {
       S.presets = [
+        {
+          id: "sky_kinetic_duo",
+          name: "✨ Sky Kinetic Stack (Aesthetic Glow)",
+          category: "duo",
+          badge: "AESTHETIC ✨",
+          previewWord: "NEVER SETTLE",
+          isDuo: true,
+          layout: "sky_kinetic",
+          highlightColor: "#38BDF8",
+          baseColor: "#FFFFFF",
+          hasSkyGlow: true,
+          fontFamily: "Syne",
+          position: 0.72,
+          key: { font: "Syne", color: "#38BDF8", bold: true, weight: 900 },
+          filler: { font: "Syne", color: "#FFFFFF", bold: true, weight: 800 }
+        },
         {
           id: "dubai_luxury_stack",
           name: "Dubai Luxury Stack",
@@ -16034,7 +16079,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       match: (p) => {
         const name = (p.name || '').toLowerCase();
         const cat = (p.category || '').toLowerCase();
-        return Boolean(p.isDuo) || cat === 'duo' || name.startsWith('duo ·') || name.startsWith('duo');
+        return Boolean(p.isDuo) || cat === 'duo' || p.layout === 'sky_kinetic' || p.id === 'sky_kinetic_duo' || name.startsWith('duo ·') || name.startsWith('duo');
       }
     },
     {
@@ -16558,6 +16603,33 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       subSmall.style.marginTop = '4px';
       subSmall.style.zIndex = '3';
       art.appendChild(subSmall);
+    } else if (preset.id === 'sky_kinetic_duo' || preset.layout === 'sky_kinetic') {
+      const stackBox = document.createElement('div');
+      stackBox.style.display = 'flex';
+      stackBox.style.flexDirection = 'column';
+      stackBox.style.alignItems = 'center';
+      stackBox.style.justifyContent = 'center';
+      stackBox.style.lineHeight = '1.05';
+      stackBox.style.marginTop = '4px';
+
+      const line1 = document.createElement('span');
+      line1.textContent = 'NEVER';
+      line1.style.fontFamily = `'Syne', sans-serif`;
+      line1.style.fontWeight = '800';
+      line1.style.fontSize = '16px';
+      line1.style.color = '#FFFFFF';
+      line1.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
+
+      const line2 = document.createElement('span');
+      line2.textContent = 'SETTLE';
+      line2.style.fontFamily = `'Syne', sans-serif`;
+      line2.style.fontWeight = '900';
+      line2.style.fontSize = '17px';
+      line2.style.color = '#38BDF8';
+      line2.style.textShadow = '0 0 12px rgba(56,189,248,0.9), 0 0 4px rgba(125,211,252,0.95)';
+
+      stackBox.append(line1, line2);
+      art.appendChild(stackBox);
     } else {
       if (preset.isDuo) {
         const small = document.createElement('span');
