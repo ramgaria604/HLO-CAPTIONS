@@ -6037,6 +6037,169 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
 }
 
 /**
+ * White Capsule Pill (Clinical Karaoke Preset)
+ * - Pure White Capsule Pill (#FFFFFF) with crisp black outline
+ * - Subtle ambient drop shadow for clarity on all video backgrounds
+ * - Spoken active words in bold deep black (#000000)
+ * - Upcoming words in soft translucent gray (#A8B0BA)
+ * - Lowercase / Sentence case formatting
+ */
+function drawWhitePillKaraokePass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+
+  const ov = resolveSceneStyleOverrides(st, H);
+  const pillFont = ov.pickFontFam('"Outfit", "Poppins", "Inter", sans-serif');
+  const activeColor = ov.pickHi('#000000');
+  const pastColor = '#111111';
+  const inactiveColor = ov.pickBase('#A8B0BA');
+  const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const userCase = (st && st.textCase) || 'lower';
+
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
+
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitAlpha = fullInstant ? 1.0 : Math.min(1, timeRem / 0.08);
+  if (exitAlpha <= 0.005) return;
+
+  const cleanWord = (raw) => String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim();
+  const formatWord = (str) => {
+    if (userCase === 'upper') return str.toUpperCase();
+    if (userCase === 'lower') return str.toLowerCase();
+    if (userCase === 'title') return str.replace(/\b\w/g, (c) => c.toUpperCase());
+    return str.toLowerCase();
+  };
+
+  const posRatio = Number(st && (st.position || st.posY)) || 0.70;
+  const centerY = H * posRatio;
+  const centerX = W * 0.5;
+
+  const fontSize = Math.round(W * 0.052 * fontScale);
+  ctxFore.save();
+  ctxFore.font = `700 ${fontSize}px ${pillFont}`;
+
+  const spaceW = ctxFore.measureText(' ').width;
+  const wordItems = words.map((w, idx) => {
+    const rawTxt = cleanWord(w.t || w.word || '');
+    const txt = formatWord(rawTxt);
+    const wStart = (w && typeof w.s === 'number') ? w.s : (capStart + idx * 0.35);
+    const wEnd = (w && typeof w.e === 'number') ? w.e : (wStart + 0.35);
+    const isPast = !isSampleCard && !fullInstant && evalT >= wEnd;
+    const isActive = isSampleCard ? (idx < 2) : (!fullInstant ? (evalT >= wStart && evalT < wEnd) : (idx === 0));
+
+    ctxFore.font = (isActive || isPast) ? `800 ${fontSize}px ${pillFont}` : `500 ${fontSize}px ${pillFont}`;
+    const width = ctxFore.measureText(txt).width;
+    return { w, txt, width, wStart, wEnd, isPast, isActive };
+  });
+
+  const totalTextW = wordItems.reduce((acc, it) => acc + it.width, 0) + Math.max(0, wordItems.length - 1) * spaceW;
+
+  const padX = Math.round(fontSize * 0.92);
+  const pillW = Math.min(W * 0.94, totalTextW + padX * 2);
+  const pillH = Math.round(fontSize * 1.85);
+  const pillRadius = Math.round(pillH * 0.30);
+  const pillX = centerX - pillW / 2;
+  const pillY = centerY - pillH / 2;
+  const borderWidth = Math.max(2, Math.round(3.2 * (W / 1080)));
+
+  let popScale = 1.0;
+  if (!fullInstant) {
+    const elapsed = Math.max(0, evalT - capStart);
+    if (elapsed < 0.16) {
+      const p = elapsed / 0.16;
+      popScale = 0.92 + 0.08 * (1 - Math.pow(1 - p, 3));
+    }
+  }
+
+  ctxFore.translate(centerX, centerY);
+  ctxFore.scale(popScale, popScale);
+  ctxFore.translate(-centerX, -centerY);
+  ctxFore.globalAlpha = exitAlpha;
+
+  // 1. Pill Capsule with Soft Shadow
+  ctxFore.save();
+  ctxFore.shadowColor = 'rgba(0, 0, 0, 0.18)';
+  ctxFore.shadowBlur = Math.round(14 * (W / 1080));
+  ctxFore.shadowOffsetX = 0;
+  ctxFore.shadowOffsetY = Math.round(6 * (W / 1080));
+
+  ctxFore.beginPath();
+  if (typeof ctxFore.roundRect === 'function') {
+    ctxFore.roundRect(pillX, pillY, pillW, pillH, pillRadius);
+  } else {
+    const r = pillRadius;
+    ctxFore.moveTo(pillX + r, pillY);
+    ctxFore.lineTo(pillX + pillW - r, pillY);
+    ctxFore.quadraticCurveTo(pillX + pillW, pillY, pillX + pillW, pillY + r);
+    ctxFore.lineTo(pillX + pillW, pillY + pillH - r);
+    ctxFore.quadraticCurveTo(pillX + pillW, pillY + pillH, pillX + pillW - r, pillY + pillH);
+    ctxFore.lineTo(pillX + r, pillY + pillH);
+    ctxFore.quadraticCurveTo(pillX, pillY + pillH, pillX, pillY + pillH - r);
+    ctxFore.lineTo(pillX, pillY + r);
+    ctxFore.quadraticCurveTo(pillX, pillY, pillX + r, pillY);
+    ctxFore.closePath();
+  }
+  ctxFore.fillStyle = '#FFFFFF';
+  ctxFore.fill();
+  ctxFore.restore();
+
+  // 2. 2px Solid Black Border
+  ctxFore.save();
+  ctxFore.lineWidth = borderWidth;
+  ctxFore.strokeStyle = '#000000';
+  ctxFore.beginPath();
+  if (typeof ctxFore.roundRect === 'function') {
+    ctxFore.roundRect(pillX, pillY, pillW, pillH, pillRadius);
+  } else {
+    const r = pillRadius;
+    ctxFore.moveTo(pillX + r, pillY);
+    ctxFore.lineTo(pillX + pillW - r, pillY);
+    ctxFore.quadraticCurveTo(pillX + pillW, pillY, pillX + pillW, pillY + r);
+    ctxFore.lineTo(pillX + pillW, pillY + pillH - r);
+    ctxFore.quadraticCurveTo(pillX + pillW, pillY + pillH, pillX + pillW - r, pillY + pillH);
+    ctxFore.lineTo(pillX + r, pillY + pillH);
+    ctxFore.quadraticCurveTo(pillX, pillY + pillH, pillX, pillY + pillH - r);
+    ctxFore.lineTo(pillX, pillY + r);
+    ctxFore.quadraticCurveTo(pillX, pillY, pillX + r, pillY);
+    ctxFore.closePath();
+  }
+  ctxFore.stroke();
+  ctxFore.restore();
+
+  // 3. Spoken Active Words & Muted Inactive Words
+  let currentX = centerX - totalTextW / 2;
+  const textBaselineY = centerY + Math.round(fontSize * 0.04);
+
+  wordItems.forEach(item => {
+    ctxFore.save();
+    ctxFore.textBaseline = 'middle';
+    if (item.isActive) {
+      ctxFore.font = `800 ${fontSize}px ${pillFont}`;
+      ctxFore.fillStyle = activeColor;
+      ctxFore.fillText(item.txt, currentX, textBaselineY);
+    } else if (item.isPast) {
+      ctxFore.font = `700 ${fontSize}px ${pillFont}`;
+      ctxFore.fillStyle = pastColor;
+      ctxFore.fillText(item.txt, currentX, textBaselineY);
+    } else {
+      ctxFore.font = `500 ${fontSize}px ${pillFont}`;
+      ctxFore.fillStyle = inactiveColor;
+      ctxFore.fillText(item.txt, currentX, textBaselineY);
+    }
+    ctxFore.restore();
+
+    ctxFore.font = (item.isActive || item.isPast) ? `800 ${fontSize}px ${pillFont}` : `500 ${fontSize}px ${pillFont}`;
+    currentX += ctxFore.measureText(item.txt).width + spaceW;
+  });
+
+  ctxFore.restore();
+}
+
+/**
  * Aesthetic Sky Blue & White Kinetic Preset:
  * - Dynamic Rhythmic Variations (never boring):
  *   1) Two-Tier Sideways Kinetic Stack (Word 1 from left in White, Word 2 from right in glowing Sky Blue)
@@ -12707,6 +12870,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.id === 'real_estate_depth_split') {
         drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.id === 'white_pill_karaoke' || st.whitePillKaraoke || st.layout === 'white_pill') {
+        drawWhitePillKaraokePass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.id === 'sky_kinetic_duo' || st.hasSkyGlow || st.layout === 'sky_kinetic') {
         drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.id === 'electric_kinetic_stack') {
@@ -13890,7 +14055,33 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     tagSpan.textContent = tag;
     art.appendChild(tagSpan);
 
-    if (preset.id === 'sky_kinetic_duo' || preset.layout === 'sky_kinetic') {
+    if (preset.id === 'white_pill_karaoke' || preset.layout === 'white_pill') {
+      const pillBox = document.createElement('div');
+      pillBox.style.display = 'inline-flex';
+      pillBox.style.alignItems = 'center';
+      pillBox.style.gap = '5px';
+      pillBox.style.background = '#FFFFFF';
+      pillBox.style.border = '2px solid #000000';
+      pillBox.style.borderRadius = '9999px';
+      pillBox.style.padding = '6px 14px';
+      pillBox.style.boxShadow = '0 4px 12px rgba(0,0,0,0.22)';
+      pillBox.style.fontFamily = `'Outfit', 'Poppins', sans-serif`;
+      pillBox.style.fontSize = '12px';
+      pillBox.style.lineHeight = '1';
+
+      const actSpan = document.createElement('span');
+      actSpan.textContent = 'sunne mein';
+      actSpan.style.color = '#000000';
+      actSpan.style.fontWeight = '800';
+
+      const inactSpan = document.createElement('span');
+      inactSpan.textContent = 'dikkat';
+      inactSpan.style.color = '#A8B0BA';
+      inactSpan.style.fontWeight = '500';
+
+      pillBox.append(actSpan, inactSpan);
+      art.appendChild(pillBox);
+    } else if (preset.id === 'sky_kinetic_duo' || preset.layout === 'sky_kinetic') {
       const stackBox = document.createElement('div');
       stackBox.style.display = 'flex';
       stackBox.style.flexDirection = 'column';
@@ -14079,7 +14270,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.29.0';
+    const CURRENT_PRESET_VER = 'v7.30.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -14091,6 +14282,21 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // 0. Ensure default presets exist immediately so screen is NEVER blank
     if (!S.presets || S.presets.length === 0) {
       S.presets = [
+        {
+          id: "white_pill_karaoke",
+          name: "💊 White Capsule (Clinical Karaoke)",
+          category: "box",
+          badge: "CLINICAL 💊",
+          previewWord: "sunne mein dikkat",
+          layout: "white_pill",
+          whitePillKaraoke: true,
+          highlightColor: "#000000",
+          baseColor: "#A8B0BA",
+          fontFamily: "Outfit",
+          position: 0.70,
+          key: { font: "Outfit", color: "#000000", bold: true, weight: 800 },
+          filler: { font: "Outfit", color: "#A8B0BA", bold: false, weight: 500 }
+        },
         {
           id: "sky_kinetic_duo",
           name: "✨ Sky Kinetic Stack (Aesthetic Glow)",
@@ -16069,7 +16275,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       match: (p) => {
         const name = (p.name || '').toLowerCase();
         const cat = (p.category || '').toLowerCase();
-        return name.includes('box') || cat.includes('box') || Boolean(p.pill) || Boolean(p.box);
+        return name.includes('box') || name.includes('capsule') || name.includes('pill') || cat.includes('box') || p.layout === 'white_pill' || p.id === 'white_pill_karaoke' || Boolean(p.pill) || Boolean(p.box);
       }
     },
     {
@@ -16603,6 +16809,32 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       subSmall.style.marginTop = '4px';
       subSmall.style.zIndex = '3';
       art.appendChild(subSmall);
+    } else if (preset.id === 'white_pill_karaoke' || preset.layout === 'white_pill') {
+      const pillBox = document.createElement('div');
+      pillBox.style.display = 'inline-flex';
+      pillBox.style.alignItems = 'center';
+      pillBox.style.gap = '5px';
+      pillBox.style.background = '#FFFFFF';
+      pillBox.style.border = '2px solid #000000';
+      pillBox.style.borderRadius = '9999px';
+      pillBox.style.padding = '6px 14px';
+      pillBox.style.boxShadow = '0 4px 12px rgba(0,0,0,0.22)';
+      pillBox.style.fontFamily = `'Outfit', 'Poppins', sans-serif`;
+      pillBox.style.fontSize = '12px';
+      pillBox.style.lineHeight = '1';
+
+      const actSpan = document.createElement('span');
+      actSpan.textContent = 'sunne mein';
+      actSpan.style.color = '#000000';
+      actSpan.style.fontWeight = '800';
+
+      const inactSpan = document.createElement('span');
+      inactSpan.textContent = 'dikkat';
+      inactSpan.style.color = '#A8B0BA';
+      inactSpan.style.fontWeight = '500';
+
+      pillBox.append(actSpan, inactSpan);
+      art.appendChild(pillBox);
     } else if (preset.id === 'sky_kinetic_duo' || preset.layout === 'sky_kinetic') {
       const stackBox = document.createElement('div');
       stackBox.style.display = 'flex';

@@ -905,9 +905,46 @@ def load_presets():
             "shadowColor": "rgba(0,0,0,0.85)"
         }
     }
-    out.insert(0, sky_kinetic_item)
-    out.insert(1, wealth_broll_item)
-    out.insert(2, side_by_side_item)
+    white_pill_item = {
+        "id": "white_pill_karaoke",
+        "name": "💊 White Capsule (Clinical Karaoke)",
+        "category": "box",
+        "badge": "CLINICAL 💊",
+        "previewWord": "sunne mein dikkat",
+        "layout": "white_pill",
+        "animation": "pop",
+        "wordsPerCaption": 4,
+        "maxKeys": 1,
+        "position": 0.70,
+        "textCase": "lower",
+        "highlightColor": "#000000",
+        "baseColor": "#A8B0BA",
+        "fontFamily": "Outfit",
+        "fontScale": 1.0,
+        "whitePillKaraoke": True,
+        "key": {
+            "font": "Outfit",
+            "size": 0.054,
+            "color": "#000000",
+            "bold": True,
+            "weight": 800,
+            "shadow": 0,
+            "shadowColor": "transparent"
+        },
+        "filler": {
+            "font": "Outfit",
+            "size": 0.054,
+            "color": "#A8B0BA",
+            "bold": False,
+            "weight": 500,
+            "shadow": 0,
+            "shadowColor": "transparent"
+        }
+    }
+    out.insert(0, white_pill_item)
+    out.insert(1, sky_kinetic_item)
+    out.insert(2, wealth_broll_item)
+    out.insert(3, side_by_side_item)
 
     return out
 
@@ -1001,7 +1038,7 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
-        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic") else ("stack" if s.get("isDuo") else "line"),
+        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic", "white_pill") else ("stack" if s.get("isDuo") else "line"),
         "animation": anim,
         "anim": anim,
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",
