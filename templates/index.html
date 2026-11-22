@@ -288,10 +288,6 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           <span class="btn-label-desktop">Save</span>
         </button>
-        <button type="button" id="btnAutoEditHeader" class="btn-auto-edit hide-on-mobile" title="One-Click Magic Auto Edit">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/></svg>
-          <span>Auto Edit</span>
-        </button>
 
         <button id="btnExport" class="btn-export btn-export-moonshot" title="Export Video" aria-label="Export Video">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -950,6 +946,34 @@
               <button type="button" class="cat-pill" data-style-group="extras">Extras</button>
             </div>
             <div class="style-options-grid">
+              <!-- 🎬 Active B-Rolls in Settings -->
+              <div class="control-card" id="cardSettingsBrolls" data-style-group="all broll motion extras">
+                <div class="control-header">
+                  <label>🎬 Active B-Rolls on Video</label>
+                  <span id="settingsBrollBadge" class="val-badge badge-green">0 CLIPS</span>
+                </div>
+                <p class="voiceover-help">Replace video, set entrance animation (Pop, Slide, Fade, Zoom), or delete single / multiple B-rolls.</p>
+
+                <!-- Bulk Selection & Actions -->
+                <div class="broll-bulk-bar" id="settingsBrollBulkBar" style="display:none;">
+                  <label class="broll-select-all-label">
+                    <input type="checkbox" id="chkSelectAllSettingsBrolls" class="broll-select-checkbox">
+                    <span>Select All</span>
+                  </label>
+                  <button type="button" id="btnDeleteSelectedSettingsBrolls" class="btn-bulk-delete" style="display:none;">
+                    🗑️ Delete Selected (<span id="settingsBrollSelectedCount">0</span>)
+                  </button>
+                </div>
+
+                <div id="settingsBrollList" class="broll-items-list">
+                  <div class="broll-empty-state" id="settingsBrollEmptyState">
+                    <div class="empty-icon">🎬</div>
+                    <p>No B-Rolls added yet.</p>
+                    <p class="empty-sub">Add B-roll clips from the Stock tab to animate them over your reel.</p>
+                  </div>
+                </div>
+              </div>
+
               <!-- Hero Look Selector (Solid, See-through, Texture) -->
               <div class="control-card" id="cardHeroLook" data-style-group="motion">
                 <div class="control-header">
@@ -1625,40 +1649,6 @@
                 <input type="range" id="inputWmOpacity" min="20" max="100" value="80" class="styled-slider">
               </div>
 
-              <!-- 13. Active B-Rolls & Transitions (Settings Drawer) -->
-              <div class="control-card" id="cardSettingsBrolls" data-style-group="broll extras all">
-                <div class="control-header">
-                  <label>🎬 Active B-Rolls &amp; Animations</label>
-                  <span id="settingsBrollBadge" class="val-badge badge-green">0 CLIPS</span>
-                </div>
-                <p class="voiceover-help">Replace clips, choose entrance animations (Pop, Slide, Fade, Zoom), or delete single/multiple B-rolls.</p>
-
-                <!-- Bulk Selection & Actions -->
-                <div class="broll-bulk-bar" id="settingsBrollBulkBar" style="display:none;">
-                  <label class="broll-select-all-label">
-                    <input type="checkbox" id="chkSelectAllSettingsBrolls" class="broll-select-checkbox">
-                    <span>Select All</span>
-                  </label>
-                  <button type="button" id="btnDeleteSelectedSettingsBrolls" class="btn-bulk-delete" style="display:none;">
-                    🗑️ Delete Selected (<span id="settingsBrollSelectedCount">0</span>)
-                  </button>
-                </div>
-
-                <div id="settingsBrollList" class="broll-items-list">
-                  <div class="broll-empty-state" id="settingsBrollEmptyState">
-                    <div class="empty-icon">🎬</div>
-                    <p>No B-Rolls added yet.</p>
-                    <p class="empty-sub">Add B-roll clips from the Stock tab to animate them over your reel.</p>
-                  </div>
-                </div>
-
-                <div style="margin-top: 10px; display: flex; gap: 8px;">
-                  <button type="button" id="btnSettingsAddBrollShortcut" class="btn-subaction" style="width: 100%;">
-                    <span>➕ Add / Search More Stock B-Rolls</span>
-                  </button>
-                </div>
-              </div>
-
             </div>
           </div>
           <!-- TAB 4: AUDIO -->
@@ -1848,15 +1838,10 @@
                   <div class="broll-hero-icon">✨</div>
                   <div class="broll-hero-text">
                     <strong>Auto B-Roll with Coverr / Stock Library</strong>
-                    <span>Automatically detects key moments in captions & inserts relevant free stock video clips</span>
+                    <span>Automatically detects key moments in captions &amp; inserts relevant free stock video clips</span>
                   </div>
                 </div>
                 <div class="broll-actions-row">
-                  <button type="button" id="btnAutoEditHero" class="btn-subaction btn-auto-edit-hero" title="Magic 1-Click Auto Edit">
-                    <span>⚡ Magic Auto Edit (B-Rolls + Clean 'um' + SFX)</span>
-                  </button>
-                </div>
-                <div class="broll-actions-row" style="margin-top: 8px;">
                   <button type="button" id="btnAutoBroll" class="btn-subaction btn-primary-gradient">
                     <span>🎬 Auto B-Rolls Only</span>
                   </button>

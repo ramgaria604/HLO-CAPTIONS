@@ -19785,14 +19785,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
   }
 
   function drawMotionStickersOverlays(ctx, W, H, t) {
-    const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
-    const hasActiveBroll = Boolean(activeBroll);
-    const isMotionActive = Boolean(
-      (S.style && (S.style.hasBrollMotion || S.style.id === 'tpl_broll_wealth' || S.style.id === 'wealth_impact')) ||
-      (S.motionStickersEnabled) ||
-      (hasActiveBroll && S.motionStickersEnabled !== false)
-    );
-    if (!isMotionActive) return;
+    // Disabled: pure video and clean captions with no unwanted arrows, stickers or doodle overlays
+    return;
 
     ctx.save();
 
@@ -21528,12 +21522,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   }
 
   function setupBrollHandlers() {
-    const btnAutoEditHeader = $('btnAutoEditHeader');
-    const btnAutoEditHero = $('btnAutoEditHero');
     const btnRemoveFillers = $('btnRemoveFillers');
-
-    if (btnAutoEditHeader) btnAutoEditHeader.addEventListener('click', runAutoEdit);
-    if (btnAutoEditHero) btnAutoEditHero.addEventListener('click', runAutoEdit);
     if (btnRemoveFillers) btnRemoveFillers.addEventListener('click', () => removeFillerWords(true));
     const btnAutoBroll = $('btnAutoBroll');
     const btnTogglePexelsSearch = $('btnTogglePexelsSearch');
@@ -21923,18 +21912,6 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         </div>
       </div>
 
-      <div class="broll-layout-selector-wrap" style="margin-top: 6px;">
-        <span class="broll-layout-label">Motion Graphics Theme</span>
-        <div class="broll-theme-selector">
-          <button type="button" class="broll-theme-btn ${!b.theme || b.theme === 'auto' ? 'active' : ''}" data-theme="auto" title="Auto Detect from Audio">⚡ Auto</button>
-          <button type="button" class="broll-theme-btn ${b.theme === 'wealth' ? 'active' : ''}" data-theme="wealth" title="FinTech & ROI">📈 Wealth</button>
-          <button type="button" class="broll-theme-btn ${b.theme === 'viral' ? 'active' : ''}" data-theme="viral" title="Viral & Views">🔥 Viral</button>
-          <button type="button" class="broll-theme-btn ${b.theme === 'cyber' ? 'active' : ''}" data-theme="cyber" title="Cyber AI & Tech">🤖 Cyber</button>
-          <button type="button" class="broll-theme-btn ${b.theme === 'motivation' ? 'active' : ''}" data-theme="motivation" title="High-Energy Hustle">💪 Hustle</button>
-          <button type="button" class="broll-theme-btn ${b.theme === 'podcast' ? 'active' : ''}" data-theme="podcast" title="Deep Talk & Knowledge">🎙️ Podcast</button>
-        </div>
-      </div>
-
       <div class="broll-time-row" style="margin-top: 6px;">
         <div class="broll-time-group">
           <span>In:</span>
@@ -21989,17 +21966,6 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         renderBrollTab();
         lastActiveBrollId = null;
         syncBrollPlayback();
-      });
-    });
-
-    // Motion Theme selector buttons
-    card.querySelectorAll('.broll-theme-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        b.theme = btn.getAttribute('data-theme');
-        renderBrollTab();
-        drawCanvasFast();
-        showToast(`✓ Applied ${btn.innerText.trim()} motion theme!`);
       });
     });
 
@@ -22126,18 +22092,6 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     const btnDelSelectedSettings = $('btnDeleteSelectedSettingsBrolls');
     if (btnDelSelectedSettings) {
       btnDelSelectedSettings.addEventListener('click', deleteSelectedBrolls);
-    }
-
-    // Add / Search More B-Rolls Shortcut from Settings Drawer
-    const btnShortcut = $('btnSettingsAddBrollShortcut');
-    if (btnShortcut) {
-      btnShortcut.addEventListener('click', () => {
-        openDrawerTab('tabBroll');
-        const searchCard = $('brollSearchCard');
-        if (searchCard) searchCard.scrollIntoView({ behavior: 'smooth' });
-        const searchInp = $('brollSearchInput');
-        if (searchInp) setTimeout(() => searchInp.focus(), 250);
-      });
     }
   }
 
