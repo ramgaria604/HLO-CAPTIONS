@@ -464,7 +464,7 @@ function getLineLayer(lineObj, st, frameH) {
   return (y / (frameH || 1)) <= BEHIND_LINE_MAX_Y_RATIO ? 'behind' : 'front';
 }
 
-const BEHIND_HEAD_OVERLAP_RATIO = 0.10;
+const BEHIND_HEAD_OVERLAP_RATIO = 0.32;
 
 /**
  * Places a behind-person word so only `overlapRatio` (~10%) of its visible ink height
@@ -20618,7 +20618,7 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
   const outW = targetW || srcW;
   const outH = targetH || srcH;
 
-  const targetLong = isHighQuality ? 256 : (downscaleTarget || 160);
+  const targetLong = isHighQuality ? 320 : Math.max(220, downscaleTarget || 220);
   const downScale = Math.min(1, targetLong / Math.max(srcW, srcH));
   const downW = Math.max(64, Math.round(srcW * downScale));
   const downH = Math.max(64, Math.round(srcH * downScale));
@@ -20684,7 +20684,7 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
         let nonZero = 0;
         for (let i = 0; i < totalPx; i++) {
           const conf = prevLiveMaskFloats[i];
-          const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : Math.round(((conf - 0.25) / 0.5) * 255));
+          const alpha = conf < 0.50 ? 0 : (conf > 0.82 ? 255 : Math.round(((conf - 0.50) / 0.32) * 255));
           if (alpha > 0) nonZero++;
           const idx = i * 4;
           data[idx] = 255;
@@ -20721,7 +20721,7 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
 
         liveFinalCtx.clearRect(0, 0, outW, outH);
         if (enableBlur || isHighQuality) {
-          liveFinalCtx.filter = 'blur(1.5px)';
+          liveFinalCtx.filter = 'blur(0.5px)';
           liveFinalCtx.drawImage(liveMaskRawCanvas, 0, 0, outW, outH);
           liveFinalCtx.filter = 'none';
         } else {
@@ -20756,7 +20756,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   const outW = targetW || srcW;
   const outH = targetH || srcH;
 
-  const downScale = Math.min(1, 160 / Math.max(srcW, srcH));
+  const downScale = Math.min(1, 320 / Math.max(srcW, srcH));
   const downW = Math.max(64, Math.round(srcW * downScale));
   const downH = Math.max(64, Math.round(srcH * downScale));
 
@@ -20803,7 +20803,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           for (let i = 0; i < totalPx; i++) {
             const conf = floatVals[i];
             exportPrevMaskFloats[i] = conf;
-            const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : (((conf - 0.25) * 510) | 0));
+            const alpha = conf < 0.50 ? 0 : (conf > 0.82 ? 255 : (((conf - 0.50) * 796) | 0));
             if (alpha > 0) nonZeroCount++;
             data32[i] = (alpha << 24) | 0x00FFFFFF;
           }
@@ -20811,7 +20811,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           for (let i = 0; i < totalPx; i++) {
             const conf = floatVals[i] * 0.7 + exportPrevMaskFloats[i] * 0.3;
             exportPrevMaskFloats[i] = conf;
-            const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : (((conf - 0.25) * 510) | 0));
+            const alpha = conf < 0.50 ? 0 : (conf > 0.82 ? 255 : (((conf - 0.50) * 796) | 0));
             if (alpha > 0) nonZeroCount++;
             data32[i] = (alpha << 24) | 0x00FFFFFF;
           }
