@@ -16140,6 +16140,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     } else if (targetId === 'tabStyle') {
       if (typeof syncHeroLookUI === 'function') syncHeroLookUI();
       if (typeof syncTypographyUI === 'function') syncTypographyUI();
+      renderBrollTab();
       const chkProgressLine = $('chkBottomProgressLine');
       if (chkProgressLine) {
         chkProgressLine.checked = Boolean(S.progressBar && S.progressBar.enabled === true);
@@ -17507,7 +17508,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           const group = pill.getAttribute('data-style-group') || 'all';
           styleGroupPills.forEach(p => p.classList.toggle('active', p === pill));
           $$('#tabStyle .style-options-grid > [data-style-group]').forEach(card => {
-            const matches = (group === 'all') || (card.getAttribute('data-style-group') === group);
+            const cardGroups = (card.getAttribute('data-style-group') || '').split(/\s+/);
+            const matches = (group === 'all') || cardGroups.includes(group);
             card.classList.toggle('style-filter-hidden', !matches);
           });
           const sc = document.querySelector('#drawerPanel .drawer-content');
@@ -20866,18 +20868,18 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
   ctx.save();
 
-  // 1. Vertical Laser Sweep (smooth sinusoidal motion between 16% and 84% of video height)
+  // 1. Vertical Laser Sweep (smooth sinusoidal motion between 15% and 85% of video height)
   const cycle = (tNow * 0.0024) % (Math.PI * 2);
   const sweepP = (Math.sin(cycle) + 1) * 0.5;
-  const laserY = Math.round(h * 0.16 + h * 0.68 * sweepP);
+  const laserY = Math.round(h * 0.15 + h * 0.70 * sweepP);
 
   // 2. Cyan Scanning Aura trailing the beam
-  const auraH = Math.round(h * 0.12);
+  const auraH = Math.round(h * 0.13);
   const auraGrad = ctx.createLinearGradient(0, laserY - auraH, 0, laserY + auraH);
   auraGrad.addColorStop(0.0, 'rgba(0, 240, 255, 0.0)');
-  auraGrad.addColorStop(0.35, 'rgba(0, 240, 255, 0.08)');
-  auraGrad.addColorStop(0.50, 'rgba(56, 189, 248, 0.22)');
-  auraGrad.addColorStop(0.65, 'rgba(0, 240, 255, 0.08)');
+  auraGrad.addColorStop(0.35, 'rgba(0, 240, 255, 0.09)');
+  auraGrad.addColorStop(0.50, 'rgba(56, 189, 248, 0.25)');
+  auraGrad.addColorStop(0.65, 'rgba(0, 240, 255, 0.09)');
   auraGrad.addColorStop(1.0, 'rgba(0, 240, 255, 0.0)');
   ctx.fillStyle = auraGrad;
   ctx.fillRect(0, laserY - auraH, w, auraH * 2);
@@ -20885,16 +20887,16 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   // 3. Dual-Layer Neon Laser Line
   ctx.save();
   ctx.shadowColor = 'rgba(0, 240, 255, 0.95)';
-  ctx.shadowBlur = 16;
+  ctx.shadowBlur = 18;
   ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 2.4;
   ctx.beginPath();
   ctx.moveTo(0, laserY);
   ctx.lineTo(w, laserY);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
-  ctx.lineWidth = 4.5;
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+  ctx.lineWidth = 5.0;
   ctx.beginPath();
   ctx.moveTo(0, laserY);
   ctx.lineTo(w, laserY);
@@ -20902,13 +20904,13 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   ctx.restore();
 
   // 4. Gliding Micro Sparkles along the laser line
-  for (let i = 0; i < 5; i++) {
-    const sparkX = ((tNow * 0.14 + i * (w / 5)) % w);
-    const sparkSize = 2.4 + 1.2 * Math.sin(tNow * 0.01 + i);
+  for (let i = 0; i < 6; i++) {
+    const sparkX = ((tNow * 0.16 + i * (w / 6)) % w);
+    const sparkSize = 2.5 + 1.2 * Math.sin(tNow * 0.01 + i);
     ctx.save();
     ctx.fillStyle = '#FFFFFF';
     ctx.shadowColor = '#00F0FF';
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.arc(sparkX, laserY, sparkSize, 0, Math.PI * 2);
     ctx.fill();
@@ -20916,17 +20918,17 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   }
 
   // 5. Glassmorphism Floating Pill Badge
-  const badgeW = Math.min(Math.round(w * 0.84), 272);
-  const badgeH = 56;
+  const badgeW = Math.min(Math.round(w * 0.88), 300);
+  const badgeH = 62;
   const badgeX = Math.round((w - badgeW) * 0.5);
   const badgeY = Math.round(h * 0.44);
   const rad = 16;
 
   // Dark frosted glass backdrop
   ctx.save();
-  ctx.fillStyle = 'rgba(10, 15, 26, 0.86)';
-  ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
-  ctx.shadowBlur = 22;
+  ctx.fillStyle = 'rgba(10, 15, 26, 0.88)';
+  ctx.shadowColor = 'rgba(0, 240, 255, 0.40)';
+  ctx.shadowBlur = 24;
 
   ctx.beginPath();
   if (typeof ctx.roundRect === 'function') {
@@ -20937,22 +20939,31 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   ctx.fill();
 
   // Electric cyan subtle neon border
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
-  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.70)';
+  ctx.lineWidth = 1.4;
   ctx.stroke();
   ctx.restore();
 
-  // 6. Left Icon: Pulsing AI Scissors Beacon
-  const iconX = badgeX + 26;
+  // 6. Left Icon: Pulsing AI Scissors Beacon with orbiting satellite particle
+  const iconX = badgeX + 28;
   const iconY = badgeY + badgeH * 0.5;
 
   ctx.save();
-  const pulseR = 10 + 3 * Math.sin(tNow * 0.008);
-  ctx.strokeStyle = 'rgba(0, 240, 255, 0.50)';
+  const pulseR = 12 + 3 * Math.sin(tNow * 0.008);
+  ctx.strokeStyle = 'rgba(0, 240, 255, 0.55)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(iconX, iconY, pulseR, 0, Math.PI * 2);
   ctx.stroke();
+
+  // Orbiting satellite dot
+  const orbAngle = tNow * 0.006;
+  const orbX = iconX + Math.cos(orbAngle) * pulseR;
+  const orbY = iconY + Math.sin(orbAngle) * pulseR;
+  ctx.fillStyle = '#00F0FF';
+  ctx.beginPath();
+  ctx.arc(orbX, orbY, 2.2, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
@@ -20965,15 +20976,19 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 
+  // Animated dots for "Cutting out subject..."
+  const dotStep = Math.floor((tNow * 0.003) % 4);
+  const dots = '.'.repeat(dotStep);
+
   // Title: "Cutting out subject..."
   ctx.font = '700 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillText('Cutting out subject...', badgeX + 48, badgeY + 24);
+  ctx.fillText('Cutting out subject' + dots, badgeX + 50, badgeY + 25);
 
-  // Subtitle: "AI Depth Isolating (1–2s)"
-  ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  // Subtitle: "Just take a little • Isolating depth..."
+  ctx.font = '500 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillStyle = '#38BDF8';
-  ctx.fillText('AI Depth Isolating (1–2s)', badgeX + 48, badgeY + 42);
+  ctx.fillText('Just take a little • Isolating depth...', badgeX + 50, badgeY + 44);
   ctx.restore();
 
   // 8. Animated Shimmer Progress Bar at bottom of pill
@@ -20984,7 +20999,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.fillRect(barX, barY, barW, 2);
 
-  const shimW = 48;
+  const shimW = 54;
   const shimPos = ((tNow * 0.14) % (barW + shimW)) - shimW;
   const shimGrad = ctx.createLinearGradient(barX + shimPos, 0, barX + shimPos + shimW, 0);
   shimGrad.addColorStop(0.0, 'rgba(0, 240, 255, 0)');
@@ -21190,10 +21205,11 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
           if (!window._aiCutoutInitStart) window._aiCutoutInitStart = performance.now();
           const cutoutWaitMs = performance.now() - window._aiCutoutInitStart;
-          const isTimedOut = cutoutWaitMs > 2500;
+          const isTimedOut = segmenterLoadFailed || (cutoutWaitMs > 12000);
           const isCutoutReady = isTimedOut || Boolean(segmenterInstance && lastLiveMaskCanvas && vid.readyState >= 2);
 
           if (!isCutoutReady) {
+            window._aiCutoutFadeAlpha = 0;
             // Cutout is initializing (downloading neural weights or computing first mask)
             // 1. Hold behind text: Clear behindCtx & personCtx so no misplaced text is shown in front of speaker
             if (behindCtx) {
@@ -21207,7 +21223,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               personCtx.scale(dpr, dpr);
             }
 
-            // 2. Render Option A: AI Laser Scanner Cutout Overlay
+            // 2. Render AI Laser Scanner Cutout Overlay
             drawAiCutoutLaserScanner(ctx, w, h, performance.now());
 
             // 3. Keep animation frame looping on paused video so the laser scanner sweeps smoothly
@@ -21234,6 +21250,18 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               window._aiCutoutScannerRaf = null;
             }
             window._aiCutoutInitStart = null;
+
+            // Smooth 220ms alpha fade-in for cutout layer to eliminate any 1-frame pop/glitch
+            if (window._aiCutoutFadeAlpha === undefined) window._aiCutoutFadeAlpha = 0;
+            if (window._aiCutoutFadeAlpha < 1) {
+              window._aiCutoutFadeAlpha = Math.min(1, window._aiCutoutFadeAlpha + 0.12);
+              if (vid.paused && !window._aiCutoutFadeRaf) {
+                window._aiCutoutFadeRaf = requestAnimationFrame(() => {
+                  window._aiCutoutFadeRaf = null;
+                  renderCanvas(true);
+                });
+              }
+            }
 
             // Compute ongoing video playback masks
             if (!vid.paused) {
@@ -21274,6 +21302,9 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
               try {
                 personCtx.save();
+                if (typeof window._aiCutoutFadeAlpha === 'number' && window._aiCutoutFadeAlpha < 1) {
+                  personCtx.globalAlpha = Math.max(0.01, window._aiCutoutFadeAlpha);
+                }
                 personCtx.drawImage(vid, 0, 0, w, h);
                 personCtx.globalCompositeOperation = 'destination-in';
                 personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
@@ -21742,226 +21773,427 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     showToast(`Added B-Roll clip at ${startT}s!`);
   }
 
-  // Render the B-Roll tab list
-  function renderBrollTab() {
-    const list = $('brollList');
-    const badge = $('brollCountBadge');
-    const btnClear = $('btnClearAllBrolls');
-    if (!list) return;
+  // ---------------------------------------------------------------------------
+  // B-ROLL TIMELINE & SETTINGS MANAGEMENT (Multi-select, Animations, Replace, Delete)
+  // ---------------------------------------------------------------------------
+  const selectedBrollIndices = new Set();
 
+  function updateBrollSelectionUI() {
     const brolls = S.brolls || [];
-    if (badge) badge.textContent = brolls.length;
-    if (btnClear) btnClear.style.display = brolls.length > 0 ? 'inline-block' : 'none';
-
-    if (brolls.length === 0) {
-      list.innerHTML = `
-        <div class="broll-empty-state" id="brollEmptyState">
-          <div class="empty-icon">🎬</div>
-          <p>No B-Rolls added yet.</p>
-          <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search Pexels above.</p>
-        </div>
-      `;
-      return;
+    const total = brolls.length;
+    // Purge out-of-range indices
+    for (const idx of Array.from(selectedBrollIndices)) {
+      if (idx >= total) selectedBrollIndices.delete(idx);
     }
+    const count = selectedBrollIndices.size;
+    const isAll = (total > 0 && count === total);
 
-    list.innerHTML = '';
-    brolls.forEach((b, idx) => {
-      const card = document.createElement('div');
-      card.className = 'broll-card';
-      const layout = b.layout || 'drawer';
-      const anim = b.animation || (layout === 'drawer' || layout === 'above' ? 'slide-down' : (layout === 'circle' || layout === 'window' ? 'pop' : 'fade'));
+    // Update tabBroll bulk selection controls
+    const bulkBar = $('brollBulkBar');
+    const chkAll = $('chkSelectAllBrolls');
+    const spanCount = $('brollSelectedCount');
+    const btnDelSelected = $('btnDeleteSelectedBrolls');
 
-      card.innerHTML = `
-        <div class="broll-card-top">
-          <img src="${escapeHtml(b.thumb || '')}" class="broll-card-thumb" alt="B-Roll" onerror="this.style.display='none'">
-          <div class="broll-card-meta">
-            <span class="broll-card-title">🎬 #${idx + 1}: ${escapeHtml(b.query || 'Stock Clip')}</span>
-            <span class="broll-card-timing">${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)</span>
-          </div>
-          <div class="broll-top-actions">
-            <button type="button" class="btn-replace-broll" title="Replace video clip">🔄 Replace</button>
-            <button type="button" class="btn-del-broll" title="Delete B-roll">🗑️</button>
-          </div>
-          <input type="file" accept="video/*" class="input-replace-file hidden">
+    if (bulkBar) bulkBar.style.display = total > 0 ? 'flex' : 'none';
+    if (chkAll) {
+      chkAll.checked = isAll;
+      chkAll.indeterminate = (count > 0 && !isAll);
+    }
+    if (spanCount) spanCount.textContent = count;
+    if (btnDelSelected) btnDelSelected.style.display = count > 0 ? 'inline-flex' : 'none';
+
+    // Update settings drawer bulk selection controls
+    const bulkBarSettings = $('settingsBrollBulkBar');
+    const chkAllSettings = $('chkSelectAllSettingsBrolls');
+    const spanSettingsCount = $('settingsBrollSelectedCount');
+    const btnDelSelectedSettings = $('btnDeleteSelectedSettingsBrolls');
+
+    if (bulkBarSettings) bulkBarSettings.style.display = total > 0 ? 'flex' : 'none';
+    if (chkAllSettings) {
+      chkAllSettings.checked = isAll;
+      chkAllSettings.indeterminate = (count > 0 && !isAll);
+    }
+    if (spanSettingsCount) spanSettingsCount.textContent = count;
+    if (btnDelSelectedSettings) btnDelSelectedSettings.style.display = count > 0 ? 'inline-flex' : 'none';
+
+    // Sync card highlight & checkboxes across both lists
+    ['brollList', 'settingsBrollList'].forEach(contId => {
+      const cont = $(contId);
+      if (!cont) return;
+      cont.querySelectorAll('.broll-card').forEach(card => {
+        const idx = parseInt(card.getAttribute('data-idx'), 10);
+        const isSel = selectedBrollIndices.has(idx);
+        card.classList.toggle('broll-card-selected', isSel);
+        const chk = card.querySelector('.chk-broll-item');
+        if (chk) chk.checked = isSel;
+      });
+    });
+  }
+
+  function deleteSelectedBrolls() {
+    if (selectedBrollIndices.size === 0) return;
+    const count = selectedBrollIndices.size;
+    const sorted = Array.from(selectedBrollIndices).sort((a, b) => b - a);
+    sorted.forEach(idx => {
+      if (S.brolls && S.brolls[idx]) {
+        S.brolls.splice(idx, 1);
+      }
+    });
+    selectedBrollIndices.clear();
+    lastActiveBrollId = null;
+    renderBrollTab();
+    syncBrollPlayback();
+    drawCanvasFast();
+    showToast(`🗑️ Deleted ${count} B-roll clip(s)`);
+  }
+
+  function createBrollCardElement(b, idx) {
+    const card = document.createElement('div');
+    card.className = 'broll-card' + (selectedBrollIndices.has(idx) ? ' broll-card-selected' : '');
+    card.setAttribute('data-idx', String(idx));
+    const layout = b.layout || 'drawer';
+    const anim = b.animation || (layout === 'drawer' || layout === 'above' ? 'slide-down' : (layout === 'circle' || layout === 'window' ? 'pop' : 'fade'));
+
+    card.innerHTML = `
+      <div class="broll-card-top">
+        <label class="broll-select-checkbox-wrap" title="Select for bulk delete">
+          <input type="checkbox" class="broll-select-checkbox chk-broll-item" data-idx="${idx}" ${selectedBrollIndices.has(idx) ? 'checked' : ''}>
+        </label>
+        <img src="${escapeHtml(b.thumb || '')}" class="broll-card-thumb" alt="B-Roll" onerror="this.style.display='none'">
+        <div class="broll-card-meta">
+          <span class="broll-card-title">🎬 #${idx + 1}: ${escapeHtml(b.query || 'Stock Clip')}</span>
+          <span class="broll-card-timing">${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)</span>
         </div>
-
-        <div class="broll-layout-selector-wrap">
-          <span class="broll-layout-label">Display Layout</span>
-          <div class="broll-layout-selector" style="grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));">
-            <button type="button" class="broll-layout-btn ${layout === 'drawer' || layout === 'above' ? 'active' : ''}" data-layout="drawer" title="Screen Drawer (Main Video Slides Down, B-Roll Above)">
-              <span class="layout-btn-icon">📥</span>
-              <span>Drawer</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Corner Floating Card (Face-Safe PiP)">
-              <span class="layout-btn-icon">🪟</span>
-              <span>Card</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'circle' ? 'active' : ''}" data-layout="circle" title="Circular Bubble">
-              <span class="layout-btn-icon">⭕</span>
-              <span>Circle</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'zoom_corners' ? 'active' : ''}" data-layout="zoom_corners" title="Zoom-Out + 4-Corner Motion Stickers">
-              <span class="layout-btn-icon">🔍</span>
-              <span>Zoom 4C</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
-              <span class="layout-btn-icon">🖥️</span>
-              <span>Full</span>
-            </button>
-          </div>
+        <div class="broll-top-actions">
+          <button type="button" class="btn-replace-broll" title="Replace video clip">🔄 Replace</button>
+          <button type="button" class="btn-del-broll" title="Delete B-roll">🗑️</button>
         </div>
+        <input type="file" accept="video/*" class="input-replace-file hidden">
+      </div>
 
-        <div class="broll-layout-selector-wrap" style="margin-top: 6px;">
-          <span class="broll-layout-label">Motion Graphics Theme</span>
-          <div class="broll-theme-selector">
-            <button type="button" class="broll-theme-btn ${!b.theme || b.theme === 'auto' ? 'active' : ''}" data-theme="auto" title="Auto Detect from Audio">⚡ Auto</button>
-            <button type="button" class="broll-theme-btn ${b.theme === 'wealth' ? 'active' : ''}" data-theme="wealth" title="FinTech & ROI">📈 Wealth</button>
-            <button type="button" class="broll-theme-btn ${b.theme === 'viral' ? 'active' : ''}" data-theme="viral" title="Viral & Views">🔥 Viral</button>
-            <button type="button" class="broll-theme-btn ${b.theme === 'cyber' ? 'active' : ''}" data-theme="cyber" title="Cyber AI & Tech">🤖 Cyber</button>
-            <button type="button" class="broll-theme-btn ${b.theme === 'motivation' ? 'active' : ''}" data-theme="motivation" title="High-Energy Hustle">💪 Hustle</button>
-            <button type="button" class="broll-theme-btn ${b.theme === 'podcast' ? 'active' : ''}" data-theme="podcast" title="Deep Talk & Knowledge">🎙️ Podcast</button>
-          </div>
-        </div>
-
-        <div class="broll-layout-selector-wrap" style="margin-top: 6px;">
-          <span class="broll-layout-label">Entry Animation</span>
-          <div class="broll-layout-selector">
-            <button type="button" class="broll-anim-btn ${anim === 'pop' ? 'active' : ''}" data-anim="pop" title="Pop & Bounce">
-              <span class="layout-btn-icon">⚡</span>
-              <span>Pop</span>
-            </button>
-            <button type="button" class="broll-anim-btn ${anim === 'slide-down' ? 'active' : ''}" data-anim="slide-down" title="Smooth Slide Down">
-              <span class="layout-btn-icon">⬇️</span>
-              <span>Slide</span>
-            </button>
-            <button type="button" class="broll-anim-btn ${anim === 'fade' ? 'active' : ''}" data-anim="fade" title="Smooth Fade">
-              <span class="layout-btn-icon">✨</span>
-              <span>Fade</span>
-            </button>
-            <button type="button" class="broll-anim-btn ${anim === 'zoom' ? 'active' : ''}" data-anim="zoom" title="Zoom Punch">
-              <span class="layout-btn-icon">🔍</span>
-              <span>Zoom</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="broll-time-row">
-          <div class="broll-time-group">
-            <span>In:</span>
-            <input type="number" step="0.1" min="0" class="broll-time-input input-broll-start" value="${b.start}">
-            <span>s</span>
-          </div>
-          <div class="broll-time-group">
-            <span>Out:</span>
-            <input type="number" step="0.1" min="0" class="broll-time-input input-broll-end" value="${b.end}">
-            <span>s</span>
-          </div>
-          <button type="button" class="btn-preview-broll">
-            <span>▶</span> Preview
+      <div class="broll-layout-selector-wrap" style="margin-top: 4px;">
+        <span class="broll-layout-label">Coming Animation</span>
+        <div class="broll-layout-selector" style="grid-template-columns: repeat(5, 1fr);">
+          <button type="button" class="broll-anim-btn ${anim === 'pop' ? 'active' : ''}" data-anim="pop" title="Pop & Bounce">
+            <span class="layout-btn-icon">⚡</span>
+            <span>Pop</span>
+          </button>
+          <button type="button" class="broll-anim-btn ${anim === 'slide-down' ? 'active' : ''}" data-anim="slide-down" title="Smooth Slide Down">
+            <span class="layout-btn-icon">⬇️</span>
+            <span>Slide Down</span>
+          </button>
+          <button type="button" class="broll-anim-btn ${anim === 'slide-up' ? 'active' : ''}" data-anim="slide-up" title="Smooth Slide Up">
+            <span class="layout-btn-icon">⬆️</span>
+            <span>Slide Up</span>
+          </button>
+          <button type="button" class="broll-anim-btn ${anim === 'fade' ? 'active' : ''}" data-anim="fade" title="Smooth Fade">
+            <span class="layout-btn-icon">✨</span>
+            <span>Fade</span>
+          </button>
+          <button type="button" class="broll-anim-btn ${anim === 'zoom' ? 'active' : ''}" data-anim="zoom" title="Zoom Punch">
+            <span class="layout-btn-icon">🔍</span>
+            <span>Zoom</span>
           </button>
         </div>
-      `;
+      </div>
 
-      // Layout selector buttons
-      card.querySelectorAll('.broll-layout-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const newLayout = btn.getAttribute('data-layout');
-          b.layout = newLayout;
-          card.querySelectorAll('.broll-layout-btn').forEach(b2 => b2.classList.toggle('active', b2 === btn));
-          lastActiveBrollId = null;
-          syncBrollPlayback();
-        });
+      <div class="broll-layout-selector-wrap" style="margin-top: 6px;">
+        <span class="broll-layout-label">Display Layout</span>
+        <div class="broll-layout-selector" style="grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));">
+          <button type="button" class="broll-layout-btn ${layout === 'drawer' || layout === 'above' ? 'active' : ''}" data-layout="drawer" title="Screen Drawer (Main Video Slides Down, B-Roll Above)">
+            <span class="layout-btn-icon">📥</span>
+            <span>Drawer</span>
+          </button>
+          <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Corner Floating Card (Face-Safe PiP)">
+            <span class="layout-btn-icon">🪟</span>
+            <span>Card</span>
+          </button>
+          <button type="button" class="broll-layout-btn ${layout === 'circle' ? 'active' : ''}" data-layout="circle" title="Circular Bubble">
+            <span class="layout-btn-icon">⭕</span>
+            <span>Circle</span>
+          </button>
+          <button type="button" class="broll-layout-btn ${layout === 'zoom_corners' ? 'active' : ''}" data-layout="zoom_corners" title="Zoom-Out + 4-Corner Motion Stickers">
+            <span class="layout-btn-icon">🔍</span>
+            <span>Zoom 4C</span>
+          </button>
+          <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
+            <span class="layout-btn-icon">🖥️</span>
+            <span>Full</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="broll-layout-selector-wrap" style="margin-top: 6px;">
+        <span class="broll-layout-label">Motion Graphics Theme</span>
+        <div class="broll-theme-selector">
+          <button type="button" class="broll-theme-btn ${!b.theme || b.theme === 'auto' ? 'active' : ''}" data-theme="auto" title="Auto Detect from Audio">⚡ Auto</button>
+          <button type="button" class="broll-theme-btn ${b.theme === 'wealth' ? 'active' : ''}" data-theme="wealth" title="FinTech & ROI">📈 Wealth</button>
+          <button type="button" class="broll-theme-btn ${b.theme === 'viral' ? 'active' : ''}" data-theme="viral" title="Viral & Views">🔥 Viral</button>
+          <button type="button" class="broll-theme-btn ${b.theme === 'cyber' ? 'active' : ''}" data-theme="cyber" title="Cyber AI & Tech">🤖 Cyber</button>
+          <button type="button" class="broll-theme-btn ${b.theme === 'motivation' ? 'active' : ''}" data-theme="motivation" title="High-Energy Hustle">💪 Hustle</button>
+          <button type="button" class="broll-theme-btn ${b.theme === 'podcast' ? 'active' : ''}" data-theme="podcast" title="Deep Talk & Knowledge">🎙️ Podcast</button>
+        </div>
+      </div>
+
+      <div class="broll-time-row" style="margin-top: 6px;">
+        <div class="broll-time-group">
+          <span>In:</span>
+          <input type="number" step="0.1" min="0" class="broll-time-input input-broll-start" value="${b.start}">
+          <span>s</span>
+        </div>
+        <div class="broll-time-group">
+          <span>Out:</span>
+          <input type="number" step="0.1" min="0" class="broll-time-input input-broll-end" value="${b.end}">
+          <span>s</span>
+        </div>
+        <button type="button" class="btn-preview-broll">
+          <span>▶</span> Preview
+        </button>
+      </div>
+    `;
+
+    // Multi-select checkbox
+    const chk = card.querySelector('.chk-broll-item');
+    if (chk) {
+      chk.addEventListener('click', (e) => { e.stopPropagation(); });
+      chk.addEventListener('change', (e) => {
+        e.stopPropagation();
+        if (chk.checked) {
+          selectedBrollIndices.add(idx);
+        } else {
+          selectedBrollIndices.delete(idx);
+        }
+        updateBrollSelectionUI();
       });
+    }
 
-      // Motion Theme selector buttons
-      card.querySelectorAll('.broll-theme-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          b.theme = btn.getAttribute('data-theme');
-          card.querySelectorAll('.broll-theme-btn').forEach(b2 => b2.classList.toggle('active', b2 === btn));
-          drawCanvasFast();
-          showToast(`✓ Applied ${btn.innerText.trim()} motion theme!`);
-        });
+    // Coming animation buttons
+    card.querySelectorAll('.broll-anim-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const newAnim = btn.getAttribute('data-anim');
+        b.animation = newAnim;
+        renderBrollTab();
+        lastActiveBrollId = null;
+        syncBrollPlayback();
+        showToast(`✓ Animation set to ${newAnim}`);
       });
+    });
 
-      // Animation selector buttons
-      card.querySelectorAll('.broll-anim-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const newAnim = btn.getAttribute('data-anim');
-          b.animation = newAnim;
-          card.querySelectorAll('.broll-anim-btn').forEach(b2 => b2.classList.toggle('active', b2 === btn));
-          lastActiveBrollId = null;
-          syncBrollPlayback();
-        });
+    // Layout selector buttons
+    card.querySelectorAll('.broll-layout-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const newLayout = btn.getAttribute('data-layout');
+        b.layout = newLayout;
+        renderBrollTab();
+        lastActiveBrollId = null;
+        syncBrollPlayback();
       });
+    });
 
-      // Time inputs
-      const inStart = card.querySelector('.input-broll-start');
-      const inEnd = card.querySelector('.input-broll-end');
+    // Motion Theme selector buttons
+    card.querySelectorAll('.broll-theme-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        b.theme = btn.getAttribute('data-theme');
+        renderBrollTab();
+        drawCanvasFast();
+        showToast(`✓ Applied ${btn.innerText.trim()} motion theme!`);
+      });
+    });
+
+    // Time inputs
+    const inStart = card.querySelector('.input-broll-start');
+    const inEnd = card.querySelector('.input-broll-end');
+    if (inStart) {
       inStart.addEventListener('change', () => {
         const val = parseFloat(inStart.value) || 0;
         b.start = Math.max(0, val);
         card.querySelector('.broll-card-timing').textContent = `${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)`;
         syncBrollPlayback();
       });
+    }
+    if (inEnd) {
       inEnd.addEventListener('change', () => {
         const val = parseFloat(inEnd.value) || b.start + 1;
         b.end = Math.max(b.start + 0.5, val);
         card.querySelector('.broll-card-timing').textContent = `${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)`;
         syncBrollPlayback();
       });
+    }
 
-      // Preview button
-      const btnPrev = card.querySelector('.btn-preview-broll');
-      btnPrev.addEventListener('click', () => {
+    // Preview button
+    const btnPrev = card.querySelector('.btn-preview-broll');
+    if (btnPrev) {
+      btnPrev.addEventListener('click', (e) => {
+        e.stopPropagation();
         vid.currentTime = Math.max(0, b.start);
         syncBrollPlayback();
         vid.play().catch(() => {});
       });
+    }
 
-      // 1-Click Replace Video Clip
-      const btnReplace = card.querySelector('.btn-replace-broll');
-      const inputReplace = card.querySelector('.input-replace-file');
-      if (btnReplace && inputReplace) {
-        btnReplace.addEventListener('click', (e) => {
-          e.stopPropagation();
-          inputReplace.click();
-        });
-        inputReplace.addEventListener('change', (e) => {
-          const file = e.target.files && e.target.files[0];
-          if (file) {
-            const newUrl = URL.createObjectURL(file);
-            b.url = newUrl;
-            b.query = file.name.replace(/\.[^/.]+$/, '');
-            b.thumb = newUrl;
-            renderBrollTab();
-            lastActiveBrollId = null;
-            syncBrollPlayback();
-            showToast('✓ B-Roll clip replaced!');
-          }
-        });
-      }
-
-      // Click card to jump video to B-roll start and preview
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('button') || e.target.closest('input')) return;
-        vid.currentTime = b.start;
-        vid.pause();
-        lastActiveBrollId = null;
-        syncBrollPlayback();
+    // 1-Click Replace Video Clip
+    const btnReplace = card.querySelector('.btn-replace-broll');
+    const inputReplace = card.querySelector('.input-replace-file');
+    if (btnReplace && inputReplace) {
+      btnReplace.addEventListener('click', (e) => {
+        e.stopPropagation();
+        inputReplace.click();
       });
+      inputReplace.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          const newUrl = URL.createObjectURL(file);
+          b.url = newUrl;
+          b.query = file.name.replace(/\.[^/.]+$/, '');
+          b.thumb = newUrl;
+          renderBrollTab();
+          lastActiveBrollId = null;
+          syncBrollPlayback();
+          showToast('✓ B-Roll clip replaced!');
+        }
+      });
+    }
 
-      // Delete button
-      const btnDel = card.querySelector('.btn-del-broll');
-      btnDel.addEventListener('click', () => {
+    // Delete single B-roll button
+    const btnDel = card.querySelector('.btn-del-broll');
+    if (btnDel) {
+      btnDel.addEventListener('click', (e) => {
+        e.stopPropagation();
         S.brolls.splice(idx, 1);
+        selectedBrollIndices.delete(idx);
         renderBrollTab();
+        lastActiveBrollId = null;
         syncBrollPlayback();
         showToast('B-roll removed');
       });
+    }
 
-      list.appendChild(card);
+    // Click card to jump video to B-roll start and preview
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button') || e.target.closest('input') || e.target.closest('label')) return;
+      vid.currentTime = b.start;
+      vid.pause();
+      lastActiveBrollId = null;
+      syncBrollPlayback();
     });
+
+    return card;
+  }
+
+  let brollBulkListenersBound = false;
+  function bindBrollBulkListenersOnce() {
+    if (brollBulkListenersBound) return;
+    brollBulkListenersBound = true;
+
+    // Select All in tabBroll
+    const chkAll = $('chkSelectAllBrolls');
+    if (chkAll) {
+      chkAll.addEventListener('change', () => {
+        const brolls = S.brolls || [];
+        if (chkAll.checked) {
+          brolls.forEach((_, i) => selectedBrollIndices.add(i));
+        } else {
+          selectedBrollIndices.clear();
+        }
+        updateBrollSelectionUI();
+      });
+    }
+
+    // Delete Selected in tabBroll
+    const btnDelSelected = $('btnDeleteSelectedBrolls');
+    if (btnDelSelected) {
+      btnDelSelected.addEventListener('click', deleteSelectedBrolls);
+    }
+
+    // Select All in Settings Drawer
+    const chkAllSettings = $('chkSelectAllSettingsBrolls');
+    if (chkAllSettings) {
+      chkAllSettings.addEventListener('change', () => {
+        const brolls = S.brolls || [];
+        if (chkAllSettings.checked) {
+          brolls.forEach((_, i) => selectedBrollIndices.add(i));
+        } else {
+          selectedBrollIndices.clear();
+        }
+        updateBrollSelectionUI();
+      });
+    }
+
+    // Delete Selected in Settings Drawer
+    const btnDelSelectedSettings = $('btnDeleteSelectedSettingsBrolls');
+    if (btnDelSelectedSettings) {
+      btnDelSelectedSettings.addEventListener('click', deleteSelectedBrolls);
+    }
+
+    // Add / Search More B-Rolls Shortcut from Settings Drawer
+    const btnShortcut = $('btnSettingsAddBrollShortcut');
+    if (btnShortcut) {
+      btnShortcut.addEventListener('click', () => {
+        openDrawerTab('tabBroll');
+        const searchCard = $('brollSearchCard');
+        if (searchCard) searchCard.scrollIntoView({ behavior: 'smooth' });
+        const searchInp = $('brollSearchInput');
+        if (searchInp) setTimeout(() => searchInp.focus(), 250);
+      });
+    }
+  }
+
+  // Render the B-Roll tab list and Settings B-roll list
+  function renderBrollTab() {
+    bindBrollBulkListenersOnce();
+
+    const list = $('brollList');
+    const settingsList = $('settingsBrollList');
+    const badge = $('brollCountBadge');
+    const settingsBadge = $('settingsBrollBadge');
+    const btnClear = $('btnClearAllBrolls');
+
+    const brolls = S.brolls || [];
+    const countText = `${brolls.length} ${brolls.length === 1 ? 'Clip' : 'Clips'}`;
+    if (badge) badge.textContent = brolls.length;
+    if (settingsBadge) settingsBadge.textContent = countText;
+    if (btnClear) btnClear.style.display = brolls.length > 0 ? 'inline-block' : 'none';
+
+    // 1. Render tabBroll list
+    if (list) {
+      if (brolls.length === 0) {
+        list.innerHTML = `
+          <div class="broll-empty-state" id="brollEmptyState">
+            <div class="empty-icon">🎬</div>
+            <p>No B-Rolls added yet.</p>
+            <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search stock videos above.</p>
+          </div>
+        `;
+      } else {
+        list.innerHTML = '';
+        brolls.forEach((b, idx) => {
+          list.appendChild(createBrollCardElement(b, idx));
+        });
+      }
+    }
+
+    // 2. Render Settings Drawer list
+    if (settingsList) {
+      if (brolls.length === 0) {
+        settingsList.innerHTML = `
+          <div class="broll-empty-state" id="settingsBrollEmptyState">
+            <div class="empty-icon">🎬</div>
+            <p>No B-Rolls added yet.</p>
+            <p class="empty-sub">Add B-roll clips from the Stock tab to animate them over your reel.</p>
+          </div>
+        `;
+      } else {
+        settingsList.innerHTML = '';
+        brolls.forEach((b, idx) => {
+          settingsList.appendChild(createBrollCardElement(b, idx));
+        });
+      }
+    }
+
+    updateBrollSelectionUI();
   }
 
 

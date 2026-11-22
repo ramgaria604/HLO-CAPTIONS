@@ -946,6 +946,7 @@
               <button type="button" class="cat-pill" data-style-group="text">Font &amp; Size</button>
               <button type="button" class="cat-pill" data-style-group="color">Colors &amp; Glow</button>
               <button type="button" class="cat-pill" data-style-group="motion">Motion &amp; Pos</button>
+              <button type="button" class="cat-pill" data-style-group="broll">🎬 B-Rolls</button>
               <button type="button" class="cat-pill" data-style-group="extras">Extras</button>
             </div>
             <div class="style-options-grid">
@@ -1624,6 +1625,40 @@
                 <input type="range" id="inputWmOpacity" min="20" max="100" value="80" class="styled-slider">
               </div>
 
+              <!-- 13. Active B-Rolls & Transitions (Settings Drawer) -->
+              <div class="control-card" id="cardSettingsBrolls" data-style-group="broll extras all">
+                <div class="control-header">
+                  <label>🎬 Active B-Rolls &amp; Animations</label>
+                  <span id="settingsBrollBadge" class="val-badge badge-green">0 CLIPS</span>
+                </div>
+                <p class="voiceover-help">Replace clips, choose entrance animations (Pop, Slide, Fade, Zoom), or delete single/multiple B-rolls.</p>
+
+                <!-- Bulk Selection & Actions -->
+                <div class="broll-bulk-bar" id="settingsBrollBulkBar" style="display:none;">
+                  <label class="broll-select-all-label">
+                    <input type="checkbox" id="chkSelectAllSettingsBrolls" class="broll-select-checkbox">
+                    <span>Select All</span>
+                  </label>
+                  <button type="button" id="btnDeleteSelectedSettingsBrolls" class="btn-bulk-delete" style="display:none;">
+                    🗑️ Delete Selected (<span id="settingsBrollSelectedCount">0</span>)
+                  </button>
+                </div>
+
+                <div id="settingsBrollList" class="broll-items-list">
+                  <div class="broll-empty-state" id="settingsBrollEmptyState">
+                    <div class="empty-icon">🎬</div>
+                    <p>No B-Rolls added yet.</p>
+                    <p class="empty-sub">Add B-roll clips from the Stock tab to animate them over your reel.</p>
+                  </div>
+                </div>
+
+                <div style="margin-top: 10px; display: flex; gap: 8px;">
+                  <button type="button" id="btnSettingsAddBrollShortcut" class="btn-subaction" style="width: 100%;">
+                    <span>➕ Add / Search More Stock B-Rolls</span>
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
           <!-- TAB 4: AUDIO -->
@@ -1863,6 +1898,18 @@
                   <label>🎬 Active B-Rolls on Video (<span id="brollCountBadge">0</span>)</label>
                   <button type="button" id="btnClearAllBrolls" class="btn-text-danger" style="display:none;">Clear All</button>
                 </div>
+
+                <!-- Bulk Selection & Actions for B-Roll Tab -->
+                <div class="broll-bulk-bar" id="brollBulkBar" style="display:none;">
+                  <label class="broll-select-all-label">
+                    <input type="checkbox" id="chkSelectAllBrolls" class="broll-select-checkbox">
+                    <span>Select All</span>
+                  </label>
+                  <button type="button" id="btnDeleteSelectedBrolls" class="btn-bulk-delete" style="display:none;">
+                    🗑️ Delete Selected (<span id="brollSelectedCount">0</span>)
+                  </button>
+                </div>
+
                 <div id="brollList" class="broll-items-list">
                   <div class="broll-empty-state" id="brollEmptyState">
                     <div class="empty-icon">🎬</div>
