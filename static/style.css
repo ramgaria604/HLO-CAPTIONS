@@ -7031,6 +7031,43 @@ button {
   font-size: 11.5px;
   color: #a1a1aa;
 }
+.broll-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.btn-replace-broll {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  color: #a5b4fc;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-replace-broll:hover {
+  background: rgba(99, 102, 241, 0.3);
+  color: #fff;
+  border-color: #6366f1;
+}
+.btn-upload-replace-broll {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e4e4e7;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-upload-replace-broll:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
 .btn-del-broll {
   background: transparent;
   border: none;

@@ -13,6 +13,16 @@
   window.$$ = $$;
   const round = (n, d = 2) => Number(Number(n).toFixed(d));
   const cleanCaptionText = (value) => String(value ?? '').replace(/\*/g, '');
+  const escapeHtml = (str) => {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+  window.escapeHtml = escapeHtml;
 
   // High-performance text measurement caching for smooth 30fps exports
   const MAX_EXPORT_PARTICLES = 20;
@@ -21801,7 +21811,24 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     }
   }
 
+  let replacingBrollIdx = null;
+
   function addBrollFromSearch(item, query) {
+    if (replacingBrollIdx !== null && S.brolls && S.brolls[replacingBrollIdx]) {
+      const target = S.brolls[replacingBrollIdx];
+      target.url = item.url;
+      target.thumb = item.thumb;
+      target.query = query || 'Stock Clip';
+      target.credit = item.credit || '';
+      target.duration = item.duration || target.duration || 3.0;
+      replacingBrollIdx = null;
+      renderBrollTab();
+      lastActiveBrollId = null;
+      syncBrollPlayback();
+      showToast('✓ B-Roll clip replaced from stock!');
+      return;
+    }
+
     const curT = vid.currentTime || 0;
     const dur = Math.min(vid.duration || 30, curT + 3.0);
     const startT = Math.round(curT * 10) / 10;
@@ -21919,7 +21946,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           <span class="broll-card-timing">${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)</span>
         </div>
         <div class="broll-top-actions">
-          <button type="button" class="btn-replace-broll" title="Replace video clip">🔄 Replace</button>
+          <button type="button" class="btn-replace-broll" title="Replace with Stock clip">🔁 Replace</button>
+          <button type="button" class="btn-upload-replace-broll" title="Upload video file from computer">📁</button>
           <button type="button" class="btn-del-broll" title="Delete B-roll">🗑️</button>
         </div>
         <input type="file" accept="video/*" class="input-replace-file hidden">
@@ -22065,14 +22093,33 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       });
     }
 
-    // 1-Click Replace Video Clip
+    // 1-Click Replace Video Clip (Stock or Local File)
     const btnReplace = card.querySelector('.btn-replace-broll');
+    const btnUploadReplace = card.querySelector('.btn-upload-replace-broll');
     const inputReplace = card.querySelector('.input-replace-file');
-    if (btnReplace && inputReplace) {
+
+    if (btnReplace) {
       btnReplace.addEventListener('click', (e) => {
+        e.stopPropagation();
+        replacingBrollIdx = idx;
+        const searchInput = $('settingsBrollSearchInput') || $('brollSearchInput');
+        const searchCard = $('cardSettingsBrollSearch') || $('brollSearchCard');
+        if (searchCard) {
+          searchCard.scrollIntoView({ behavior: 'smooth' });
+          if (searchInput) searchInput.focus();
+        }
+        showToast(`🔁 Select any stock clip below to swap into Clip #${idx + 1}, or click 📁 to upload a file`);
+      });
+    }
+
+    if (btnUploadReplace && inputReplace) {
+      btnUploadReplace.addEventListener('click', (e) => {
         e.stopPropagation();
         inputReplace.click();
       });
+    }
+
+    if (inputReplace) {
       inputReplace.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
         if (file) {
@@ -22080,10 +22127,11 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           b.url = newUrl;
           b.query = file.name.replace(/\.[^/.]+$/, '');
           b.thumb = newUrl;
+          replacingBrollIdx = null;
           renderBrollTab();
           lastActiveBrollId = null;
           syncBrollPlayback();
-          showToast('✓ B-Roll clip replaced!');
+          showToast('✓ B-Roll clip replaced from file!');
         }
       });
     }
