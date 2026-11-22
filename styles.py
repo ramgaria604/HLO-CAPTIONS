@@ -583,7 +583,7 @@ def load_presets():
                     "wordsPerCaption": int(p.get("wordsPerPage", 3)),
                     "maxKeys": int(p.get("maxKeys", 1)),
                     "position": (float(p.get("position", 0.18)) if is_behind
-                                  else (float(p["position"]) if "position" in p else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48)))),
+                                  else max(0.70, min(0.82, float(p.get("position", 0.72)) if float(p.get("position", 0.72)) >= 0.60 else float(p.get("posY", 0.2)) + 0.52))),
                     "posCycle": None if is_behind else p.get("posCycle"),
                     "behindPerson": is_behind,
                     "depthAccent": is_behind,
@@ -591,7 +591,7 @@ def load_presets():
                     "depthAccentSize": round(_safe_float(p.get("depthAccentSize") or accent.get("size", 230)) / 1080.0, 3) if _safe_float(accent.get("size", 230)) > 1.0 else round(_safe_float(p.get("depthAccentSize") or accent.get("size", 0.088), 0.088), 3),
                     "topY": float(p.get("topY", top_y if is_behind else 0.10)),
                     "depthAccentY": float(p.get("depthAccentY", 0.18 if is_behind else preset_y)),
-                    "subtitlePosition": float(p.get("subtitlePosition", 0.72 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))))),
+                    "subtitlePosition": float(p.get("subtitlePosition", 0.74 if is_behind else max(0.68, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))))),
                     "subtitleSize": round(_safe_float(p.get("subtitleSize") or base.get("size", 62)) / 1080.0, 3) if _safe_float(base.get("size", 62)) > 1.0 else round(_safe_float(p.get("subtitleSize") or base.get("size", 0.044), 0.044), 3),
                     "blend": p.get("blend", "screen"),
                     "blendMode": p.get("blend", "screen"),
@@ -834,7 +834,117 @@ def load_presets():
             "shadowColor": "#000000"
         }
     }
-    out.insert(0, side_by_side_item)
+    wealth_broll_item = {
+        "id": "tpl_broll_wealth",
+        "name": "⚡ Wealth & Impact (B-Roll + Stickers)",
+        "category": "motion_broll",
+        "badge": "MOTION ⚡",
+        "layout": "above",
+        "animation": "pop",
+        "wordsPerCaption": 3,
+        "maxKeys": 1,
+        "position": 0.72,
+        "highlightColor": "#FDE047",
+        "baseColor": "#FFFFFF",
+        "hasBrollMotion": True,
+        "brollLayout": "above",
+        "fontFamily": "Montserrat",
+        "fontScale": 1.0,
+        "key": {
+            "font": "Montserrat",
+            "size": 0.088,
+            "color": "#FDE047",
+            "bold": True,
+            "weight": 900,
+            "shadow": 0.08,
+            "shadowColor": "#000000"
+        },
+        "filler": {
+            "font": "Montserrat",
+            "size": 0.055,
+            "color": "#FFFFFF",
+            "bold": True,
+            "weight": 800,
+            "shadow": 0.06,
+            "shadowColor": "#000000"
+        }
+    }
+    sky_kinetic_item = {
+        "id": "sky_kinetic_duo",
+        "name": "✨ Sky Kinetic Stack (Aesthetic Glow)",
+        "category": "duo",
+        "isDuo": True,
+        "badge": "AESTHETIC ✨",
+        "previewWord": "NEVER SETTLE",
+        "layout": "sky_kinetic",
+        "animation": "slide-left",
+        "wordsPerCaption": 2,
+        "maxKeys": 1,
+        "position": 0.72,
+        "highlightColor": "#38BDF8",
+        "baseColor": "#FFFFFF",
+        "hasSkyGlow": True,
+        "fontFamily": "Syne",
+        "fontScale": 1.08,
+        "key": {
+            "font": "Syne",
+            "size": 0.088,
+            "color": "#38BDF8",
+            "bold": True,
+            "weight": 900,
+            "shadow": 0.12,
+            "shadowColor": "rgba(56,189,248,0.75)"
+        },
+        "filler": {
+            "font": "Syne",
+            "size": 0.076,
+            "color": "#FFFFFF",
+            "bold": True,
+            "weight": 800,
+            "shadow": 0.06,
+            "shadowColor": "rgba(0,0,0,0.85)"
+        }
+    }
+    white_pill_item = {
+        "id": "white_pill_karaoke",
+        "name": "💊 White Capsule (Clinical Karaoke)",
+        "category": "box",
+        "badge": "CLINICAL 💊",
+        "previewWord": "sunne mein dikkat",
+        "layout": "white_pill",
+        "animation": "pop",
+        "wordsPerCaption": 4,
+        "maxKeys": 1,
+        "position": 0.70,
+        "textCase": "lower",
+        "highlightColor": "#000000",
+        "baseColor": "#A8B0BA",
+        "fontFamily": "Outfit",
+        "fontScale": 1.0,
+        "whitePillKaraoke": True,
+        "key": {
+            "font": "Outfit",
+            "size": 0.054,
+            "color": "#000000",
+            "bold": True,
+            "weight": 800,
+            "shadow": 0,
+            "shadowColor": "transparent"
+        },
+        "filler": {
+            "font": "Outfit",
+            "size": 0.054,
+            "color": "#A8B0BA",
+            "bold": False,
+            "weight": 500,
+            "shadow": 0,
+            "shadowColor": "transparent"
+        }
+    }
+    out.insert(0, white_pill_item)
+    out.insert(1, sky_kinetic_item)
+    out.insert(2, wealth_broll_item)
+    out.insert(3, side_by_side_item)
 
     return out
 
@@ -928,7 +1038,7 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
-        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side") else ("stack" if s.get("isDuo") else "line"),
+        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic", "white_pill", "above", "scatter", "echo") else ("stack" if s.get("isDuo") else "line"),
         "animation": anim,
         "anim": anim,
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",

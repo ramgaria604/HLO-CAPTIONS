@@ -13,6 +13,16 @@
   window.$$ = $$;
   const round = (n, d = 2) => Number(Number(n).toFixed(d));
   const cleanCaptionText = (value) => String(value ?? '').replace(/\*/g, '');
+  const escapeHtml = (str) => {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+  window.escapeHtml = escapeHtml;
 
   // High-performance text measurement caching for smooth 30fps exports
   const MAX_EXPORT_PARTICLES = 20;
@@ -464,7 +474,7 @@ function getLineLayer(lineObj, st, frameH) {
   return (y / (frameH || 1)) <= BEHIND_LINE_MAX_Y_RATIO ? 'behind' : 'front';
 }
 
-const BEHIND_HEAD_OVERLAP_RATIO = 0.10;
+const BEHIND_HEAD_OVERLAP_RATIO = 0.32;
 
 /**
  * Places a behind-person word so only `overlapRatio` (~10%) of its visible ink height
@@ -1046,7 +1056,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
   const ctx = isBehind && ctxBehind ? ctxBehind : ctxFore;
   if (!words || !words.length) return;
   const kRole = st.key || {}, fRole = st.filler || {};
-  const cY = H * (st.position || 0.68);
+  const cY = H * (st.position || 0.72);
 
   // 1. Line splitting: 1-3 words stay on 1 single punchy line; 4+ words split cleanly in half
   let lines = [];
@@ -1768,7 +1778,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           isHero: false,
           role: leadRole,
           words: leadWords
-        }], { W, H, posX: 0.50, posY: 0.48, inkGap, maxWidth: 0.95 }));
+        }], { W, H, posX: 0.50, posY: 0.68, inkGap, maxWidth: 0.95 }));
       }
 
       lay = lay.concat(layoutFn([{
@@ -1782,7 +1792,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         isHero: true,
         role: beamRole,
         words: punchWords
-      }], { W, H, posX: 0.50, posY: 0.54, inkGap, maxWidth: 0.95 }));
+      }], { W, H, posX: 0.50, posY: 0.74, inkGap, maxWidth: 0.95 }));
 
     } else {
       // SCENARIO 4: EDITORIAL NARRATIVE DEPTH + TILTED ITALIC FRONT STACK
@@ -1843,7 +1853,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           isHero: false,
           role: whiteTiltedRole,
           words: topLeadWords
-        }], { W, H, posX: 0.50, posY: 0.50, inkGap, maxWidth: 0.90 }));
+        }], { W, H, posX: 0.50, posY: 0.68, inkGap, maxWidth: 0.90 }));
       }
 
       // 2. Hero Word behind speaker's head (Y ~ 0.20)
@@ -1871,7 +1881,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           isHero: false,
           role: whiteBoldRole,
           words: botStackWords
-        }], { W, H, posX: 0.50, posY: 0.54, inkGap, maxWidth: 0.90 }));
+        }], { W, H, posX: 0.50, posY: 0.74, inkGap, maxWidth: 0.90 }));
       }
     }
   } else if (isBehindPreset) {
@@ -2365,17 +2375,19 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
   }
 
-  window._capdbgKeys = window._capdbgKeys || new Set();
-  const capDbgKey = `${W}x${H}|${S.style && S.style.lineSpacing}`;
-  if (!window._capdbgKeys.has(capDbgKey)) {
-    window._capdbgKeys.add(capDbgKey);
-    const topItem = lay.find(o => o.lineType === 'top' || (!o.isHero && lay.indexOf(o) === 0));
-    const heroItem = lay.find(o => o.isHero || o.lineType === 'hero');
-    const midItem = lay.find(o => o !== topItem && o !== heroItem);
-    const topPx = topItem ? Math.round(topItem.size) : 0;
-    const midPx = midItem ? Math.round(midItem.size) : 0;
-    const heroPx = heroItem ? Math.round(heroItem.size) : 0;
-    console.log(`[CAPDBG] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} scale=${scale} fontScale=${fontScale} lineSpacing=${S.style && S.style.lineSpacing} top=${topPx} mid=${midPx} hero=${heroPx}`);
+  if (window._debugMode) {
+    window._capdbgKeys = window._capdbgKeys || new Set();
+    const capDbgKey = `${W}x${H}|${S.style && S.style.lineSpacing}`;
+    if (!window._capdbgKeys.has(capDbgKey)) {
+      window._capdbgKeys.add(capDbgKey);
+      const topItem = lay.find(o => o.lineType === 'top' || (!o.isHero && lay.indexOf(o) === 0));
+      const heroItem = lay.find(o => o.isHero || o.lineType === 'hero');
+      const midItem = lay.find(o => o !== topItem && o !== heroItem);
+      const topPx = topItem ? Math.round(topItem.size) : 0;
+      const midPx = midItem ? Math.round(midItem.size) : 0;
+      const heroPx = heroItem ? Math.round(heroItem.size) : 0;
+      console.log(`[CAPDBG] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} scale=${scale} fontScale=${fontScale} lineSpacing=${S.style && S.style.lineSpacing} top=${topPx} mid=${midPx} hero=${heroPx}`);
+    }
   }
 
     const heroLookStack = S.heroLook || st.heroLook || 'solid';
@@ -2918,8 +2930,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const heroText = getCleanDisplayHeroText(rawHeroText);
     const heroIsNum = isPriceOrNumber(heroText);
 
-    // Logging: console.log('[HERO PICK]', captionIndex, chosenWord, candidates with scores) once per caption
-    if (_lastLoggedHeroCapIdx !== capIdx && !showAll) {
+    if (window._debugMode && _lastLoggedHeroCapIdx !== capIdx && !showAll) {
       _lastLoggedHeroCapIdx = capIdx;
       const chosenWord = hasValidHeroWord ? heroCandidate.raw : 'NONE (normal in-front)';
       const candidateSummary = candidates.map(c => `${c.raw}(${c.score})`).join(', ');
@@ -3992,7 +4003,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
 
   const heroLook = S.heroLook || st.heroLook || 'solid';
 
-  if (_lastLoggedUnifiedHeroCapIdx !== capIndex) {
+  if (window._debugMode && _lastLoggedUnifiedHeroCapIdx !== capIndex) {
     _lastLoggedUnifiedHeroCapIdx = capIndex;
     console.log('[HERO]', capIndex, cleanWord, heroLook, colorIndex);
   }
@@ -6034,6 +6045,372 @@ function drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll,
   drawKineticLine(line1Text, 800, l1FontSize, trk12, x1, l1BaseY, ekHi, line1Start, 8);
   if (line2Text) drawKineticLine(line2Text, 800, l2FontSize, trk12, x2, l2BaseY, ekBase, line2Start, 10);
   if (line3Text) drawKineticLine(line3Text, 900, l3FontSize, trk3, x3, l3BaseY, ekBase, line3Start, 14);
+}
+
+/**
+ * White Capsule Pill (Clinical Karaoke Preset)
+ * - Pure White Capsule Pill (#FFFFFF) with crisp black outline
+ * - Subtle ambient drop shadow for clarity on all video backgrounds
+ * - Spoken active words in bold deep black (#000000)
+ * - Upcoming words in soft translucent gray (#A8B0BA)
+ * - Lowercase / Sentence case formatting
+ */
+function drawWhitePillKaraokePass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+
+  const ov = resolveSceneStyleOverrides(st, H);
+  const pillFont = ov.pickFontFam('"Outfit", "Poppins", "Inter", sans-serif');
+  const activeColor = ov.pickHi('#000000');
+  const pastColor = '#111111';
+  const inactiveColor = ov.pickBase('#A8B0BA');
+  const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const userCase = (st && st.textCase) || 'lower';
+
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
+
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitAlpha = fullInstant ? 1.0 : Math.min(1, timeRem / 0.08);
+  if (exitAlpha <= 0.005) return;
+
+  const cleanWord = (raw) => String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim();
+  const formatWord = (str) => {
+    if (userCase === 'upper') return str.toUpperCase();
+    if (userCase === 'lower') return str.toLowerCase();
+    if (userCase === 'title') return str.replace(/\b\w/g, (c) => c.toUpperCase());
+    return str.toLowerCase();
+  };
+
+  const posRatio = Number(st && (st.position || st.posY)) || 0.70;
+  const centerY = H * posRatio;
+  const centerX = W * 0.5;
+
+  const fontSize = Math.round(Math.min(W, H) * 0.052 * fontScale);
+  ctxFore.save();
+  ctxFore.font = `700 ${fontSize}px ${pillFont}`;
+
+  const spaceW = ctxFore.measureText(' ').width;
+  const wordItems = words.map((w, idx) => {
+    const rawTxt = cleanWord(w.t || w.word || '');
+    const txt = formatWord(rawTxt);
+    const wStart = (w && typeof w.s === 'number') ? w.s : (capStart + idx * 0.35);
+    const wEnd = (w && typeof w.e === 'number') ? w.e : (wStart + 0.35);
+    const isPast = !isSampleCard && !fullInstant && evalT >= wEnd;
+    const isActive = isSampleCard ? (idx < 2) : (!fullInstant ? (evalT >= wStart && evalT < wEnd) : (idx === 0));
+
+    ctxFore.font = (isActive || isPast) ? `800 ${fontSize}px ${pillFont}` : `500 ${fontSize}px ${pillFont}`;
+    const width = ctxFore.measureText(txt).width;
+    return { w, txt, width, wStart, wEnd, isPast, isActive };
+  });
+
+  const totalTextW = wordItems.reduce((acc, it) => acc + it.width, 0) + Math.max(0, wordItems.length - 1) * spaceW;
+
+  const padX = Math.round(fontSize * 0.92);
+  const pillW = Math.min(W * 0.94, totalTextW + padX * 2);
+  const pillH = Math.round(fontSize * 1.85);
+  const pillRadius = Math.round(pillH * 0.30);
+  const pillX = centerX - pillW / 2;
+  const pillY = centerY - pillH / 2;
+  const borderWidth = Math.max(2, Math.round(3.2 * (W / 1080)));
+
+  let popScale = 1.0;
+  if (!fullInstant) {
+    const elapsed = Math.max(0, evalT - capStart);
+    if (elapsed < 0.16) {
+      const p = elapsed / 0.16;
+      popScale = 0.92 + 0.08 * (1 - Math.pow(1 - p, 3));
+    }
+  }
+
+  ctxFore.translate(centerX, centerY);
+  ctxFore.scale(popScale, popScale);
+  ctxFore.translate(-centerX, -centerY);
+  ctxFore.globalAlpha = exitAlpha;
+
+  // 1. Pill Capsule with Soft Shadow
+  ctxFore.save();
+  ctxFore.shadowColor = 'rgba(0, 0, 0, 0.18)';
+  ctxFore.shadowBlur = Math.round(14 * (W / 1080));
+  ctxFore.shadowOffsetX = 0;
+  ctxFore.shadowOffsetY = Math.round(6 * (W / 1080));
+
+  ctxFore.beginPath();
+  if (typeof ctxFore.roundRect === 'function') {
+    ctxFore.roundRect(pillX, pillY, pillW, pillH, pillRadius);
+  } else {
+    const r = pillRadius;
+    ctxFore.moveTo(pillX + r, pillY);
+    ctxFore.lineTo(pillX + pillW - r, pillY);
+    ctxFore.quadraticCurveTo(pillX + pillW, pillY, pillX + pillW, pillY + r);
+    ctxFore.lineTo(pillX + pillW, pillY + pillH - r);
+    ctxFore.quadraticCurveTo(pillX + pillW, pillY + pillH, pillX + pillW - r, pillY + pillH);
+    ctxFore.lineTo(pillX + r, pillY + pillH);
+    ctxFore.quadraticCurveTo(pillX, pillY + pillH, pillX, pillY + pillH - r);
+    ctxFore.lineTo(pillX, pillY + r);
+    ctxFore.quadraticCurveTo(pillX, pillY, pillX + r, pillY);
+    ctxFore.closePath();
+  }
+  ctxFore.fillStyle = '#FFFFFF';
+  ctxFore.fill();
+  ctxFore.restore();
+
+  // 2. 2px Solid Black Border
+  ctxFore.save();
+  ctxFore.lineWidth = borderWidth;
+  ctxFore.strokeStyle = '#000000';
+  ctxFore.beginPath();
+  if (typeof ctxFore.roundRect === 'function') {
+    ctxFore.roundRect(pillX, pillY, pillW, pillH, pillRadius);
+  } else {
+    const r = pillRadius;
+    ctxFore.moveTo(pillX + r, pillY);
+    ctxFore.lineTo(pillX + pillW - r, pillY);
+    ctxFore.quadraticCurveTo(pillX + pillW, pillY, pillX + pillW, pillY + r);
+    ctxFore.lineTo(pillX + pillW, pillY + pillH - r);
+    ctxFore.quadraticCurveTo(pillX + pillW, pillY + pillH, pillX + pillW - r, pillY + pillH);
+    ctxFore.lineTo(pillX + r, pillY + pillH);
+    ctxFore.quadraticCurveTo(pillX, pillY + pillH, pillX, pillY + pillH - r);
+    ctxFore.lineTo(pillX, pillY + r);
+    ctxFore.quadraticCurveTo(pillX, pillY, pillX + r, pillY);
+    ctxFore.closePath();
+  }
+  ctxFore.stroke();
+  ctxFore.restore();
+
+  // 3. Spoken Active Words & Muted Inactive Words
+  let currentX = centerX - totalTextW / 2;
+  const textBaselineY = centerY + Math.round(fontSize * 0.04);
+
+  wordItems.forEach(item => {
+    ctxFore.save();
+    ctxFore.textBaseline = 'middle';
+    if (item.isActive) {
+      ctxFore.font = `800 ${fontSize}px ${pillFont}`;
+      ctxFore.fillStyle = activeColor;
+      ctxFore.fillText(item.txt, currentX, textBaselineY);
+    } else if (item.isPast) {
+      ctxFore.font = `700 ${fontSize}px ${pillFont}`;
+      ctxFore.fillStyle = pastColor;
+      ctxFore.fillText(item.txt, currentX, textBaselineY);
+    } else {
+      ctxFore.font = `500 ${fontSize}px ${pillFont}`;
+      ctxFore.fillStyle = inactiveColor;
+      ctxFore.fillText(item.txt, currentX, textBaselineY);
+    }
+    ctxFore.restore();
+
+    ctxFore.font = (item.isActive || item.isPast) ? `800 ${fontSize}px ${pillFont}` : `500 ${fontSize}px ${pillFont}`;
+    currentX += ctxFore.measureText(item.txt).width + spaceW;
+  });
+
+  ctxFore.restore();
+}
+
+/**
+ * Aesthetic Sky Blue & White Kinetic Preset:
+ * - Dynamic Rhythmic Variations (never boring):
+ *   1) Two-Tier Sideways Kinetic Stack (Word 1 from left in White, Word 2 from right in glowing Sky Blue)
+ *   2) Sleek Full-Line Runner (for longer sentences with glowing Sky Blue karaoke sweep)
+ *   3) Solo Power Word (for single punch words with multi-layered ambient bloom)
+ */
+function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+
+  const ov = resolveSceneStyleOverrides(st, H);
+  const skyFont = ov.pickFontFam('"Syne", "Montserrat", "Outfit", sans-serif');
+  const skyBlue = ov.pickHi('#38BDF8');
+  const whiteColor = ov.pickBase('#FFFFFF');
+  const inactiveColor = 'rgba(226, 232, 240, 0.60)';
+  const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const userCase = st && st.textCase;
+
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
+
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitAlpha = fullInstant ? 1.0 : Math.min(1, timeRem / 0.08);
+  if (exitAlpha <= 0.005) return;
+
+  const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+  const easeOutBack = (x) => {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+  };
+
+  const cleanWord = (raw) => String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim();
+  const formatWord = (str) => {
+    if (userCase === 'upper') return str.toUpperCase();
+    if (userCase === 'lower') return str.toLowerCase();
+    if (userCase === 'title') return str.replace(/\b\w/g, (c) => c.toUpperCase());
+    return str.toUpperCase();
+  };
+
+  const posRatio = Number(st && (st.position || st.posY)) || 0.72;
+  const centerY = H * posRatio;
+  const centerX = W * 0.5;
+  const refDim = Math.min(W, H);
+  const scaleRef = refDim / 1080;
+
+  const isSolo = words.length === 1;
+  const isTwoTier = words.length === 2;
+  const isLineRunner = words.length >= 3;
+
+  // 1. TWO-TIER SIDEWAYS KINETIC STACK
+  if (isTwoTier || isSampleCard) {
+    const w1 = words[0];
+    const w2 = isSampleCard ? { t: 'SETTLE', s: capStart + 0.25 } : words[1];
+    const t1 = formatWord(cleanWord(w1.t || w1.word || 'NEVER'));
+    const t2 = formatWord(cleanWord(w2.t || w2.word || 'SETTLE'));
+
+    const s1 = (w1 && typeof w1.s === 'number') ? w1.s : capStart;
+    const s2 = (w2 && typeof w2.s === 'number') ? w2.s : capStart + 0.20;
+
+    const baseFontSize = Math.round(refDim * 0.108 * fontScale);
+    const lineGap = Math.round(baseFontSize * 1.05);
+
+    const p1 = fullInstant ? 1.0 : Math.max(0, Math.min(1, (evalT - s1) / 0.28));
+    const p2 = fullInstant ? 1.0 : Math.max(0, Math.min(1, (evalT - s2) / 0.28));
+
+    const ease1 = easeOutCubic(p1);
+    const ease2 = easeOutCubic(p2);
+
+    const x1 = centerX - (1 - ease1) * (refDim * 0.14);
+    const x2 = centerX + (1 - ease2) * (refDim * 0.14);
+
+    const y1 = centerY - lineGap * 0.52;
+    const y2 = centerY + lineGap * 0.52;
+
+    if (p1 > 0) {
+      ctxFore.save();
+      ctxFore.globalAlpha = exitAlpha * Math.min(1, p1 * 2);
+      ctxFore.font = `800 ${baseFontSize}px ${skyFont}`;
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      ctxFore.shadowColor = 'rgba(0, 0, 0, 0.75)';
+      ctxFore.shadowBlur = Math.round(8 * scaleRef);
+      ctxFore.shadowOffsetY = Math.round(4 * scaleRef);
+      ctxFore.fillStyle = whiteColor;
+      ctxFore.fillText(t1, x1, y1);
+      ctxFore.restore();
+    }
+
+    if (p2 > 0) {
+      ctxFore.save();
+      ctxFore.globalAlpha = exitAlpha * Math.min(1, p2 * 2);
+      ctxFore.font = `900 ${baseFontSize}px ${skyFont}`;
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+
+      // Luminous Multi-layer Sky Blue Glow
+      ctxFore.shadowColor = 'rgba(56, 189, 248, 0.85)';
+      ctxFore.shadowBlur = Math.round(24 * scaleRef);
+      ctxFore.shadowOffsetX = 0;
+      ctxFore.shadowOffsetY = 0;
+      ctxFore.fillStyle = skyBlue;
+      ctxFore.fillText(t2, x2, y2);
+
+      // Inner core pop
+      ctxFore.shadowColor = 'rgba(125, 211, 252, 0.95)';
+      ctxFore.shadowBlur = Math.round(10 * scaleRef);
+      ctxFore.fillText(t2, x2, y2);
+      ctxFore.restore();
+    }
+    return;
+  }
+
+  // 2. SOLO POWER WORD
+  if (isSolo) {
+    const w = words[0];
+    const text = formatWord(cleanWord(w.t || w.word || 'FOCUS'));
+    const s = (w && typeof w.s === 'number') ? w.s : capStart;
+    const progress = fullInstant ? 1.0 : Math.max(0, Math.min(1, (evalT - s) / 0.26));
+    const scale = fullInstant ? 1.0 : (0.80 + 0.20 * easeOutBack(progress));
+    const soloFontSize = Math.round(refDim * 0.125 * fontScale);
+
+    ctxFore.save();
+    ctxFore.translate(centerX, centerY);
+    ctxFore.scale(scale, scale);
+    ctxFore.globalAlpha = exitAlpha * Math.min(1, progress * 2.5);
+    ctxFore.font = `900 ${soloFontSize}px ${skyFont}`;
+    ctxFore.textAlign = 'center';
+    ctxFore.textBaseline = 'middle';
+
+    ctxFore.shadowColor = 'rgba(56, 189, 248, 0.90)';
+    ctxFore.shadowBlur = Math.round(28 * scaleRef);
+    ctxFore.fillStyle = skyBlue;
+    ctxFore.fillText(text, 0, 0);
+
+    ctxFore.shadowColor = 'rgba(255, 255, 255, 0.70)';
+    ctxFore.shadowBlur = Math.round(6 * scaleRef);
+    ctxFore.fillText(text, 0, 0);
+    ctxFore.restore();
+    return;
+  }
+
+  // 3. SLEEK FULL-LINE RUNNER
+  if (isLineRunner) {
+    const runnerFontSize = Math.round(refDim * 0.076 * fontScale);
+    ctxFore.save();
+    ctxFore.font = `800 ${runnerFontSize}px ${skyFont}`;
+    ctxFore.textBaseline = 'middle';
+
+    const spaceW = ctxFore.measureText(' ').width;
+    const wordItems = words.map(w => {
+      const txt = formatWord(cleanWord(w.t || w.word || ''));
+      const width = ctxFore.measureText(txt).width;
+      const wStart = (w && typeof w.s === 'number') ? w.s : capStart;
+      const wEnd = (w && typeof w.e === 'number') ? w.e : (wStart + 0.30);
+      const isPast = fullInstant || evalT >= wEnd;
+      const isActive = !isPast && (evalT >= wStart);
+      return { w, txt, width, wStart, wEnd, isPast, isActive };
+    });
+
+    const totalW = wordItems.reduce((acc, item) => acc + item.width, 0) + (wordItems.length - 1) * spaceW;
+    let currentX = centerX - totalW / 2;
+
+    wordItems.forEach(item => {
+      ctxFore.save();
+      if (item.isActive) {
+        const wordT = Math.max(0, Math.min(1, (evalT - item.wStart) / 0.14));
+        const activeScale = 1.0 + 0.08 * Math.sin(wordT * Math.PI);
+        const wCx = currentX + item.width / 2;
+
+        ctxFore.translate(wCx, centerY);
+        ctxFore.scale(activeScale, activeScale);
+        ctxFore.translate(-wCx, -centerY);
+
+        ctxFore.globalAlpha = exitAlpha;
+        ctxFore.shadowColor = 'rgba(56, 189, 248, 0.90)';
+        ctxFore.shadowBlur = Math.round(20 * scaleRef);
+        ctxFore.fillStyle = skyBlue;
+        ctxFore.fillText(item.txt, currentX, centerY);
+      } else if (item.isPast) {
+        ctxFore.globalAlpha = exitAlpha * 0.95;
+        ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
+        ctxFore.shadowBlur = Math.round(6 * scaleRef);
+        ctxFore.fillStyle = whiteColor;
+        ctxFore.fillText(item.txt, currentX, centerY);
+      } else {
+        ctxFore.globalAlpha = exitAlpha * 0.45;
+        ctxFore.fillStyle = inactiveColor;
+        ctxFore.fillText(item.txt, currentX, centerY);
+      }
+      ctxFore.restore();
+
+      currentX += item.width + spaceW;
+    });
+
+    ctxFore.restore();
+  }
 }
 
 function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
@@ -8541,7 +8918,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         const pTrack1 = ov.trackEmWith(0.06);
         const pFontFn = (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
         const pSize = fitASFont(ctxFore, pTxt, pFontFn, H * 0.028 * fontScale, H * 0.018, W * 0.72, pTrack1);
-        const pCy = asY(0.628, 0, Math.round(H * 0.07));
+        const pCy = asY(0.70, 0, Math.round(H * 0.07));
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * pep;
@@ -8595,7 +8972,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         const sTrack1 = ov.trackEmWith(-0.02);
         const sFontFn = (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
         const sSize = fitASFont(ctxFore, sTxt, sFontFn, H * 0.044 * fontScale, H * 0.022, W * 0.86, sTrack1);
-        const sBaseY = pillWords.length > 0 ? asY(0.708, 1, Math.round(H * 0.07)) : asY(0.665, 0, Math.round(H * 0.07));
+        const sBaseY = pillWords.length > 0 ? asY(0.768, 1, Math.round(H * 0.07)) : asY(0.725, 0, Math.round(H * 0.07));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * sep;
         ctxFore.font = sFontFn(sSize);
@@ -8654,8 +9031,8 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       ctxFore.restore();
     };
 
-    const keyYRatio = (beforeTxt && afterTxt) ? 0.642 : (beforeTxt ? 0.654 : (afterTxt ? 0.600 : 0.618));
-    if (beforeTxt) drawASRowText(beforeTxt, afterTxt ? 0.542 : 0.562, -0.5, beforeStart);
+    const keyYRatio = (beforeTxt && afterTxt) ? 0.74 : (beforeTxt ? 0.75 : (afterTxt ? 0.72 : 0.73));
+    if (beforeTxt) drawASRowText(beforeTxt, afterTxt ? 0.67 : 0.68, -0.5, beforeStart);
 
     const kP = fullInstant ? 1.0 : (evalT >= keyStart - 0.03 ? Math.min(1, Math.max(0, (evalT - keyStart) / 0.16)) : 0);
     if (keyTxt && kP > 0.01) {
@@ -8708,7 +9085,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       ctxFore.restore();
     }
 
-    if (afterTxt) drawASRowText(afterTxt, beforeTxt ? 0.715 : 0.675, 0.5, afterStart);
+    if (afterTxt) drawASRowText(afterTxt, beforeTxt ? 0.81 : 0.78, 0.5, afterStart);
 
   } else if (styleMode === 3) {
     // MODE 3: Aurora Neon Wireframe Behind ('FUTURE') + Clean White Sans ('own the') + Glowing Script ('moment.')
@@ -8767,7 +9144,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     // 2. Sans Lead + Glowing Brush Script ('own the' + 'moment.')
     const leadTxt = leadWords.map(w => cleanAS(w.t || w.word || '', true)).filter(Boolean).join(' ');
     const scriptTxt = scriptWord ? cleanAS(scriptWord.t || scriptWord.word || '', true) : '';
-    const baseWaistY = posY(H * 0.622);
+    const baseWaistY = posY(H * 0.71);
     if (leadTxt) {
       const lP = fullInstant ? 1.0 : (evalT >= wordStartTime(leadWords[0], capStart + 0.15) - 0.02 ? Math.min(1, Math.max(0, (evalT - wordStartTime(leadWords[0], capStart + 0.15)) / 0.14)) : 0);
       if (lP > 0.01) {
@@ -8902,7 +9279,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         const hTrack4 = ov.trackEmWith(0.10);
         const hudFontFn = (sz) => `500 ${sz}px ${ov.pickFontFam('"Inter", "Space Mono", sans-serif')}`;
         const hudSz = fitASFont(ctxFore, hudTxt, hudFontFn, H * 0.021 * fontScale, H * 0.014, W * 0.72, hTrack4);
-        const hCy = asY(0.625, 0, Math.round(H * 0.07));
+        const hCy = asY(0.695, 0, Math.round(H * 0.07));
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * hep;
@@ -8956,7 +9333,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         const cTrack4 = ov.trackEmWith(-0.025);
         const cFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Inter", "Montserrat", sans-serif')}`;
         const cSz = fitASFont(ctxFore, cTxt, cFontFn, H * 0.052 * fontScale, H * 0.026, W * 0.86, cTrack4);
-        const cBaseY = hudWords.length > 0 ? asY(0.706, 1, Math.round(H * 0.07)) : asY(0.668, 0, Math.round(H * 0.07));
+        const cBaseY = hudWords.length > 0 ? asY(0.765, 1, Math.round(H * 0.07)) : asY(0.725, 0, Math.round(H * 0.07));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * cep;
         ctxFore.font = cFontFn(cSz);
@@ -9881,7 +10258,7 @@ function _unused_drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W,
     const cardW = Math.min(Math.round(W * 0.92), Math.round(totalTextW + padX * 2));
     const cardH = Math.round(fFontSize + padY * 2);
 
-    const subYRatio = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.66;
+    const subYRatio = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.74;
     const cardCy = Math.round(H * subYRatio + posDeltaY);
     const cardX = Math.round(heroX - cardW * 0.5);
     const cardY = Math.round(cardCy - cardH * 0.5);
@@ -12437,12 +12814,14 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
 }
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
-  window._capdbg2Keys = window._capdbg2Keys || new Set();
-  const capdbg2Key = `${isPreview}|${W}x${H}|${S.style && S.style.lineSpacing}`;
-  if (!window._capdbg2Keys.has(capdbg2Key)) {
-    window._capdbg2Keys.add(capdbg2Key);
-    const caller = (new Error().stack || '').split('\n').slice(2, 4).join(' <- ');
-    console.log(`[CAPDBG2] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} styleId=${S.style && S.style.id} styleName=${S.style && S.style.name} layout=${S.style && S.style.layout} dubaiFlag=${S.style && S.style.dubaiLuxuryStack} isBehind=${isBehind} lineSpacing=${S.style && S.style.lineSpacing} fontScale=${S.style && S.style.fontScale} caller=${caller}`);
+  if (window._debugMode) {
+    window._capdbg2Keys = window._capdbg2Keys || new Set();
+    const capdbg2Key = `${isPreview}|${W}x${H}|${S.style && S.style.lineSpacing}`;
+    if (!window._capdbg2Keys.has(capdbg2Key)) {
+      window._capdbg2Keys.add(capdbg2Key);
+      const caller = (new Error().stack || '').split('\n').slice(2, 4).join(' <- ');
+      console.log(`[CAPDBG2] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} styleId=${S.style && S.style.id} styleName=${S.style && S.style.name} layout=${S.style && S.style.layout} dubaiFlag=${S.style && S.style.dubaiLuxuryStack} isBehind=${isBehind} lineSpacing=${S.style && S.style.lineSpacing} fontScale=${S.style && S.style.fontScale} caller=${caller}`);
+    }
   }
   if (!ctxFore) return;
   _captionsDrawnCount++;
@@ -12459,7 +12838,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   if (hasCapTransform) {
     const origCx = W * 0.5;
-    const origCy = H * (Number(st && (st.position || st.posY)) || 0.65);
+    const origCy = H * (Number(st && (st.position || st.posY)) || 0.72);
     const rotRad = (capRot * Math.PI) / 180;
     const applyCtxTransform = (c) => {
       c.save();
@@ -12481,7 +12860,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const fontScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
         ? S.style.fontScale
         : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
-      const base = Math.max(260, Math.min(W, H)) * Math.max(0.5, Math.min(2.5, fontScale));
+      const base = Math.min(W, H) * Math.max(0.5, Math.min(2.5, fontScale));
       const presetId = st.id || '';
       const offsetX = (Number(st.offsetX) || 0) * W;
       ctxFore.save(); ctxFore.translate(offsetX, 0);
@@ -12509,6 +12888,10 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.id === 'real_estate_depth_split') {
         drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.id === 'white_pill_karaoke' || st.whitePillKaraoke || st.layout === 'white_pill') {
+        drawWhitePillKaraokePass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
+      } else if (st.id === 'sky_kinetic_duo' || st.hasSkyGlow || st.layout === 'sky_kinetic') {
+        drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.id === 'electric_kinetic_stack') {
         drawElectricKineticStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.crazySunsetStack || st.id === 'crazy_sunset_stack') {
@@ -13305,6 +13688,11 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       } else if (btn50) {
         btn50.innerHTML = `<span>⚡ Pay ₹${price50} via UPI / Card (₹${disc50} OFF applied)</span>`;
       }
+      // Also update landing page button if present
+      const btnFront10 = $('btnFrontPayPack10');
+      if (btnFront10) {
+        btnFront10.innerHTML = `<span>📲 Get 1 Export (₹${price10} · ₹${disc10} OFF)</span>`;
+      }
     };
 
     const redeemAction = async () => {
@@ -13346,7 +13734,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
         // Handle checkout discount coupons (e.g. keix 15 / faizan 30)
         if (data.discount) {
-          const appliedCode = data.code || 'Discount';
+          const appliedCode = data.code || 'keix 15';
           applyDiscountToUI(
             appliedCode,
             data.price_pack10 || 15,
@@ -13685,39 +14073,94 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     tagSpan.textContent = tag;
     art.appendChild(tagSpan);
 
-    if (preset.isDuo) {
-      const small = document.createElement('span');
-      small.className = 'front-card-small';
-      small.textContent = 'SOME MOMENTS';
-      art.appendChild(small);
-    }
+    if (preset.id === 'white_pill_karaoke' || preset.layout === 'white_pill') {
+      const pillBox = document.createElement('div');
+      pillBox.style.display = 'inline-flex';
+      pillBox.style.alignItems = 'center';
+      pillBox.style.gap = '5px';
+      pillBox.style.background = '#FFFFFF';
+      pillBox.style.border = '2px solid #000000';
+      pillBox.style.borderRadius = '9999px';
+      pillBox.style.padding = '6px 14px';
+      pillBox.style.boxShadow = '0 4px 12px rgba(0,0,0,0.22)';
+      pillBox.style.fontFamily = `'Outfit', 'Poppins', sans-serif`;
+      pillBox.style.fontSize = '12px';
+      pillBox.style.lineHeight = '1';
 
-    const big = document.createElement('strong');
-    big.className = 'front-card-big';
-    big.textContent = previewWord;
-    big.style.fontFamily = `'${font}', sans-serif`;
-    big.style.fontStyle = isItalic;
-    big.style.fontWeight = weight;
-    big.style.textTransform = textTransform;
+      const actSpan = document.createElement('span');
+      actSpan.textContent = 'sunne mein';
+      actSpan.style.color = '#000000';
+      actSpan.style.fontWeight = '800';
 
-    const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
-    if (preset.pill) {
-      big.style.background = preset.pill;
-      big.style.padding = '3px 8px';
-      big.style.borderRadius = '5px';
-      big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
-    } else if (paint && paint.startsWith('linear-gradient(')) {
-      big.style.backgroundImage = paint;
-      big.style.webkitBackgroundClip = 'text';
-      big.style.backgroundClip = 'text';
-      big.style.color = 'transparent';
+      const inactSpan = document.createElement('span');
+      inactSpan.textContent = 'dikkat';
+      inactSpan.style.color = '#A8B0BA';
+      inactSpan.style.fontWeight = '500';
+
+      pillBox.append(actSpan, inactSpan);
+      art.appendChild(pillBox);
+    } else if (preset.id === 'sky_kinetic_duo' || preset.layout === 'sky_kinetic') {
+      const stackBox = document.createElement('div');
+      stackBox.style.display = 'flex';
+      stackBox.style.flexDirection = 'column';
+      stackBox.style.alignItems = 'center';
+      stackBox.style.justifyContent = 'center';
+      stackBox.style.lineHeight = '1.05';
+      stackBox.style.marginTop = '4px';
+
+      const line1 = document.createElement('span');
+      line1.textContent = 'NEVER';
+      line1.style.fontFamily = `'Syne', sans-serif`;
+      line1.style.fontWeight = '800';
+      line1.style.fontSize = '16px';
+      line1.style.color = '#FFFFFF';
+      line1.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
+
+      const line2 = document.createElement('span');
+      line2.textContent = 'SETTLE';
+      line2.style.fontFamily = `'Syne', sans-serif`;
+      line2.style.fontWeight = '900';
+      line2.style.fontSize = '17px';
+      line2.style.color = '#38BDF8';
+      line2.style.textShadow = '0 0 12px rgba(56,189,248,0.9), 0 0 4px rgba(125,211,252,0.95)';
+
+      stackBox.append(line1, line2);
+      art.appendChild(stackBox);
     } else {
-      big.style.color = color;
-      if (kRole.glow || preset.glow) {
-        big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+      if (preset.isDuo) {
+        const small = document.createElement('span');
+        small.className = 'front-card-small';
+        small.textContent = 'SOME MOMENTS';
+        art.appendChild(small);
       }
+
+      const big = document.createElement('strong');
+      big.className = 'front-card-big';
+      big.textContent = previewWord;
+      big.style.fontFamily = `'${font}', sans-serif`;
+      big.style.fontStyle = isItalic;
+      big.style.fontWeight = weight;
+      big.style.textTransform = textTransform;
+
+      const paint = kRole.keyGradient || kRole.color || preset.highlightColor || color;
+      if (preset.pill) {
+        big.style.background = preset.pill;
+        big.style.padding = '3px 8px';
+        big.style.borderRadius = '5px';
+        big.style.color = (kRole.color && (preset.porcelainRibbon || preset.holoAuraPill || preset.acidVoltTicker || preset.tornZine || preset.prismTileKinetic || preset.atelierZine)) ? kRole.color : '#000';
+      } else if (paint && paint.startsWith('linear-gradient(')) {
+        big.style.backgroundImage = paint;
+        big.style.webkitBackgroundClip = 'text';
+        big.style.backgroundClip = 'text';
+        big.style.color = 'transparent';
+      } else {
+        big.style.color = color;
+        if (kRole.glow || preset.glow) {
+          big.style.textShadow = `0 0 10px ${kRole.glow || color}88`;
+        }
+      }
+      art.appendChild(big);
     }
-    art.appendChild(big);
 
     // Name & Selected Check
     const nameRow = document.createElement('div');
@@ -13845,7 +14288,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.28.0';
+    const CURRENT_PRESET_VER = 'v7.30.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -13857,6 +14300,37 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // 0. Ensure default presets exist immediately so screen is NEVER blank
     if (!S.presets || S.presets.length === 0) {
       S.presets = [
+        {
+          id: "white_pill_karaoke",
+          name: "💊 White Capsule (Clinical Karaoke)",
+          category: "box",
+          badge: "CLINICAL 💊",
+          previewWord: "sunne mein dikkat",
+          layout: "white_pill",
+          whitePillKaraoke: true,
+          highlightColor: "#000000",
+          baseColor: "#A8B0BA",
+          fontFamily: "Outfit",
+          position: 0.70,
+          key: { font: "Outfit", color: "#000000", bold: true, weight: 800 },
+          filler: { font: "Outfit", color: "#A8B0BA", bold: false, weight: 500 }
+        },
+        {
+          id: "sky_kinetic_duo",
+          name: "✨ Sky Kinetic Stack (Aesthetic Glow)",
+          category: "duo",
+          badge: "AESTHETIC ✨",
+          previewWord: "NEVER SETTLE",
+          isDuo: true,
+          layout: "sky_kinetic",
+          highlightColor: "#38BDF8",
+          baseColor: "#FFFFFF",
+          hasSkyGlow: true,
+          fontFamily: "Syne",
+          position: 0.72,
+          key: { font: "Syne", color: "#38BDF8", bold: true, weight: 900 },
+          filler: { font: "Syne", color: "#FFFFFF", bold: true, weight: 800 }
+        },
         {
           id: "dubai_luxury_stack",
           name: "Dubai Luxury Stack",
@@ -15524,7 +15998,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         closeDrawer();
       };
       btnDrawerClose.addEventListener('click', handleClose);
-      btnDrawerClose.addEventListener('touchend', handleClose);
     }
 
     btnDrawerExpand.addEventListener('click', () => {
@@ -15667,7 +16140,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       tabTemplates: '🎨 Templates',
       tabCaptions: '📝 Captions',
       tabBroll: '✨ Auto Edit & B-Roll',
-      tabStyle: '🎚️ Customize Style',
+      tabStyle: '⚙️ Settings (Style & B-Rolls)',
       tabAudio: '🎵 Voice & Audio'
     };
     drawerTitle.textContent = titles[targetId] || 'Editor Options';
@@ -15680,6 +16153,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     } else if (targetId === 'tabStyle') {
       if (typeof syncHeroLookUI === 'function') syncHeroLookUI();
       if (typeof syncTypographyUI === 'function') syncTypographyUI();
+      renderBrollTab();
       const chkProgressLine = $('chkBottomProgressLine');
       if (chkProgressLine) {
         chkProgressLine.checked = Boolean(S.progressBar && S.progressBar.enabled === true);
@@ -15819,7 +16293,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       match: (p) => {
         const name = (p.name || '').toLowerCase();
         const cat = (p.category || '').toLowerCase();
-        return name.includes('box') || cat.includes('box') || Boolean(p.pill) || Boolean(p.box);
+        return name.includes('box') || name.includes('capsule') || name.includes('pill') || cat.includes('box') || p.layout === 'white_pill' || p.id === 'white_pill_karaoke' || Boolean(p.pill) || Boolean(p.box);
       }
     },
     {
@@ -15829,7 +16303,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       match: (p) => {
         const name = (p.name || '').toLowerCase();
         const cat = (p.category || '').toLowerCase();
-        return Boolean(p.isDuo) || cat === 'duo' || name.startsWith('duo ·') || name.startsWith('duo');
+        return Boolean(p.isDuo) || cat === 'duo' || p.layout === 'sky_kinetic' || p.id === 'sky_kinetic_duo' || name.startsWith('duo ·') || name.startsWith('duo');
       }
     },
     {
@@ -16353,6 +16827,59 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       subSmall.style.marginTop = '4px';
       subSmall.style.zIndex = '3';
       art.appendChild(subSmall);
+    } else if (preset.id === 'white_pill_karaoke' || preset.layout === 'white_pill') {
+      const pillBox = document.createElement('div');
+      pillBox.style.display = 'inline-flex';
+      pillBox.style.alignItems = 'center';
+      pillBox.style.gap = '5px';
+      pillBox.style.background = '#FFFFFF';
+      pillBox.style.border = '2px solid #000000';
+      pillBox.style.borderRadius = '9999px';
+      pillBox.style.padding = '6px 14px';
+      pillBox.style.boxShadow = '0 4px 12px rgba(0,0,0,0.22)';
+      pillBox.style.fontFamily = `'Outfit', 'Poppins', sans-serif`;
+      pillBox.style.fontSize = '12px';
+      pillBox.style.lineHeight = '1';
+
+      const actSpan = document.createElement('span');
+      actSpan.textContent = 'sunne mein';
+      actSpan.style.color = '#000000';
+      actSpan.style.fontWeight = '800';
+
+      const inactSpan = document.createElement('span');
+      inactSpan.textContent = 'dikkat';
+      inactSpan.style.color = '#A8B0BA';
+      inactSpan.style.fontWeight = '500';
+
+      pillBox.append(actSpan, inactSpan);
+      art.appendChild(pillBox);
+    } else if (preset.id === 'sky_kinetic_duo' || preset.layout === 'sky_kinetic') {
+      const stackBox = document.createElement('div');
+      stackBox.style.display = 'flex';
+      stackBox.style.flexDirection = 'column';
+      stackBox.style.alignItems = 'center';
+      stackBox.style.justifyContent = 'center';
+      stackBox.style.lineHeight = '1.05';
+      stackBox.style.marginTop = '4px';
+
+      const line1 = document.createElement('span');
+      line1.textContent = 'NEVER';
+      line1.style.fontFamily = `'Syne', sans-serif`;
+      line1.style.fontWeight = '800';
+      line1.style.fontSize = '16px';
+      line1.style.color = '#FFFFFF';
+      line1.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
+
+      const line2 = document.createElement('span');
+      line2.textContent = 'SETTLE';
+      line2.style.fontFamily = `'Syne', sans-serif`;
+      line2.style.fontWeight = '900';
+      line2.style.fontSize = '17px';
+      line2.style.color = '#38BDF8';
+      line2.style.textShadow = '0 0 12px rgba(56,189,248,0.9), 0 0 4px rgba(125,211,252,0.95)';
+
+      stackBox.append(line1, line2);
+      art.appendChild(stackBox);
     } else {
       if (preset.isDuo) {
         const small = document.createElement('span');
@@ -16481,7 +17008,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     const frontY = $('inputDualPlaneFrontY');
     const valFrontY = $('valDualPlaneFrontY');
-    const curFrontY = Math.round((S.style?.subtitlePosition != null ? S.style.subtitlePosition : 0.66) * 100);
+    const curFrontY = Math.round((S.style?.subtitlePosition != null ? S.style.subtitlePosition : 0.74) * 100);
     if (frontY) frontY.value = String(curFrontY);
     if (valFrontY) valFrontY.textContent = `${curFrontY}%`;
 
@@ -16994,7 +17521,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           const group = pill.getAttribute('data-style-group') || 'all';
           styleGroupPills.forEach(p => p.classList.toggle('active', p === pill));
           $$('#tabStyle .style-options-grid > [data-style-group]').forEach(card => {
-            const matches = (group === 'all') || (card.getAttribute('data-style-group') === group);
+            const cardGroups = (card.getAttribute('data-style-group') || '').split(/\s+/);
+            const matches = (group === 'all') || cardGroups.includes(group);
             card.classList.toggle('style-filter-hidden', !matches);
           });
           const sc = document.querySelector('#drawerPanel .drawer-content');
@@ -17500,7 +18028,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const valDualPlaneFrontY = $('valDualPlaneFrontY');
     if (inputDualPlaneFrontY) {
       inputDualPlaneFrontY.addEventListener('input', (e) => {
-        const pct = parseInt(e.target.value, 10) || 66;
+        const pct = parseInt(e.target.value, 10) || 74;
         if (valDualPlaneFrontY) valDualPlaneFrontY.textContent = `${pct}%`;
         if (!S.style) S.style = {};
         S.style.subtitlePosition = pct / 100;
@@ -17530,6 +18058,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         S.style.editorialPosition = pos;
         showToast('📍 Editorial Position: ' + (pos === 'top' ? 'Above Head' : (pos === 'below' ? 'Behind Torso' : 'Alternate')));
         renderCanvas();
+      });
+    });
+
+    $$('#groupEditorialPosition .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        $$('#groupEditorialPosition .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        const pos = btn.getAttribute('data-pos') || 'alternate';
+        if (!S.style) S.style = {};
+        S.style.editorialSlotMode = pos;
+        S.style.editorialPosition = pos;
+        showToast('📍 Editorial Position: ' + pos);
+        renderCanvas(true);
       });
     });
 
@@ -17932,15 +18473,48 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     }
 
     // Viral Auto-Emojis toggle
-    const valEmojiBadge = $('valEmojiBadge');
+    function syncEmojiUI(mode) {
+      const valEmojiBadge = $('valEmojiBadge');
+      if (valEmojiBadge) {
+        valEmojiBadge.textContent = mode === 'above' ? 'ON (Above Word)' : (mode === 'beside' ? 'ON (Beside Word)' : 'OFF');
+      }
+      const lbl = $('lblCapNavEmoji');
+      if (lbl) {
+        lbl.textContent = mode === 'off' ? 'Emojis: OFF' : (mode === 'above' ? 'Emojis: ON' : 'Emojis: Beside');
+      }
+      const btnCapEmoji = $('btnCapNavEmoji');
+      if (btnCapEmoji) {
+        btnCapEmoji.classList.toggle('active', mode !== 'off');
+      }
+      const btnMiniEmoji = $('btnMiniToggleEmoji');
+      if (btnMiniEmoji) {
+        btnMiniEmoji.style.opacity = mode === 'off' ? '0.45' : '1.0';
+      }
+    }
+
+    function cycleEmojiMode() {
+      const modes = ['above', 'beside', 'off'];
+      const curIdx = modes.indexOf(S.autoEmojis || 'above');
+      const nextIdx = (curIdx + 1) % modes.length;
+      const newMode = modes[nextIdx];
+      S.autoEmojis = newMode;
+      $$('#emojiButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b.getAttribute('data-emoji') === newMode));
+      syncEmojiUI(newMode);
+      showToast('😃 Emojis: ' + (newMode === 'above' ? 'ON (Above Word)' : (newMode === 'beside' ? 'ON (Beside Word)' : 'OFF')));
+      renderCanvas();
+    }
+
+    const btnCapNavEmoji = $('btnCapNavEmoji');
+    if (btnCapNavEmoji) btnCapNavEmoji.addEventListener('click', cycleEmojiMode);
+    const btnMiniToggleEmoji = $('btnMiniToggleEmoji');
+    if (btnMiniToggleEmoji) btnMiniToggleEmoji.addEventListener('click', cycleEmojiMode);
+
     $$('#emojiButtonGroup .btn-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         $$('#emojiButtonGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
         const mode = btn.getAttribute('data-emoji') || 'above';
         S.autoEmojis = mode;
-        if (valEmojiBadge) {
-          valEmojiBadge.textContent = mode === 'above' ? 'ON (Above Word)' : (mode === 'beside' ? 'ON (Beside Word)' : 'OFF');
-        }
+        syncEmojiUI(mode);
         showToast('🔥 Auto-Emojis: ' + (mode === 'off' ? 'Off' : 'Active'));
         renderCanvas();
       });
@@ -19121,6 +19695,359 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     ctx.drawImage(cachedWatermarkCanvas, 0, 0);
   }
 
+  const MOTION_THEMES = {
+    wealth: {
+      tlBadge: '📈 +847% ROI',
+      tlColor: '#4ade80',
+      tlBorder: '#22c55e',
+      tlBg: 'rgba(15, 23, 42, 0.92)',
+      trEmoji: '💸',
+      trShadow: 'rgba(250, 204, 21, 0.85)',
+      blTag: 'FIG. 01 // CAPITAL',
+      brBadge: '✓ VERIFIED',
+      brColor: '#6ee7b7',
+      brBg: 'rgba(16, 185, 129, 0.22)',
+      brBorder: '#10b981',
+      accent: 'particles'
+    },
+    viral: {
+      tlBadge: '🔥 1.4M VIEWS',
+      tlColor: '#f87171',
+      tlBorder: '#ef4444',
+      tlBg: 'rgba(24, 15, 15, 0.92)',
+      trEmoji: '🚀',
+      trShadow: 'rgba(239, 68, 68, 0.85)',
+      blTag: 'RETENTION 98.4%',
+      brBadge: '⭐ TRENDING',
+      brColor: '#fcd34d',
+      brBg: 'rgba(245, 158, 11, 0.22)',
+      brBorder: '#f59e0b',
+      accent: 'arrow'
+    },
+    cyber: {
+      tlBadge: '🤖 GPT-4o ARCH',
+      tlColor: '#38bdf8',
+      tlBorder: '#0ea5e9',
+      tlBg: 'rgba(8, 18, 32, 0.92)',
+      trEmoji: '⚡',
+      trShadow: 'rgba(56, 189, 248, 0.85)',
+      blTag: 'SYS.01 // 120 FPS',
+      brBadge: '[SECURE // AI]',
+      brColor: '#67e8f9',
+      brBg: 'rgba(6, 182, 212, 0.22)',
+      brBorder: '#06b6d4',
+      accent: 'hud'
+    },
+    motivation: {
+      tlBadge: '⚡ 100% FOCUS',
+      tlColor: '#fbbf24',
+      tlBorder: '#f59e0b',
+      tlBg: 'rgba(28, 20, 8, 0.92)',
+      trEmoji: '🏆',
+      trShadow: 'rgba(245, 158, 11, 0.85)',
+      blTag: '00:45 // DAILY GOAL',
+      brBadge: '💥 NO EXCUSES',
+      brColor: '#fde047',
+      brBg: 'rgba(234, 179, 8, 0.22)',
+      brBorder: '#eab308',
+      accent: 'streaks'
+    },
+    podcast: {
+      tlBadge: '🎙️ EPISODE 42',
+      tlColor: '#c084fc',
+      tlBorder: '#a855f7',
+      tlBg: 'rgba(24, 12, 36, 0.92)',
+      trEmoji: '🧠',
+      trShadow: 'rgba(168, 85, 247, 0.85)',
+      blTag: 'AUDIO // 48kHz HQ',
+      brBadge: '📌 KEY TAKEAWAY',
+      brColor: '#e9d5ff',
+      brBg: 'rgba(147, 51, 234, 0.22)',
+      brBorder: '#9333ea',
+      accent: 'waves'
+    }
+  };
+
+  function detectMotionTheme(activeBroll) {
+    if (activeBroll && activeBroll.theme && MOTION_THEMES[activeBroll.theme]) {
+      return MOTION_THEMES[activeBroll.theme];
+    }
+    if (S.brollMotionTheme && MOTION_THEMES[S.brollMotionTheme]) {
+      return MOTION_THEMES[S.brollMotionTheme];
+    }
+    // Intelligent auto-detection from caption keywords
+    const query = ((activeBroll && activeBroll.query) || '').toLowerCase();
+    const allText = (S.captions || []).map(c => c.text || '').join(' ').toLowerCase();
+    const text = query + ' ' + allText;
+    if (/money|dollar|cash|wealth|rich|profit|invest|crypto|bitcoin|roi|finance|business|sales|revenue/i.test(text)) {
+      return MOTION_THEMES.wealth;
+    }
+    if (/views|viral|tiktok|instagram|youtube|followers|subscribers|algorithm|growth|reach|share/i.test(text)) {
+      return MOTION_THEMES.viral;
+    }
+    if (/code|coding|dev|ai|tech|robot|algorithm|software|system|cyber|matrix|model|gpt|data|engineer/i.test(text)) {
+      return MOTION_THEMES.cyber;
+    }
+    if (/gym|fitness|workout|discipline|mindset|focus|hustle|wake up|grind|goals|push|win|champion/i.test(text)) {
+      return MOTION_THEMES.motivation;
+    }
+    if (/podcast|interview|talk|episode|guest|listen|sound|mic|conversation|deep dive|story/i.test(text)) {
+      return MOTION_THEMES.podcast;
+    }
+    return MOTION_THEMES.wealth;
+  }
+
+  function drawMotionStickersOverlays(ctx, W, H, t) {
+    // Disabled: pure video and clean captions with no unwanted arrows, stickers or doodle overlays
+    return;
+
+    ctx.save();
+
+    const theme = detectMotionTheme(activeBroll);
+    const layout = activeBroll ? (activeBroll.layout || 'above') : 'above';
+    const safeT = (typeof t === 'number') ? t : 0;
+
+    // Spring Bounce Pop-In Physics & Exit Fade
+    const bStart = activeBroll ? activeBroll.start : 0;
+    const bEnd = activeBroll ? activeBroll.end : (safeT + 5);
+    const elapsed = Math.max(0, safeT - bStart);
+    const remaining = Math.max(0, bEnd - safeT);
+
+    const popDur = 0.24;
+    const popRatio = Math.min(1, elapsed / popDur);
+    // Elastic spring formula
+    const springScale = popRatio < 1
+      ? 0.6 + 0.4 * Math.sin(popRatio * Math.PI * 0.5) + Math.sin(popRatio * Math.PI) * 0.22
+      : 1.0;
+
+    const exitDur = 0.18;
+    const exitAlpha = remaining < exitDur ? Math.max(0, remaining / exitDur) : 1.0;
+    ctx.globalAlpha = exitAlpha;
+
+    // Dynamic Corner Framing (zoom_corners or auto-switched)
+    if (layout === 'zoom_corners') {
+      // 1. Top-Left Topic Badge with Spring Pop
+      ctx.save();
+      const tlText = (activeBroll && activeBroll.customBadge) || theme.tlBadge;
+      const tlFont = Math.max(11, Math.round(H * 0.015));
+      ctx.font = `800 ${tlFont}px "Montserrat", sans-serif`;
+      const mTL = ctx.measureText(tlText);
+      const bwTL = mTL.width + tlFont * 1.6;
+      const bhTL = tlFont * 2.0;
+      const tlX = W * 0.04;
+      const tlY = H * 0.03;
+
+      ctx.translate(tlX + bwTL / 2, tlY + bhTL / 2);
+      ctx.scale(springScale, springScale);
+      ctx.translate(-(tlX + bwTL / 2), -(tlY + bhTL / 2));
+
+      ctx.fillStyle = theme.tlBg;
+      ctx.strokeStyle = theme.tlBorder;
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = theme.tlBorder;
+      ctx.shadowBlur = 8;
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(tlX, tlY, bwTL, bhTL, bhTL / 2);
+        ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillRect(tlX, tlY, bwTL, bhTL);
+        ctx.strokeRect(tlX, tlY, bwTL, bhTL);
+      }
+      ctx.fillStyle = theme.tlColor;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tlText, tlX + bwTL / 2, tlY + bhTL / 2);
+      ctx.restore();
+
+      // 2. Top-Right Floating 3D Emoji with Ambient Float
+      const trFloat = Math.sin(safeT * 3.2) * (H * 0.007);
+      ctx.save();
+      ctx.translate(W * 0.88, H * 0.05 + trFloat);
+      ctx.scale(springScale, springScale);
+      ctx.font = `${Math.max(26, Math.round(H * 0.042))}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = theme.trShadow;
+      ctx.shadowBlur = 12;
+      ctx.fillText(theme.trEmoji, 0, 0);
+      ctx.restore();
+
+      // 3. Bottom-Left Scene Mark
+      ctx.save();
+      ctx.font = `700 ${Math.max(10, Math.round(H * 0.013))}px monospace, sans-serif`;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(theme.blTag, W * 0.05, H * 0.94);
+      ctx.restore();
+
+      // 4. Bottom-Right Status Badge
+      ctx.save();
+      const brTxt = theme.brBadge;
+      const brFont = Math.max(10, Math.round(H * 0.013));
+      ctx.font = `800 ${brFont}px sans-serif`;
+      const mBR = ctx.measureText(brTxt);
+      const bwBR = mBR.width + 16;
+      const bhBR = Math.max(18, Math.round(H * 0.024));
+      const bxBR = W * 0.95 - bwBR;
+      const byBR = H * 0.94 - bhBR;
+
+      ctx.fillStyle = theme.brBg;
+      ctx.strokeStyle = theme.brBorder;
+      ctx.lineWidth = 1;
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(bxBR, byBR, bwBR, bhBR, 4);
+        ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillRect(bxBR, byBR, bwBR, bhBR);
+      }
+      ctx.fillStyle = theme.brColor;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(brTxt, bxBR + bwBR / 2, byBR + bhBR / 2);
+      ctx.restore();
+
+      // HUD / Accent Enhancements for zoom_corners
+      if (theme.accent === 'hud') {
+        // Neon HUD brackets
+        ctx.save();
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2;
+        const bLen = W * 0.04;
+        const bX1 = W * 0.19;
+        const bY1 = H * 0.035;
+        const bX2 = W * 0.81;
+        const bY2 = H * 0.325;
+        // Top-Left bracket
+        ctx.beginPath();
+        ctx.moveTo(bX1, bY1 + bLen); ctx.lineTo(bX1, bY1); ctx.lineTo(bX1 + bLen, bY1);
+        // Top-Right bracket
+        ctx.moveTo(bX2 - bLen, bY1); ctx.lineTo(bX2, bY1); ctx.lineTo(bX2, bY1 + bLen);
+        // Bottom-Left bracket
+        ctx.moveTo(bX1, bY2 - bLen); ctx.lineTo(bX1, bY2); ctx.lineTo(bX1 + bLen, bY2);
+        // Bottom-Right bracket
+        ctx.moveTo(bX2 - bLen, bY2); ctx.lineTo(bX2, bY2); ctx.lineTo(bX2, bY2 - bLen);
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      // Standard / Top Split / Card Motion Overlays
+
+      // 1. Primary Glassmorphic Status Pill
+      ctx.save();
+      const badgeText = (activeBroll && activeBroll.customBadge) || theme.tlBadge;
+      const badgeFont = Math.max(11, Math.round(H * 0.016));
+      ctx.font = `800 ${badgeFont}px "Montserrat", sans-serif`;
+      const m = ctx.measureText(badgeText);
+      const bw = m.width + badgeFont * 1.6;
+      const bh = badgeFont * 2.0;
+      const bx = W - bw - Math.round(W * 0.05);
+      const by = Math.round(H * 0.035);
+
+      ctx.translate(bx + bw / 2, by + bh / 2);
+      ctx.scale(springScale, springScale);
+      ctx.translate(-(bx + bw / 2), -(by + bh / 2));
+
+      ctx.shadowColor = theme.tlBorder;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = theme.tlBg;
+      ctx.strokeStyle = theme.tlBorder;
+      ctx.lineWidth = 1.5;
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, bh / 2);
+        ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeRect(bx, by, bw, bh);
+      }
+      ctx.fillStyle = theme.tlColor;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.fillText(badgeText, bx + bw / 2, by + bh / 2 + 1);
+      ctx.restore();
+
+      // 2. 3D Floating Emoji Accent
+      const floatY = Math.sin(safeT * 3.5) * (H * 0.008);
+      const emojiX = Math.round(W * 0.16);
+      const emojiY = Math.round(H * 0.44) + floatY;
+      const emojiSize = Math.max(28, Math.round(H * 0.045));
+
+      ctx.save();
+      ctx.translate(emojiX, emojiY);
+      ctx.scale(springScale, springScale);
+      ctx.rotate(-0.12 + Math.sin(safeT * 2.5) * 0.06);
+      ctx.font = `${emojiSize}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = theme.trShadow;
+      ctx.shadowBlur = 14;
+      ctx.fillText(theme.trEmoji, 0, 0);
+      ctx.restore();
+
+      // 3. Dynamic Pack-Specific Accents
+      if (theme.accent === 'arrow') {
+        // Viral curved scribble doodle arrow
+        ctx.save();
+        const arrowStartX = W * 0.28;
+        const arrowStartY = H * 0.40;
+        const arrowMidX = W * 0.38;
+        const arrowMidY = H * 0.48;
+        const arrowEndX = W * 0.32;
+        const arrowEndY = H * 0.54;
+
+        ctx.strokeStyle = '#FDE047';
+        ctx.lineWidth = Math.max(2, Math.round(H * 0.0035));
+        ctx.lineCap = 'round';
+        ctx.shadowColor = 'rgba(253, 224, 71, 0.6)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(arrowStartX, arrowStartY);
+        ctx.quadraticCurveTo(arrowMidX, arrowMidY, arrowEndX, arrowEndY);
+        ctx.stroke();
+
+        const angle = Math.atan2(arrowEndY - arrowMidY, arrowEndX - arrowMidX);
+        const headLen = Math.max(8, Math.round(H * 0.012));
+        ctx.beginPath();
+        ctx.moveTo(arrowEndX, arrowEndY);
+        ctx.lineTo(arrowEndX - headLen * Math.cos(angle - Math.PI / 6), arrowEndY - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(arrowEndX, arrowEndY);
+        ctx.lineTo(arrowEndX - headLen * Math.cos(angle + Math.PI / 6), arrowEndY - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.stroke();
+        ctx.restore();
+      } else if (theme.accent === 'waves') {
+        // Podcast pulsing equalizer bars
+        ctx.save();
+        const waveX = W * 0.28;
+        const waveY = H * 0.45;
+        const barW = Math.max(3, Math.round(W * 0.008));
+        const gap = 3;
+        ctx.fillStyle = '#a855f7';
+        for (let i = 0; i < 4; i++) {
+          const barH = Math.max(6, Math.sin(safeT * 6 + i * 1.2) * 14 + 16);
+          ctx.fillRect(waveX + i * (barW + gap), waveY - barH / 2, barW, barH);
+        }
+        ctx.restore();
+      } else if (theme.accent === 'hud') {
+        // Tech crosshair mark
+        ctx.save();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        const chX = W * 0.88;
+        const chY = H * 0.42;
+        const chSize = 10;
+        ctx.beginPath();
+        ctx.moveTo(chX - chSize, chY); ctx.lineTo(chX + chSize, chY);
+        ctx.moveTo(chX, chY - chSize); ctx.lineTo(chX, chY + chSize);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    ctx.restore();
+  }
   function setChunkMode(mode) {
     S.chunkMode = mode;
     $$('.btn-chunk-mode').forEach(b => b.classList.toggle('active', b.getAttribute('data-chunk') === String(mode)));
@@ -19698,7 +20625,7 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
   const outW = targetW || srcW;
   const outH = targetH || srcH;
 
-  const targetLong = isHighQuality ? 256 : (downscaleTarget || 160);
+  const targetLong = isHighQuality ? 320 : Math.max(220, downscaleTarget || 220);
   const downScale = Math.min(1, targetLong / Math.max(srcW, srcH));
   const downW = Math.max(64, Math.round(srcW * downScale));
   const downH = Math.max(64, Math.round(srcH * downScale));
@@ -19764,7 +20691,7 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
         let nonZero = 0;
         for (let i = 0; i < totalPx; i++) {
           const conf = prevLiveMaskFloats[i];
-          const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : Math.round(((conf - 0.25) / 0.5) * 255));
+          const alpha = conf < 0.50 ? 0 : (conf > 0.82 ? 255 : Math.round(((conf - 0.50) / 0.32) * 255));
           if (alpha > 0) nonZero++;
           const idx = i * 4;
           data[idx] = 255;
@@ -19801,7 +20728,7 @@ function getLivePersonMask(sourceCanvasOrFrame, timestampMs, targetW, targetH, i
 
         liveFinalCtx.clearRect(0, 0, outW, outH);
         if (enableBlur || isHighQuality) {
-          liveFinalCtx.filter = 'blur(1.5px)';
+          liveFinalCtx.filter = 'blur(0.5px)';
           liveFinalCtx.drawImage(liveMaskRawCanvas, 0, 0, outW, outH);
           liveFinalCtx.filter = 'none';
         } else {
@@ -19836,7 +20763,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
   const outW = targetW || srcW;
   const outH = targetH || srcH;
 
-  const downScale = Math.min(1, 160 / Math.max(srcW, srcH));
+  const downScale = Math.min(1, 320 / Math.max(srcW, srcH));
   const downW = Math.max(64, Math.round(srcW * downScale));
   const downH = Math.max(64, Math.round(srcH * downScale));
 
@@ -19883,7 +20810,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           for (let i = 0; i < totalPx; i++) {
             const conf = floatVals[i];
             exportPrevMaskFloats[i] = conf;
-            const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : (((conf - 0.25) * 510) | 0));
+            const alpha = conf < 0.50 ? 0 : (conf > 0.82 ? 255 : (((conf - 0.50) * 796) | 0));
             if (alpha > 0) nonZeroCount++;
             data32[i] = (alpha << 24) | 0x00FFFFFF;
           }
@@ -19891,7 +20818,7 @@ function getExportPersonMask(segmenter, sourceCanvasOrFrame, timestampMs, target
           for (let i = 0; i < totalPx; i++) {
             const conf = floatVals[i] * 0.7 + exportPrevMaskFloats[i] * 0.3;
             exportPrevMaskFloats[i] = conf;
-            const alpha = conf < 0.25 ? 0 : (conf > 0.75 ? 255 : (((conf - 0.25) * 510) | 0));
+            const alpha = conf < 0.50 ? 0 : (conf > 0.82 ? 255 : (((conf - 0.50) * 796) | 0));
             if (alpha > 0) nonZeroCount++;
             data32[i] = (alpha << 24) | 0x00FFFFFF;
           }
@@ -19948,18 +20875,18 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
   ctx.save();
 
-  // 1. Vertical Laser Sweep (smooth sinusoidal motion between 16% and 84% of video height)
+  // 1. Vertical Laser Sweep (smooth sinusoidal motion between 15% and 85% of video height)
   const cycle = (tNow * 0.0024) % (Math.PI * 2);
   const sweepP = (Math.sin(cycle) + 1) * 0.5;
-  const laserY = Math.round(h * 0.16 + h * 0.68 * sweepP);
+  const laserY = Math.round(h * 0.15 + h * 0.70 * sweepP);
 
   // 2. Cyan Scanning Aura trailing the beam
-  const auraH = Math.round(h * 0.12);
+  const auraH = Math.round(h * 0.13);
   const auraGrad = ctx.createLinearGradient(0, laserY - auraH, 0, laserY + auraH);
   auraGrad.addColorStop(0.0, 'rgba(0, 240, 255, 0.0)');
-  auraGrad.addColorStop(0.35, 'rgba(0, 240, 255, 0.08)');
-  auraGrad.addColorStop(0.50, 'rgba(56, 189, 248, 0.22)');
-  auraGrad.addColorStop(0.65, 'rgba(0, 240, 255, 0.08)');
+  auraGrad.addColorStop(0.35, 'rgba(0, 240, 255, 0.09)');
+  auraGrad.addColorStop(0.50, 'rgba(56, 189, 248, 0.25)');
+  auraGrad.addColorStop(0.65, 'rgba(0, 240, 255, 0.09)');
   auraGrad.addColorStop(1.0, 'rgba(0, 240, 255, 0.0)');
   ctx.fillStyle = auraGrad;
   ctx.fillRect(0, laserY - auraH, w, auraH * 2);
@@ -19967,16 +20894,16 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   // 3. Dual-Layer Neon Laser Line
   ctx.save();
   ctx.shadowColor = 'rgba(0, 240, 255, 0.95)';
-  ctx.shadowBlur = 16;
+  ctx.shadowBlur = 18;
   ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 2.4;
   ctx.beginPath();
   ctx.moveTo(0, laserY);
   ctx.lineTo(w, laserY);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
-  ctx.lineWidth = 4.5;
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+  ctx.lineWidth = 5.0;
   ctx.beginPath();
   ctx.moveTo(0, laserY);
   ctx.lineTo(w, laserY);
@@ -19984,13 +20911,13 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   ctx.restore();
 
   // 4. Gliding Micro Sparkles along the laser line
-  for (let i = 0; i < 5; i++) {
-    const sparkX = ((tNow * 0.14 + i * (w / 5)) % w);
-    const sparkSize = 2.4 + 1.2 * Math.sin(tNow * 0.01 + i);
+  for (let i = 0; i < 6; i++) {
+    const sparkX = ((tNow * 0.16 + i * (w / 6)) % w);
+    const sparkSize = 2.5 + 1.2 * Math.sin(tNow * 0.01 + i);
     ctx.save();
     ctx.fillStyle = '#FFFFFF';
     ctx.shadowColor = '#00F0FF';
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.arc(sparkX, laserY, sparkSize, 0, Math.PI * 2);
     ctx.fill();
@@ -19998,17 +20925,17 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   }
 
   // 5. Glassmorphism Floating Pill Badge
-  const badgeW = Math.min(Math.round(w * 0.84), 272);
-  const badgeH = 56;
+  const badgeW = Math.min(Math.round(w * 0.88), 300);
+  const badgeH = 62;
   const badgeX = Math.round((w - badgeW) * 0.5);
   const badgeY = Math.round(h * 0.44);
   const rad = 16;
 
   // Dark frosted glass backdrop
   ctx.save();
-  ctx.fillStyle = 'rgba(10, 15, 26, 0.86)';
-  ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
-  ctx.shadowBlur = 22;
+  ctx.fillStyle = 'rgba(10, 15, 26, 0.88)';
+  ctx.shadowColor = 'rgba(0, 240, 255, 0.40)';
+  ctx.shadowBlur = 24;
 
   ctx.beginPath();
   if (typeof ctx.roundRect === 'function') {
@@ -20019,22 +20946,31 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   ctx.fill();
 
   // Electric cyan subtle neon border
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
-  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.70)';
+  ctx.lineWidth = 1.4;
   ctx.stroke();
   ctx.restore();
 
-  // 6. Left Icon: Pulsing AI Scissors Beacon
-  const iconX = badgeX + 26;
+  // 6. Left Icon: Pulsing AI Scissors Beacon with orbiting satellite particle
+  const iconX = badgeX + 28;
   const iconY = badgeY + badgeH * 0.5;
 
   ctx.save();
-  const pulseR = 10 + 3 * Math.sin(tNow * 0.008);
-  ctx.strokeStyle = 'rgba(0, 240, 255, 0.50)';
+  const pulseR = 12 + 3 * Math.sin(tNow * 0.008);
+  ctx.strokeStyle = 'rgba(0, 240, 255, 0.55)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(iconX, iconY, pulseR, 0, Math.PI * 2);
   ctx.stroke();
+
+  // Orbiting satellite dot
+  const orbAngle = tNow * 0.006;
+  const orbX = iconX + Math.cos(orbAngle) * pulseR;
+  const orbY = iconY + Math.sin(orbAngle) * pulseR;
+  ctx.fillStyle = '#00F0FF';
+  ctx.beginPath();
+  ctx.arc(orbX, orbY, 2.2, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
@@ -20047,15 +20983,19 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 
+  // Animated dots for "Cutting out subject..."
+  const dotStep = Math.floor((tNow * 0.003) % 4);
+  const dots = '.'.repeat(dotStep);
+
   // Title: "Cutting out subject..."
   ctx.font = '700 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillText('Cutting out subject...', badgeX + 48, badgeY + 24);
+  ctx.fillText('Cutting out subject' + dots, badgeX + 50, badgeY + 25);
 
-  // Subtitle: "AI Depth Isolating (1–2s)"
-  ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  // Subtitle: "Just take a little • Isolating depth..."
+  ctx.font = '500 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillStyle = '#38BDF8';
-  ctx.fillText('AI Depth Isolating (1–2s)', badgeX + 48, badgeY + 42);
+  ctx.fillText('Just take a little • Isolating depth...', badgeX + 50, badgeY + 44);
   ctx.restore();
 
   // 8. Animated Shimmer Progress Bar at bottom of pill
@@ -20066,7 +21006,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.fillRect(barX, barY, barW, 2);
 
-  const shimW = 48;
+  const shimW = 54;
   const shimPos = ((tNow * 0.14) % (barW + shimW)) - shimW;
   const shimGrad = ctx.createLinearGradient(barX + shimPos, 0, barX + shimPos + shimW, 0);
   shimGrad.addColorStop(0.0, 'rgba(0, 240, 255, 0)');
@@ -20242,7 +21182,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         if (vid && vid.style.opacity !== '1') vid.style.opacity = '1';
       }
 
-      const isBehind = Boolean(
+      const hasCircleBroll = (S.brolls || []).some(b => b.url && (b.layout === 'circle' || b.layout === 'window' || b.layout === 'pip') && (typeof t !== 'number' || (t >= (b.start || 0) && t <= (b.end || 9999))));
+      const isBehindStyle = Boolean(
         S.style && (
           S.style.behindPerson ||
           S.style.depthAccent ||
@@ -20250,11 +21191,12 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
         )
       );
+      const isBehind = isBehindStyle || hasCircleBroll;
 
       const isShowAll = Boolean(vid.paused || !vid.duration);
 
       // Behind-Person Segmentation vs Foreground Typography Dispatch
-      if (isBehind && activeCap) {
+      if (isBehind && (activeCap || hasCircleBroll)) {
         if (!segmenterLoadFailed) {
           // If segmenter not yet loaded, kick off loader immediately
           if (!segmenterInstance && !segmenterLoadingPromise) {
@@ -20270,10 +21212,11 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
           if (!window._aiCutoutInitStart) window._aiCutoutInitStart = performance.now();
           const cutoutWaitMs = performance.now() - window._aiCutoutInitStart;
-          const isTimedOut = cutoutWaitMs > 2500;
+          const isTimedOut = segmenterLoadFailed || (cutoutWaitMs > 12000);
           const isCutoutReady = isTimedOut || Boolean(segmenterInstance && lastLiveMaskCanvas && vid.readyState >= 2);
 
           if (!isCutoutReady) {
+            window._aiCutoutFadeAlpha = 0;
             // Cutout is initializing (downloading neural weights or computing first mask)
             // 1. Hold behind text: Clear behindCtx & personCtx so no misplaced text is shown in front of speaker
             if (behindCtx) {
@@ -20287,7 +21230,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               personCtx.scale(dpr, dpr);
             }
 
-            // 2. Render Option A: AI Laser Scanner Cutout Overlay
+            // 2. Render AI Laser Scanner Cutout Overlay
             drawAiCutoutLaserScanner(ctx, w, h, performance.now());
 
             // 3. Keep animation frame looping on paused video so the laser scanner sweeps smoothly
@@ -20315,6 +21258,18 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             }
             window._aiCutoutInitStart = null;
 
+            // Smooth 220ms alpha fade-in for cutout layer to eliminate any 1-frame pop/glitch
+            if (window._aiCutoutFadeAlpha === undefined) window._aiCutoutFadeAlpha = 0;
+            if (window._aiCutoutFadeAlpha < 1) {
+              window._aiCutoutFadeAlpha = Math.min(1, window._aiCutoutFadeAlpha + 0.12);
+              if (vid.paused && !window._aiCutoutFadeRaf) {
+                window._aiCutoutFadeRaf = requestAnimationFrame(() => {
+                  window._aiCutoutFadeRaf = null;
+                  renderCanvas(true);
+                });
+              }
+            }
+
             // Compute ongoing video playback masks
             if (!vid.paused) {
               const minInterval = cfg.minMaskInterval;
@@ -20336,7 +21291,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             }
 
             // Draw behind typography onto behindCtx
-            drawCanvasTypography(ctx, behindCtx || ctx, activeCap, words, t, S.style || {}, w, h, true, isShowAll, isPreview);
+            if (activeCap) drawCanvasTypography(ctx, isBehindStyle ? (behindCtx || ctx) : ctx, activeCap, words, t, S.style || {}, w, h, isBehindStyle, isShowAll, isPreview);
 
             // Draw person cutout onto personCanvas
             if (personCtx && vid && vid.readyState >= 2 && lastLiveMaskCanvas) {
@@ -20354,6 +21309,9 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
               try {
                 personCtx.save();
+                if (typeof window._aiCutoutFadeAlpha === 'number' && window._aiCutoutFadeAlpha < 1) {
+                  personCtx.globalAlpha = Math.max(0.01, window._aiCutoutFadeAlpha);
+                }
                 personCtx.drawImage(vid, 0, 0, w, h);
                 personCtx.globalCompositeOperation = 'destination-in';
                 personCtx.drawImage(lastLiveMaskCanvas, 0, 0, w, h);
@@ -20363,20 +21321,25 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               }
             }
 
-            drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+            if (activeCap) drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
           }
         } else {
           // Fallback if segmenter failed on device
-          drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
-          drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+          if (activeCap) {
+            drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
+            drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+          }
         }
       } else {
         // Normal foreground preset rendering
-        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
-        drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+        if (activeCap) {
+          drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
+          drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+        }
       }
 
       drawRealEstateOverlays(ctx, w, h, t);
+      drawMotionStickersOverlays(ctx, w, h, t);
       drawWatermark(ctx, w, h);
 
       if (isPreview) {
@@ -20572,24 +21535,26 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
   }
 
   function setupBrollHandlers() {
-    const btnAutoEditHeader = $('btnAutoEditHeader');
-    const btnAutoEditHero = $('btnAutoEditHero');
     const btnRemoveFillers = $('btnRemoveFillers');
-
-    if (btnAutoEditHeader) btnAutoEditHeader.addEventListener('click', runAutoEdit);
-    if (btnAutoEditHero) btnAutoEditHero.addEventListener('click', runAutoEdit);
     if (btnRemoveFillers) btnRemoveFillers.addEventListener('click', () => removeFillerWords(true));
     const btnAutoBroll = $('btnAutoBroll');
+    const btnSettingsAutoBroll = $('btnSettingsAutoBroll');
     const btnTogglePexelsSearch = $('btnTogglePexelsSearch');
     const btnSearchPexels = $('btnSearchPexels');
+    const btnSettingsSearch = $('btnSettingsSearchPexels');
     const brollSearchInput = $('brollSearchInput');
+    const settingsSearchInput = $('settingsBrollSearchInput');
     const brollOrientGroup = $('brollOrientGroup');
+    const settingsOrientGroup = $('settingsBrollOrientGroup');
     const btnClearAllBrolls = $('btnClearAllBrolls');
     const btnSavePexelsKey = $('btnSavePexelsKey');
     const inputPexelsKey = $('inputPexelsKey');
 
     if (btnAutoBroll) {
-      btnAutoBroll.addEventListener('click', autoAddBrolls);
+      btnAutoBroll.addEventListener('click', () => autoAddBrolls());
+    }
+    if (btnSettingsAutoBroll) {
+      btnSettingsAutoBroll.addEventListener('click', () => autoAddBrolls());
     }
 
     if (btnTogglePexelsSearch) {
@@ -20602,6 +21567,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       });
     }
 
+    // Tab B-Roll Search Input
     if (btnSearchPexels && brollSearchInput) {
       btnSearchPexels.addEventListener('click', () => {
         const q = brollSearchInput.value.trim();
@@ -20615,15 +21581,69 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       });
     }
 
+    // Settings B-Roll Search Input
+    if (btnSettingsSearch && settingsSearchInput) {
+      btnSettingsSearch.addEventListener('click', () => {
+        const q = settingsSearchInput.value.trim();
+        if (q) searchPexels(q);
+      });
+      settingsSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const q = settingsSearchInput.value.trim();
+          if (q) searchPexels(q);
+        }
+      });
+    }
+
+    // Keep inputs synced
+    if (brollSearchInput && settingsSearchInput) {
+      brollSearchInput.addEventListener('input', () => {
+        settingsSearchInput.value = brollSearchInput.value;
+      });
+      settingsSearchInput.addEventListener('input', () => {
+        brollSearchInput.value = settingsSearchInput.value;
+      });
+    }
+
+    // Orientations for both tabs
+    function syncOrientation(orient) {
+      pexelsOrientation = orient;
+      $$('#brollOrientGroup .btn-toggle, #settingsBrollOrientGroup .btn-toggle').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-orient') === orient);
+      });
+      const q = (settingsSearchInput ? settingsSearchInput.value.trim() : '') || (brollSearchInput ? brollSearchInput.value.trim() : '') || 'business';
+      searchPexels(q);
+    }
+
     if (brollOrientGroup) {
       $$('#brollOrientGroup .btn-toggle').forEach(btn => {
         btn.addEventListener('click', () => {
-          $$('#brollOrientGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
-          pexelsOrientation = btn.getAttribute('data-orient') || 'portrait';
-          const q = (brollSearchInput ? brollSearchInput.value.trim() : '') || 'business';
-          searchPexels(q);
+          syncOrientation(btn.getAttribute('data-orient') || 'portrait');
         });
       });
+    }
+
+    if (settingsOrientGroup) {
+      $$('#settingsBrollOrientGroup .btn-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          syncOrientation(btn.getAttribute('data-orient') || 'portrait');
+        });
+      });
+    }
+
+    // Keyword chips in Settings
+    $$('.chip-kw').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const kw = chip.getAttribute('data-kw') || chip.innerText.trim();
+        if (settingsSearchInput) settingsSearchInput.value = kw;
+        if (brollSearchInput) brollSearchInput.value = kw;
+        searchPexels(kw);
+      });
+    });
+
+    const btnCancelReplace = $('btnCancelReplaceBroll');
+    if (btnCancelReplace) {
+      btnCancelReplace.addEventListener('click', cancelReplaceFlow);
     }
 
     if (btnClearAllBrolls) {
@@ -20745,10 +21765,12 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
   // Search stock videos (Coverr / Pexels) with query
   async function searchPexels(query) {
-    const grid = $('pexelsResultsGrid');
-    if (!grid) return;
-    grid.classList.remove('hidden');
-    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#a1a1aa;">Searching stock library for "' + escapeHtml(query) + '"...</div>';
+    const grids = [$('pexelsResultsGrid'), $('settingsPexelsResultsGrid')].filter(Boolean);
+    if (!grids.length) return;
+    grids.forEach(grid => {
+      grid.classList.remove('hidden');
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#a1a1aa;">Searching stock library for "' + escapeHtml(query) + '"...</div>';
+    });
 
     try {
       const res = await fetch('/api/broll/search', {
@@ -20761,37 +21783,168 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       const results = data.results || [];
 
       if (results.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#71717a;">No clips found for "' + escapeHtml(query) + '". Try another keyword.</div>';
+        grids.forEach(grid => {
+          grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#71717a;">No clips found for "' + escapeHtml(query) + '". Try another keyword.</div>';
+        });
         return;
       }
 
-      grid.innerHTML = '';
-      results.forEach((item, idx) => {
-        const card = document.createElement('div');
-        card.className = 'pexels-card';
-        const providerName = (item.provider === 'coverr' ? 'Coverr' : (item.credit || 'Free Stock'));
-        card.innerHTML = `
-          <div class="pexels-thumb-wrap">
-            <img src="${escapeHtml(item.thumb)}" class="pexels-thumb-img" alt="Stock Video" loading="lazy">
-            <span class="pexels-dur-badge">${Math.round(item.duration || 0)}s</span>
-          </div>
-          <div class="pexels-card-info">
-            <span class="pexels-credit">By ${escapeHtml(item.credit || providerName)}</span>
-            <button type="button" class="btn-add-broll" data-idx="${idx}">+ Add to Video</button>
-          </div>
-        `;
-        const btnAdd = card.querySelector('.btn-add-broll');
-        btnAdd.addEventListener('click', () => {
-          addBrollFromSearch(item, query);
+      grids.forEach(grid => {
+        grid.innerHTML = '';
+        results.forEach((item, idx) => {
+          const card = document.createElement('div');
+          card.className = 'pexels-card';
+          const providerName = (item.provider === 'coverr' ? 'Coverr' : (item.credit || 'Free Stock'));
+          card.innerHTML = `
+            <div class="pexels-thumb-wrap">
+              <img src="${escapeHtml(item.thumb)}" class="pexels-thumb-img" alt="Stock Video" loading="lazy">
+              <span class="pexels-dur-badge">${Math.round(item.duration || 0)}s</span>
+            </div>
+            <div class="pexels-card-info">
+              <span class="pexels-credit">By ${escapeHtml(item.credit || providerName)}</span>
+              <button type="button" class="btn-add-broll" data-idx="${idx}">+ Add to Video</button>
+            </div>
+          `;
+          const btnAdd = card.querySelector('.btn-add-broll');
+          btnAdd.addEventListener('click', () => {
+            addBrollFromSearch(item, query);
+          });
+          grid.appendChild(card);
         });
-        grid.appendChild(card);
       });
     } catch (err) {
-      grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#ef4444;">' + escapeHtml(err.message) + '</div>';
+      grids.forEach(grid => {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#ef4444;">' + escapeHtml(err.message) + '</div>';
+      });
     }
   }
 
+  let replacingBrollIdx = null;
+
+  function startReplaceFlow(idx) {
+    if (!S.brolls || !S.brolls[idx]) return;
+    const b = S.brolls[idx];
+    replacingBrollIdx = idx;
+
+    // 1. Determine Relative Keywords from clip + captions
+    const overlappingCaps = (S.captions || []).filter(c => (c.end >= b.start && c.start <= b.end));
+    const capText = overlappingCaps.map(c => cleanCaptionText(c.text || '')).join(' ');
+    const baseQuery = (b.query || '').replace(/^[🎬#\d:\s]+/, '').trim();
+
+    const nicheMap = {
+      money: ['luxury lifestyle', 'wealth cash', 'finance stock', 'crypto bitcoin', 'gold investment'],
+      wealth: ['luxury mansion', 'private jet', 'rolex watch', 'penthouse view', 'supercar'],
+      rich: ['wealthy lifestyle', 'luxury cars', 'money cash', 'mansion pool'],
+      business: ['office meeting', 'entrepreneur laptop', 'handshake agreement', 'modern corporate', 'conference room'],
+      work: ['remote worker', 'typing laptop', 'office desk', 'focus productivity'],
+      gym: ['heavy barbell', 'workout sweat', 'fitness athlete', 'bodybuilder dumbell', 'running sprint'],
+      fitness: ['gym workout', 'healthy fitness', 'training crossfit', 'running outdoor', 'boxing gloves'],
+      tech: ['ai machine learning', 'cyberpunk neon', 'software coding', 'futuristic server', 'hacker matrix'],
+      ai: ['artificial intelligence', 'robot brain', 'neural network', 'digital data', 'future technology'],
+      nature: ['drone mountains', 'ocean beach waves', 'forest waterfall', 'sunset landscape', 'river stream'],
+      car: ['sports car drift', 'luxury supercar', 'highway night drive', 'ferrari speed'],
+      podcast: ['podcast microphone', 'studio headphones', 'radio talk', 'broadcast soundboard'],
+      food: ['chef restaurant cooking', 'delicious gourmet', 'aesthetic coffee latte', 'healthy breakfast'],
+      travel: ['airplane window view', 'tropical island', 'city skyline travel', 'resort vacation']
+    };
+
+    let relativeKeywords = [];
+    const queryLower = (baseQuery + ' ' + capText).toLowerCase();
+    for (const [key, list] of Object.entries(nicheMap)) {
+      if (queryLower.includes(key)) {
+        relativeKeywords = relativeKeywords.concat(list);
+      }
+    }
+
+    if (relativeKeywords.length === 0) {
+      if (baseQuery) relativeKeywords.push(baseQuery);
+      const stopWords = new Set(['this', 'that', 'with', 'from', 'have', 'were', 'your', 'about', 'some', 'what', 'when', 'will', 'just', 'there', 'their', 'which', 'would']);
+      const capWords = capText.split(/\s+/).map(w => w.toLowerCase().replace(/[^a-z]/g, '')).filter(w => w.length > 3 && !stopWords.has(w));
+      capWords.slice(0, 4).forEach(w => { if (!relativeKeywords.includes(w)) relativeKeywords.push(w); });
+      relativeKeywords.push('cinematic 4k', 'trending reel', 'aesthetic vertical', 'slow motion');
+    }
+
+    relativeKeywords = Array.from(new Set(relativeKeywords)).slice(0, 6);
+
+    // 2. Update Replacement Banner
+    const banner = $('brollReplacingBanner');
+    const lblNum = $('lblReplacingClipNum');
+    const lblTopic = $('lblReplacingClipTopic');
+    if (lblNum) lblNum.textContent = `#${idx + 1}`;
+    if (lblTopic) lblTopic.textContent = baseQuery || 'Clip';
+    if (banner) banner.classList.remove('hidden');
+
+    // 3. Render Relative Suggestion Chips
+    const chipsCont = $('relativeSuggestionsChips');
+    const relCont = $('relativeSuggestionsContainer');
+    if (chipsCont && relCont) {
+      relCont.classList.remove('hidden');
+      chipsCont.innerHTML = '';
+      relativeKeywords.forEach(kw => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip-relative';
+        chip.textContent = kw;
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sInp = $('settingsBrollSearchInput');
+          const bInp = $('brollSearchInput');
+          if (sInp) sInp.value = kw;
+          if (bInp) bInp.value = kw;
+          searchPexels(kw);
+        });
+        chipsCont.appendChild(chip);
+      });
+    }
+
+    // 4. Fill search inputs
+    const primarySearchTerm = baseQuery || relativeKeywords[0] || 'trending';
+    const sInp = $('settingsBrollSearchInput');
+    const bInp = $('brollSearchInput');
+    if (sInp) sInp.value = primarySearchTerm;
+    if (bInp) bInp.value = primarySearchTerm;
+
+    // 5. Scroll smoothly to search card
+    const searchCard = $('cardSettingsBrollSearch') || $('brollSearchCard');
+    if (searchCard) {
+      searchCard.scrollIntoView({ behavior: 'smooth' });
+      if (sInp) setTimeout(() => sInp.focus(), 300);
+    }
+
+    // 6. Execute search automatically
+    searchPexels(primarySearchTerm);
+    showToast(`🔁 Relative clips loaded for #${idx + 1}! Click any video below to swap.`);
+  }
+
+  function cancelReplaceFlow() {
+    replacingBrollIdx = null;
+    const banner = $('brollReplacingBanner');
+    const relCont = $('relativeSuggestionsContainer');
+    if (banner) banner.classList.add('hidden');
+    if (relCont) relCont.classList.add('hidden');
+    showToast('Replacement cancelled');
+  }
+
   function addBrollFromSearch(item, query) {
+    if (replacingBrollIdx !== null && S.brolls && S.brolls[replacingBrollIdx]) {
+      const target = S.brolls[replacingBrollIdx];
+      target.url = item.url;
+      target.thumb = item.thumb;
+      target.query = query || 'Stock Clip';
+      target.credit = item.credit || '';
+      target.duration = item.duration || target.duration || 3.0;
+      replacingBrollIdx = null;
+      const banner = $('brollReplacingBanner');
+      const relCont = $('relativeSuggestionsContainer');
+      if (banner) banner.classList.add('hidden');
+      if (relCont) relCont.classList.add('hidden');
+      renderBrollTab();
+      lastActiveBrollId = null;
+      syncBrollPlayback();
+      showToast('✓ B-Roll clip replaced from stock!');
+      return;
+    }
+
     const curT = vid.currentTime || 0;
     const dur = Math.min(vid.duration || 30, curT + 3.0);
     const startT = Math.round(curT * 10) / 10;
@@ -20806,7 +21959,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       thumb: item.thumb,
       duration: item.duration || 3.0,
       credit: item.credit || '',
-      layout: 'full'
+      layout: 'drawer'
     };
 
     if (!S.brolls) S.brolls = [];
@@ -20817,132 +21970,414 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     showToast(`Added B-Roll clip at ${startT}s!`);
   }
 
-  // Render the B-Roll tab list
-  function renderBrollTab() {
-    const list = $('brollList');
-    const badge = $('brollCountBadge');
-    const btnClear = $('btnClearAllBrolls');
-    if (!list) return;
+  // ---------------------------------------------------------------------------
+  // B-ROLL TIMELINE & SETTINGS MANAGEMENT (Multi-select, Animations, Replace, Delete)
+  // ---------------------------------------------------------------------------
+  const selectedBrollIndices = new Set();
 
+  function updateBrollSelectionUI() {
     const brolls = S.brolls || [];
-    if (badge) badge.textContent = brolls.length;
-    if (btnClear) btnClear.style.display = brolls.length > 0 ? 'inline-block' : 'none';
-
-    if (brolls.length === 0) {
-      list.innerHTML = `
-        <div class="broll-empty-state" id="brollEmptyState">
-          <div class="empty-icon">🎬</div>
-          <p>No B-Rolls added yet.</p>
-          <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search Pexels above.</p>
-        </div>
-      `;
-      return;
+    const total = brolls.length;
+    // Purge out-of-range indices
+    for (const idx of Array.from(selectedBrollIndices)) {
+      if (idx >= total) selectedBrollIndices.delete(idx);
     }
+    const count = selectedBrollIndices.size;
+    const isAll = (total > 0 && count === total);
 
-    list.innerHTML = '';
-    brolls.forEach((b, idx) => {
-      const card = document.createElement('div');
-      card.className = 'broll-card';
-      const layout = b.layout || 'full';
+    // Update tabBroll bulk selection controls
+    const bulkBar = $('brollBulkBar');
+    const chkAll = $('chkSelectAllBrolls');
+    const spanCount = $('brollSelectedCount');
+    const btnDelSelected = $('btnDeleteSelectedBrolls');
 
-      card.innerHTML = `
-        <div class="broll-card-top">
-          <img src="${escapeHtml(b.thumb || '')}" class="broll-card-thumb" alt="B-Roll" onerror="this.style.display='none'">
-          <div class="broll-card-meta">
-            <span class="broll-card-title">🎬 #${idx + 1}: ${escapeHtml(b.query || 'Stock Clip')}</span>
-            <span class="broll-card-timing">${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)</span>
-          </div>
+    if (bulkBar) bulkBar.style.display = total > 0 ? 'flex' : 'none';
+    if (chkAll) {
+      chkAll.checked = isAll;
+      chkAll.indeterminate = (count > 0 && !isAll);
+    }
+    if (spanCount) spanCount.textContent = count;
+    if (btnDelSelected) btnDelSelected.style.display = count > 0 ? 'inline-flex' : 'none';
+
+    // Update settings drawer bulk selection controls
+    const bulkBarSettings = $('settingsBrollBulkBar');
+    const chkAllSettings = $('chkSelectAllSettingsBrolls');
+    const spanSettingsCount = $('settingsBrollSelectedCount');
+    const btnDelSelectedSettings = $('btnDeleteSelectedSettingsBrolls');
+
+    if (bulkBarSettings) bulkBarSettings.style.display = total > 0 ? 'flex' : 'none';
+    if (chkAllSettings) {
+      chkAllSettings.checked = isAll;
+      chkAllSettings.indeterminate = (count > 0 && !isAll);
+    }
+    if (spanSettingsCount) spanSettingsCount.textContent = count;
+    if (btnDelSelectedSettings) btnDelSelectedSettings.style.display = count > 0 ? 'inline-flex' : 'none';
+
+    // Sync card highlight & checkboxes across both lists
+    ['brollList', 'settingsBrollList'].forEach(contId => {
+      const cont = $(contId);
+      if (!cont) return;
+      cont.querySelectorAll('.broll-card').forEach(card => {
+        const idx = parseInt(card.getAttribute('data-idx'), 10);
+        const isSel = selectedBrollIndices.has(idx);
+        card.classList.toggle('broll-card-selected', isSel);
+        const chk = card.querySelector('.chk-broll-item');
+        if (chk) chk.checked = isSel;
+      });
+    });
+  }
+
+  function deleteSelectedBrolls() {
+    if (selectedBrollIndices.size === 0) return;
+    const count = selectedBrollIndices.size;
+    const sorted = Array.from(selectedBrollIndices).sort((a, b) => b - a);
+    sorted.forEach(idx => {
+      if (S.brolls && S.brolls[idx]) {
+        S.brolls.splice(idx, 1);
+      }
+    });
+    selectedBrollIndices.clear();
+    lastActiveBrollId = null;
+    renderBrollTab();
+    syncBrollPlayback();
+    drawCanvasFast();
+    showToast(`🗑️ Deleted ${count} B-roll clip(s)`);
+  }
+
+  function createBrollCardElement(b, idx) {
+    const card = document.createElement('div');
+    card.className = 'broll-card' + (selectedBrollIndices.has(idx) ? ' broll-card-selected' : '');
+    card.setAttribute('data-idx', String(idx));
+    const layout = b.layout || 'drawer';
+    const anim = b.animation || (layout === 'drawer' || layout === 'above' ? 'slide-down' : (layout === 'circle' || layout === 'window' ? 'pop' : 'fade'));
+
+    card.innerHTML = `
+      <div class="broll-card-top">
+        <label class="broll-select-checkbox-wrap" title="Select for bulk delete">
+          <input type="checkbox" class="broll-select-checkbox chk-broll-item" data-idx="${idx}" ${selectedBrollIndices.has(idx) ? 'checked' : ''}>
+        </label>
+        <img src="${escapeHtml(b.thumb || '')}" class="broll-card-thumb" alt="B-Roll" onerror="this.style.display='none'">
+        <div class="broll-card-meta">
+          <span class="broll-card-title">🎬 #${idx + 1}: ${escapeHtml(b.query || 'Stock Clip')}</span>
+          <span class="broll-card-timing">${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)</span>
+        </div>
+        <div class="broll-top-actions">
+          <button type="button" class="btn-replace-broll" title="Replace with Stock clip">🔁 Replace</button>
+          <button type="button" class="btn-upload-replace-broll" title="Upload video file from computer">📁</button>
           <button type="button" class="btn-del-broll" title="Delete B-roll">🗑️</button>
         </div>
+        <input type="file" accept="video/*" class="input-replace-file hidden">
+      </div>
 
-        <div class="broll-layout-selector-wrap">
-          <span class="broll-layout-label">Display Layout</span>
-          <div class="broll-layout-selector">
-            <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
-              <span class="layout-btn-icon">🖥️</span>
-              <span>Full</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'above' ? 'active' : ''}" data-layout="above" title="Top 50% Split (Speaker Below)">
-              <span class="layout-btn-icon">⬆️</span>
-              <span>Above</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'below' ? 'active' : ''}" data-layout="below" title="Bottom 50% Split (Speaker Above)">
-              <span class="layout-btn-icon">⬇️</span>
-              <span>Below</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'circle' ? 'active' : ''}" data-layout="circle" title="Circular Bubble">
-              <span class="layout-btn-icon">⭕</span>
-              <span>Circle</span>
-            </button>
-            <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Small Picture-in-Picture Floating Window">
-              <span class="layout-btn-icon">🪟</span>
-              <span>Window</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="broll-time-row">
-          <div class="broll-time-group">
-            <span>In:</span>
-            <input type="number" step="0.1" min="0" class="broll-time-input input-broll-start" value="${b.start}">
-            <span>s</span>
-          </div>
-          <div class="broll-time-group">
-            <span>Out:</span>
-            <input type="number" step="0.1" min="0" class="broll-time-input input-broll-end" value="${b.end}">
-            <span>s</span>
-          </div>
-          <button type="button" class="btn-preview-broll">
-            <span>▶</span> Preview
+      <div class="broll-layout-selector-wrap" style="margin-top: 4px;">
+        <span class="broll-layout-label">Coming Animation</span>
+        <div class="broll-layout-selector" style="grid-template-columns: repeat(5, 1fr);">
+          <button type="button" class="broll-anim-btn ${anim === 'pop' ? 'active' : ''}" data-anim="pop" title="Pop & Bounce">
+            <span class="layout-btn-icon">⚡</span>
+            <span>Pop</span>
+          </button>
+          <button type="button" class="broll-anim-btn ${anim === 'slide-down' ? 'active' : ''}" data-anim="slide-down" title="Smooth Slide Down">
+            <span class="layout-btn-icon">⬇️</span>
+            <span>Slide Down</span>
+          </button>
+          <button type="button" class="broll-anim-btn ${anim === 'slide-up' ? 'active' : ''}" data-anim="slide-up" title="Smooth Slide Up">
+            <span class="layout-btn-icon">⬆️</span>
+            <span>Slide Up</span>
+          </button>
+          <button type="button" class="broll-anim-btn ${anim === 'fade' ? 'active' : ''}" data-anim="fade" title="Smooth Fade">
+            <span class="layout-btn-icon">✨</span>
+            <span>Fade</span>
+          </button>
+          <button type="button" class="broll-anim-btn ${anim === 'zoom' ? 'active' : ''}" data-anim="zoom" title="Zoom Punch">
+            <span class="layout-btn-icon">🔍</span>
+            <span>Zoom</span>
           </button>
         </div>
-      `;
+      </div>
 
-      // Layout selector buttons
-      card.querySelectorAll('.broll-layout-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const newLayout = btn.getAttribute('data-layout');
-          b.layout = newLayout;
-          card.querySelectorAll('.broll-layout-btn').forEach(b2 => b2.classList.toggle('active', b2 === btn));
-          syncBrollPlayback();
-        });
+      <div class="broll-layout-selector-wrap" style="margin-top: 6px;">
+        <span class="broll-layout-label">Display Layout</span>
+        <div class="broll-layout-selector" style="grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));">
+          <button type="button" class="broll-layout-btn ${layout === 'drawer' || layout === 'above' ? 'active' : ''}" data-layout="drawer" title="Screen Drawer (Main Video Slides Down, B-Roll Above)">
+            <span class="layout-btn-icon">📥</span>
+            <span>Drawer</span>
+          </button>
+          <button type="button" class="broll-layout-btn ${layout === 'window' ? 'active' : ''}" data-layout="window" title="Corner Floating Card (Face-Safe PiP)">
+            <span class="layout-btn-icon">🪟</span>
+            <span>Card</span>
+          </button>
+          <button type="button" class="broll-layout-btn ${layout === 'circle' ? 'active' : ''}" data-layout="circle" title="Circular Bubble">
+            <span class="layout-btn-icon">⭕</span>
+            <span>Circle</span>
+          </button>
+          <button type="button" class="broll-layout-btn ${layout === 'zoom_corners' ? 'active' : ''}" data-layout="zoom_corners" title="Zoom-Out + 4-Corner Motion Stickers">
+            <span class="layout-btn-icon">🔍</span>
+            <span>Zoom 4C</span>
+          </button>
+          <button type="button" class="broll-layout-btn ${layout === 'full' ? 'active' : ''}" data-layout="full" title="Fullscreen (Cover 100%)">
+            <span class="layout-btn-icon">🖥️</span>
+            <span>Full</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="broll-time-row" style="margin-top: 6px;">
+        <div class="broll-time-group">
+          <span>In:</span>
+          <input type="number" step="0.1" min="0" class="broll-time-input input-broll-start" value="${b.start}">
+          <span>s</span>
+        </div>
+        <div class="broll-time-group">
+          <span>Out:</span>
+          <input type="number" step="0.1" min="0" class="broll-time-input input-broll-end" value="${b.end}">
+          <span>s</span>
+        </div>
+        <button type="button" class="btn-preview-broll">
+          <span>▶</span> Preview
+        </button>
+      </div>
+    `;
+
+    // Multi-select checkbox
+    const chk = card.querySelector('.chk-broll-item');
+    if (chk) {
+      chk.addEventListener('click', (e) => { e.stopPropagation(); });
+      chk.addEventListener('change', (e) => {
+        e.stopPropagation();
+        if (chk.checked) {
+          selectedBrollIndices.add(idx);
+        } else {
+          selectedBrollIndices.delete(idx);
+        }
+        updateBrollSelectionUI();
       });
+    }
 
-      // Time inputs
-      const inStart = card.querySelector('.input-broll-start');
-      const inEnd = card.querySelector('.input-broll-end');
+    // Coming animation buttons
+    card.querySelectorAll('.broll-anim-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const newAnim = btn.getAttribute('data-anim');
+        b.animation = newAnim;
+        renderBrollTab();
+        lastActiveBrollId = null;
+        vid.currentTime = Math.max(0, b.start);
+        syncBrollPlayback();
+        const brollLayer = $('brollStageLayer');
+        if (brollLayer) {
+          brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up', 'broll-animate-fade', 'broll-animate-zoom');
+          void brollLayer.offsetWidth; // trigger reflow
+          brollLayer.classList.add('broll-animate-' + newAnim);
+        }
+        showToast(`✓ Animation set to ${newAnim.replace('-', ' ')}!`);
+      });
+    });
+
+    // Layout selector buttons
+    card.querySelectorAll('.broll-layout-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const newLayout = btn.getAttribute('data-layout');
+        b.layout = newLayout;
+        renderBrollTab();
+        lastActiveBrollId = null;
+        syncBrollPlayback();
+      });
+    });
+
+    // Time inputs
+    const inStart = card.querySelector('.input-broll-start');
+    const inEnd = card.querySelector('.input-broll-end');
+    if (inStart) {
       inStart.addEventListener('change', () => {
         const val = parseFloat(inStart.value) || 0;
         b.start = Math.max(0, val);
         card.querySelector('.broll-card-timing').textContent = `${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)`;
         syncBrollPlayback();
       });
+    }
+    if (inEnd) {
       inEnd.addEventListener('change', () => {
         const val = parseFloat(inEnd.value) || b.start + 1;
         b.end = Math.max(b.start + 0.5, val);
         card.querySelector('.broll-card-timing').textContent = `${b.start}s - ${b.end}s (${Math.round((b.end - b.start) * 10) / 10}s)`;
         syncBrollPlayback();
       });
+    }
 
-      // Preview button
-      const btnPrev = card.querySelector('.btn-preview-broll');
-      btnPrev.addEventListener('click', () => {
+    // Preview button
+    const btnPrev = card.querySelector('.btn-preview-broll');
+    if (btnPrev) {
+      btnPrev.addEventListener('click', (e) => {
+        e.stopPropagation();
+        lastActiveBrollId = null;
         vid.currentTime = Math.max(0, b.start);
         syncBrollPlayback();
         vid.play().catch(() => {});
       });
+    }
 
-      // Delete button
-      const btnDel = card.querySelector('.btn-del-broll');
-      btnDel.addEventListener('click', () => {
+    // 1-Click Replace Video Clip (Stock with Relative Suggestions or Local File)
+    const btnReplace = card.querySelector('.btn-replace-broll');
+    const btnUploadReplace = card.querySelector('.btn-upload-replace-broll');
+    const inputReplace = card.querySelector('.input-replace-file');
+
+    if (btnReplace) {
+      btnReplace.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startReplaceFlow(idx);
+      });
+    }
+
+    if (btnUploadReplace && inputReplace) {
+      btnUploadReplace.addEventListener('click', (e) => {
+        e.stopPropagation();
+        inputReplace.click();
+      });
+    }
+
+    if (inputReplace) {
+      inputReplace.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          const newUrl = URL.createObjectURL(file);
+          b.url = newUrl;
+          b.query = file.name.replace(/\.[^/.]+$/, '');
+          b.thumb = newUrl;
+          replacingBrollIdx = null;
+          renderBrollTab();
+          lastActiveBrollId = null;
+          syncBrollPlayback();
+          showToast('✓ B-Roll clip replaced from file!');
+        }
+      });
+    }
+
+    // Delete single B-roll button
+    const btnDel = card.querySelector('.btn-del-broll');
+    if (btnDel) {
+      btnDel.addEventListener('click', (e) => {
+        e.stopPropagation();
         S.brolls.splice(idx, 1);
+        selectedBrollIndices.delete(idx);
         renderBrollTab();
+        lastActiveBrollId = null;
         syncBrollPlayback();
         showToast('B-roll removed');
       });
+    }
 
-      list.appendChild(card);
+    // Click card to jump video to B-roll start and preview
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button') || e.target.closest('input') || e.target.closest('label')) return;
+      vid.currentTime = b.start;
+      vid.pause();
+      lastActiveBrollId = null;
+      syncBrollPlayback();
     });
+
+    return card;
+  }
+
+  let brollBulkListenersBound = false;
+  function bindBrollBulkListenersOnce() {
+    if (brollBulkListenersBound) return;
+    brollBulkListenersBound = true;
+
+    // Select All in tabBroll
+    const chkAll = $('chkSelectAllBrolls');
+    if (chkAll) {
+      chkAll.addEventListener('change', () => {
+        const brolls = S.brolls || [];
+        if (chkAll.checked) {
+          brolls.forEach((_, i) => selectedBrollIndices.add(i));
+        } else {
+          selectedBrollIndices.clear();
+        }
+        updateBrollSelectionUI();
+      });
+    }
+
+    // Delete Selected in tabBroll
+    const btnDelSelected = $('btnDeleteSelectedBrolls');
+    if (btnDelSelected) {
+      btnDelSelected.addEventListener('click', deleteSelectedBrolls);
+    }
+
+    // Select All in Settings Drawer
+    const chkAllSettings = $('chkSelectAllSettingsBrolls');
+    if (chkAllSettings) {
+      chkAllSettings.addEventListener('change', () => {
+        const brolls = S.brolls || [];
+        if (chkAllSettings.checked) {
+          brolls.forEach((_, i) => selectedBrollIndices.add(i));
+        } else {
+          selectedBrollIndices.clear();
+        }
+        updateBrollSelectionUI();
+      });
+    }
+
+    // Delete Selected in Settings Drawer
+    const btnDelSelectedSettings = $('btnDeleteSelectedSettingsBrolls');
+    if (btnDelSelectedSettings) {
+      btnDelSelectedSettings.addEventListener('click', deleteSelectedBrolls);
+    }
+  }
+
+  // Render the B-Roll tab list and Settings B-roll list
+  function renderBrollTab() {
+    bindBrollBulkListenersOnce();
+
+    const list = $('brollList');
+    const settingsList = $('settingsBrollList');
+    const badge = $('brollCountBadge');
+    const settingsBadge = $('settingsBrollBadge');
+    const btnClear = $('btnClearAllBrolls');
+
+    const brolls = S.brolls || [];
+    const countText = `${brolls.length} ${brolls.length === 1 ? 'Clip' : 'Clips'}`;
+    if (badge) badge.textContent = brolls.length;
+    if (settingsBadge) settingsBadge.textContent = countText;
+    if (btnClear) btnClear.style.display = brolls.length > 0 ? 'inline-block' : 'none';
+
+    // 1. Render tabBroll list
+    if (list) {
+      if (brolls.length === 0) {
+        list.innerHTML = `
+          <div class="broll-empty-state" id="brollEmptyState">
+            <div class="empty-icon">🎬</div>
+            <p>No B-Rolls added yet.</p>
+            <p class="empty-sub">Click <strong>Auto Add B-Rolls</strong> to generate clips automatically from your captions, or search stock videos above.</p>
+          </div>
+        `;
+      } else {
+        list.innerHTML = '';
+        brolls.forEach((b, idx) => {
+          list.appendChild(createBrollCardElement(b, idx));
+        });
+      }
+    }
+
+    // 2. Render Settings Drawer list
+    if (settingsList) {
+      if (brolls.length === 0) {
+        settingsList.innerHTML = `
+          <div class="broll-empty-state" id="settingsBrollEmptyState">
+            <div class="empty-icon">🎬</div>
+            <p>No B-Rolls added yet.</p>
+            <p class="empty-sub">Search stock videos below or click Auto-Match to instantly add B-rolls to your reel.</p>
+          </div>
+        `;
+      } else {
+        settingsList.innerHTML = '';
+        brolls.forEach((b, idx) => {
+          settingsList.appendChild(createBrollCardElement(b, idx));
+        });
+      }
+    }
+
+    updateBrollSelectionUI();
   }
 
 
@@ -21001,9 +22436,96 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     fill.style.width = pct + '%';
   }
 
-  // Live real-time B-Roll playback sync with main video (disabled on main)
+  // Live real-time B-Roll playback sync with main video
   function syncBrollPlayback() {
-    return;
+    const brollLayer = $('brollStageLayer');
+    const brollVid = $('brollVid');
+    const stage = $('stage');
+    if (!brollLayer || !brollVid) return;
+
+    const t = vid.currentTime || 0;
+    const activeBroll = (S.brolls || []).find(b => b.url && t >= b.start && t <= b.end);
+
+    if (!activeBroll) {
+      brollLayer.classList.add('hidden');
+      brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up', 'broll-animate-fade', 'broll-animate-zoom');
+      if (!brollVid.paused) {
+        brollVid.pause();
+      }
+      lastActiveBrollId = null;
+      if (stage && stage.classList.contains('stage-drawer-active')) {
+        stage.classList.remove('stage-drawer-active');
+      }
+      if (vid.style.transform) {
+        vid.style.transition = 'transform 0.35s ease';
+        vid.style.transform = '';
+      }
+      return;
+    }
+
+    const isNewBroll = (activeBroll.id !== lastActiveBrollId);
+
+    // Play punchy transition whoosh sound effect when a B-Roll appears!
+    if (isNewBroll) {
+      lastActiveBrollId = activeBroll.id;
+      if (!vid.paused && S.autoSfx !== false) {
+        playSfx('whoosh');
+      }
+    }
+
+    // Active B-Roll found
+    brollLayer.classList.remove('hidden');
+
+    // Update layout classes
+    brollLayer.classList.remove('broll-layout-full', 'broll-layout-drawer', 'broll-layout-above', 'broll-layout-below', 'broll-layout-window', 'broll-layout-circle', 'broll-layout-zoom_corners');
+    const layout = activeBroll.layout || 'drawer';
+    let effectiveLayout = (layout === 'above') ? 'drawer' : layout;
+
+    brollLayer.classList.add('broll-layout-' + effectiveLayout);
+
+    // Screen Drawer Mode: Smoothly slide video and canvases down to bottom half
+    if (effectiveLayout === 'drawer') {
+      if (stage) stage.classList.add('stage-drawer-active');
+      vid.style.transform = ''; // Handled by CSS on .stage.stage-drawer-active
+    } else {
+      if (stage) stage.classList.remove('stage-drawer-active');
+      if (effectiveLayout === 'zoom_corners') {
+        vid.style.transition = 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)';
+        vid.style.transform = 'scale(0.85)';
+      } else {
+        if (vid.style.transform) {
+          vid.style.transition = 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1)';
+          vid.style.transform = '';
+        }
+      }
+    }
+
+    // Trigger slick pop / slide / fade / zoom entry animations
+    if (isNewBroll) {
+      const anim = activeBroll.animation || (layout === 'above' ? 'slide-down' : (layout === 'circle' || layout === 'window' ? 'pop' : 'fade'));
+      brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up', 'broll-animate-fade', 'broll-animate-zoom');
+      void brollLayer.offsetWidth; // trigger reflow
+      brollLayer.classList.add('broll-animate-' + anim);
+    }
+
+    // Sync video source
+    if (brollVid.src !== activeBroll.url && brollVid.currentSrc !== activeBroll.url) {
+      brollVid.src = activeBroll.url;
+      brollVid.load();
+    }
+
+    // Sync playback offset
+    const offset = Math.max(0, t - activeBroll.start);
+    if (Math.abs(brollVid.currentTime - offset) > 0.3) {
+      brollVid.currentTime = offset;
+    }
+
+    // Match play/pause state
+    if (!vid.paused && brollVid.paused) {
+      brollVid.play().catch(() => {});
+    } else if (vid.paused && !brollVid.paused) {
+      brollVid.pause();
+    }
   }
 
   function setupModalHandlers() {
@@ -21797,11 +23319,11 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             }
             const cWidth = vt.codedWidth || vt.width || 'unknown';
             const cHeight = vt.codedHeight || vt.height || 'unknown';
-            console.log(`[SRCDBG] codec=${cfg?.codec || 'unknown'} size=${cWidth}x${cHeight} avgFps=${avgFps} hwDecode=${hwDecode} swDecode=${swDecode}`);
+            if (window._debugMode) console.log(`[SRCDBG] codec=${cfg?.codec || 'unknown'} size=${cWidth}x${cHeight} avgFps=${avgFps} hwDecode=${hwDecode} swDecode=${swDecode}`);
           }
         }
       } catch (srcDbgErr) {
-        console.warn('[SRCDBG] Diagnostic warning (ignored):', srcDbgErr);
+        if (window._debugMode) console.warn('[SRCDBG] Diagnostic warning (ignored):', srcDbgErr);
       }
 
       const rawW = vid.videoWidth || S.probe?.width || 1280;
@@ -21848,7 +23370,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         targetBitrate = isMobileDevice ? 4500000 : 6000000;
       }
 
-      const isBehind = Boolean(
+      const hasCircleBrollExport = (S.brolls || []).some(b => b.url && (b.layout === 'circle' || b.layout === 'window' || b.layout === 'pip'));
+      const isBehindStyle = Boolean(
         S.style && (
           S.style.behindPerson ||
           S.style.depthAccent ||
@@ -21856,6 +23379,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
         )
       );
+      const isBehind = isBehindStyle || hasCircleBrollExport;
 
       let canvas = null;
       let ctx = null;
@@ -22073,7 +23597,17 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         const pullY = S.pullDownY || 0;
         const basePullZoom = pullY > 0 ? (1.0 + pullY * 2.1) : 1.0;
         const effExportZoom = (isZoomed ? ((az && az.scale) || 1.10) * reExportPunch : reExportPunch) * basePullZoom;
-        if (exportCleanFrameCanvas) {
+        const isBrollDrawer = activeBroll && (activeBroll.layout === 'drawer' || activeBroll.layout === 'above');
+        if (isBrollDrawer) {
+          const drawerSplitY = H * 0.48;
+          ctx.fillStyle = '#0b0c10';
+          ctx.fillRect(0, 0, W, H);
+          if (exportCleanFrameCanvas) {
+            ctx.drawImage(exportCleanFrameCanvas, 0, drawerSplitY, W, H - drawerSplitY);
+          } else {
+            sample.draw(ctx, 0, drawerSplitY, W, H - drawerSplitY);
+          }
+        } else if (exportCleanFrameCanvas) {
           // Zero-cost GPU copy of already decoded frame (avoids decoding video twice per frame)
           ctx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
         } else if (effExportZoom > 1.001 || pullY > 0) {
@@ -22089,61 +23623,99 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         // Active B-Roll
         if (activeBroll && brollElements[activeBroll.id]) {
           const bv = brollElements[activeBroll.id];
-          const brollT = Math.max(0, t - activeBroll.start);
-          if (Math.abs(bv.currentTime - brollT) > 0.15) {
-            try { bv.currentTime = brollT; } catch (_) {}
-          }
-          const layout = activeBroll.layout || 'full';
-          if (layout === 'above') {
-            ctx.drawImage(bv, 0, 0, W, H / 2);
-            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, H / 2);
-            ctx.lineTo(W, H / 2);
-            ctx.stroke();
-          } else if (layout === 'below') {
-            ctx.drawImage(bv, 0, H / 2, W, H / 2);
-            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, H / 2);
-            ctx.lineTo(W, H / 2);
-            ctx.stroke();
-          } else if (layout === 'circle') {
-            const diam = Math.min(W, H) * 0.38;
-            const winX = W - diam - (W * 0.04);
-            const winY = H * 0.04;
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
-            ctx.clip();
-            ctx.drawImage(bv, winX, winY, diam, diam);
-            ctx.restore();
-            ctx.save();
-            ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-            ctx.lineWidth = 4;
-            ctx.shadowColor = 'rgba(0,0,0,0.6)';
-            ctx.shadowBlur = 12;
-            ctx.beginPath();
-            ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-          } else if (layout === 'window' || layout === 'pip') {
-            const winW = W * 0.44;
-            const winH = H * 0.28;
-            const winX = W - winW - (W * 0.04);
-            const winY = H * 0.04;
-            ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.7)';
-            ctx.shadowBlur = 16;
-            ctx.drawImage(bv, winX, winY, winW, winH);
-            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(winX, winY, winW, winH);
-            ctx.restore();
-          } else {
-            ctx.drawImage(bv, 0, 0, W, H);
+          if (bv && bv.videoWidth > 0) {
+            const brollT = Math.max(0, t - activeBroll.start);
+            if (Math.abs(bv.currentTime - brollT) > 0.15) {
+              try { bv.currentTime = brollT; } catch (_) {}
+            }
+            const layout = activeBroll.layout || 'drawer';
+            if (layout === 'drawer' || layout === 'above') {
+              const drawerSplitY = H * 0.48;
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(0, 0, W, drawerSplitY);
+              ctx.clip();
+              drawCoverVideo(ctx, bv, 0, 0, W, drawerSplitY);
+              ctx.restore();
+
+              // Glowing divider line
+              ctx.save();
+              ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+              ctx.lineWidth = 3;
+              ctx.shadowColor = 'rgba(0,0,0,0.6)';
+              ctx.shadowBlur = 8;
+              ctx.beginPath();
+              ctx.moveTo(0, drawerSplitY);
+              ctx.lineTo(W, drawerSplitY);
+              ctx.stroke();
+
+              // Drawer pull pill indicator
+              ctx.fillStyle = 'rgba(255,255,255,0.7)';
+              const pillW = W * 0.12;
+              const pillH = 4;
+              const pillX = (W - pillW) / 2;
+              const pillY = drawerSplitY - pillH - 4;
+              ctx.beginPath();
+              if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, 9999);
+              else ctx.rect(pillX, pillY, pillW, pillH);
+              ctx.fill();
+              ctx.restore();
+            } else if (layout === 'below') {
+              drawCoverVideo(ctx, bv, 0, H / 2, W, H / 2);
+              ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(0, H / 2);
+              ctx.lineTo(W, H / 2);
+              ctx.stroke();
+            } else if (layout === 'circle') {
+              const diam = Math.min(W, H) * 0.38;
+              const winX = W - diam - (W * 0.04);
+              const winY = H * 0.04;
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
+              ctx.clip();
+              drawCoverVideo(ctx, bv, winX, winY, diam, diam);
+              ctx.restore();
+              ctx.save();
+              ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+              ctx.lineWidth = 4;
+              ctx.shadowColor = 'rgba(0,0,0,0.6)';
+              ctx.shadowBlur = 12;
+              ctx.beginPath();
+              ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.restore();
+            } else if (layout === 'zoom_corners') {
+              const winW = W * 0.58;
+              const winH = H * 0.28;
+              const winX = (W - winW) / 2;
+              const winY = H * 0.04;
+              ctx.save();
+              ctx.shadowColor = 'rgba(0,0,0,0.7)';
+              ctx.shadowBlur = 16;
+              drawCoverVideo(ctx, bv, winX, winY, winW, winH);
+              ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(winX, winY, winW, winH);
+              ctx.restore();
+            } else if (layout === 'window' || layout === 'pip') {
+              const winW = W * 0.44;
+              const winH = H * 0.28;
+              const winX = W - winW - (W * 0.04);
+              const winY = H * 0.04;
+              ctx.save();
+              ctx.shadowColor = 'rgba(0,0,0,0.7)';
+              ctx.shadowBlur = 16;
+              drawCoverVideo(ctx, bv, winX, winY, winW, winH);
+              ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(winX, winY, winW, winH);
+              ctx.restore();
+            } else {
+              drawCoverVideo(ctx, bv, 0, 0, W, H);
+            }
           }
         }
         dbgVideoDrawMs += (performance.now() - _tVideo0);
@@ -22231,7 +23803,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
             // Separate lines into behind and front contexts
             const _tCapBehind0 = performance.now();
-            drawCanvasTypography(segExportForeCtx, segExportBehindCtx, activeCap, words, t, S.style || {}, W, H, true, false);
+            drawCanvasTypography(segExportForeCtx, isBehindStyle ? segExportBehindCtx : null, activeCap, words, t, S.style || {}, W, H, isBehindStyle, false);
             dbgCaptionMs += (performance.now() - _tCapBehind0);
 
             // PROBLEM A Point 3 & 4: Check mask validity and log
@@ -22313,12 +23885,45 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             dbgCaptionMs += (performance.now() - _tCapStd0);
             drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
           }
+        } else if (activeBroll && (activeBroll.layout === 'circle' || activeBroll.layout === 'window' || activeBroll.layout === 'pip') && exportCleanFrameCanvas && exportSegmenter) {
+          exportMaskFrameIdx++;
+          if (exportMaskFrameIdx % 3 === 1 || !lastExportMaskCanvas) {
+            const newMask = getExportPersonMask(exportSegmenter, exportCleanFrameCanvas, frameMs, W, H);
+            if (newMask && newMask.width === W && newMask.height === H) {
+              if (!segExportCachedMaskCanvas) {
+                segExportCachedMaskCanvas = document.createElement('canvas');
+                segExportCachedMaskCtx = segExportCachedMaskCanvas.getContext('2d');
+              }
+              if (segExportCachedMaskCanvas.width !== W || segExportCachedMaskCanvas.height !== H) {
+                segExportCachedMaskCanvas.width = W; segExportCachedMaskCanvas.height = H;
+              }
+              segExportCachedMaskCtx.clearRect(0, 0, W, H);
+              segExportCachedMaskCtx.drawImage(newMask, 0, 0, W, H);
+              lastExportMaskCanvas = segExportCachedMaskCanvas;
+            }
+          }
+          if (lastExportMaskCanvas) {
+            if (!segExportCutoutCanvas) {
+              segExportCutoutCanvas = document.createElement('canvas');
+              segExportCutoutCtx = segExportCutoutCanvas.getContext('2d');
+            }
+            if (segExportCutoutCanvas.width !== W || segExportCutoutCanvas.height !== H) {
+              segExportCutoutCanvas.width = W; segExportCutoutCanvas.height = H;
+            }
+            segExportCutoutCtx.clearRect(0, 0, W, H);
+            segExportCutoutCtx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
+            segExportCutoutCtx.globalCompositeOperation = 'destination-in';
+            segExportCutoutCtx.drawImage(lastExportMaskCanvas, 0, 0, W, H);
+            segExportCutoutCtx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(segExportCutoutCanvas, 0, 0, W, H);
+          }
         } else {
           lastExportMaskCanvas = null;
           exportMaskFrameIdx = 0;
         }
 
         drawRealEstateOverlays(ctx, W, H, t);
+        drawMotionStickersOverlays(ctx, W, H, t);
         drawWatermark(ctx, W, H);
         consecutiveProcFrameErrors = 0;
 
@@ -22431,7 +24036,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       const brollUsed = Boolean(S.brolls && S.brolls.length > 0);
       const fpsActual = totalSec > 0 ? (dbgFrameCount / totalSec).toFixed(1) : 0;
       const perfBreakdown = `[EXPDBG] frames=${dbgFrameCount} totalSec=${totalSec} procMs=${Math.round(dbgProcMs)} emojiMs=${Math.round(dbgEmojiMs)} overlayMs=${Math.round(dbgOverlayMs)} watermarkMs=${Math.round(dbgWatermarkMs)} execMs=${Math.round(dbgExecMs)} codec=avc`;
-      console.log(perfBreakdown);
+      if (window._debugMode) console.log(perfBreakdown);
       window._lastExportPerf = perfBreakdown;
 
       showExportComplete(url, blob);
@@ -23140,7 +24745,7 @@ function updateTransformHud(text, show) {
 function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capScale = 1.0) {
   if (!cap || !words || words.length === 0 || W <= 0 || H <= 0) return;
 
-  const stPos = Number(st && (st.position || st.posY)) || 0.65;
+  const stPos = Number(st && (st.position || st.posY)) || 0.72;
   const centerY = H * stPos;
   const centerX = W * 0.5;
 
@@ -25137,6 +26742,28 @@ function getOrRenderStickerSprite(beat, u, W) {
 }
 
 /**
+ * Calculates dynamic face-safe positioning for stickers so they never cover the speaker's face.
+ * - When Screen Drawer / B-Roll is open: place in the top drawer (centerY = H * 0.22)
+ * - When headroom is available: place in upper third (centerY = H * 0.15)
+ * - Otherwise: place in lower safe-zone (centerY = H * 0.70) safely below chest and above subtitles
+ */
+function getFaceSafeStickerCenter(beat, t, W, H, isBrollActive) {
+  if (isBrollActive) {
+    return { x: W / 2, y: H * 0.22, inDrawer: true };
+  }
+
+  const headTop = (window._subjectMaskStats && typeof window._subjectMaskStats.headTopRatio === 'number')
+    ? window._subjectMaskStats.headTopRatio
+    : 0.22;
+
+  if (headTop >= 0.18) {
+    return { x: W / 2, y: Math.max(H * 0.13, (headTop * H) / 2), inDrawer: false };
+  }
+
+  return { x: W / 2, y: H * 0.70, inDrawer: false };
+}
+
+/**
  * Draw Animated Sticker Card onto Context
  */
 function drawPopStickerCard(ctx, beat, t, centerX, centerY, u, W) {
@@ -25510,18 +27137,55 @@ function drawPopSceneS5(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource)
     brollEl = (typeof brollElements !== 'undefined' && brollElements[activeBroll.id]) ? brollElements[activeBroll.id] : $('brollVid');
   }
 
-  // Draw full frame B-roll or original video (never crop into an occluding card/capsule)
-  if (brollEl && brollEl.readyState && brollEl.readyState >= 2) {
-    drawCoverVideo(ctx, brollEl, 0, 0, W, H);
-  } else if (videoSource) {
-    drawCoverVideo(ctx, videoSource, 0, 0, W, H);
+  const isDrawer = !activeBroll || activeBroll.layout === 'drawer' || activeBroll.layout === 'above';
+
+  if (isDrawer && videoSource && brollEl && brollEl.readyState && brollEl.readyState >= 2) {
+    // Screen Drawer layout: B-Roll in top 48% drawer, main speaker video on bottom 52%
+    const drawerH = H * 0.48;
+    ctx.fillStyle = '#0b0c10';
+    ctx.fillRect(0, 0, W, H);
+    drawCoverVideo(ctx, videoSource, 0, drawerH, W, H - drawerH);
+    drawCoverVideo(ctx, brollEl, 0, 0, W, drawerH);
+
+    // Glowing Divider line
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(0, drawerH);
+    ctx.lineTo(W, drawerH);
+    ctx.stroke();
+
+    // Drawer handle indicator
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    const pillW = W * 0.12;
+    const pillH = 4;
+    const pillX = (W - pillW) / 2;
+    const pillY = drawerH - pillH - 4;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, 9999);
+    else ctx.rect(pillX, pillY, pillW, pillH);
+    ctx.fill();
+    ctx.restore();
+
+    // Title sticker inside top drawer
+    drawPopStickerCard(ctx, beat, t, W / 2, drawerH * 0.46, u, W);
+
+    // Subtitles in lower section
+    drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.88, u, W);
+  } else {
+    // Full frame B-roll or original video
+    if (brollEl && brollEl.readyState && brollEl.readyState >= 2) {
+      drawCoverVideo(ctx, brollEl, 0, 0, W, H);
+    } else if (videoSource) {
+      drawCoverVideo(ctx, videoSource, 0, 0, W, H);
+    }
+    const safePos = getFaceSafeStickerCenter(beat, t, W, H, true);
+    drawPopStickerCard(ctx, beat, t, safePos.x, safePos.y, u, W);
+    drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.82, u, W);
   }
-
-  // Title sticker centered at ~60%
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.60, u, W);
-
-  // Subtitles / karaoke line at ~76%
-  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.76, u, W);
 }
 
 /**
@@ -25626,11 +27290,13 @@ function drawPopSceneS1(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource)
     ctx.restore();
   }
 
-  // 2. Title sticker centered at ~60%
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.60, u, W);
+  // 2. Title sticker placed at face-safe coordinates (never covers speaker face)
+  const isBrollActive = (S.brolls || []).some(b => b.url && t >= b.start && t <= b.end);
+  const stickerPos = getFaceSafeStickerCenter(beat, t, W, H, isBrollActive);
+  drawPopStickerCard(ctx, beat, t, stickerPos.x, stickerPos.y, u, W);
 
-  // 3. Karaoke line at ~76%
-  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.76, u, W);
+  // 3. Karaoke line at ~78%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.78, u, W);
 }
 
 /**
@@ -25642,11 +27308,13 @@ function drawPopSceneS2(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource)
     drawCoverVideo(ctx, videoSource, 0, 0, W, H);
   }
 
-  // Title sticker centered at ~60%
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.60, u, W);
+  // Title sticker placed at face-safe coordinates
+  const isBrollActive = (S.brolls || []).some(b => b.url && t >= b.start && t <= b.end);
+  const stickerPos = getFaceSafeStickerCenter(beat, t, W, H, isBrollActive);
+  drawPopStickerCard(ctx, beat, t, stickerPos.x, stickerPos.y, u, W);
 
-  // Karaoke line at ~76%
-  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.76, u, W);
+  // Karaoke line at ~78%
+  drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.78, u, W);
 }
 
 /**
@@ -25687,8 +27355,10 @@ function drawPopSceneS3(ctx, beat, activeCap, t, W, H, u, isSmooth, videoSource,
   heroTargetCtx.fillText(displayHero, W / 2, heroY);
   heroTargetCtx.restore();
 
-  // 2. Small sticker chip with supporting words in FRONT near lower third
-  drawPopStickerCard(ctx, beat, t, W / 2, H * 0.65, u, W);
+  // 2. Small sticker chip with supporting words in safe lower area
+  const isBrollActive = (S.brolls || []).some(b => b.url && t >= b.start && t <= b.end);
+  const stickerPos = getFaceSafeStickerCenter(beat, t, W, H, isBrollActive);
+  drawPopStickerCard(ctx, beat, t, stickerPos.x, Math.max(stickerPos.y, H * 0.70), u, W);
 
   // 3. Karaoke line at ~80%
   drawPopKaraokeSubtitles(ctx, beat, activeCap, t, W / 2, H * 0.80, u, W);
