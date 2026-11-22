@@ -969,8 +969,54 @@
                   <div class="broll-empty-state" id="settingsBrollEmptyState">
                     <div class="empty-icon">🎬</div>
                     <p>No B-Rolls added yet.</p>
-                    <p class="empty-sub">Add B-roll clips from the Stock tab to animate them over your reel.</p>
+                    <p class="empty-sub">Search stock videos below or click Auto-Match to instantly add B-rolls to your reel.</p>
                   </div>
+                </div>
+              </div>
+
+              <!-- 🔍 Search & Add Stock B-Rolls in Settings -->
+              <div class="control-card" id="cardSettingsBrollSearch" data-style-group="all broll motion extras">
+                <div class="control-header">
+                  <label>🔍 Add Stock B-Roll Clips</label>
+                  <span class="val-badge badge-green">Free Stock</span>
+                </div>
+                <p class="voiceover-help">Search free stock videos and 1-click add to your reel at the current video timestamp.</p>
+
+                <div class="broll-search-row">
+                  <input type="text" id="settingsBrollSearchInput" class="styled-text-input" placeholder="Search clips (e.g. money, nature, luxury, city)...">
+                  <button type="button" id="btnSettingsSearchPexels" class="btn-subaction btn-search-broll">Search</button>
+                </div>
+
+                <!-- Orientation Filter -->
+                <div class="broll-orient-row" style="margin-top: 8px;">
+                  <span class="broll-orient-label">Orientation:</span>
+                  <div class="btn-group" id="settingsBrollOrientGroup">
+                    <button type="button" class="btn-toggle active" data-orient="portrait">📱 Vertical (9:16)</button>
+                    <button type="button" class="btn-toggle" data-orient="landscape">🖥️ Horizontal (16:9)</button>
+                    <button type="button" class="btn-toggle" data-orient="square">⏹️ Square (1:1)</button>
+                  </div>
+                </div>
+
+                <!-- Quick Category Keywords -->
+                <div class="broll-quick-keywords" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+                  <button type="button" class="chip-kw" data-kw="trending">🔥 Trending</button>
+                  <button type="button" class="chip-kw" data-kw="money luxury">💰 Luxury</button>
+                  <button type="button" class="chip-kw" data-kw="business office">💼 Business</button>
+                  <button type="button" class="chip-kw" data-kw="neon cyber tech">🤖 Tech</button>
+                  <button type="button" class="chip-kw" data-kw="nature drone">🌿 Nature</button>
+                  <button type="button" class="chip-kw" data-kw="gym fitness">💪 Fitness</button>
+                </div>
+
+                <!-- Auto B-Roll Button in Settings -->
+                <div style="margin-top: 10px;">
+                  <button type="button" id="btnSettingsAutoBroll" class="btn-subaction btn-primary-gradient" style="width: 100%;">
+                    <span>🎬 Auto-Match B-Rolls from Captions</span>
+                  </button>
+                </div>
+
+                <!-- Stock Results Grid in Settings -->
+                <div id="settingsPexelsResultsGrid" class="pexels-results-grid hidden" style="margin-top: 10px;">
+                  <!-- Populated dynamically -->
                 </div>
               </div>
 
@@ -1951,11 +1997,11 @@
           </span>
           <span class="nav-btn-label">Templates</span>
         </button>
-        <button class="bottom-nav-btn" data-tab="tabStyle" id="btnNavCustomize" title="Customize Font, Color & Size">
+        <button class="bottom-nav-btn" data-tab="tabStyle" id="btnNavCustomize" title="Settings: Style, Fonts, Colors &amp; B-Rolls">
           <span class="nav-btn-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg>
           </span>
-          <span class="nav-btn-label">Style</span>
+          <span class="nav-btn-label">Settings</span>
         </button>
         <button class="bottom-nav-btn" data-tab="tabAudio" id="btnNavVoice">
           <span class="nav-btn-icon">

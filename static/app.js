@@ -16127,7 +16127,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       tabTemplates: '🎨 Templates',
       tabCaptions: '📝 Captions',
       tabBroll: '✨ Auto Edit & B-Roll',
-      tabStyle: '🎚️ Customize Style',
+      tabStyle: '⚙️ Settings (Style & B-Rolls)',
       tabAudio: '🎵 Voice & Audio'
     };
     drawerTitle.textContent = titles[targetId] || 'Editor Options';
@@ -21525,16 +21525,23 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     const btnRemoveFillers = $('btnRemoveFillers');
     if (btnRemoveFillers) btnRemoveFillers.addEventListener('click', () => removeFillerWords(true));
     const btnAutoBroll = $('btnAutoBroll');
+    const btnSettingsAutoBroll = $('btnSettingsAutoBroll');
     const btnTogglePexelsSearch = $('btnTogglePexelsSearch');
     const btnSearchPexels = $('btnSearchPexels');
+    const btnSettingsSearch = $('btnSettingsSearchPexels');
     const brollSearchInput = $('brollSearchInput');
+    const settingsSearchInput = $('settingsBrollSearchInput');
     const brollOrientGroup = $('brollOrientGroup');
+    const settingsOrientGroup = $('settingsBrollOrientGroup');
     const btnClearAllBrolls = $('btnClearAllBrolls');
     const btnSavePexelsKey = $('btnSavePexelsKey');
     const inputPexelsKey = $('inputPexelsKey');
 
     if (btnAutoBroll) {
-      btnAutoBroll.addEventListener('click', autoAddBrolls);
+      btnAutoBroll.addEventListener('click', () => autoAddBrolls());
+    }
+    if (btnSettingsAutoBroll) {
+      btnSettingsAutoBroll.addEventListener('click', () => autoAddBrolls());
     }
 
     if (btnTogglePexelsSearch) {
@@ -21547,6 +21554,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       });
     }
 
+    // Tab B-Roll Search Input
     if (btnSearchPexels && brollSearchInput) {
       btnSearchPexels.addEventListener('click', () => {
         const q = brollSearchInput.value.trim();
@@ -21560,16 +21568,65 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       });
     }
 
+    // Settings B-Roll Search Input
+    if (btnSettingsSearch && settingsSearchInput) {
+      btnSettingsSearch.addEventListener('click', () => {
+        const q = settingsSearchInput.value.trim();
+        if (q) searchPexels(q);
+      });
+      settingsSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const q = settingsSearchInput.value.trim();
+          if (q) searchPexels(q);
+        }
+      });
+    }
+
+    // Keep inputs synced
+    if (brollSearchInput && settingsSearchInput) {
+      brollSearchInput.addEventListener('input', () => {
+        settingsSearchInput.value = brollSearchInput.value;
+      });
+      settingsSearchInput.addEventListener('input', () => {
+        brollSearchInput.value = settingsSearchInput.value;
+      });
+    }
+
+    // Orientations for both tabs
+    function syncOrientation(orient) {
+      pexelsOrientation = orient;
+      $$('#brollOrientGroup .btn-toggle, #settingsBrollOrientGroup .btn-toggle').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-orient') === orient);
+      });
+      const q = (settingsSearchInput ? settingsSearchInput.value.trim() : '') || (brollSearchInput ? brollSearchInput.value.trim() : '') || 'business';
+      searchPexels(q);
+    }
+
     if (brollOrientGroup) {
       $$('#brollOrientGroup .btn-toggle').forEach(btn => {
         btn.addEventListener('click', () => {
-          $$('#brollOrientGroup .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
-          pexelsOrientation = btn.getAttribute('data-orient') || 'portrait';
-          const q = (brollSearchInput ? brollSearchInput.value.trim() : '') || 'business';
-          searchPexels(q);
+          syncOrientation(btn.getAttribute('data-orient') || 'portrait');
         });
       });
     }
+
+    if (settingsOrientGroup) {
+      $$('#settingsBrollOrientGroup .btn-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          syncOrientation(btn.getAttribute('data-orient') || 'portrait');
+        });
+      });
+    }
+
+    // Keyword chips in Settings
+    $$('.chip-kw').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const kw = chip.getAttribute('data-kw') || chip.innerText.trim();
+        if (settingsSearchInput) settingsSearchInput.value = kw;
+        if (brollSearchInput) brollSearchInput.value = kw;
+        searchPexels(kw);
+      });
+    });
 
     if (btnClearAllBrolls) {
       btnClearAllBrolls.addEventListener('click', () => {
@@ -21690,10 +21747,12 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
   // Search stock videos (Coverr / Pexels) with query
   async function searchPexels(query) {
-    const grid = $('pexelsResultsGrid');
-    if (!grid) return;
-    grid.classList.remove('hidden');
-    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#a1a1aa;">Searching stock library for "' + escapeHtml(query) + '"...</div>';
+    const grids = [$('pexelsResultsGrid'), $('settingsPexelsResultsGrid')].filter(Boolean);
+    if (!grids.length) return;
+    grids.forEach(grid => {
+      grid.classList.remove('hidden');
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#a1a1aa;">Searching stock library for "' + escapeHtml(query) + '"...</div>';
+    });
 
     try {
       const res = await fetch('/api/broll/search', {
@@ -21706,33 +21765,39 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       const results = data.results || [];
 
       if (results.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#71717a;">No clips found for "' + escapeHtml(query) + '". Try another keyword.</div>';
+        grids.forEach(grid => {
+          grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#71717a;">No clips found for "' + escapeHtml(query) + '". Try another keyword.</div>';
+        });
         return;
       }
 
-      grid.innerHTML = '';
-      results.forEach((item, idx) => {
-        const card = document.createElement('div');
-        card.className = 'pexels-card';
-        const providerName = (item.provider === 'coverr' ? 'Coverr' : (item.credit || 'Free Stock'));
-        card.innerHTML = `
-          <div class="pexels-thumb-wrap">
-            <img src="${escapeHtml(item.thumb)}" class="pexels-thumb-img" alt="Stock Video" loading="lazy">
-            <span class="pexels-dur-badge">${Math.round(item.duration || 0)}s</span>
-          </div>
-          <div class="pexels-card-info">
-            <span class="pexels-credit">By ${escapeHtml(item.credit || providerName)}</span>
-            <button type="button" class="btn-add-broll" data-idx="${idx}">+ Add to Video</button>
-          </div>
-        `;
-        const btnAdd = card.querySelector('.btn-add-broll');
-        btnAdd.addEventListener('click', () => {
-          addBrollFromSearch(item, query);
+      grids.forEach(grid => {
+        grid.innerHTML = '';
+        results.forEach((item, idx) => {
+          const card = document.createElement('div');
+          card.className = 'pexels-card';
+          const providerName = (item.provider === 'coverr' ? 'Coverr' : (item.credit || 'Free Stock'));
+          card.innerHTML = `
+            <div class="pexels-thumb-wrap">
+              <img src="${escapeHtml(item.thumb)}" class="pexels-thumb-img" alt="Stock Video" loading="lazy">
+              <span class="pexels-dur-badge">${Math.round(item.duration || 0)}s</span>
+            </div>
+            <div class="pexels-card-info">
+              <span class="pexels-credit">By ${escapeHtml(item.credit || providerName)}</span>
+              <button type="button" class="btn-add-broll" data-idx="${idx}">+ Add to Video</button>
+            </div>
+          `;
+          const btnAdd = card.querySelector('.btn-add-broll');
+          btnAdd.addEventListener('click', () => {
+            addBrollFromSearch(item, query);
+          });
+          grid.appendChild(card);
         });
-        grid.appendChild(card);
       });
     } catch (err) {
-      grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#ef4444;">' + escapeHtml(err.message) + '</div>';
+      grids.forEach(grid => {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:16px; color:#ef4444;">' + escapeHtml(err.message) + '</div>';
+      });
     }
   }
 
@@ -22136,7 +22201,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           <div class="broll-empty-state" id="settingsBrollEmptyState">
             <div class="empty-icon">🎬</div>
             <p>No B-Rolls added yet.</p>
-            <p class="empty-sub">Add B-roll clips from the Stock tab to animate them over your reel.</p>
+            <p class="empty-sub">Search stock videos below or click Auto-Match to instantly add B-rolls to your reel.</p>
           </div>
         `;
       } else {
