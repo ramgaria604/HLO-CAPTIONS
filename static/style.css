@@ -7312,21 +7312,102 @@ button {
   transition: width 0.08s linear;
 }
 
-/* 2. Animated B-Roll Transitions (Pop & Slide) */
+/* Replacement Banner & Relative Suggestions */
+.broll-replacing-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.25));
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 12.5px;
+  animation: fadeIn 0.2s ease;
+}
+.replacing-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.replacing-icon {
+  font-size: 16px;
+  animation: spinSlow 4s linear infinite;
+}
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.btn-cancel-replace {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.btn-cancel-replace:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: #ef4444;
+}
+
+.relative-suggestions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.relative-suggestions-label {
+  font-size: 11px;
+  color: #a1a1aa;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.relative-suggestions-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.chip-relative {
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  color: #c7d2fe;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.chip-relative:hover {
+  background: #6366f1;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* 2. Animated B-Roll Transitions (Pop, Slide, Fade, Zoom) */
 .broll-stage-layer.broll-animate-pop {
-  animation: brollPopBounce 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation: brollPopBounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
 }
 .broll-stage-layer.broll-animate-slide-down {
-  animation: brollSlideDown 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: brollSlideDown 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 .broll-stage-layer.broll-animate-slide-up {
-  animation: brollSlideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: brollSlideUp 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 .broll-stage-layer.broll-animate-fade {
-  animation: brollFade 0.28s ease forwards;
+  animation: brollFade 0.35s ease forwards !important;
 }
 .broll-stage-layer.broll-animate-zoom {
-  animation: brollZoom 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: brollZoom 0.40s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
 @keyframes brollFade {
@@ -7335,23 +7416,24 @@ button {
 }
 
 @keyframes brollZoom {
-  0% { transform: scale(1.18); opacity: 0; }
+  0% { transform: scale(1.35); opacity: 0; }
   100% { transform: scale(1.0); opacity: 1; }
 }
 
 @keyframes brollPopBounce {
-  0% { transform: scale(0.6) translateY(20px); opacity: 0; }
-  70% { transform: scale(1.05) translateY(-3px); opacity: 1; }
+  0% { transform: scale(0.35) translateY(24px); opacity: 0; }
+  65% { transform: scale(1.08) translateY(-4px); opacity: 1; }
+  85% { transform: scale(0.96) translateY(2px); opacity: 1; }
   100% { transform: scale(1.0) translateY(0); opacity: 1; }
 }
 
 @keyframes brollSlideDown {
-  0% { transform: translateY(-50px); opacity: 0; }
+  0% { transform: translateY(-70px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
 
 @keyframes brollSlideUp {
-  0% { transform: translateY(50px); opacity: 0; }
+  0% { transform: translateY(70px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
 

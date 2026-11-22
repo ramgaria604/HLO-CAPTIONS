@@ -987,6 +987,21 @@
                   <button type="button" id="btnSettingsSearchPexels" class="btn-subaction btn-search-broll">Search</button>
                 </div>
 
+                <!-- Active Replacement Banner (Shows when Replace is clicked) -->
+                <div id="brollReplacingBanner" class="broll-replacing-banner hidden" style="margin-top: 8px;">
+                  <div class="replacing-banner-text">
+                    <span class="replacing-icon">🔁</span>
+                    <span>Replacing Clip <strong id="lblReplacingClipNum">#1</strong>: "<span id="lblReplacingClipTopic">Topic</span>"</span>
+                  </div>
+                  <button type="button" id="btnCancelReplaceBroll" class="btn-cancel-replace" title="Cancel replacement">✕ Cancel</button>
+                </div>
+
+                <!-- Relative Suggestions Row (Contextual to the clip being replaced) -->
+                <div id="relativeSuggestionsContainer" class="relative-suggestions-container hidden" style="margin-top: 8px;">
+                  <span class="relative-suggestions-label">💡 Relative Suggestions:</span>
+                  <div class="relative-suggestions-chips" id="relativeSuggestionsChips"></div>
+                </div>
+
                 <!-- Orientation Filter -->
                 <div class="broll-orient-row" style="margin-top: 8px;">
                   <span class="broll-orient-label">Orientation:</span>

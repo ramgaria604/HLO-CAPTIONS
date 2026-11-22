@@ -21638,6 +21638,11 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       });
     });
 
+    const btnCancelReplace = $('btnCancelReplaceBroll');
+    if (btnCancelReplace) {
+      btnCancelReplace.addEventListener('click', cancelReplaceFlow);
+    }
+
     if (btnClearAllBrolls) {
       btnClearAllBrolls.addEventListener('click', () => {
         if (!confirm('Remove all B-rolls from this video?')) return;
@@ -21813,6 +21818,110 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
   let replacingBrollIdx = null;
 
+  function startReplaceFlow(idx) {
+    if (!S.brolls || !S.brolls[idx]) return;
+    const b = S.brolls[idx];
+    replacingBrollIdx = idx;
+
+    // 1. Determine Relative Keywords from clip + captions
+    const overlappingCaps = (S.captions || []).filter(c => (c.end >= b.start && c.start <= b.end));
+    const capText = overlappingCaps.map(c => cleanCaptionText(c.text || '')).join(' ');
+    const baseQuery = (b.query || '').replace(/^[🎬#\d:\s]+/, '').trim();
+
+    const nicheMap = {
+      money: ['luxury lifestyle', 'wealth cash', 'finance stock', 'crypto bitcoin', 'gold investment'],
+      wealth: ['luxury mansion', 'private jet', 'rolex watch', 'penthouse view', 'supercar'],
+      rich: ['wealthy lifestyle', 'luxury cars', 'money cash', 'mansion pool'],
+      business: ['office meeting', 'entrepreneur laptop', 'handshake agreement', 'modern corporate', 'conference room'],
+      work: ['remote worker', 'typing laptop', 'office desk', 'focus productivity'],
+      gym: ['heavy barbell', 'workout sweat', 'fitness athlete', 'bodybuilder dumbell', 'running sprint'],
+      fitness: ['gym workout', 'healthy fitness', 'training crossfit', 'running outdoor', 'boxing gloves'],
+      tech: ['ai machine learning', 'cyberpunk neon', 'software coding', 'futuristic server', 'hacker matrix'],
+      ai: ['artificial intelligence', 'robot brain', 'neural network', 'digital data', 'future technology'],
+      nature: ['drone mountains', 'ocean beach waves', 'forest waterfall', 'sunset landscape', 'river stream'],
+      car: ['sports car drift', 'luxury supercar', 'highway night drive', 'ferrari speed'],
+      podcast: ['podcast microphone', 'studio headphones', 'radio talk', 'broadcast soundboard'],
+      food: ['chef restaurant cooking', 'delicious gourmet', 'aesthetic coffee latte', 'healthy breakfast'],
+      travel: ['airplane window view', 'tropical island', 'city skyline travel', 'resort vacation']
+    };
+
+    let relativeKeywords = [];
+    const queryLower = (baseQuery + ' ' + capText).toLowerCase();
+    for (const [key, list] of Object.entries(nicheMap)) {
+      if (queryLower.includes(key)) {
+        relativeKeywords = relativeKeywords.concat(list);
+      }
+    }
+
+    if (relativeKeywords.length === 0) {
+      if (baseQuery) relativeKeywords.push(baseQuery);
+      const stopWords = new Set(['this', 'that', 'with', 'from', 'have', 'were', 'your', 'about', 'some', 'what', 'when', 'will', 'just', 'there', 'their', 'which', 'would']);
+      const capWords = capText.split(/\s+/).map(w => w.toLowerCase().replace(/[^a-z]/g, '')).filter(w => w.length > 3 && !stopWords.has(w));
+      capWords.slice(0, 4).forEach(w => { if (!relativeKeywords.includes(w)) relativeKeywords.push(w); });
+      relativeKeywords.push('cinematic 4k', 'trending reel', 'aesthetic vertical', 'slow motion');
+    }
+
+    relativeKeywords = Array.from(new Set(relativeKeywords)).slice(0, 6);
+
+    // 2. Update Replacement Banner
+    const banner = $('brollReplacingBanner');
+    const lblNum = $('lblReplacingClipNum');
+    const lblTopic = $('lblReplacingClipTopic');
+    if (lblNum) lblNum.textContent = `#${idx + 1}`;
+    if (lblTopic) lblTopic.textContent = baseQuery || 'Clip';
+    if (banner) banner.classList.remove('hidden');
+
+    // 3. Render Relative Suggestion Chips
+    const chipsCont = $('relativeSuggestionsChips');
+    const relCont = $('relativeSuggestionsContainer');
+    if (chipsCont && relCont) {
+      relCont.classList.remove('hidden');
+      chipsCont.innerHTML = '';
+      relativeKeywords.forEach(kw => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip-relative';
+        chip.textContent = kw;
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sInp = $('settingsBrollSearchInput');
+          const bInp = $('brollSearchInput');
+          if (sInp) sInp.value = kw;
+          if (bInp) bInp.value = kw;
+          searchPexels(kw);
+        });
+        chipsCont.appendChild(chip);
+      });
+    }
+
+    // 4. Fill search inputs
+    const primarySearchTerm = baseQuery || relativeKeywords[0] || 'trending';
+    const sInp = $('settingsBrollSearchInput');
+    const bInp = $('brollSearchInput');
+    if (sInp) sInp.value = primarySearchTerm;
+    if (bInp) bInp.value = primarySearchTerm;
+
+    // 5. Scroll smoothly to search card
+    const searchCard = $('cardSettingsBrollSearch') || $('brollSearchCard');
+    if (searchCard) {
+      searchCard.scrollIntoView({ behavior: 'smooth' });
+      if (sInp) setTimeout(() => sInp.focus(), 300);
+    }
+
+    // 6. Execute search automatically
+    searchPexels(primarySearchTerm);
+    showToast(`🔁 Relative clips loaded for #${idx + 1}! Click any video below to swap.`);
+  }
+
+  function cancelReplaceFlow() {
+    replacingBrollIdx = null;
+    const banner = $('brollReplacingBanner');
+    const relCont = $('relativeSuggestionsContainer');
+    if (banner) banner.classList.add('hidden');
+    if (relCont) relCont.classList.add('hidden');
+    showToast('Replacement cancelled');
+  }
+
   function addBrollFromSearch(item, query) {
     if (replacingBrollIdx !== null && S.brolls && S.brolls[replacingBrollIdx]) {
       const target = S.brolls[replacingBrollIdx];
@@ -21822,6 +21931,10 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       target.credit = item.credit || '';
       target.duration = item.duration || target.duration || 3.0;
       replacingBrollIdx = null;
+      const banner = $('brollReplacingBanner');
+      const relCont = $('relativeSuggestionsContainer');
+      if (banner) banner.classList.add('hidden');
+      if (relCont) relCont.classList.add('hidden');
       renderBrollTab();
       lastActiveBrollId = null;
       syncBrollPlayback();
@@ -22045,8 +22158,15 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         b.animation = newAnim;
         renderBrollTab();
         lastActiveBrollId = null;
+        vid.currentTime = Math.max(0, b.start);
         syncBrollPlayback();
-        showToast(`✓ Animation set to ${newAnim}`);
+        const brollLayer = $('brollStageLayer');
+        if (brollLayer) {
+          brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up', 'broll-animate-fade', 'broll-animate-zoom');
+          void brollLayer.offsetWidth; // trigger reflow
+          brollLayer.classList.add('broll-animate-' + newAnim);
+        }
+        showToast(`✓ Animation set to ${newAnim.replace('-', ' ')}!`);
       });
     });
 
@@ -22087,13 +22207,14 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     if (btnPrev) {
       btnPrev.addEventListener('click', (e) => {
         e.stopPropagation();
+        lastActiveBrollId = null;
         vid.currentTime = Math.max(0, b.start);
         syncBrollPlayback();
         vid.play().catch(() => {});
       });
     }
 
-    // 1-Click Replace Video Clip (Stock or Local File)
+    // 1-Click Replace Video Clip (Stock with Relative Suggestions or Local File)
     const btnReplace = card.querySelector('.btn-replace-broll');
     const btnUploadReplace = card.querySelector('.btn-upload-replace-broll');
     const inputReplace = card.querySelector('.input-replace-file');
@@ -22101,14 +22222,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     if (btnReplace) {
       btnReplace.addEventListener('click', (e) => {
         e.stopPropagation();
-        replacingBrollIdx = idx;
-        const searchInput = $('settingsBrollSearchInput') || $('brollSearchInput');
-        const searchCard = $('cardSettingsBrollSearch') || $('brollSearchCard');
-        if (searchCard) {
-          searchCard.scrollIntoView({ behavior: 'smooth' });
-          if (searchInput) searchInput.focus();
-        }
-        showToast(`🔁 Select any stock clip below to swap into Clip #${idx + 1}, or click 📁 to upload a file`);
+        startReplaceFlow(idx);
       });
     }
 
@@ -22331,6 +22445,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
     if (!activeBroll) {
       brollLayer.classList.add('hidden');
+      brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up', 'broll-animate-fade', 'broll-animate-zoom');
       if (!brollVid.paused) {
         brollVid.pause();
       }
@@ -22345,8 +22460,10 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       return;
     }
 
+    const isNewBroll = (activeBroll.id !== lastActiveBrollId);
+
     // Play punchy transition whoosh sound effect when a B-Roll appears!
-    if (activeBroll.id !== lastActiveBrollId) {
+    if (isNewBroll) {
       lastActiveBrollId = activeBroll.id;
       if (!vid.paused && S.autoSfx !== false) {
         playSfx('whoosh');
@@ -22381,7 +22498,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
     }
 
     // Trigger slick pop / slide / fade / zoom entry animations
-    if (activeBroll.id !== lastActiveBrollId) {
+    if (isNewBroll) {
       const anim = activeBroll.animation || (layout === 'above' ? 'slide-down' : (layout === 'circle' || layout === 'window' ? 'pop' : 'fade'));
       brollLayer.classList.remove('broll-animate-pop', 'broll-animate-slide-down', 'broll-animate-slide-up', 'broll-animate-fade', 'broll-animate-zoom');
       void brollLayer.offsetWidth; // trigger reflow
