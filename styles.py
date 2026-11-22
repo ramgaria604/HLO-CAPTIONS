@@ -1038,7 +1038,7 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
-        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic", "white_pill") else ("stack" if s.get("isDuo") else "line"),
+        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic", "white_pill", "above", "scatter", "echo") else ("stack" if s.get("isDuo") else "line"),
         "animation": anim,
         "anim": anim,
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",

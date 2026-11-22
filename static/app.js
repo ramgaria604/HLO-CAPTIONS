@@ -2365,17 +2365,19 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     }
   }
 
-  window._capdbgKeys = window._capdbgKeys || new Set();
-  const capDbgKey = `${W}x${H}|${S.style && S.style.lineSpacing}`;
-  if (!window._capdbgKeys.has(capDbgKey)) {
-    window._capdbgKeys.add(capDbgKey);
-    const topItem = lay.find(o => o.lineType === 'top' || (!o.isHero && lay.indexOf(o) === 0));
-    const heroItem = lay.find(o => o.isHero || o.lineType === 'hero');
-    const midItem = lay.find(o => o !== topItem && o !== heroItem);
-    const topPx = topItem ? Math.round(topItem.size) : 0;
-    const midPx = midItem ? Math.round(midItem.size) : 0;
-    const heroPx = heroItem ? Math.round(heroItem.size) : 0;
-    console.log(`[CAPDBG] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} scale=${scale} fontScale=${fontScale} lineSpacing=${S.style && S.style.lineSpacing} top=${topPx} mid=${midPx} hero=${heroPx}`);
+  if (window._debugMode) {
+    window._capdbgKeys = window._capdbgKeys || new Set();
+    const capDbgKey = `${W}x${H}|${S.style && S.style.lineSpacing}`;
+    if (!window._capdbgKeys.has(capDbgKey)) {
+      window._capdbgKeys.add(capDbgKey);
+      const topItem = lay.find(o => o.lineType === 'top' || (!o.isHero && lay.indexOf(o) === 0));
+      const heroItem = lay.find(o => o.isHero || o.lineType === 'hero');
+      const midItem = lay.find(o => o !== topItem && o !== heroItem);
+      const topPx = topItem ? Math.round(topItem.size) : 0;
+      const midPx = midItem ? Math.round(midItem.size) : 0;
+      const heroPx = heroItem ? Math.round(heroItem.size) : 0;
+      console.log(`[CAPDBG] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} scale=${scale} fontScale=${fontScale} lineSpacing=${S.style && S.style.lineSpacing} top=${topPx} mid=${midPx} hero=${heroPx}`);
+    }
   }
 
     const heroLookStack = S.heroLook || st.heroLook || 'solid';
@@ -2918,8 +2920,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
     const heroText = getCleanDisplayHeroText(rawHeroText);
     const heroIsNum = isPriceOrNumber(heroText);
 
-    // Logging: console.log('[HERO PICK]', captionIndex, chosenWord, candidates with scores) once per caption
-    if (_lastLoggedHeroCapIdx !== capIdx && !showAll) {
+    if (window._debugMode && _lastLoggedHeroCapIdx !== capIdx && !showAll) {
       _lastLoggedHeroCapIdx = capIdx;
       const chosenWord = hasValidHeroWord ? heroCandidate.raw : 'NONE (normal in-front)';
       const candidateSummary = candidates.map(c => `${c.raw}(${c.score})`).join(', ');
@@ -3992,7 +3993,7 @@ function renderUnifiedHeroWord(drawCtx, heroWord, capIndex, heroBox, st, W, H, t
 
   const heroLook = S.heroLook || st.heroLook || 'solid';
 
-  if (_lastLoggedUnifiedHeroCapIdx !== capIndex) {
+  if (window._debugMode && _lastLoggedUnifiedHeroCapIdx !== capIndex) {
     _lastLoggedUnifiedHeroCapIdx = capIndex;
     console.log('[HERO]', capIndex, cleanWord, heroLook, colorIndex);
   }
@@ -6078,7 +6079,7 @@ function drawWhitePillKaraokePass(ctxFore, cap, words, t, st, W, H, showAll, isP
   const centerY = H * posRatio;
   const centerX = W * 0.5;
 
-  const fontSize = Math.round(W * 0.052 * fontScale);
+  const fontSize = Math.round(Math.min(W, H) * 0.052 * fontScale);
   ctxFore.save();
   ctxFore.font = `700 ${fontSize}px ${pillFont}`;
 
@@ -6246,6 +6247,8 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
   const posRatio = Number(st && (st.position || st.posY)) || 0.72;
   const centerY = H * posRatio;
   const centerX = W * 0.5;
+  const refDim = Math.min(W, H);
+  const scaleRef = refDim / 1080;
 
   const isSolo = words.length === 1;
   const isTwoTier = words.length === 2;
@@ -6261,7 +6264,7 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
     const s1 = (w1 && typeof w1.s === 'number') ? w1.s : capStart;
     const s2 = (w2 && typeof w2.s === 'number') ? w2.s : capStart + 0.20;
 
-    const baseFontSize = Math.round(W * 0.108 * fontScale);
+    const baseFontSize = Math.round(refDim * 0.108 * fontScale);
     const lineGap = Math.round(baseFontSize * 1.05);
 
     const p1 = fullInstant ? 1.0 : Math.max(0, Math.min(1, (evalT - s1) / 0.28));
@@ -6270,8 +6273,8 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
     const ease1 = easeOutCubic(p1);
     const ease2 = easeOutCubic(p2);
 
-    const x1 = centerX - (1 - ease1) * (W * 0.14);
-    const x2 = centerX + (1 - ease2) * (W * 0.14);
+    const x1 = centerX - (1 - ease1) * (refDim * 0.14);
+    const x2 = centerX + (1 - ease2) * (refDim * 0.14);
 
     const y1 = centerY - lineGap * 0.52;
     const y2 = centerY + lineGap * 0.52;
@@ -6283,8 +6286,8 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
       ctxFore.textAlign = 'center';
       ctxFore.textBaseline = 'middle';
       ctxFore.shadowColor = 'rgba(0, 0, 0, 0.75)';
-      ctxFore.shadowBlur = Math.round(8 * (W / 1080));
-      ctxFore.shadowOffsetY = Math.round(4 * (W / 1080));
+      ctxFore.shadowBlur = Math.round(8 * scaleRef);
+      ctxFore.shadowOffsetY = Math.round(4 * scaleRef);
       ctxFore.fillStyle = whiteColor;
       ctxFore.fillText(t1, x1, y1);
       ctxFore.restore();
@@ -6299,7 +6302,7 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
 
       // Luminous Multi-layer Sky Blue Glow
       ctxFore.shadowColor = 'rgba(56, 189, 248, 0.85)';
-      ctxFore.shadowBlur = Math.round(24 * (W / 1080));
+      ctxFore.shadowBlur = Math.round(24 * scaleRef);
       ctxFore.shadowOffsetX = 0;
       ctxFore.shadowOffsetY = 0;
       ctxFore.fillStyle = skyBlue;
@@ -6307,7 +6310,7 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
 
       // Inner core pop
       ctxFore.shadowColor = 'rgba(125, 211, 252, 0.95)';
-      ctxFore.shadowBlur = Math.round(10 * (W / 1080));
+      ctxFore.shadowBlur = Math.round(10 * scaleRef);
       ctxFore.fillText(t2, x2, y2);
       ctxFore.restore();
     }
@@ -6321,7 +6324,7 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
     const s = (w && typeof w.s === 'number') ? w.s : capStart;
     const progress = fullInstant ? 1.0 : Math.max(0, Math.min(1, (evalT - s) / 0.26));
     const scale = fullInstant ? 1.0 : (0.80 + 0.20 * easeOutBack(progress));
-    const soloFontSize = Math.round(W * 0.125 * fontScale);
+    const soloFontSize = Math.round(refDim * 0.125 * fontScale);
 
     ctxFore.save();
     ctxFore.translate(centerX, centerY);
@@ -6332,12 +6335,12 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
     ctxFore.textBaseline = 'middle';
 
     ctxFore.shadowColor = 'rgba(56, 189, 248, 0.90)';
-    ctxFore.shadowBlur = Math.round(28 * (W / 1080));
+    ctxFore.shadowBlur = Math.round(28 * scaleRef);
     ctxFore.fillStyle = skyBlue;
     ctxFore.fillText(text, 0, 0);
 
     ctxFore.shadowColor = 'rgba(255, 255, 255, 0.70)';
-    ctxFore.shadowBlur = Math.round(6 * (W / 1080));
+    ctxFore.shadowBlur = Math.round(6 * scaleRef);
     ctxFore.fillText(text, 0, 0);
     ctxFore.restore();
     return;
@@ -6345,7 +6348,7 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
 
   // 3. SLEEK FULL-LINE RUNNER
   if (isLineRunner) {
-    const runnerFontSize = Math.round(W * 0.076 * fontScale);
+    const runnerFontSize = Math.round(refDim * 0.076 * fontScale);
     ctxFore.save();
     ctxFore.font = `800 ${runnerFontSize}px ${skyFont}`;
     ctxFore.textBaseline = 'middle';
@@ -6377,13 +6380,13 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
 
         ctxFore.globalAlpha = exitAlpha;
         ctxFore.shadowColor = 'rgba(56, 189, 248, 0.90)';
-        ctxFore.shadowBlur = Math.round(20 * (W / 1080));
+        ctxFore.shadowBlur = Math.round(20 * scaleRef);
         ctxFore.fillStyle = skyBlue;
         ctxFore.fillText(item.txt, currentX, centerY);
       } else if (item.isPast) {
         ctxFore.globalAlpha = exitAlpha * 0.95;
         ctxFore.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctxFore.shadowBlur = Math.round(6 * (W / 1080));
+        ctxFore.shadowBlur = Math.round(6 * scaleRef);
         ctxFore.fillStyle = whiteColor;
         ctxFore.fillText(item.txt, currentX, centerY);
       } else {
@@ -12798,12 +12801,14 @@ function drawKineticLineScenePass(ctxFore, cap, words, t, st, W, H, showAll, sty
 }
 
 function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview = false) {
-  window._capdbg2Keys = window._capdbg2Keys || new Set();
-  const capdbg2Key = `${isPreview}|${W}x${H}|${S.style && S.style.lineSpacing}`;
-  if (!window._capdbg2Keys.has(capdbg2Key)) {
-    window._capdbg2Keys.add(capdbg2Key);
-    const caller = (new Error().stack || '').split('\n').slice(2, 4).join(' <- ');
-    console.log(`[CAPDBG2] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} styleId=${S.style && S.style.id} styleName=${S.style && S.style.name} layout=${S.style && S.style.layout} dubaiFlag=${S.style && S.style.dubaiLuxuryStack} isBehind=${isBehind} lineSpacing=${S.style && S.style.lineSpacing} fontScale=${S.style && S.style.fontScale} caller=${caller}`);
+  if (window._debugMode) {
+    window._capdbg2Keys = window._capdbg2Keys || new Set();
+    const capdbg2Key = `${isPreview}|${W}x${H}|${S.style && S.style.lineSpacing}`;
+    if (!window._capdbg2Keys.has(capdbg2Key)) {
+      window._capdbg2Keys.add(capdbg2Key);
+      const caller = (new Error().stack || '').split('\n').slice(2, 4).join(' <- ');
+      console.log(`[CAPDBG2] mode=${isPreview ? 'preview' : 'export'} W=${W} H=${H} styleId=${S.style && S.style.id} styleName=${S.style && S.style.name} layout=${S.style && S.style.layout} dubaiFlag=${S.style && S.style.dubaiLuxuryStack} isBehind=${isBehind} lineSpacing=${S.style && S.style.lineSpacing} fontScale=${S.style && S.style.fontScale} caller=${caller}`);
+    }
   }
   if (!ctxFore) return;
   _captionsDrawnCount++;
@@ -12842,7 +12847,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       const fontScale = (typeof S.style?.fontScale === 'number' && S.style.fontScale > 0)
         ? S.style.fontScale
         : ((typeof st.fontScale === 'number' && st.fontScale > 0) ? st.fontScale : 1.0);
-      const base = Math.max(260, Math.min(W, H)) * Math.max(0.5, Math.min(2.5, fontScale));
+      const base = Math.min(W, H) * Math.max(0.5, Math.min(2.5, fontScale));
       const presetId = st.id || '';
       const offsetX = (Number(st.offsetX) || 0) * W;
       ctxFore.save(); ctxFore.translate(offsetX, 0);
@@ -15980,7 +15985,6 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         closeDrawer();
       };
       btnDrawerClose.addEventListener('click', handleClose);
-      btnDrawerClose.addEventListener('touchend', handleClose);
     }
 
     btnDrawerExpand.addEventListener('click', () => {
@@ -18039,6 +18043,19 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         S.style.editorialPosition = pos;
         showToast('📍 Editorial Position: ' + (pos === 'top' ? 'Above Head' : (pos === 'below' ? 'Behind Torso' : 'Alternate')));
         renderCanvas();
+      });
+    });
+
+    $$('#groupEditorialPosition .btn-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        $$('#groupEditorialPosition .btn-toggle').forEach(b => b.classList.toggle('active', b === btn));
+        const pos = btn.getAttribute('data-pos') || 'alternate';
+        if (!S.style) S.style = {};
+        S.style.editorialSlotMode = pos;
+        S.style.editorialPosition = pos;
+        showToast('📍 Editorial Position: ' + pos);
+        renderCanvas(true);
       });
     });
 
@@ -22877,11 +22894,11 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             }
             const cWidth = vt.codedWidth || vt.width || 'unknown';
             const cHeight = vt.codedHeight || vt.height || 'unknown';
-            console.log(`[SRCDBG] codec=${cfg?.codec || 'unknown'} size=${cWidth}x${cHeight} avgFps=${avgFps} hwDecode=${hwDecode} swDecode=${swDecode}`);
+            if (window._debugMode) console.log(`[SRCDBG] codec=${cfg?.codec || 'unknown'} size=${cWidth}x${cHeight} avgFps=${avgFps} hwDecode=${hwDecode} swDecode=${swDecode}`);
           }
         }
       } catch (srcDbgErr) {
-        console.warn('[SRCDBG] Diagnostic warning (ignored):', srcDbgErr);
+        if (window._debugMode) console.warn('[SRCDBG] Diagnostic warning (ignored):', srcDbgErr);
       }
 
       const rawW = vid.videoWidth || S.probe?.width || 1280;
@@ -23179,97 +23196,99 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         // Active B-Roll
         if (activeBroll && brollElements[activeBroll.id]) {
           const bv = brollElements[activeBroll.id];
-          const brollT = Math.max(0, t - activeBroll.start);
-          if (Math.abs(bv.currentTime - brollT) > 0.15) {
-            try { bv.currentTime = brollT; } catch (_) {}
-          }
-          const layout = activeBroll.layout || 'drawer';
-          if (layout === 'drawer' || layout === 'above') {
-            const drawerSplitY = H * 0.48;
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(0, 0, W, drawerSplitY);
-            ctx.clip();
-            ctx.drawImage(bv, 0, 0, W, drawerSplitY);
-            ctx.restore();
+          if (bv && bv.videoWidth > 0) {
+            const brollT = Math.max(0, t - activeBroll.start);
+            if (Math.abs(bv.currentTime - brollT) > 0.15) {
+              try { bv.currentTime = brollT; } catch (_) {}
+            }
+            const layout = activeBroll.layout || 'drawer';
+            if (layout === 'drawer' || layout === 'above') {
+              const drawerSplitY = H * 0.48;
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(0, 0, W, drawerSplitY);
+              ctx.clip();
+              drawCoverVideo(ctx, bv, 0, 0, W, drawerSplitY);
+              ctx.restore();
 
-            // Glowing divider line
-            ctx.save();
-            ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-            ctx.lineWidth = 3;
-            ctx.shadowColor = 'rgba(0,0,0,0.6)';
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.moveTo(0, drawerSplitY);
-            ctx.lineTo(W, drawerSplitY);
-            ctx.stroke();
+              // Glowing divider line
+              ctx.save();
+              ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+              ctx.lineWidth = 3;
+              ctx.shadowColor = 'rgba(0,0,0,0.6)';
+              ctx.shadowBlur = 8;
+              ctx.beginPath();
+              ctx.moveTo(0, drawerSplitY);
+              ctx.lineTo(W, drawerSplitY);
+              ctx.stroke();
 
-            // Drawer pull pill indicator
-            ctx.fillStyle = 'rgba(255,255,255,0.7)';
-            const pillW = W * 0.12;
-            const pillH = 4;
-            const pillX = (W - pillW) / 2;
-            const pillY = drawerSplitY - pillH - 4;
-            ctx.beginPath();
-            if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, 9999);
-            else ctx.rect(pillX, pillY, pillW, pillH);
-            ctx.fill();
-            ctx.restore();
-          } else if (layout === 'below') {
-            ctx.drawImage(bv, 0, H / 2, W, H / 2);
-            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, H / 2);
-            ctx.lineTo(W, H / 2);
-            ctx.stroke();
-          } else if (layout === 'circle') {
-            const diam = Math.min(W, H) * 0.38;
-            const winX = W - diam - (W * 0.04);
-            const winY = H * 0.04;
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
-            ctx.clip();
-            ctx.drawImage(bv, winX, winY, diam, diam);
-            ctx.restore();
-            ctx.save();
-            ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-            ctx.lineWidth = 4;
-            ctx.shadowColor = 'rgba(0,0,0,0.6)';
-            ctx.shadowBlur = 12;
-            ctx.beginPath();
-            ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-          } else if (layout === 'zoom_corners') {
-            const winW = W * 0.58;
-            const winH = H * 0.28;
-            const winX = (W - winW) / 2;
-            const winY = H * 0.04;
-            ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.7)';
-            ctx.shadowBlur = 16;
-            ctx.drawImage(bv, winX, winY, winW, winH);
-            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(winX, winY, winW, winH);
-            ctx.restore();
-          } else if (layout === 'window' || layout === 'pip') {
-            const winW = W * 0.44;
-            const winH = H * 0.28;
-            const winX = W - winW - (W * 0.04);
-            const winY = H * 0.04;
-            ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.7)';
-            ctx.shadowBlur = 16;
-            ctx.drawImage(bv, winX, winY, winW, winH);
-            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(winX, winY, winW, winH);
-            ctx.restore();
-          } else {
-            ctx.drawImage(bv, 0, 0, W, H);
+              // Drawer pull pill indicator
+              ctx.fillStyle = 'rgba(255,255,255,0.7)';
+              const pillW = W * 0.12;
+              const pillH = 4;
+              const pillX = (W - pillW) / 2;
+              const pillY = drawerSplitY - pillH - 4;
+              ctx.beginPath();
+              if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, 9999);
+              else ctx.rect(pillX, pillY, pillW, pillH);
+              ctx.fill();
+              ctx.restore();
+            } else if (layout === 'below') {
+              drawCoverVideo(ctx, bv, 0, H / 2, W, H / 2);
+              ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(0, H / 2);
+              ctx.lineTo(W, H / 2);
+              ctx.stroke();
+            } else if (layout === 'circle') {
+              const diam = Math.min(W, H) * 0.38;
+              const winX = W - diam - (W * 0.04);
+              const winY = H * 0.04;
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
+              ctx.clip();
+              drawCoverVideo(ctx, bv, winX, winY, diam, diam);
+              ctx.restore();
+              ctx.save();
+              ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+              ctx.lineWidth = 4;
+              ctx.shadowColor = 'rgba(0,0,0,0.6)';
+              ctx.shadowBlur = 12;
+              ctx.beginPath();
+              ctx.arc(winX + diam / 2, winY + diam / 2, diam / 2, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.restore();
+            } else if (layout === 'zoom_corners') {
+              const winW = W * 0.58;
+              const winH = H * 0.28;
+              const winX = (W - winW) / 2;
+              const winY = H * 0.04;
+              ctx.save();
+              ctx.shadowColor = 'rgba(0,0,0,0.7)';
+              ctx.shadowBlur = 16;
+              drawCoverVideo(ctx, bv, winX, winY, winW, winH);
+              ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(winX, winY, winW, winH);
+              ctx.restore();
+            } else if (layout === 'window' || layout === 'pip') {
+              const winW = W * 0.44;
+              const winH = H * 0.28;
+              const winX = W - winW - (W * 0.04);
+              const winY = H * 0.04;
+              ctx.save();
+              ctx.shadowColor = 'rgba(0,0,0,0.7)';
+              ctx.shadowBlur = 16;
+              drawCoverVideo(ctx, bv, winX, winY, winW, winH);
+              ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(winX, winY, winW, winH);
+              ctx.restore();
+            } else {
+              drawCoverVideo(ctx, bv, 0, 0, W, H);
+            }
           }
         }
         dbgVideoDrawMs += (performance.now() - _tVideo0);
@@ -23558,7 +23577,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
       const brollUsed = Boolean(S.brolls && S.brolls.length > 0);
       const fpsActual = totalSec > 0 ? (dbgFrameCount / totalSec).toFixed(1) : 0;
       const perfBreakdown = `[EXPDBG] frames=${dbgFrameCount} totalSec=${totalSec} procMs=${Math.round(dbgProcMs)} emojiMs=${Math.round(dbgEmojiMs)} overlayMs=${Math.round(dbgOverlayMs)} watermarkMs=${Math.round(dbgWatermarkMs)} execMs=${Math.round(dbgExecMs)} codec=avc`;
-      console.log(perfBreakdown);
+      if (window._debugMode) console.log(perfBreakdown);
       window._lastExportPerf = perfBreakdown;
 
       showExportComplete(url, blob);
