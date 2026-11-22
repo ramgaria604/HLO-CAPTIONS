@@ -583,7 +583,7 @@ def load_presets():
                     "wordsPerCaption": int(p.get("wordsPerPage", 3)),
                     "maxKeys": int(p.get("maxKeys", 1)),
                     "position": (float(p.get("position", 0.18)) if is_behind
-                                  else (float(p["position"]) if "position" in p else max(0.64, min(0.82, float(p.get("posY", 0.2)) + 0.48)))),
+                                  else max(0.70, min(0.82, float(p.get("position", 0.72)) if float(p.get("position", 0.72)) >= 0.60 else float(p.get("posY", 0.2)) + 0.52))),
                     "posCycle": None if is_behind else p.get("posCycle"),
                     "behindPerson": is_behind,
                     "depthAccent": is_behind,
@@ -591,7 +591,7 @@ def load_presets():
                     "depthAccentSize": round(_safe_float(p.get("depthAccentSize") or accent.get("size", 230)) / 1080.0, 3) if _safe_float(accent.get("size", 230)) > 1.0 else round(_safe_float(p.get("depthAccentSize") or accent.get("size", 0.088), 0.088), 3),
                     "topY": float(p.get("topY", top_y if is_behind else 0.10)),
                     "depthAccentY": float(p.get("depthAccentY", 0.18 if is_behind else preset_y)),
-                    "subtitlePosition": float(p.get("subtitlePosition", 0.72 if is_behind else max(0.20, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))))),
+                    "subtitlePosition": float(p.get("subtitlePosition", 0.74 if is_behind else max(0.68, min(0.90, float(p.get("subtitleY", preset_y + subtitle_gap)))))),
                     "subtitleSize": round(_safe_float(p.get("subtitleSize") or base.get("size", 62)) / 1080.0, 3) if _safe_float(base.get("size", 62)) > 1.0 else round(_safe_float(p.get("subtitleSize") or base.get("size", 0.044), 0.044), 3),
                     "blend": p.get("blend", "screen"),
                     "blendMode": p.get("blend", "screen"),

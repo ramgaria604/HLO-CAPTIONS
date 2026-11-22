@@ -1046,7 +1046,7 @@ function drawStandardCanvasPass(ctxFore, ctxBehind, words, t, st, W, H, base, is
   const ctx = isBehind && ctxBehind ? ctxBehind : ctxFore;
   if (!words || !words.length) return;
   const kRole = st.key || {}, fRole = st.filler || {};
-  const cY = H * (st.position || 0.68);
+  const cY = H * (st.position || 0.72);
 
   // 1. Line splitting: 1-3 words stay on 1 single punchy line; 4+ words split cleanly in half
   let lines = [];
@@ -1768,7 +1768,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           isHero: false,
           role: leadRole,
           words: leadWords
-        }], { W, H, posX: 0.50, posY: 0.48, inkGap, maxWidth: 0.95 }));
+        }], { W, H, posX: 0.50, posY: 0.68, inkGap, maxWidth: 0.95 }));
       }
 
       lay = lay.concat(layoutFn([{
@@ -1782,7 +1782,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
         isHero: true,
         role: beamRole,
         words: punchWords
-      }], { W, H, posX: 0.50, posY: 0.54, inkGap, maxWidth: 0.95 }));
+      }], { W, H, posX: 0.50, posY: 0.74, inkGap, maxWidth: 0.95 }));
 
     } else {
       // SCENARIO 4: EDITORIAL NARRATIVE DEPTH + TILTED ITALIC FRONT STACK
@@ -1843,7 +1843,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           isHero: false,
           role: whiteTiltedRole,
           words: topLeadWords
-        }], { W, H, posX: 0.50, posY: 0.50, inkGap, maxWidth: 0.90 }));
+        }], { W, H, posX: 0.50, posY: 0.68, inkGap, maxWidth: 0.90 }));
       }
 
       // 2. Hero Word behind speaker's head (Y ~ 0.20)
@@ -1871,7 +1871,7 @@ function drawInkStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind,
           isHero: false,
           role: whiteBoldRole,
           words: botStackWords
-        }], { W, H, posX: 0.50, posY: 0.54, inkGap, maxWidth: 0.90 }));
+        }], { W, H, posX: 0.50, posY: 0.74, inkGap, maxWidth: 0.90 }));
       }
     }
   } else if (isBehindPreset) {
@@ -8908,7 +8908,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         const pTrack1 = ov.trackEmWith(0.06);
         const pFontFn = (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
         const pSize = fitASFont(ctxFore, pTxt, pFontFn, H * 0.028 * fontScale, H * 0.018, W * 0.72, pTrack1);
-        const pCy = asY(0.628, 0, Math.round(H * 0.07));
+        const pCy = asY(0.70, 0, Math.round(H * 0.07));
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * pep;
@@ -8962,7 +8962,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         const sTrack1 = ov.trackEmWith(-0.02);
         const sFontFn = (sz) => `600 ${sz}px ${ov.pickFontFam('"Inter", "Poppins", sans-serif')}`;
         const sSize = fitASFont(ctxFore, sTxt, sFontFn, H * 0.044 * fontScale, H * 0.022, W * 0.86, sTrack1);
-        const sBaseY = pillWords.length > 0 ? asY(0.708, 1, Math.round(H * 0.07)) : asY(0.665, 0, Math.round(H * 0.07));
+        const sBaseY = pillWords.length > 0 ? asY(0.768, 1, Math.round(H * 0.07)) : asY(0.725, 0, Math.round(H * 0.07));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * sep;
         ctxFore.font = sFontFn(sSize);
@@ -9021,8 +9021,8 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       ctxFore.restore();
     };
 
-    const keyYRatio = (beforeTxt && afterTxt) ? 0.642 : (beforeTxt ? 0.654 : (afterTxt ? 0.600 : 0.618));
-    if (beforeTxt) drawASRowText(beforeTxt, afterTxt ? 0.542 : 0.562, -0.5, beforeStart);
+    const keyYRatio = (beforeTxt && afterTxt) ? 0.74 : (beforeTxt ? 0.75 : (afterTxt ? 0.72 : 0.73));
+    if (beforeTxt) drawASRowText(beforeTxt, afterTxt ? 0.67 : 0.68, -0.5, beforeStart);
 
     const kP = fullInstant ? 1.0 : (evalT >= keyStart - 0.03 ? Math.min(1, Math.max(0, (evalT - keyStart) / 0.16)) : 0);
     if (keyTxt && kP > 0.01) {
@@ -9075,7 +9075,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
       ctxFore.restore();
     }
 
-    if (afterTxt) drawASRowText(afterTxt, beforeTxt ? 0.715 : 0.675, 0.5, afterStart);
+    if (afterTxt) drawASRowText(afterTxt, beforeTxt ? 0.81 : 0.78, 0.5, afterStart);
 
   } else if (styleMode === 3) {
     // MODE 3: Aurora Neon Wireframe Behind ('FUTURE') + Clean White Sans ('own the') + Glowing Script ('moment.')
@@ -9134,7 +9134,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
     // 2. Sans Lead + Glowing Brush Script ('own the' + 'moment.')
     const leadTxt = leadWords.map(w => cleanAS(w.t || w.word || '', true)).filter(Boolean).join(' ');
     const scriptTxt = scriptWord ? cleanAS(scriptWord.t || scriptWord.word || '', true) : '';
-    const baseWaistY = posY(H * 0.622);
+    const baseWaistY = posY(H * 0.71);
     if (leadTxt) {
       const lP = fullInstant ? 1.0 : (evalT >= wordStartTime(leadWords[0], capStart + 0.15) - 0.02 ? Math.min(1, Math.max(0, (evalT - wordStartTime(leadWords[0], capStart + 0.15)) / 0.14)) : 0);
       if (lP > 0.01) {
@@ -9269,7 +9269,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         const hTrack4 = ov.trackEmWith(0.10);
         const hudFontFn = (sz) => `500 ${sz}px ${ov.pickFontFam('"Inter", "Space Mono", sans-serif')}`;
         const hudSz = fitASFont(ctxFore, hudTxt, hudFontFn, H * 0.021 * fontScale, H * 0.014, W * 0.72, hTrack4);
-        const hCy = asY(0.625, 0, Math.round(H * 0.07));
+        const hCy = asY(0.695, 0, Math.round(H * 0.07));
         ctxFore.save();
         try {
           ctxFore.globalAlpha = exitFade * hep;
@@ -9323,7 +9323,7 @@ function drawAuroraSpatialDepthPass(ctxFore, ctxBehind, cap, words, t, st, W, H,
         const cTrack4 = ov.trackEmWith(-0.025);
         const cFontFn = (sz) => `700 ${sz}px ${ov.pickFontFam('"Inter", "Montserrat", sans-serif')}`;
         const cSz = fitASFont(ctxFore, cTxt, cFontFn, H * 0.052 * fontScale, H * 0.026, W * 0.86, cTrack4);
-        const cBaseY = hudWords.length > 0 ? asY(0.706, 1, Math.round(H * 0.07)) : asY(0.668, 0, Math.round(H * 0.07));
+        const cBaseY = hudWords.length > 0 ? asY(0.765, 1, Math.round(H * 0.07)) : asY(0.725, 0, Math.round(H * 0.07));
         ctxFore.save();
         ctxFore.globalAlpha = exitFade * cep;
         ctxFore.font = cFontFn(cSz);
@@ -10245,7 +10245,7 @@ function drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
     const cardW = Math.min(Math.round(W * 0.92), Math.round(totalTextW + padX * 2));
     const cardH = Math.round(fFontSize + padY * 2);
 
-    const subYRatio = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.66;
+    const subYRatio = typeof st.subtitlePosition === 'number' ? st.subtitlePosition : 0.74;
     const cardCy = Math.round(H * subYRatio + posDeltaY);
     const cardX = Math.round(heroX - cardW * 0.5);
     const cardY = Math.round(cardCy - cardH * 0.5);
@@ -12825,7 +12825,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   if (hasCapTransform) {
     const origCx = W * 0.5;
-    const origCy = H * (Number(st && (st.position || st.posY)) || 0.65);
+    const origCy = H * (Number(st && (st.position || st.posY)) || 0.72);
     const rotRad = (capRot * Math.PI) / 180;
     const applyCtxTransform = (c) => {
       c.save();
@@ -16994,7 +16994,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
     const frontY = $('inputDualPlaneFrontY');
     const valFrontY = $('valDualPlaneFrontY');
-    const curFrontY = Math.round((S.style?.subtitlePosition != null ? S.style.subtitlePosition : 0.66) * 100);
+    const curFrontY = Math.round((S.style?.subtitlePosition != null ? S.style.subtitlePosition : 0.74) * 100);
     if (frontY) frontY.value = String(curFrontY);
     if (valFrontY) valFrontY.textContent = `${curFrontY}%`;
 
@@ -18013,7 +18013,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const valDualPlaneFrontY = $('valDualPlaneFrontY');
     if (inputDualPlaneFrontY) {
       inputDualPlaneFrontY.addEventListener('input', (e) => {
-        const pct = parseInt(e.target.value, 10) || 66;
+        const pct = parseInt(e.target.value, 10) || 74;
         if (valDualPlaneFrontY) valDualPlaneFrontY.textContent = `${pct}%`;
         if (!S.style) S.style = {};
         S.style.subtitlePosition = pct / 100;
@@ -21160,7 +21160,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         if (vid && vid.style.opacity !== '1') vid.style.opacity = '1';
       }
 
-      const isBehind = Boolean(
+      const hasCircleBroll = (S.brolls || []).some(b => b.url && (b.layout === 'circle' || b.layout === 'window' || b.layout === 'pip') && (typeof t !== 'number' || (t >= (b.start || 0) && t <= (b.end || 9999))));
+      const isBehindStyle = Boolean(
         S.style && (
           S.style.behindPerson ||
           S.style.depthAccent ||
@@ -21168,11 +21169,12 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
         )
       );
+      const isBehind = isBehindStyle || hasCircleBroll;
 
       const isShowAll = Boolean(vid.paused || !vid.duration);
 
       // Behind-Person Segmentation vs Foreground Typography Dispatch
-      if (isBehind && activeCap) {
+      if (isBehind && (activeCap || hasCircleBroll)) {
         if (!segmenterLoadFailed) {
           // If segmenter not yet loaded, kick off loader immediately
           if (!segmenterInstance && !segmenterLoadingPromise) {
@@ -21254,7 +21256,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             }
 
             // Draw behind typography onto behindCtx
-            drawCanvasTypography(ctx, behindCtx || ctx, activeCap, words, t, S.style || {}, w, h, true, isShowAll, isPreview);
+            if (activeCap) drawCanvasTypography(ctx, isBehindStyle ? (behindCtx || ctx) : ctx, activeCap, words, t, S.style || {}, w, h, isBehindStyle, isShowAll, isPreview);
 
             // Draw person cutout onto personCanvas
             if (personCtx && vid && vid.readyState >= 2 && lastLiveMaskCanvas) {
@@ -21281,17 +21283,21 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
               }
             }
 
-            drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+            if (activeCap) drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
           }
         } else {
           // Fallback if segmenter failed on device
-          drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
-          drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+          if (activeCap) {
+            drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
+            drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+          }
         }
       } else {
         // Normal foreground preset rendering
-        drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
-        drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+        if (activeCap) {
+          drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, w, h, false, isShowAll, isPreview);
+          drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, w, h);
+        }
       }
 
       drawRealEstateOverlays(ctx, w, h, t);
@@ -22945,7 +22951,8 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
         targetBitrate = isMobileDevice ? 4500000 : 6000000;
       }
 
-      const isBehind = Boolean(
+      const hasCircleBrollExport = (S.brolls || []).some(b => b.url && (b.layout === 'circle' || b.layout === 'window' || b.layout === 'pip'));
+      const isBehindStyle = Boolean(
         S.style && (
           S.style.behindPerson ||
           S.style.depthAccent ||
@@ -22953,6 +22960,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
           (S.style.name && S.style.name.toLowerCase().includes('(behind)'))
         )
       );
+      const isBehind = isBehindStyle || hasCircleBrollExport;
 
       let canvas = null;
       let ctx = null;
@@ -23376,7 +23384,7 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
 
             // Separate lines into behind and front contexts
             const _tCapBehind0 = performance.now();
-            drawCanvasTypography(segExportForeCtx, segExportBehindCtx, activeCap, words, t, S.style || {}, W, H, true, false);
+            drawCanvasTypography(segExportForeCtx, isBehindStyle ? segExportBehindCtx : null, activeCap, words, t, S.style || {}, W, H, isBehindStyle, false);
             dbgCaptionMs += (performance.now() - _tCapBehind0);
 
             // PROBLEM A Point 3 & 4: Check mask validity and log
@@ -23457,6 +23465,38 @@ function drawAiCutoutLaserScanner(ctx, w, h, tNow = performance.now()) {
             drawCanvasTypography(ctx, null, activeCap, words, t, S.style || {}, W, H, isBehind, false);
             dbgCaptionMs += (performance.now() - _tCapStd0);
             drawAutoEmojis(ctx, activeCap, words, t, S.style || {}, W, H);
+          }
+        } else if (activeBroll && (activeBroll.layout === 'circle' || activeBroll.layout === 'window' || activeBroll.layout === 'pip') && exportCleanFrameCanvas && exportSegmenter) {
+          exportMaskFrameIdx++;
+          if (exportMaskFrameIdx % 3 === 1 || !lastExportMaskCanvas) {
+            const newMask = getExportPersonMask(exportSegmenter, exportCleanFrameCanvas, frameMs, W, H);
+            if (newMask && newMask.width === W && newMask.height === H) {
+              if (!segExportCachedMaskCanvas) {
+                segExportCachedMaskCanvas = document.createElement('canvas');
+                segExportCachedMaskCtx = segExportCachedMaskCanvas.getContext('2d');
+              }
+              if (segExportCachedMaskCanvas.width !== W || segExportCachedMaskCanvas.height !== H) {
+                segExportCachedMaskCanvas.width = W; segExportCachedMaskCanvas.height = H;
+              }
+              segExportCachedMaskCtx.clearRect(0, 0, W, H);
+              segExportCachedMaskCtx.drawImage(newMask, 0, 0, W, H);
+              lastExportMaskCanvas = segExportCachedMaskCanvas;
+            }
+          }
+          if (lastExportMaskCanvas) {
+            if (!segExportCutoutCanvas) {
+              segExportCutoutCanvas = document.createElement('canvas');
+              segExportCutoutCtx = segExportCutoutCanvas.getContext('2d');
+            }
+            if (segExportCutoutCanvas.width !== W || segExportCutoutCanvas.height !== H) {
+              segExportCutoutCanvas.width = W; segExportCutoutCanvas.height = H;
+            }
+            segExportCutoutCtx.clearRect(0, 0, W, H);
+            segExportCutoutCtx.drawImage(exportCleanFrameCanvas, 0, 0, W, H);
+            segExportCutoutCtx.globalCompositeOperation = 'destination-in';
+            segExportCutoutCtx.drawImage(lastExportMaskCanvas, 0, 0, W, H);
+            segExportCutoutCtx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(segExportCutoutCanvas, 0, 0, W, H);
           }
         } else {
           lastExportMaskCanvas = null;
@@ -24286,7 +24326,7 @@ function updateTransformHud(text, show) {
 function recordCaptionLayoutBox(cap, words, st, W, H, capDx = 0, capDy = 0, capScale = 1.0) {
   if (!cap || !words || words.length === 0 || W <= 0 || H <= 0) return;
 
-  const stPos = Number(st && (st.position || st.posY)) || 0.65;
+  const stPos = Number(st && (st.position || st.posY)) || 0.72;
   const centerY = H * stPos;
   const centerX = W * 0.5;
 
