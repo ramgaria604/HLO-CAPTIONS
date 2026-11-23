@@ -11212,3 +11212,28 @@ button {
     justify-content: center !important;
   }
 }
+
+/* ==========================================================================
+   EXPORT MODAL CREATOR COMMISSION CARD STYLES
+   ========================================================================== */
+.btn-export-affiliate-link {
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25) !important;
+}
+.btn-export-affiliate-link:hover {
+  background: #6d28d9 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.40) !important;
+}
+@media (max-width: 480px) {
+  .export-commission-card,
+  .creator-commission-box {
+    padding: 12px !important;
+  }
+  .btn-export-affiliate-link {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+  }
+}

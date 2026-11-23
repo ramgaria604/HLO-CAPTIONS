@@ -2454,9 +2454,12 @@
       </div>
 
       <div class="quality-modal-footer">
-        <div class="quality-commission-note" style="margin-bottom: 12px; padding: 9px 12px; background: rgba(139, 92, 246, 0.08); border: 1px dashed rgba(139, 92, 246, 0.35); border-radius: 8px; display: flex; align-items: center; gap: 8px; text-align: left;">
-          <span style="font-size: 15px;">💰</span>
-          <span style="font-size: 12px; color: #475569; line-height: 1.4;"><strong>Creator Program:</strong> Earn <strong>20% commission</strong> every time someone you refer exports!</span>
+        <div class="quality-commission-note" style="margin-bottom: 12px; padding: 10px 14px; background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%); border: 1px dashed rgba(124, 58, 237, 0.35); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; text-align: left;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 16px;">💰</span>
+            <span style="font-size: 12px; color: #334155; line-height: 1.4;"><strong>Creator Partner:</strong> Earn <strong>up to 30% commission</strong> on every export pass sold!</span>
+          </div>
+          <span style="background: #7c3aed; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; white-space: nowrap;">30% PAYOUT</span>
         </div>
         <button type="button" id="btnConfirmExportQuality" class="btn-confirm-export">
           <span>Export in 1080p Full HD</span>
@@ -2526,9 +2529,26 @@
         <button type="button" id="btnCancelExportAction" class="btn-cancel-export">✕ Cancel Export</button>
         
         <p class="export-wait-tip" id="exportWaitTip">💡 Keep this screen open while exporting — an alert chime will sound when done!</p>
-        <p class="export-commission-tip" style="font-size: 12px; color: #64748b; margin-top: 6px; text-align: center; line-height: 1.4;">
-          💰 <strong>Creator Partner:</strong> Earn <strong>20% commission</strong> by referring other creators!
-        </p>
+        
+        <!-- CREATOR AFFILIATE COMMISSION PROMO (WHILE RENDERING) -->
+        <div class="export-commission-card" style="margin-top: 14px; padding: 14px 16px; background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%); border: 1px solid rgba(124, 58, 237, 0.25); border-radius: 12px; text-align: left;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.06em;">
+              <span>💡</span> WHILE YOU WAIT &bull; CREATOR PROGRAM
+            </span>
+            <span style="background: #7c3aed; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9999px;">UP TO 30% PAYOUT</span>
+          </div>
+          <h4 style="margin: 0 0 4px 0; font-size: 13.5px; font-weight: 700; color: #0f172a; line-height: 1.35;">
+            💰 Earn Up to 30% Commission Sharing Hlo Captions!
+          </h4>
+          <p style="margin: 0 0 10px 0; font-size: 12px; color: #475569; line-height: 1.45;">
+            Got creator friends or followers? Get your custom discount link/code &amp; earn instant cash payouts on every export pass sold.
+          </p>
+          <a href="https://ig.me/m/hlocaptions" target="_blank" rel="noopener noreferrer" class="btn-export-affiliate-link" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: #7c3aed; color: #fff; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; transition: background 0.2s ease;">
+            <span>🤝 Join Creator Affiliate (DM @hlocaptions)</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+        </div>
       </div>
 
       <div id="exportDoneState" class="export-state hidden">
@@ -2561,15 +2581,24 @@
             <span>Copy Direct Download Link</span>
           </button>
 
-          <!-- CREATOR 20% COMMISSION CARD -->
-          <div class="creator-commission-box" style="margin-top: 14px; padding: 12px 14px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 10px; text-align: left;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-              <span style="font-size: 16px;">💰</span>
-              <strong style="color: #0f172a; font-size: 13px; font-weight: 700;">Creator Partner: Earn 20% Commission</strong>
+          <!-- CREATOR UP TO 30% COMMISSION CARD (AFTER RENDER COMPLETE) -->
+          <div class="creator-commission-box" style="margin-top: 14px; padding: 14px 16px; background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%); border: 1px solid rgba(124, 58, 237, 0.28); border-radius: 12px; text-align: left;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.06em;">
+                <span>💰</span> MONETIZE YOUR AUDIENCE
+              </span>
+              <span style="background: #10b981; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9999px;">UP TO 30% COMMISSION</span>
             </div>
-            <p style="color: #475569; font-size: 12px; margin: 0; line-height: 1.45;">
-              Share HloCaptions with your creator friends &amp; get <strong>20% instant commission</strong> on every export pass they buy! DM us on Instagram <a href="https://instagram.com/hlocaptions" target="_blank" style="color: #7c3aed; font-weight: 700; text-decoration: underline;">@hlocaptions</a> to get your link.
+            <h4 style="margin: 0 0 4px 0; font-size: 13.5px; font-weight: 700; color: #0f172a; line-height: 1.35;">
+              Love Your Video? Earn Up To 30% Cash Commission! 🚀
+            </h4>
+            <p style="color: #475569; font-size: 12px; margin: 0 0 10px 0; line-height: 1.45;">
+              Share your personal referral link or coupon with other creators. For every export pass they buy, you earn up to 30% instant payout directly to your UPI!
             </p>
+            <a href="https://ig.me/m/hlocaptions" target="_blank" rel="noopener noreferrer" class="btn-export-affiliate-link" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: #7c3aed; color: #fff; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none;">
+              <span>🤝 Claim Your Affiliate Link (DM @hlocaptions)</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
           </div>
           <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 8px; line-height: 1.4;">
             💡 <strong>In Instagram?</strong> If download doesn't start, tap <strong>Share / Save</strong> above or tap <strong>⋮</strong> at top-right and choose <em>"Open in Chrome"</em>.
