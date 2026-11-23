@@ -11186,3 +11186,29 @@ button {
   border-color: rgba(168, 85, 247, 0.85);
   background: rgba(168, 85, 247, 0.08);
 }
+
+/* ==========================================================================
+   LEAD PLUS ADVERTISEMENT SECTION STYLES
+   ========================================================================== */
+.btn-leadplus-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.55) !important;
+  filter: brightness(1.08);
+}
+@media (max-width: 640px) {
+  .leadplus-card {
+    padding: 22px 16px !important;
+    border-radius: 16px !important;
+  }
+  .leadplus-card h2 {
+    font-size: 20px !important;
+  }
+  .leadplus-features span {
+    font-size: 11px !important;
+    padding: 5px 9px !important;
+  }
+  .btn-leadplus-cta {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
