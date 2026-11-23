@@ -10080,6 +10080,9 @@ function drawCobaltArchivePass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBe
  *   Clean white text with vibrant active-word highlight pill (yellow-gold, amber, or cyan).
  */
 function drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
+  return;
+}
+function _unused_drawDualPlaneHeroPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview) {
   if (!ctxFore || !words || !words.length) return;
   const capArg = (showAll && cap) ? Object.assign({}, cap, { _forceInstant: typeof t !== 'number' || isNaN(t) || t <= (cap.start || 0) + 0.04 }) : cap;
   const rt = initEditorialSceneRuntime(ctxFore, ctxBehind, capArg, words, t, st, W, H, isBehind);
@@ -13239,7 +13242,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const btnFrontPay10 = $('btnFrontPayPack10');
     if (btnFrontPay10) {
       btnFrontPay10.addEventListener('click', () => {
-        if (typeof startPaymentFlow === 'function') startPaymentFlow('single_pass_10');
+        if (typeof startPaymentFlow === 'function') startPaymentFlow('single_pass_20');
         else if (typeof openCouponModal === 'function') openCouponModal();
       });
     }
@@ -13730,21 +13733,22 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
           throw new Error(data.error || 'Invalid code');
         }
 
-        // Handle checkout discount coupons (e.g. keix 15 / KEIX15)
+        // Handle checkout discount coupons (e.g. keix 15 / faizan 30)
         if (data.discount) {
+          const appliedCode = data.code || 'keix 15';
           applyDiscountToUI(
-            data.code || 'keix 15',
+            appliedCode,
             data.price_pack10 || 15,
             data.price_pack50 || 40,
             data.discount_pack10 || 5,
             data.discount_pack50 || 10
           );
           if (msg) {
-            msg.innerHTML = `🎉 Coupon <strong>${escapeHtml(data.code || 'keix 15')}</strong> applied! <strong>₹5 OFF</strong> on Single Pass (Now ₹15) & <strong>₹10 OFF</strong> on Weekly Pack (Now ₹40)! Select a pack above to checkout.`;
+            msg.innerHTML = `🎉 Coupon <strong>${escapeHtml(appliedCode)}</strong> applied! <strong>₹5 OFF</strong> on Single Pass (Now ₹15) & <strong>₹10 OFF</strong> on Weekly Pack (Now ₹40)! Select a pack above to checkout.`;
             msg.className = 'coupon-msg success';
             msg.classList.remove('hidden');
           }
-          showToast(`🎉 Coupon "${data.code || 'keix 15'}" applied! Prices discounted.`);
+          showToast(`🎉 Coupon "${appliedCode}" applied! Prices discounted.`);
           return;
         }
 

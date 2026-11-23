@@ -48,6 +48,14 @@ DISCOUNT_COUPONS = {
             "pack20": 5,
             "pack50": 10
         }
+    },
+    "FAIZAN30": {
+        "code": "faizan 30",
+        "discounts": {
+            "pack10": 5,
+            "pack20": 5,
+            "pack50": 10
+        }
     }
 }
 
