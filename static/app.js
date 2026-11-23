@@ -13242,7 +13242,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     const btnFrontPay10 = $('btnFrontPayPack10');
     if (btnFrontPay10) {
       btnFrontPay10.addEventListener('click', () => {
-        if (typeof startPaymentFlow === 'function') startPaymentFlow('single_pass_10');
+        if (typeof startPaymentFlow === 'function') startPaymentFlow('single_pass_20');
         else if (typeof openCouponModal === 'function') openCouponModal();
       });
     }
