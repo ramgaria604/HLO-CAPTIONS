@@ -6413,6 +6413,261 @@ function drawSkyKineticDuoPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
   }
 }
 
+function drawKoldCinematicPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+
+  const ov = resolveSceneStyleOverrides(st, H);
+  const sansFont = ov.pickFontFam(st?.sansFontFamily || '"Poppins", "Inter", "Montserrat", sans-serif');
+  const serifFont = ov.pickFontFam(st?.fontFamily || '"Playfair Display", "Cormorant Garamond", "Cinzel", Georgia, serif');
+  const hiColor = ov.pickHi(st?.highlightColor || '#FFFFFF');
+  const baseColor = ov.pickBase(st?.baseColor || '#FFFFFF');
+  const fontScale = Math.max(0.5, Math.min(2.0, Number(st?.fontScale) || 1.0));
+  const userCase = st && st.textCase;
+
+  const isSampleCard = Boolean(cap && cap.id === 'preview_sample');
+  const capStart = (cap && typeof cap.start === 'number') ? cap.start : (words[0] && typeof words[0].s === 'number' ? words[0].s : 0);
+  const capEnd = (cap && typeof cap.end === 'number') ? cap.end : (words[words.length - 1] && typeof words[words.length - 1].e === 'number' ? words[words.length - 1].e : capStart + 2.5);
+  const hasValidT = (typeof t === 'number' && !isNaN(t));
+  const evalT = isSampleCard ? (capStart + 999) : (hasValidT ? t : (capStart + 1.0));
+  const fullInstant = isSampleCard || !hasValidT || Boolean(showAll && evalT <= capStart + 0.04);
+
+  const timeRem = fullInstant ? 1.0 : Math.max(0, capEnd - evalT);
+  const exitAlpha = fullInstant ? 1.0 : Math.min(1, timeRem / 0.08);
+  if (exitAlpha <= 0.005) return;
+
+  const easeOutCubic = (x) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+
+  const cleanWord = (raw) => String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '').trim();
+  const formatWord = (str, forceUpper) => {
+    if (forceUpper || userCase === 'upper') return str.toUpperCase();
+    if (userCase === 'lower') return str.toLowerCase();
+    if (userCase === 'title') return str.replace(/\b\w/g, (c) => c.toUpperCase());
+    return str;
+  };
+
+  const posRatio = Number(st && (st.position || st.posY)) || 0.62;
+  const centerY = H * posRatio;
+  const centerX = W * 0.5;
+  const refDim = Math.min(W, H);
+  const scaleRef = refDim / 1080;
+
+  const applyCinematicShadow = (blurPx = 14) => {
+    ctxFore.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctxFore.shadowBlur = Math.round(blurPx * scaleRef);
+    ctxFore.shadowOffsetX = 0;
+    ctxFore.shadowOffsetY = Math.round(4 * scaleRef);
+  };
+
+  const isSolo = words.length === 1;
+  const isTwoTier = words.length === 2;
+
+  // 1. SOLO HERO WORD (Luxury Editorial Serif)
+  if (isSolo) {
+    const w = words[0];
+    const rawTxt = cleanWord(w.t || w.word || 'CINEMATIC');
+    const txt = formatWord(rawTxt, false);
+    const s = (w && typeof w.s === 'number') ? w.s : capStart;
+    const progress = fullInstant ? 1.0 : Math.max(0, Math.min(1, (evalT - s) / 0.22));
+    const ease = easeOutCubic(progress);
+    const scale = fullInstant ? 1.0 : (0.92 + 0.08 * ease);
+    const soloFontSize = Math.round(refDim * 0.105 * fontScale);
+
+    ctxFore.save();
+    ctxFore.translate(centerX, centerY);
+    ctxFore.scale(scale, scale);
+    ctxFore.globalAlpha = exitAlpha * Math.min(1, progress * 3.0);
+    ctxFore.font = `italic 700 ${soloFontSize}px ${serifFont}`;
+    ctxFore.textAlign = 'center';
+    ctxFore.textBaseline = 'middle';
+    applyCinematicShadow(16);
+    ctxFore.fillStyle = hiColor;
+    ctxFore.fillText(txt, 0, 0);
+    ctxFore.restore();
+    return;
+  }
+
+  // 2. TWO-WORD PHRASE (Sans Prefix + Luxury Serif Accent)
+  if (isTwoTier) {
+    const w1 = words[0];
+    const w2 = words[1];
+    const t1 = formatWord(cleanWord(w1.t || w1.word || 'THE'), true);
+    const t2 = formatWord(cleanWord(w2.t || w2.word || 'BEST'), false);
+
+    const s1 = (w1 && typeof w1.s === 'number') ? w1.s : capStart;
+    const e1 = (w1 && typeof w1.e === 'number') ? w1.e : (s1 + 0.35);
+    const s2 = (w2 && typeof w2.s === 'number') ? w2.s : e1;
+    const e2 = (w2 && typeof w2.e === 'number') ? w2.e : (s2 + 0.35);
+
+    const sansFontSize = Math.round(refDim * 0.065 * fontScale);
+    const serifFontSize = Math.round(refDim * 0.092 * fontScale);
+
+    ctxFore.font = `800 ${sansFontSize}px ${sansFont}`;
+    const w1Width = ctxFore.measureText(t1).width;
+    ctxFore.font = `700 ${serifFontSize}px ${serifFont}`;
+    const w2Width = ctxFore.measureText(t2).width;
+    const spaceW = Math.round(sansFontSize * 0.45);
+
+    const totalInlineW = w1Width + spaceW + w2Width;
+    const canFitInline = totalInlineW <= W * 0.82;
+
+    if (canFitInline) {
+      let curX = centerX - totalInlineW / 2;
+      const w1Active = isSampleCard || fullInstant || (evalT >= s1);
+      const w2Active = isSampleCard || fullInstant || (evalT >= s2);
+
+      // Word 1: Bold Sans
+      ctxFore.save();
+      ctxFore.globalAlpha = exitAlpha * (w1Active ? 1.0 : 0.40);
+      ctxFore.font = `800 ${sansFontSize}px ${sansFont}`;
+      ctxFore.textAlign = 'left';
+      ctxFore.textBaseline = 'middle';
+      applyCinematicShadow(12);
+      ctxFore.fillStyle = baseColor;
+      ctxFore.fillText(t1, curX, centerY);
+      ctxFore.restore();
+
+      curX += w1Width + spaceW;
+
+      // Word 2: Luxury Serif
+      ctxFore.save();
+      const w2Pop = (!fullInstant && !isSampleCard && evalT >= s2) ? Math.max(0, Math.min(1, (evalT - s2) / 0.18)) : 1.0;
+      const w2Scale = fullInstant ? 1.0 : (1.0 + 0.06 * Math.sin(w2Pop * Math.PI));
+      const w2Cx = curX + w2Width / 2;
+      ctxFore.translate(w2Cx, centerY);
+      ctxFore.scale(w2Scale, w2Scale);
+      ctxFore.translate(-w2Cx, -centerY);
+
+      ctxFore.globalAlpha = exitAlpha * (w2Active ? 1.0 : 0.40);
+      ctxFore.font = `italic 700 ${serifFontSize}px ${serifFont}`;
+      ctxFore.textAlign = 'left';
+      ctxFore.textBaseline = 'middle';
+      applyCinematicShadow(16);
+      ctxFore.fillStyle = hiColor;
+      ctxFore.fillText(t2, curX, centerY);
+      ctxFore.restore();
+      return;
+    } else {
+      const lineGap = Math.round(refDim * 0.088 * fontScale);
+      const y1 = centerY - lineGap * 0.50;
+      const y2 = centerY + lineGap * 0.50;
+
+      const w1Active = isSampleCard || fullInstant || (evalT >= s1);
+      const w2Active = isSampleCard || fullInstant || (evalT >= s2);
+
+      ctxFore.save();
+      ctxFore.globalAlpha = exitAlpha * (w1Active ? 1.0 : 0.40);
+      ctxFore.font = `800 ${sansFontSize}px ${sansFont}`;
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      applyCinematicShadow(12);
+      ctxFore.fillStyle = baseColor;
+      ctxFore.fillText(t1, centerX, y1);
+      ctxFore.restore();
+
+      ctxFore.save();
+      ctxFore.globalAlpha = exitAlpha * (w2Active ? 1.0 : 0.40);
+      ctxFore.font = `italic 700 ${serifFontSize}px ${serifFont}`;
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      applyCinematicShadow(16);
+      ctxFore.fillStyle = hiColor;
+      ctxFore.fillText(t2, centerX, y2);
+      ctxFore.restore();
+      return;
+    }
+  }
+
+  // 3. MULTI-WORD PHRASE (3+ words: Signature Kold Editorial Hierarchy)
+  // Line 1: Leading Sans-serif bold uppercase ("THE")
+  // Line 2: Luxury editorial serif hero word ("BEST") + trailing ghost word ("performing")
+  const splitIdx = (words.length <= 3) ? 1 : Math.min(2, Math.floor(words.length / 2));
+  const line1Words = words.slice(0, splitIdx);
+  const line2Words = words.slice(splitIdx);
+
+  const sansSize = Math.round(refDim * 0.058 * fontScale);
+  const serifHeroSize = Math.round(refDim * 0.090 * fontScale);
+  const serifTrailSize = Math.round(refDim * 0.076 * fontScale);
+  const lineGap = Math.round(refDim * 0.084 * fontScale);
+
+  const y1 = centerY - lineGap * 0.52;
+  const y2 = centerY + lineGap * 0.52;
+
+  // Render Line 1 (Sans-serif)
+  ctxFore.font = `800 ${sansSize}px ${sansFont}`;
+  const spaceW1 = Math.round(sansSize * 0.40);
+  const l1Items = line1Words.map((w, i) => {
+    const rawTxt = cleanWord(w.t || w.word || '');
+    const txt = formatWord(rawTxt, true);
+    const s = (w && typeof w.s === 'number') ? w.s : (capStart + i * 0.28);
+    const e = (w && typeof w.e === 'number') ? w.e : (s + 0.28);
+    const width = ctxFore.measureText(txt).width;
+    const isPast = fullInstant || evalT >= e;
+    const isActive = !isPast && (evalT >= s);
+    return { w, txt, width, s, e, isPast, isActive };
+  });
+  const totalL1W = l1Items.reduce((acc, it) => acc + it.width, 0) + Math.max(0, l1Items.length - 1) * spaceW1;
+  let curX1 = centerX - totalL1W / 2;
+
+  l1Items.forEach((item) => {
+    ctxFore.save();
+    const isLit = isSampleCard || fullInstant || item.isPast || item.isActive;
+    ctxFore.globalAlpha = exitAlpha * (isLit ? 1.0 : 0.40);
+    ctxFore.font = `800 ${sansSize}px ${sansFont}`;
+    ctxFore.textAlign = 'left';
+    ctxFore.textBaseline = 'middle';
+    applyCinematicShadow(12);
+    ctxFore.fillStyle = baseColor;
+    ctxFore.fillText(item.txt, curX1, y1);
+    ctxFore.restore();
+    curX1 += item.width + spaceW1;
+  });
+
+  // Render Line 2 (Editorial Serif + Trailing Italic Ghost)
+  const spaceW2 = Math.round(serifHeroSize * 0.38);
+  const l2Items = line2Words.map((w, i) => {
+    const rawTxt = cleanWord(w.t || w.word || '');
+    const isHero = (i === 0);
+    const txt = isHero ? formatWord(rawTxt, true) : formatWord(rawTxt, false);
+    const s = (w && typeof w.s === 'number') ? w.s : (capStart + (splitIdx + i) * 0.28);
+    const e = (w && typeof w.e === 'number') ? w.e : (s + 0.28);
+
+    const fSize = isHero ? serifHeroSize : serifTrailSize;
+    ctxFore.font = isHero ? `700 ${fSize}px ${serifFont}` : `italic 600 ${fSize}px ${serifFont}`;
+    const width = ctxFore.measureText(txt).width;
+    const isPast = fullInstant || evalT >= e;
+    const isActive = !isPast && (evalT >= s);
+    return { w, txt, width, s, e, isPast, isActive, isHero, fSize };
+  });
+  const totalL2W = l2Items.reduce((acc, it) => acc + it.width, 0) + Math.max(0, l2Items.length - 1) * spaceW2;
+  let curX2 = centerX - totalL2W / 2;
+
+  l2Items.forEach((item) => {
+    ctxFore.save();
+    const isLit = isSampleCard || fullInstant || item.isPast || item.isActive;
+    const alpha = isLit ? (item.isHero ? 1.0 : 0.88) : 0.38;
+
+    if (item.isActive && !fullInstant && !isSampleCard) {
+      const p = Math.max(0, Math.min(1, (evalT - item.s) / 0.16));
+      const pop = 1.0 + 0.06 * Math.sin(p * Math.PI);
+      const cx = curX2 + item.width / 2;
+      ctxFore.translate(cx, y2);
+      ctxFore.scale(pop, pop);
+      ctxFore.translate(-cx, -y2);
+    }
+
+    ctxFore.globalAlpha = exitAlpha * alpha;
+    ctxFore.font = item.isHero ? `700 ${item.fSize}px ${serifFont}` : `italic 600 ${item.fSize}px ${serifFont}`;
+    ctxFore.textAlign = 'left';
+    ctxFore.textBaseline = 'middle';
+    applyCinematicShadow(item.isHero ? 16 : 10);
+    ctxFore.fillStyle = hiColor;
+    ctxFore.fillText(item.txt, curX2, y2);
+    ctxFore.restore();
+
+    curX2 += item.width + spaceW2;
+  });
+}
+
 function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
   if (!ctxFore || !words || !words.length) return;
 
@@ -12888,6 +13143,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.id === 'real_estate_depth_split') {
         drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.id === 'kold_cinematic' || st.koldCinematic || st.layout === 'kold_cinematic') {
+        drawKoldCinematicPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.id === 'white_pill_karaoke' || st.whitePillKaraoke || st.layout === 'white_pill') {
         drawWhitePillKaraokePass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.id === 'sky_kinetic_duo' || st.hasSkyGlow || st.layout === 'sky_kinetic') {
@@ -14074,7 +14331,49 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     tagSpan.textContent = tag;
     art.appendChild(tagSpan);
 
-    if (preset.id === 'white_pill_karaoke' || preset.layout === 'white_pill') {
+    if (preset.id === 'kold_cinematic' || preset.layout === 'kold_cinematic') {
+      const koldBox = document.createElement('div');
+      koldBox.style.display = 'flex';
+      koldBox.style.flexDirection = 'column';
+      koldBox.style.alignItems = 'center';
+      koldBox.style.justifyContent = 'center';
+      koldBox.style.lineHeight = '1.15';
+      koldBox.style.marginTop = '4px';
+
+      const line1 = document.createElement('span');
+      line1.textContent = 'THE';
+      line1.style.fontFamily = `'Poppins', sans-serif`;
+      line1.style.fontWeight = '800';
+      line1.style.fontSize = '12px';
+      line1.style.letterSpacing = '1px';
+      line1.style.color = '#FFFFFF';
+      line1.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
+
+      const line2Box = document.createElement('div');
+      line2Box.style.display = 'flex';
+      line2Box.style.alignItems = 'baseline';
+      line2Box.style.gap = '5px';
+
+      const heroSpan = document.createElement('span');
+      heroSpan.textContent = 'BEST';
+      heroSpan.style.fontFamily = `'Playfair Display', serif`;
+      heroSpan.style.fontWeight = '700';
+      heroSpan.style.fontSize = '17px';
+      heroSpan.style.color = '#FFFFFF';
+      heroSpan.style.textShadow = '0 2px 10px rgba(0,0,0,0.9)';
+
+      const trailSpan = document.createElement('span');
+      trailSpan.textContent = 'performing';
+      trailSpan.style.fontFamily = `'Playfair Display', serif`;
+      trailSpan.style.fontStyle = 'italic';
+      trailSpan.style.fontSize = '14px';
+      trailSpan.style.color = 'rgba(255,255,255,0.45)';
+      trailSpan.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
+
+      line2Box.append(heroSpan, trailSpan);
+      koldBox.append(line1, line2Box);
+      art.appendChild(koldBox);
+    } else if (preset.id === 'white_pill_karaoke' || preset.layout === 'white_pill') {
       const pillBox = document.createElement('div');
       pillBox.style.display = 'inline-flex';
       pillBox.style.alignItems = 'center';
@@ -14289,7 +14588,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.30.0';
+    const CURRENT_PRESET_VER = 'v7.31.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -14301,6 +14600,24 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // 0. Ensure default presets exist immediately so screen is NEVER blank
     if (!S.presets || S.presets.length === 0) {
       S.presets = [
+        {
+          id: "kold_cinematic",
+          name: "🎬 Kold Cinematic (Editorial Serif + Sans)",
+          category: "aesthetic",
+          badge: "CINEMATIC 🎬",
+          previewWord: "THE BEST performing",
+          layout: "kold_cinematic",
+          koldCinematic: true,
+          highlightColor: "#FFFFFF",
+          baseColor: "#FFFFFF",
+          fontFamily: "Playfair Display",
+          sansFontFamily: "Poppins",
+          position: 0.62,
+          wordsPerCaption: 3,
+          maxKeys: 1,
+          key: { font: "Playfair Display", color: "#FFFFFF", bold: true, weight: 700 },
+          filler: { font: "Poppins", color: "#FFFFFF", bold: true, weight: 800 }
+        },
         {
           id: "white_pill_karaoke",
           name: "💊 White Capsule (Clinical Karaoke)",
@@ -16334,7 +16651,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       match: (p) => {
         const name = (p.name || '').toLowerCase();
         const cat = (p.category || '').toLowerCase();
-        return cat.includes('minimal') || cat.includes('classic') || name.includes('clean') || name.includes('mono');
+        return cat.includes('minimal') || cat.includes('classic') || cat.includes('aesthetic') || p.id === 'kold_cinematic' || p.layout === 'kold_cinematic' || name.includes('clean') || name.includes('mono') || name.includes('kold');
       }
     },
     {
@@ -16828,6 +17145,48 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       subSmall.style.marginTop = '4px';
       subSmall.style.zIndex = '3';
       art.appendChild(subSmall);
+    } else if (preset.id === 'kold_cinematic' || preset.layout === 'kold_cinematic') {
+      const koldBox = document.createElement('div');
+      koldBox.style.display = 'flex';
+      koldBox.style.flexDirection = 'column';
+      koldBox.style.alignItems = 'center';
+      koldBox.style.justifyContent = 'center';
+      koldBox.style.lineHeight = '1.15';
+      koldBox.style.marginTop = '4px';
+
+      const line1 = document.createElement('span');
+      line1.textContent = 'THE';
+      line1.style.fontFamily = `'Poppins', sans-serif`;
+      line1.style.fontWeight = '800';
+      line1.style.fontSize = '12px';
+      line1.style.letterSpacing = '1px';
+      line1.style.color = '#FFFFFF';
+      line1.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
+
+      const line2Box = document.createElement('div');
+      line2Box.style.display = 'flex';
+      line2Box.style.alignItems = 'baseline';
+      line2Box.style.gap = '5px';
+
+      const heroSpan = document.createElement('span');
+      heroSpan.textContent = 'BEST';
+      heroSpan.style.fontFamily = `'Playfair Display', serif`;
+      heroSpan.style.fontWeight = '700';
+      heroSpan.style.fontSize = '17px';
+      heroSpan.style.color = '#FFFFFF';
+      heroSpan.style.textShadow = '0 2px 10px rgba(0,0,0,0.9)';
+
+      const trailSpan = document.createElement('span');
+      trailSpan.textContent = 'performing';
+      trailSpan.style.fontFamily = `'Playfair Display', serif`;
+      trailSpan.style.fontStyle = 'italic';
+      trailSpan.style.fontSize = '14px';
+      trailSpan.style.color = 'rgba(255,255,255,0.45)';
+      trailSpan.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
+
+      line2Box.append(heroSpan, trailSpan);
+      koldBox.append(line1, line2Box);
+      art.appendChild(koldBox);
     } else if (preset.id === 'white_pill_karaoke' || preset.layout === 'white_pill') {
       const pillBox = document.createElement('div');
       pillBox.style.display = 'inline-flex';

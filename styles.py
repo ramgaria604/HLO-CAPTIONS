@@ -941,10 +941,49 @@ def load_presets():
             "shadowColor": "transparent"
         }
     }
-    out.insert(0, white_pill_item)
-    out.insert(1, sky_kinetic_item)
-    out.insert(2, wealth_broll_item)
-    out.insert(3, side_by_side_item)
+    kold_cinematic_item = {
+        "id": "kold_cinematic",
+        "name": "🎬 Kold Cinematic (Editorial Serif + Sans)",
+        "category": "aesthetic",
+        "badge": "CINEMATIC 🎬",
+        "previewWord": "THE BEST performing",
+        "layout": "kold_cinematic",
+        "animation": "pop",
+        "wordsPerCaption": 3,
+        "maxKeys": 1,
+        "position": 0.62,
+        "highlightColor": "#FFFFFF",
+        "baseColor": "#FFFFFF",
+        "fontFamily": "Playfair Display",
+        "sansFontFamily": "Poppins",
+        "fontScale": 1.05,
+        "koldCinematic": True,
+        "key": {
+            "font": "Playfair Display",
+            "size": 0.092,
+            "color": "#FFFFFF",
+            "bold": True,
+            "italic": False,
+            "weight": 700,
+            "shadow": 0.12,
+            "shadowColor": "rgba(0,0,0,0.85)"
+        },
+        "filler": {
+            "font": "Poppins",
+            "size": 0.065,
+            "color": "#FFFFFF",
+            "bold": True,
+            "italic": False,
+            "weight": 800,
+            "shadow": 0.08,
+            "shadowColor": "rgba(0,0,0,0.85)"
+        }
+    }
+    out.insert(0, kold_cinematic_item)
+    out.insert(1, white_pill_item)
+    out.insert(2, sky_kinetic_item)
+    out.insert(3, wealth_broll_item)
+    out.insert(4, side_by_side_item)
 
     return out
 
@@ -1038,7 +1077,7 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
-        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic", "white_pill", "above", "scatter", "echo") else ("stack" if s.get("isDuo") else "line"),
+        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic", "white_pill", "kold_cinematic", "above", "scatter", "echo") else ("stack" if s.get("isDuo") else "line"),
         "animation": anim,
         "anim": anim,
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",
