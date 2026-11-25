@@ -474,11 +474,25 @@ def fonts_css():
                 css.append(f"@font-face{{font-family:'Poppins';font-weight:800;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
             elif "semibold" in low:
                 css.append(f"@font-face{{font-family:'Poppins';font-weight:600;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+            elif "medium" in low:
+                css.append(f"@font-face{{font-family:'Poppins';font-weight:500;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+            elif "-700." in low:
+                css.append(f"@font-face{{font-family:'Poppins';font-weight:700;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+            elif "-900." in low or "black" in low:
+                css.append(f"@font-face{{font-family:'Poppins';font-weight:900;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "bodonimoda" in low:
+            css.append(f"@font-face{{font-family:'Bodoni Moda';font-weight:700;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "cormorantgaramond-700-italic" in low:
+            css.append(f"@font-face{{font-family:'Cormorant Garamond';font-weight:700;font-style:italic;src:url('/fonts/{p.name}');font-display:swap}}")
+        elif "dmserifdisplay-400-italic" in low:
+            css.append(f"@font-face{{font-family:'DM Serif Display';font-weight:400;font-style:italic;src:url('/fonts/{p.name}');font-display:swap}}")
         elif "playfairdisplay" in low:
             if "600-italic" in low:
                 css.append(f"@font-face{{font-family:'Playfair Display';font-weight:600;font-style:italic;src:url('/fonts/{p.name}');font-display:swap}}")
             elif "700-italic" in low:
                 css.append(f"@font-face{{font-family:'Playfair Display';font-weight:700;font-style:italic;src:url('/fonts/{p.name}');font-display:swap}}")
+            elif "-700." in low:
+                css.append(f"@font-face{{font-family:'Playfair Display';font-weight:700;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
         elif "montserrat-900" in low:
             css.append(f"@font-face{{font-family:'Montserrat';font-weight:900;font-style:normal;src:url('/fonts/{p.name}');font-display:swap}}")
         elif "cinzel-700" in low:

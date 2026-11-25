@@ -979,11 +979,131 @@ def load_presets():
             "shadowColor": "rgba(0,0,0,0.85)"
         }
     }
-    out.insert(0, kold_cinematic_item)
-    out.insert(1, white_pill_item)
-    out.insert(2, sky_kinetic_item)
-    out.insert(3, wealth_broll_item)
-    out.insert(4, side_by_side_item)
+    couture_signature_item = {
+        "id": "couture_signature",
+        "name": "✒️ Couture Calligraphy (Serif + Gold Script)",
+        "category": "aesthetic",
+        "badge": "LUXURY ✒️",
+        "previewWord": "TALENT never could",
+        "layout": "couture_signature",
+        "animation": "fade",
+        "wordsPerCaption": 4,
+        "maxKeys": 1,
+        "position": 0.64,
+        "highlightColor": "#F5D799",
+        "baseColor": "#FAF7F2",
+        "fontFamily": "Bodoni Moda",
+        "serifFontFamily": "Bodoni Moda",
+        "scriptFontFamily": "Great Vibes",
+        "sansFontFamily": "Poppins",
+        "fontScale": 1.04,
+        "coutureSignature": True,
+        "key": {
+            "font": "Great Vibes",
+            "size": 0.095,
+            "color": "#F5D799",
+            "bold": False,
+            "italic": False,
+            "weight": 400,
+            "shadow": 0.10,
+            "shadowColor": "rgba(0,0,0,0.88)"
+        },
+        "filler": {
+            "font": "Bodoni Moda",
+            "size": 0.072,
+            "color": "#FAF7F2",
+            "bold": True,
+            "italic": False,
+            "weight": 700,
+            "shadow": 0.08,
+            "shadowColor": "rgba(0,0,0,0.88)"
+        }
+    }
+    molten_brush_item = {
+        "id": "molten_brush_italic",
+        "name": "🖌️ Molten Brush Italic (Sans + Gold Stroke)",
+        "category": "aesthetic",
+        "badge": "EDITORIAL 🖌️",
+        "previewWord": "BUILT DIFFERENT",
+        "layout": "molten_brush_italic",
+        "animation": "fade",
+        "wordsPerCaption": 4,
+        "maxKeys": 1,
+        "position": 0.65,
+        "highlightColor": "#F5CE67",
+        "baseColor": "#FAF8F2",
+        "fontFamily": "Playfair Display",
+        "sansFontFamily": "Montserrat",
+        "fontScale": 1.04,
+        "moltenBrushItalic": True,
+        "key": {
+            "font": "Playfair Display",
+            "size": 0.086,
+            "color": "#F5CE67",
+            "bold": True,
+            "italic": True,
+            "weight": 700,
+            "shadow": 0.10,
+            "shadowColor": "rgba(0,0,0,0.88)"
+        },
+        "filler": {
+            "font": "Montserrat",
+            "size": 0.068,
+            "color": "#FAF8F2",
+            "bold": True,
+            "italic": False,
+            "weight": 900,
+            "shadow": 0.08,
+            "shadowColor": "rgba(0,0,0,0.88)"
+        }
+    }
+    directors_cut_item = {
+        "id": "directors_cut_oval",
+        "name": "⭕ Director's Cut (Golden Oval Pen Loop)",
+        "category": "aesthetic",
+        "badge": "DIRECTOR ⭕",
+        "previewWord": "TOTAL Silence",
+        "layout": "directors_cut_oval",
+        "animation": "fade",
+        "wordsPerCaption": 5,
+        "maxKeys": 1,
+        "position": 0.63,
+        "highlightColor": "#F4DFBA",
+        "baseColor": "#FAF8F2",
+        "fontFamily": "Playfair Display",
+        "sansFontFamily": "Montserrat",
+        "kickerFontFamily": "Poppins",
+        "fontScale": 1.04,
+        "directorsCutOval": True,
+        "key": {
+            "font": "Playfair Display",
+            "size": 0.088,
+            "color": "#F4DFBA",
+            "bold": True,
+            "italic": True,
+            "weight": 700,
+            "shadow": 0.10,
+            "shadowColor": "rgba(0,0,0,0.88)"
+        },
+        "filler": {
+            "font": "Montserrat",
+            "size": 0.068,
+            "color": "#FAF8F2",
+            "bold": True,
+            "italic": False,
+            "weight": 900,
+            "shadow": 0.08,
+            "shadowColor": "rgba(0,0,0,0.88)"
+        }
+    }
+    out.insert(0, couture_signature_item)
+    out.insert(1, molten_brush_item)
+    out.insert(2, directors_cut_item)
+    out.insert(3, kold_cinematic_item)
+    out.insert(4, white_pill_item)
+    out.insert(5, sky_kinetic_item)
+    out.insert(6, wealth_broll_item)
+    out.insert(7, side_by_side_item)
 
     return out
 
@@ -1077,7 +1197,7 @@ def clean_style(s):
         "estateVariant": s.get("estateVariant"),
         "wordGap": float(_num(s.get("wordGap"), 0.01, 0.30, 0.08)),
         "previewWord": _text(s.get("previewWord"), "CAPTIONS", 18),
-        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic", "white_pill", "kold_cinematic", "above", "scatter", "echo") else ("stack" if s.get("isDuo") else "line"),
+        "layout": s.get("layout") if s.get("layout") in ("stack", "line", "side_by_side", "sky_kinetic", "white_pill", "kold_cinematic", "couture_signature", "molten_brush_italic", "directors_cut_oval", "above", "scatter", "echo") else ("stack" if s.get("isDuo") else "line"),
         "animation": anim,
         "anim": anim,
         "mode": s.get("mode") if s.get("mode") in ("emphasis", "highlight") else "emphasis",
@@ -2453,6 +2573,8 @@ def build_ass(captions, style, W, H):
     f_role = style.get("filler") or {}
     font_file = find_font_file(k_role if k_role.get("font") else f_role)
     font_name, ratio = get_ass_font_info(font_file)
+    f_font_file = find_font_file(f_role) if f_role.get("font") else font_file
+    f_font_name, f_ratio = get_ass_font_info(f_font_file)
 
     scale = max(260.0, min(W, H)) / 1080.0
     base_fs = float(style.get("fontSize") or f_role.get("size") or k_role.get("size") or 0.082)
@@ -2462,8 +2584,14 @@ def build_ass(captions, style, W, H):
         fs = max(18.0, round(base_fs * scale * float(style.get("fontScale", 1.0))))
 
     ass_fs = fs * ratio
+    f_base_fs = float(f_role.get("size") or base_fs)
+    f_fs = max(18.0, round((1080.0 * scale * f_base_fs if f_base_fs <= 1.0 else f_base_fs * scale) * float(style.get("fontScale", 1.0)))) if f_role.get("size") else fs
+    f_ass_fs = f_fs * f_ratio
+    k_base_fs = float(k_role.get("size") or base_fs)
+    k_fs = max(18.0, round((1080.0 * scale * k_base_fs if k_base_fs <= 1.0 else k_base_fs * scale) * float(style.get("fontScale", 1.0)))) if k_role.get("size") else fs
+    k_ass_fs = k_fs * ratio
     leading = 1.18
-    line_h = fs * leading
+    line_h = max(fs, k_fs, f_fs) * leading
 
     highlight_col = style.get("highlightColor") or k_role.get("color") or "#FFE600"
     base_col = style.get("baseColor") or f_role.get("color") or "#FFFFFF"
@@ -2548,16 +2676,22 @@ def build_ass(captions, style, W, H):
                 role = k_role if is_key else f_role
                 is_upper = role.get("upper", True if is_key else False)
                 txt = w["t"].upper() if is_upper else w["t"]
-                we = ink_layout.ink_extents(font_file, txt, fs)
+                w_ff = font_file if is_key else f_font_file
+                w_fn = font_name if is_key else f_font_name
+                w_fs_val = k_fs if is_key else f_fs
+                w_ass_val = k_ass_fs if is_key else f_ass_fs
+                we = ink_layout.ink_extents(w_ff, txt, w_fs_val)
                 measured.append({
                     "w": w,
                     "txt": txt,
                     "is_key": is_key,
-                    "width": we["width"]
+                    "width": we["width"],
+                    "font_name": w_fn,
+                    "ass_fs": w_ass_val,
                 })
 
-            space_extent = ink_layout.ink_extents(font_file, " ", fs)
-            space_w = max(fs * 0.28, space_extent["width"])
+            space_extent = ink_layout.ink_extents(f_font_file, " ", f_fs)
+            space_w = max(f_fs * 0.28, space_extent["width"])
             total_line_w = sum(m["width"] for m in measured) + max(0, len(measured) - 1) * space_w
 
             if style.get("align") == "left":
@@ -2634,8 +2768,8 @@ def build_ass(captions, style, W, H):
                 tags = [
                     r"\an5",
                     pos_tag,
-                    f"\\fn{font_name}",
-                    f"\\fs{ass_fs:.1f}",
+                    f"\\fn{m['font_name']}",
+                    f"\\fs{m['ass_fs']:.1f}",
                     f"\\b{bold}",
                     f"\\i{italic}",
                     f"\\1c{_c(col)}",

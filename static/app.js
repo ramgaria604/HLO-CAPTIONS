@@ -6668,6 +6668,732 @@ function drawKoldCinematicPass(ctxFore, cap, words, t, st, W, H, showAll, isPrev
   });
 }
 
+// ============================================================================
+// PREMIUM+ FOREGROUND SPECIAL-FONT PRESETS (COUTURE, MOLTEN BRUSH, DIRECTOR OVAL)
+// ============================================================================
+
+function _luxuryCleanWord(raw) {
+  return String(raw || '').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"“”]/g, '').trim();
+}
+
+function _luxuryFormatCase(str, mode, userCase) {
+  const s = String(str || '').trim();
+  if (!s) return '';
+  if (mode === 'upper' || (mode !== 'script' && userCase === 'upper')) return s.toUpperCase();
+  if (mode === 'lower' || userCase === 'lower') return s.toLowerCase();
+  if (mode === 'title') return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  return s;
+}
+
+function _applyLuxuryChromeShadow(ctx, blurPx, offsetY, scaleRef, alpha = 0.88) {
+  ctx.shadowColor = `rgba(0, 0, 0, ${alpha})`;
+  ctx.shadowBlur = Math.max(2, Math.round(blurPx * scaleRef));
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = Math.max(1, Math.round(offsetY * scaleRef));
+}
+
+function _makeLuxuryChampagneGrad(ctx, yTop, yBot, rt, fallbackTop, fallbackBot) {
+  if (rt && rt.customHighlight) return rt.customHighlight;
+  const g = ctx.createLinearGradient(0, yTop, 0, yBot);
+  g.addColorStop(0.0, fallbackTop || '#FFF3D1');
+  g.addColorStop(0.55, fallbackBot || '#F5CE72');
+  g.addColorStop(1.0, '#D4A243');
+  return g;
+}
+
+function drawCoutureSignaturePass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+  const rt = initEditorialSceneRuntime(ctxFore, null, cap, words, t, st, W, H, false, []);
+  const { evalT, fullInstant, exitFade, capStart, wordStart, easeOutCubic, progFactor, measureW, fitFont, pickHeroIdx, fontScale, lineSpacingMult, letterTrackDelta, userCase, heroX, pickFontFam, pickBase, pickHi, recordSceneBox } = rt;
+  if (exitFade <= 0.005) return;
+
+  const refDim = Math.min(W, H);
+  const scaleRef = refDim / 1080;
+  const posRatio = Number(st && (st.position || st.posY)) || 0.64;
+  const centerY = Math.round(H * posRatio) + rt.posDeltaY;
+
+  const sansFam = pickFontFam(st?.sansFontFamily || '"Poppins", "Inter", sans-serif');
+  const serifFam = pickFontFam(st?.fontFamily || st?.serifFontFamily || '"Bodoni Moda", "Playfair Display", "Cinzel", Georgia, serif');
+  const scriptFam = (rt.customFontStr) ? rt.customFontStr : (st?.scriptFontFamily ? `"${st.scriptFontFamily}", "Great Vibes", cursive` : '"Great Vibes", "Yellowtail", cursive');
+  const pearlWhite = pickBase('#FAF7F2');
+
+  const n = words.length;
+  let setupWords = [];
+  let heroWord = null;
+  let scriptWords = [];
+
+  if (n === 1) {
+    scriptWords = [words[0]];
+  } else if (n === 2) {
+    heroWord = words[0];
+    scriptWords = [words[1]];
+  } else if (n === 3) {
+    const stopSet = new Set(['a', 'an', 'the', 'to', 'at', 'in', 'on', 'of', 'for', 'with', 'and', 'or', 'your', 'you', 'is', 'are']);
+    const midClean = _luxuryCleanWord(words[1].t || words[1].word || '').toLowerCase();
+    if (stopSet.has(midClean) && midClean.length <= 3) {
+      setupWords = words.slice(0, 2);
+      heroWord = null;
+      scriptWords = [words[2]];
+    } else {
+      setupWords = [words[0]];
+      heroWord = words[1];
+      scriptWords = [words[2]];
+    }
+  } else {
+    // 4+ words: choose strongest hero word among [1 .. n-2] so setup & trailing script remain balanced
+    const midSlice = words.slice(1, n - 1);
+    const localBest = pickHeroIdx(midSlice);
+    let hIdx = 1 + localBest;
+    const explicitKeyIdx = words.findIndex((w, i) => Boolean(w && w.key) && i >= 1 && i <= n - 2);
+    if (explicitKeyIdx !== -1) hIdx = explicitKeyIdx;
+    setupWords = words.slice(0, Math.min(hIdx, 3));
+    heroWord = words[hIdx];
+    scriptWords = words.slice(hIdx + 1, Math.min(n, hIdx + 3));
+  }
+
+  const setupText = _luxuryFormatCase(setupWords.map(w => _luxuryCleanWord(w.t || w.word)).filter(Boolean).join(' '), 'upper', userCase);
+  const heroText = heroWord ? _luxuryFormatCase(_luxuryCleanWord(heroWord.t || heroWord.word), 'upper', userCase) : '';
+  const scriptText = _luxuryFormatCase(scriptWords.map(w => _luxuryCleanWord(w.t || w.word)).filter(Boolean).join(' '), 'script', userCase).toLowerCase();
+
+  const sansSize = Math.round(refDim * 0.032 * fontScale);
+  const serifTrack = 0.04 + (letterTrackDelta || 0);
+  const sansTrack = 0.24 + (letterTrackDelta || 0);
+
+  const heroFontFn = (sz) => `700 ${sz}px ${serifFam}`;
+  const heroSize = heroText ? fitFont(ctxFore, heroText, heroFontFn, refDim * (heroText.length <= 7 ? 0.115 : 0.095) * fontScale, refDim * 0.055, W * 0.86, serifTrack) : 0;
+
+  const scriptFontFn = (sz) => `400 ${sz}px ${scriptFam}`;
+  const idealScriptPx = (n === 1 ? 0.125 : 0.098) * refDim * fontScale;
+  const scriptSize = scriptText ? fitFont(ctxFore, scriptText, scriptFontFn, idealScriptPx, refDim * 0.048, W * 0.88, 0.01) : 0;
+
+  // Vertical layout calculation
+  const setupGap = setupText ? Math.round(sansSize * 1.45 * lineSpacingMult) : 0;
+  const overlapOffset = (heroSize > 0 && scriptSize > 0) ? Math.round(heroSize * 0.54 * lineSpacingMult) : (scriptSize > 0 ? Math.round(scriptSize * 0.65) : 0);
+  const totalBlockH = setupGap + (heroSize * 0.85) + overlapOffset + (scriptSize * 0.45);
+  let curY = centerY - totalBlockH * 0.5 + (setupText ? sansSize * 0.5 : heroSize * 0.45);
+
+  let minX = heroX, maxX = heroX, minY = centerY, maxY = centerY;
+
+  // 1. Setup Line (Wide-Tracked Architectural Small-Caps)
+  if (setupText) {
+    const sStart = wordStart(setupWords[0], capStart);
+    const p = progFactor(sStart, 0.24);
+    const ease = easeOutCubic(p);
+    if (p > 0.005) {
+      ctxFore.save();
+      ctxFore.globalAlpha = exitFade * ease;
+      ctxFore.font = `500 ${sansSize}px ${sansFam}`;
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sansTrack}em`;
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      _applyLuxuryChromeShadow(ctxFore, 8, 2, scaleRef, 0.85);
+      ctxFore.fillStyle = pearlWhite;
+      const yPos = curY + (fullInstant ? 0 : (1 - ease) * (6 * scaleRef));
+      ctxFore.fillText(setupText, heroX, yPos);
+      const sw = measureW(ctxFore, setupText, sansSize, sansTrack);
+      minX = Math.min(minX, heroX - sw * 0.5);
+      maxX = Math.max(maxX, heroX + sw * 0.5);
+      minY = Math.min(minY, yPos - sansSize * 0.6);
+      ctxFore.restore();
+    }
+    curY += setupGap + (heroSize * 0.36);
+  }
+
+  // 2. Hero Didone Editorial Serif (Clean Baseline Reveal)
+  if (heroText) {
+    const hStart = wordStart(heroWord, capStart + (setupWords.length ? 0.14 : 0));
+    const p = progFactor(hStart, 0.28);
+    const ease = easeOutCubic(p);
+    if (p > 0.005) {
+      const hw = measureW(ctxFore, heroText, heroSize, serifTrack);
+      ctxFore.save();
+      ctxFore.font = heroFontFn(heroSize);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${serifTrack}em`;
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      ctxFore.globalAlpha = exitFade * Math.min(1, ease * 1.3);
+      const yPos = curY + (fullInstant ? 0 : (1 - ease) * (14 * scaleRef));
+      _applyLuxuryChromeShadow(ctxFore, 12, 4, scaleRef, 0.88);
+      ctxFore.fillStyle = pearlWhite;
+      ctxFore.fillText(heroText, heroX, yPos);
+      minX = Math.min(minX, heroX - hw * 0.5);
+      maxX = Math.max(maxX, heroX + hw * 0.5);
+      minY = Math.min(minY, yPos - heroSize * 0.55);
+      maxY = Math.max(maxY, yPos + heroSize * 0.5);
+      ctxFore.restore();
+    }
+    curY += overlapOffset;
+  }
+
+  // 3. Flowing Champagne Calligraphy Script (Left-to-Right Ink Sweep Reveal)
+  if (scriptText) {
+    const scStart = wordStart(scriptWords[0], capStart + (heroWord ? 0.30 : 0.04));
+    const scDur = Math.max(0.32, Math.min(0.65, scriptWords.length * 0.28));
+    const p = progFactor(scStart, scDur);
+    const ease = easeOutCubic(p);
+    if (p > 0.005) {
+      ctxFore.save();
+      ctxFore.font = scriptFontFn(scriptSize);
+      const scw = measureW(ctxFore, scriptText, scriptSize, 0.01);
+      const padMargin = Math.round(scriptSize * 0.45);
+      const yPos = curY + (fullInstant ? 0 : (1 - ease) * (5 * scaleRef));
+
+      // Horizontal ink-write clip reveal from left to right
+      const clipLeft = heroX - scw * 0.5 - padMargin;
+      const totalClipW = scw + padMargin * 2;
+      if (!fullInstant && ease < 0.999) {
+        ctxFore.beginPath();
+        ctxFore.rect(clipLeft, yPos - scriptSize * 0.95, totalClipW * ease, scriptSize * 1.9);
+        ctxFore.clip();
+      }
+
+      ctxFore.globalAlpha = exitFade * Math.min(1, p * 3.2);
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      _applyLuxuryChromeShadow(ctxFore, 10, 3, scaleRef, 0.92);
+      ctxFore.fillStyle = _makeLuxuryChampagneGrad(ctxFore, yPos - scriptSize * 0.45, yPos + scriptSize * 0.45, rt, '#FFF4D4', '#EBC369');
+      ctxFore.fillText(scriptText, heroX, yPos);
+      minX = Math.min(minX, heroX - scw * 0.5);
+      maxX = Math.max(maxX, heroX + scw * 0.5);
+      maxY = Math.max(maxY, yPos + scriptSize * 0.55);
+      ctxFore.restore();
+    }
+  }
+
+  recordSceneBox(minX - 16, minY - 12, Math.max(80, maxX - minX + 32), Math.max(50, maxY - minY + 24));
+}
+
+function drawMoltenBrushItalicPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+  const rt = initEditorialSceneRuntime(ctxFore, null, cap, words, t, st, W, H, false, []);
+  const { evalT, fullInstant, exitFade, capStart, wordStart, easeOutCubic, progFactor, measureW, fitFont, fontScale, lineSpacingMult, letterTrackDelta, userCase, heroX, pickFontFam, pickBase, recordSceneBox } = rt;
+  if (exitFade <= 0.005) return;
+
+  const refDim = Math.min(W, H);
+  const scaleRef = refDim / 1080;
+  const posRatio = Number(st && (st.position || st.posY)) || 0.65;
+  const centerY = Math.round(H * posRatio) + rt.posDeltaY;
+
+  const sansFam = pickFontFam(st?.sansFontFamily || '"Montserrat", "Poppins", sans-serif');
+  const serifFam = pickFontFam(st?.fontFamily || '"Playfair Display", "Cormorant Garamond", Georgia, serif');
+  const pearlWhite = pickBase('#FAF8F2');
+
+  const n = words.length;
+  let line1Words = [];
+  let line2Words = [];
+  if (n === 1) {
+    line2Words = [words[0]];
+  } else if (n === 2) {
+    line1Words = [words[0]];
+    line2Words = [words[1]];
+  } else if (n === 3) {
+    line1Words = [words[0]];
+    line2Words = words.slice(1);
+  } else {
+    const split = Math.ceil(n / 2);
+    line1Words = words.slice(0, split);
+    line2Words = words.slice(split);
+  }
+
+  const line1Text = _luxuryFormatCase(line1Words.map(w => _luxuryCleanWord(w.t || w.word)).filter(Boolean).join(' '), 'upper', userCase);
+  const sansTrack = -0.02 + (letterTrackDelta || 0);
+  const l1FontFn = (sz) => `900 ${sz}px ${sansFam}`;
+  const l1Size = line1Text ? fitFont(ctxFore, line1Text, l1FontFn, refDim * 0.072 * fontScale, refDim * 0.038, W * 0.88, sansTrack) : 0;
+
+  const l2Texts = line2Words.map(w => _luxuryFormatCase(_luxuryCleanWord(w.t || w.word), 'lower', userCase));
+  const l2FullStr = l2Texts.join(' ');
+  const serifTrack = 0.0 + (letterTrackDelta || 0);
+  const l2FontFn = (sz) => `italic 700 ${sz}px ${serifFam}`;
+  const l2Size = l2FullStr ? fitFont(ctxFore, l2FullStr, l2FontFn, refDim * 0.088 * fontScale, refDim * 0.044, W * 0.88, serifTrack) : 0;
+
+  const gapY = (l1Size > 0 && l2Size > 0) ? Math.round((l1Size * 0.55 + l2Size * 0.58) * lineSpacingMult) : 0;
+  const y1 = l1Size > 0 ? (centerY - gapY * 0.52) : centerY;
+  const y2 = l1Size > 0 ? (centerY + gapY * 0.48) : centerY;
+
+  let minX = heroX, maxX = heroX;
+
+  // Line 1: Crisp Heavy Geometric White Caps
+  if (line1Words.length) {
+    ctxFore.save();
+    ctxFore.font = l1FontFn(l1Size);
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${sansTrack}em`;
+    const space1 = Math.round(l1Size * 0.28);
+    const items1 = line1Words.map((w, idx) => {
+      const txt = _luxuryFormatCase(_luxuryCleanWord(w.t || w.word), 'upper', userCase);
+      const s = wordStart(w, capStart + idx * 0.22);
+      return { txt, s, width: measureW(ctxFore, txt, l1Size, sansTrack) };
+    });
+    const totW1 = items1.reduce((acc, it) => acc + it.width, 0) + Math.max(0, items1.length - 1) * space1;
+    let cx1 = heroX - totW1 * 0.5;
+    minX = Math.min(minX, cx1);
+    maxX = Math.max(maxX, cx1 + totW1);
+
+    items1.forEach((it) => {
+      const p = progFactor(it.s, 0.20);
+      const ease = easeOutCubic(p);
+      const isLit = fullInstant || evalT >= it.s - 0.02;
+      ctxFore.save();
+      ctxFore.globalAlpha = exitFade * (isLit ? Math.max(0.45, ease) : 0.42);
+      ctxFore.textAlign = 'left';
+      ctxFore.textBaseline = 'middle';
+      _applyLuxuryChromeShadow(ctxFore, 10, 3, scaleRef, 0.88);
+      ctxFore.fillStyle = pearlWhite;
+      const dy = fullInstant ? 0 : (1 - ease) * (10 * scaleRef);
+      ctxFore.fillText(it.txt, cx1, y1 + dy);
+      ctxFore.restore();
+      cx1 += it.width + space1;
+    });
+    ctxFore.restore();
+  }
+
+  // Line 2: Molten Gold Editorial Italic + Tapered Brush Underline + Trailing Ghost Word
+  if (line2Words.length) {
+    ctxFore.save();
+    ctxFore.font = l2FontFn(l2Size);
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${serifTrack}em`;
+    const space2 = Math.round(l2Size * 0.28);
+
+    // Determine which words in Line 2 make the gold highlighted segment (all except trailing ghost when length >= 2)
+    const keyOverride = line2Words.findIndex(w => Boolean(w && w.key));
+    const goldCount = line2Words.length >= 2 ? (keyOverride !== -1 ? keyOverride + 1 : line2Words.length - 1) : 1;
+
+    const items2 = line2Words.map((w, idx) => {
+      const txt = _luxuryFormatCase(_luxuryCleanWord(w.t || w.word), 'lower', userCase);
+      const s = wordStart(w, capStart + (line1Words.length + idx) * 0.24);
+      const isGhostTrail = (line2Words.length >= 2 && idx >= goldCount);
+      return { txt, s, isGhostTrail, width: measureW(ctxFore, txt, l2Size, serifTrack) };
+    });
+
+    const totW2 = items2.reduce((acc, it) => acc + it.width, 0) + Math.max(0, items2.length - 1) * space2;
+    let cx2 = heroX - totW2 * 0.5;
+    minX = Math.min(minX, cx2);
+    maxX = Math.max(maxX, cx2 + totW2);
+
+    const goldStartX = cx2;
+    let goldEndX = cx2;
+    let firstGoldStart = items2[0].s;
+
+    items2.forEach((it, idx) => {
+      const isGoldSlot = !it.isGhostTrail;
+      if (isGoldSlot) {
+        goldEndX = cx2 + it.width;
+        if (idx === 0) firstGoldStart = it.s;
+      }
+
+      const spokenNow = fullInstant || evalT >= it.s - 0.02;
+      const p = progFactor(it.s, 0.22);
+      const ease = easeOutCubic(p);
+
+      ctxFore.save();
+      ctxFore.textAlign = 'left';
+      ctxFore.textBaseline = 'middle';
+
+      if (isGoldSlot) {
+        if (!fullInstant && spokenNow && p < 1) {
+          const pop = 1.0 + 0.055 * Math.sin(p * Math.PI);
+          const wx = cx2 + it.width * 0.5;
+          ctxFore.translate(wx, y2);
+          ctxFore.scale(pop, pop);
+          ctxFore.translate(-wx, -y2);
+        }
+        ctxFore.globalAlpha = exitFade * (spokenNow ? 1.0 : 0.42);
+        _applyLuxuryChromeShadow(ctxFore, 10, 3, scaleRef, 0.90);
+        ctxFore.fillStyle = spokenNow
+          ? _makeLuxuryChampagneGrad(ctxFore, y2 - l2Size * 0.45, y2 + l2Size * 0.45, rt, '#FFF2C6', '#F4CA5E')
+          : 'rgba(255, 252, 245, 0.44)';
+        ctxFore.fillText(it.txt, cx2, y2);
+      } else {
+        // Ghost trailing word — subtly dims at ~42%, smoothly elevates to soft cream when reached
+        const ghostAlpha = spokenNow ? (isSampleCard || fullInstant ? 0.44 : (0.44 + 0.46 * ease)) : 0.42;
+        ctxFore.globalAlpha = exitFade * ghostAlpha;
+        _applyLuxuryChromeShadow(ctxFore, 8, 2, scaleRef, 0.80);
+        ctxFore.fillStyle = pearlWhite;
+        ctxFore.fillText(it.txt, cx2, y2);
+      }
+      ctxFore.restore();
+      cx2 += it.width + space2;
+    });
+
+    // Tapered Animated Hand-Painted Gold Brush Underline under the Gold Segment
+    const brushProg = fullInstant ? 1.0 : progFactor(firstGoldStart, 0.34);
+    if (brushProg > 0.01 && goldEndX > goldStartX) {
+      const bEase = easeOutCubic(brushProg);
+      const bx0 = goldStartX - 2 * scaleRef;
+      const bx1 = goldEndX + 4 * scaleRef;
+      const spanW = (bx1 - bx0) * bEase;
+      const curEnd = bx0 + spanW;
+      const by = y2 + l2Size * 0.46;
+      const thick = Math.max(2.5, l2Size * 0.068);
+
+      ctxFore.save();
+      ctxFore.globalAlpha = exitFade * Math.min(1, brushProg * 2.5);
+      _applyLuxuryChromeShadow(ctxFore, 6, 2, scaleRef, 0.85);
+      ctxFore.fillStyle = _makeLuxuryChampagneGrad(ctxFore, by - thick, by + thick, rt, '#FFF6D6', '#EBB948');
+      ctxFore.beginPath();
+      ctxFore.moveTo(bx0, by);
+      ctxFore.quadraticCurveTo(bx0 + spanW * 0.45, by - thick * 0.85, curEnd, by - thick * 0.15);
+      ctxFore.quadraticCurveTo(bx0 + spanW * 0.55, by + thick * 0.72, bx0, by + thick * 0.12);
+      ctxFore.closePath();
+      ctxFore.fill();
+      ctxFore.restore();
+    }
+
+    ctxFore.restore();
+  }
+
+  recordSceneBox(minX - 18, y1 - l1Size * 0.65, Math.max(90, maxX - minX + 36), (y2 - y1) + l1Size * 0.7 + l2Size * 0.85);
+}
+
+function drawDirectorsCutOvalPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
+  if (!ctxFore || !words || !words.length) return;
+  const rt = initEditorialSceneRuntime(ctxFore, null, cap, words, t, st, W, H, false, []);
+  const { evalT, fullInstant, exitFade, capStart, wordStart, easeOutCubic, progFactor, measureW, fitFont, pickHeroIdx, fontScale, lineSpacingMult, letterTrackDelta, userCase, heroX, pickFontFam, pickBase, recordSceneBox } = rt;
+  if (exitFade <= 0.005) return;
+
+  const refDim = Math.min(W, H);
+  const scaleRef = refDim / 1080;
+  const posRatio = Number(st && (st.position || st.posY)) || 0.63;
+  const centerY = Math.round(H * posRatio) + rt.posDeltaY;
+
+  const kickerFam = '"Poppins", "Inter", sans-serif';
+  const sansFam = pickFontFam(st?.sansFontFamily || '"Montserrat", "Poppins", sans-serif');
+  const serifFam = pickFontFam(st?.fontFamily || '"Playfair Display", "Cormorant Garamond", Georgia, serif');
+  const pearlWhite = pickBase('#FAF8F2');
+
+  // Partition into Band A (tracked kicker), Band B ([boldWhite, serifOvalHero]), Band C (quiet lowercase context)
+  const n = words.length;
+  let kickerWords = [];
+  let leftHeroWord = null;
+  let ovalHeroWord = null;
+  let lowerWords = [];
+
+  if (n === 1) {
+    ovalHeroWord = words[0];
+  } else if (n === 2) {
+    leftHeroWord = words[0];
+    ovalHeroWord = words[1];
+  } else if (n === 3) {
+    kickerWords = [words[0]];
+    leftHeroWord = words[1];
+    ovalHeroWord = words[2];
+  } else if (n === 4) {
+    kickerWords = words.slice(0, 2);
+    leftHeroWord = words[2];
+    ovalHeroWord = words[3];
+  } else {
+    const keyI = words.findIndex((w, i) => Boolean(w && w.key) && i >= 1 && i <= n - 2);
+    if (n === 5) {
+      const splitH = (keyI >= 2 && keyI <= 3) ? keyI : 2;
+      kickerWords = words.slice(0, splitH - 1);
+      leftHeroWord = words[splitH - 1];
+      ovalHeroWord = words[splitH];
+      lowerWords = words.slice(splitH + 1);
+    } else {
+      const splitH = (keyI >= 2 && keyI <= n - 2) ? keyI : 3;
+      kickerWords = words.slice(0, Math.max(1, splitH - 1));
+      leftHeroWord = words[splitH - 1];
+      ovalHeroWord = words[splitH];
+      lowerWords = words.slice(splitH + 1, Math.min(n, splitH + 5));
+    }
+  }
+
+  const kickerText = _luxuryFormatCase(kickerWords.map(w => _luxuryCleanWord(w.t || w.word)).filter(Boolean).join(' '), 'upper', userCase);
+  const leftText = leftHeroWord ? _luxuryFormatCase(_luxuryCleanWord(leftHeroWord.t || leftHeroWord.word), 'upper', userCase) : '';
+  const ovalText = ovalHeroWord ? _luxuryFormatCase(_luxuryCleanWord(ovalHeroWord.t || ovalHeroWord.word), 'title', userCase) : '';
+  const lowerText = _luxuryFormatCase(lowerWords.map(w => _luxuryCleanWord(w.t || w.word)).filter(Boolean).join(' '), 'lower', userCase);
+
+  const kickerTrack = 0.22 + (letterTrackDelta || 0);
+  const kickerFontFn = (sz) => `500 ${sz}px ${kickerFam}`;
+  const kickerSize = kickerText ? fitFont(ctxFore, kickerText, kickerFontFn, refDim * 0.044 * fontScale, refDim * 0.026, W * 0.84, kickerTrack) : 0;
+
+  const sansHeroSize = Math.round(refDim * 0.078 * fontScale);
+  const serifOvalSize = Math.round(refDim * 0.088 * fontScale);
+  const lowerFontFn = (sz) => `400 ${sz}px ${kickerFam}`;
+  const lowerSize = lowerText ? fitFont(ctxFore, lowerText, lowerFontFn, refDim * 0.042 * fontScale, refDim * 0.024, W * 0.88, 0.01) : 0;
+
+  // Compute Band B horizontal geometry (auto-fit if leftText + ovalText is wider than 84% W)
+  ctxFore.save();
+  ctxFore.font = `900 ${sansHeroSize}px ${sansFam}`;
+  const rawLeftW = leftText ? measureW(ctxFore, leftText, sansHeroSize, -0.02) : 0;
+  ctxFore.font = `italic 700 ${serifOvalSize}px ${serifFam}`;
+  const rawOvalW = ovalText ? measureW(ctxFore, ovalText, serifOvalSize, 0.01) : 0;
+  ctxFore.restore();
+
+  const rawGapB = (leftText && ovalText) ? Math.round(sansHeroSize * 0.42) : 0;
+  const maxBandBW = W * 0.84;
+  const bandScale = (rawLeftW + rawGapB + rawOvalW) > maxBandBW ? (maxBandBW / Math.max(1, rawLeftW + rawGapB + rawOvalW)) : 1.0;
+
+  const fSansB = Math.round(sansHeroSize * bandScale);
+  const fSerifB = Math.round(serifOvalSize * bandScale);
+  const leftW = rawLeftW * bandScale;
+  const ovalW = rawOvalW * bandScale;
+  const gapB = rawGapB * bandScale;
+  const totBW = leftW + gapB + ovalW;
+
+  const kickerGap = kickerText ? Math.round((kickerSize * 0.85 + fSerifB * 0.52) * lineSpacingMult) : 0;
+  const lowerGap = lowerText ? Math.round((fSerifB * 0.64 + lowerSize * 0.8) * lineSpacingMult) : 0;
+  const yB = centerY + (kickerGap - lowerGap) * 0.35;
+  const yA = yB - kickerGap;
+  const yC = yB + lowerGap;
+
+  let minX = heroX - totBW * 0.5, maxX = heroX + totBW * 0.5;
+
+  // Band A: Kicker
+  if (kickerText) {
+    const kStart = wordStart(kickerWords[0], capStart);
+    const kp = progFactor(kStart, 0.22);
+    const ke = easeOutCubic(kp);
+    if (kp > 0.005) {
+      ctxFore.save();
+      ctxFore.globalAlpha = exitFade * ke;
+      ctxFore.font = kickerFontFn(kickerSize);
+      if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = `${kickerTrack}em`;
+      ctxFore.textAlign = 'left';
+      ctxFore.textBaseline = 'middle';
+      _applyLuxuryChromeShadow(ctxFore, 8, 2, scaleRef, 0.85);
+      ctxFore.fillStyle = _makeLuxuryChampagneGrad(ctxFore, yA - kickerSize * 0.4, yA + kickerSize * 0.4, rt, '#F5E6CC', '#DFC191');
+      // Align kicker over the left edge of Band B if Band B has both left + oval (classic documentary look), else center
+      const kx = (leftText && ovalText) ? Math.max(W * 0.06, heroX - totBW * 0.5) : (heroX - measureW(ctxFore, kickerText, kickerSize, kickerTrack) * 0.5);
+      ctxFore.fillText(kickerText, kx, yA + (fullInstant ? 0 : (1 - ke) * (6 * scaleRef)));
+      ctxFore.restore();
+    }
+  }
+
+  // Band B: Heavy Geometric White Sans + Champagne Italic Hero Wrapped in Animated Golden Oval Loop
+  let curBX = heroX - totBW * 0.5;
+  if (leftText) {
+    const lStart = wordStart(leftHeroWord, capStart + (kickerWords.length ? 0.14 : 0));
+    const lp = progFactor(lStart, 0.22);
+    const le = easeOutCubic(lp);
+    ctxFore.save();
+    ctxFore.globalAlpha = exitFade * (fullInstant || evalT >= lStart - 0.02 ? Math.max(0.5, le) : 0.42);
+    ctxFore.font = `900 ${fSansB}px ${sansFam}`;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '-0.02em';
+    ctxFore.textAlign = 'left';
+    ctxFore.textBaseline = 'middle';
+    _applyLuxuryChromeShadow(ctxFore, 10, 3, scaleRef, 0.90);
+    ctxFore.fillStyle = pearlWhite;
+    ctxFore.fillText(leftText, curBX, yB + (fullInstant ? 0 : (1 - le) * (8 * scaleRef)));
+    ctxFore.restore();
+    curBX += leftW + gapB;
+  }
+
+  if (ovalText) {
+    const oStart = wordStart(ovalHeroWord, capStart + (kickerWords.length + (leftText ? 1 : 0)) * 0.16);
+    const op = progFactor(oStart, 0.26);
+    const oe = easeOutCubic(op);
+    const spokenNow = fullInstant || evalT >= oStart - 0.02;
+
+    // 1. Draw Serif Text
+    ctxFore.save();
+    ctxFore.globalAlpha = exitFade * (spokenNow ? Math.max(0.55, oe) : 0.42);
+    ctxFore.font = `italic 700 ${fSerifB}px ${serifFam}`;
+    if ('letterSpacing' in ctxFore) ctxFore.letterSpacing = '0.01em';
+    ctxFore.textAlign = 'left';
+    ctxFore.textBaseline = 'middle';
+    _applyLuxuryChromeShadow(ctxFore, 11, 3, scaleRef, 0.92);
+    ctxFore.fillStyle = spokenNow
+      ? _makeLuxuryChampagneGrad(ctxFore, yB - fSerifB * 0.45, yB + fSerifB * 0.45, rt, '#FFF3D9', '#E6C687')
+      : 'rgba(248, 244, 236, 0.42)';
+    ctxFore.fillText(ovalText, curBX, yB);
+    ctxFore.restore();
+
+    // 2. Parametric Double-Loop Golden Fountain-Pen Oval sweeping organically around the Hero word
+    const penProg = fullInstant ? 1.0 : progFactor(oStart + 0.03, 0.42);
+    if (penProg > 0.01) {
+      const pEase = easeOutCubic(penProg);
+      const ovalCx = curBX + ovalW * 0.51;
+      const ovalCy = yB + fSerifB * 0.02;
+      const rx = ovalW * 0.62;
+      const ry = fSerifB * 0.64;
+
+      const drawPenTurn = (maxAngle, tiltRad, radScaleX, radScaleY, lineW, phaseShift, alphaMul) => {
+        ctxFore.save();
+        ctxFore.translate(ovalCx, ovalCy);
+        ctxFore.rotate(tiltRad);
+        ctxFore.globalAlpha = exitFade * alphaMul * Math.min(1, penProg * 2.4);
+        ctxFore.strokeStyle = rt.customHighlight || '#F6D992';
+        ctxFore.lineWidth = lineW;
+        ctxFore.lineCap = 'round';
+        ctxFore.lineJoin = 'round';
+        _applyLuxuryChromeShadow(ctxFore, 5, 1, scaleRef, 0.82);
+
+        const steps = 64;
+        const startAng = -0.25 * Math.PI + phaseShift;
+        const totalAng = maxAngle * pEase;
+        ctxFore.beginPath();
+        for (let i = 0; i <= steps; i++) {
+          const frac = i / steps;
+          const th = startAng + frac * totalAng;
+          const wobbleX = 1 + 0.038 * Math.sin(2.0 * th + phaseShift);
+          const wobbleY = 1 + 0.045 * Math.cos(1.7 * th - phaseShift);
+          const px = Math.cos(th) * rx * radScaleX * wobbleX;
+          const py = Math.sin(th) * ry * radScaleY * wobbleY;
+          if (i === 0) ctxFore.moveTo(px, py);
+          else ctxFore.lineTo(px, py);
+        }
+        ctxFore.stroke();
+        ctxFore.restore();
+      };
+
+      drawPenTurn(2.15 * Math.PI, -0.04, 1.00, 1.00, Math.max(1.8, 2.8 * scaleRef), 0.0, 0.96);
+      drawPenTurn(1.85 * Math.PI, 0.02, 1.05, 0.94, Math.max(1.2, 1.9 * scaleRef), 0.75, 0.72);
+    }
+  }
+
+  // Band C: Quiet Lower Whisper Context
+  if (lowerText) {
+    const cStart = wordStart(lowerWords[0], capStart + 0.55);
+    const cp = progFactor(cStart, 0.28);
+    const ce = easeOutCubic(cp);
+    if (cp > 0.005) {
+      ctxFore.save();
+      ctxFore.globalAlpha = exitFade * (0.76 * ce);
+      ctxFore.font = lowerFontFn(lowerSize);
+      ctxFore.textAlign = 'center';
+      ctxFore.textBaseline = 'middle';
+      _applyLuxuryChromeShadow(ctxFore, 8, 2, scaleRef, 0.85);
+      ctxFore.fillStyle = pearlWhite;
+      ctxFore.fillText(lowerText, heroX, yC + (fullInstant ? 0 : (1 - ce) * (8 * scaleRef)));
+      const lw = measureW(ctxFore, lowerText, lowerSize, 0.01);
+      minX = Math.min(minX, heroX - lw * 0.5);
+      maxX = Math.max(maxX, heroX + lw * 0.5);
+      ctxFore.restore();
+    }
+  }
+
+  recordSceneBox(minX - 24, (kickerText ? yA - kickerSize * 0.6 : yB - fSerifB * 0.7), Math.max(100, maxX - minX + 48), (lowerText ? yC + lowerSize : yB + fSerifB * 0.75) - (kickerText ? yA - kickerSize : yB - fSerifB * 0.75));
+}
+
+function _renderLuxurySpecialCardArt(art, preset) {
+  const id = (preset && preset.id) || '';
+  const layout = (preset && preset.layout) || '';
+  const match = (k) => id === k || layout === k;
+
+  if (match('couture_signature')) {
+    const box = document.createElement('div');
+    box.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;margin-top:4px;line-height:1;';
+
+    const top = document.createElement('span');
+    top.textContent = 'DISCIPLINE BUILDS WHAT';
+    top.style.cssText = `font-family:'Poppins',sans-serif;font-weight:500;font-size:6.5px;letter-spacing:1.8px;color:#FAF7F2;margin-bottom:3px;text-shadow:0 1px 4px rgba(0,0,0,0.85);`;
+
+    const mid = document.createElement('span');
+    mid.textContent = 'TALENT';
+    mid.style.cssText = `font-family:'Bodoni Moda','Playfair Display','Cinzel',serif;font-weight:700;font-size:19px;letter-spacing:0.6px;line-height:0.88;color:#FAF7F2;text-shadow:0 2px 10px rgba(0,0,0,0.92);`;
+
+    const script = document.createElement('span');
+    script.textContent = 'never could';
+    script.style.cssText = `font-family:'Great Vibes','Yellowtail',cursive;font-size:19px;line-height:1;margin-top:-6px;padding:0 4px;background:linear-gradient(180deg,#FFF4D4 0%,#F5CE72 60%,#D4A243 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.95));`;
+
+    box.append(top, mid, script);
+    art.appendChild(box);
+    return true;
+  }
+
+  if (match('molten_brush_italic')) {
+    const box = document.createElement('div');
+    box.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;margin-top:5px;line-height:1.08;';
+
+    const top = document.createElement('span');
+    top.textContent = 'BUILT DIFFERENT';
+    top.style.cssText = `font-family:'Montserrat','Poppins',sans-serif;font-weight:900;font-size:12px;letter-spacing:-0.3px;color:#FAF8F2;text-shadow:0 2px 8px rgba(0,0,0,0.9);`;
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:inline-flex;align-items:flex-start;gap:5px;margin-top:1px;';
+
+    const litCol = document.createElement('div');
+    litCol.style.cssText = 'display:inline-flex;flex-direction:column;align-items:center;';
+    const lit = document.createElement('span');
+    lit.textContent = 'not for';
+    lit.style.cssText = `font-family:'Playfair Display','Cormorant Garamond',serif;font-style:italic;font-weight:700;font-size:15px;color:#F5CE67;text-shadow:0 2px 8px rgba(0,0,0,0.9);`;
+    const brushSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    brushSvg.setAttribute('viewBox', '0 0 100 10');
+    brushSvg.style.cssText = 'width:46px;height:5px;margin-top:-1px;filter:drop-shadow(0 1px 4px rgba(245,206,103,0.45));';
+    const bPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    bPath.setAttribute('d', 'M2,5 Q45,1 98,4 Q52,9 2,6 Z');
+    bPath.setAttribute('fill', '#F7D473');
+    brushSvg.appendChild(bPath);
+    litCol.append(lit, brushSvg);
+
+    const ghost = document.createElement('span');
+    ghost.textContent = 'everyone';
+    ghost.style.cssText = `font-family:'Playfair Display',serif;font-style:italic;font-weight:600;font-size:15px;color:rgba(255,252,245,0.42);text-shadow:0 2px 8px rgba(0,0,0,0.85);`;
+
+    row.append(litCol, ghost);
+    box.append(top, row);
+    art.appendChild(box);
+    return true;
+  }
+
+  if (match('directors_cut_oval')) {
+    const box = document.createElement('div');
+    box.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;margin-top:4px;line-height:1.1;';
+
+    const top = document.createElement('span');
+    top.textContent = 'BUILD IN';
+    top.style.cssText = `font-family:'Poppins',sans-serif;font-weight:500;font-size:7px;letter-spacing:2px;color:#E8D3B0;text-shadow:0 1px 4px rgba(0,0,0,0.85);`;
+
+    const midRow = document.createElement('div');
+    midRow.style.cssText = 'display:inline-flex;align-items:center;gap:5px;margin-top:1px;';
+
+    const leftBold = document.createElement('span');
+    leftBold.textContent = 'TOTAL';
+    leftBold.style.cssText = `font-family:'Montserrat',sans-serif;font-weight:900;font-size:13px;letter-spacing:-0.3px;color:#FAF8F2;text-shadow:0 2px 8px rgba(0,0,0,0.9);`;
+
+    const ovalWrap = document.createElement('span');
+    ovalWrap.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;padding:1px 7px;';
+    const heroWord = document.createElement('span');
+    heroWord.textContent = 'Silence';
+    heroWord.style.cssText = `font-family:'Playfair Display',serif;font-style:italic;font-weight:700;font-size:14.5px;color:#F4DFBA;position:relative;z-index:2;text-shadow:0 2px 8px rgba(0,0,0,0.92);`;
+    const ovalSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    ovalSvg.setAttribute('viewBox', '0 0 100 44');
+    ovalSvg.style.cssText = 'position:absolute;inset:-3px -3px;width:calc(100% + 6px);height:calc(100% + 6px);pointer-events:none;overflow:visible;';
+    const e1 = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    e1.setAttribute('cx', '50'); e1.setAttribute('cy', '22'); e1.setAttribute('rx', '47'); e1.setAttribute('ry', '18');
+    e1.setAttribute('fill', 'none'); e1.setAttribute('stroke', '#F6D992'); e1.setAttribute('stroke-width', '1.8');
+    e1.setAttribute('transform', 'rotate(-2 50 22)');
+    const e2 = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    e2.setAttribute('cx', '50'); e2.setAttribute('cy', '22'); e2.setAttribute('rx', '48'); e2.setAttribute('ry', '16.5');
+    e2.setAttribute('fill', 'none'); e2.setAttribute('stroke', 'rgba(246,217,146,0.72)'); e2.setAttribute('stroke-width', '1.2');
+    e2.setAttribute('transform', 'rotate(2 50 22)');
+    ovalSvg.append(e1, e2);
+    ovalWrap.append(heroWord, ovalSvg);
+
+    midRow.append(leftBold, ovalWrap);
+
+    const sub = document.createElement('span');
+    sub.textContent = 'and watch them wonder';
+    sub.style.cssText = `font-family:'Poppins',sans-serif;font-weight:400;font-size:7px;color:rgba(250,248,242,0.72);margin-top:2px;`;
+
+    box.append(top, midRow, sub);
+    art.appendChild(box);
+    return true;
+  }
+
+  if (match('kold_cinematic')) {
+    const koldBox = document.createElement('div');
+    koldBox.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;margin-top:4px;';
+    const line1 = document.createElement('span');
+    line1.textContent = 'THE';
+    line1.style.cssText = `font-family:'Poppins',sans-serif;font-weight:800;font-size:12px;letter-spacing:1px;color:#FFFFFF;text-shadow:0 2px 8px rgba(0,0,0,0.85);`;
+    const line2Box = document.createElement('div');
+    line2Box.style.cssText = 'display:flex;align-items:baseline;gap:5px;';
+    const heroSpan = document.createElement('span');
+    heroSpan.textContent = 'BEST';
+    heroSpan.style.cssText = `font-family:'Playfair Display',serif;font-weight:700;font-size:17px;color:#FFFFFF;text-shadow:0 2px 10px rgba(0,0,0,0.9);`;
+    const trailSpan = document.createElement('span');
+    trailSpan.textContent = 'performing';
+    trailSpan.style.cssText = `font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:rgba(255,255,255,0.45);text-shadow:0 2px 8px rgba(0,0,0,0.85);`;
+    line2Box.append(heroSpan, trailSpan);
+    koldBox.append(line1, line2Box);
+    art.appendChild(koldBox);
+    return true;
+  }
+
+  return false;
+}
+
 function drawCrazySunsetStackPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview) {
   if (!ctxFore || !words || !words.length) return;
 
@@ -13143,6 +13869,12 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
         drawEditorialDepthStackPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
       } else if (st.id === 'real_estate_depth_split') {
         drawRealEstateDepthSplitPass(ctxFore, ctxBehind, cap, words, t, st, W, H, isBehind, showAll, isPreview);
+      } else if (st.id === 'couture_signature' || st.coutureSignature || st.layout === 'couture_signature') {
+        drawCoutureSignaturePass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
+      } else if (st.id === 'molten_brush_italic' || st.moltenBrushItalic || st.layout === 'molten_brush_italic') {
+        drawMoltenBrushItalicPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
+      } else if (st.id === 'directors_cut_oval' || st.directorsCutOval || st.layout === 'directors_cut_oval') {
+        drawDirectorsCutOvalPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.id === 'kold_cinematic' || st.koldCinematic || st.layout === 'kold_cinematic') {
         drawKoldCinematicPass(ctxFore, cap, words, t, st, W, H, showAll, isPreview);
       } else if (st.id === 'white_pill_karaoke' || st.whitePillKaraoke || st.layout === 'white_pill') {
@@ -14331,48 +15063,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     tagSpan.textContent = tag;
     art.appendChild(tagSpan);
 
-    if (preset.id === 'kold_cinematic' || preset.layout === 'kold_cinematic') {
-      const koldBox = document.createElement('div');
-      koldBox.style.display = 'flex';
-      koldBox.style.flexDirection = 'column';
-      koldBox.style.alignItems = 'center';
-      koldBox.style.justifyContent = 'center';
-      koldBox.style.lineHeight = '1.15';
-      koldBox.style.marginTop = '4px';
-
-      const line1 = document.createElement('span');
-      line1.textContent = 'THE';
-      line1.style.fontFamily = `'Poppins', sans-serif`;
-      line1.style.fontWeight = '800';
-      line1.style.fontSize = '12px';
-      line1.style.letterSpacing = '1px';
-      line1.style.color = '#FFFFFF';
-      line1.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
-
-      const line2Box = document.createElement('div');
-      line2Box.style.display = 'flex';
-      line2Box.style.alignItems = 'baseline';
-      line2Box.style.gap = '5px';
-
-      const heroSpan = document.createElement('span');
-      heroSpan.textContent = 'BEST';
-      heroSpan.style.fontFamily = `'Playfair Display', serif`;
-      heroSpan.style.fontWeight = '700';
-      heroSpan.style.fontSize = '17px';
-      heroSpan.style.color = '#FFFFFF';
-      heroSpan.style.textShadow = '0 2px 10px rgba(0,0,0,0.9)';
-
-      const trailSpan = document.createElement('span');
-      trailSpan.textContent = 'performing';
-      trailSpan.style.fontFamily = `'Playfair Display', serif`;
-      trailSpan.style.fontStyle = 'italic';
-      trailSpan.style.fontSize = '14px';
-      trailSpan.style.color = 'rgba(255,255,255,0.45)';
-      trailSpan.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
-
-      line2Box.append(heroSpan, trailSpan);
-      koldBox.append(line1, line2Box);
-      art.appendChild(koldBox);
+    if (_renderLuxurySpecialCardArt(art, preset)) {
+      // Rendered bespoke Luxury Special-Font card art
     } else if (preset.id === 'white_pill_karaoke' || preset.layout === 'white_pill') {
       const pillBox = document.createElement('div');
       pillBox.style.display = 'inline-flex';
@@ -14588,7 +15280,7 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
 
   async function loadPresets() {
     // Invalidate stale caches so old deleted duplicates never persist
-    const CURRENT_PRESET_VER = 'v7.31.0';
+    const CURRENT_PRESET_VER = 'v7.32.0';
     try {
       if (localStorage.getItem('cs_preset_version') !== CURRENT_PRESET_VER) {
         localStorage.removeItem('cs_presets_cache');
@@ -14600,6 +15292,62 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
     // 0. Ensure default presets exist immediately so screen is NEVER blank
     if (!S.presets || S.presets.length === 0) {
       S.presets = [
+        {
+          id: "couture_signature",
+          name: "✒️ Couture Calligraphy (Serif + Gold Script)",
+          category: "aesthetic",
+          badge: "LUXURY ✒️",
+          previewWord: "TALENT never could",
+          layout: "couture_signature",
+          coutureSignature: true,
+          highlightColor: "#F5D799",
+          baseColor: "#FAF7F2",
+          fontFamily: "Bodoni Moda",
+          scriptFontFamily: "Great Vibes",
+          sansFontFamily: "Poppins",
+          position: 0.64,
+          wordsPerCaption: 4,
+          maxKeys: 1,
+          key: { font: "Great Vibes", color: "#F5D799", bold: false, weight: 400 },
+          filler: { font: "Bodoni Moda", color: "#FAF7F2", bold: true, weight: 700 }
+        },
+        {
+          id: "molten_brush_italic",
+          name: "🖌️ Molten Brush Italic (Sans + Gold Stroke)",
+          category: "aesthetic",
+          badge: "EDITORIAL 🖌️",
+          previewWord: "BUILT DIFFERENT",
+          layout: "molten_brush_italic",
+          moltenBrushItalic: true,
+          highlightColor: "#F5CE67",
+          baseColor: "#FAF8F2",
+          fontFamily: "Playfair Display",
+          sansFontFamily: "Montserrat",
+          position: 0.65,
+          wordsPerCaption: 4,
+          maxKeys: 1,
+          key: { font: "Playfair Display", color: "#F5CE67", bold: true, italic: true, weight: 700 },
+          filler: { font: "Montserrat", color: "#FAF8F2", bold: true, weight: 900 }
+        },
+        {
+          id: "directors_cut_oval",
+          name: "⭕ Director's Cut (Golden Oval Pen Loop)",
+          category: "aesthetic",
+          badge: "DIRECTOR ⭕",
+          previewWord: "TOTAL Silence",
+          layout: "directors_cut_oval",
+          directorsCutOval: true,
+          highlightColor: "#F4DFBA",
+          baseColor: "#FAF8F2",
+          fontFamily: "Playfair Display",
+          sansFontFamily: "Montserrat",
+          kickerFontFamily: "Poppins",
+          position: 0.63,
+          wordsPerCaption: 5,
+          maxKeys: 1,
+          key: { font: "Playfair Display", color: "#F4DFBA", bold: true, italic: true, weight: 700 },
+          filler: { font: "Montserrat", color: "#FAF8F2", bold: true, weight: 900 }
+        },
         {
           id: "kold_cinematic",
           name: "🎬 Kold Cinematic (Editorial Serif + Sans)",
@@ -16651,7 +17399,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       match: (p) => {
         const name = (p.name || '').toLowerCase();
         const cat = (p.category || '').toLowerCase();
-        return cat.includes('minimal') || cat.includes('classic') || cat.includes('aesthetic') || p.id === 'kold_cinematic' || p.layout === 'kold_cinematic' || name.includes('clean') || name.includes('mono') || name.includes('kold');
+        const lid = (p.layout || p.id || '').toLowerCase();
+        return cat.includes('minimal') || cat.includes('classic') || cat.includes('aesthetic') || ['kold_cinematic', 'couture_signature', 'molten_brush_italic', 'directors_cut_oval'].includes(lid) || name.includes('clean') || name.includes('mono') || name.includes('kold');
       }
     },
     {
@@ -17145,48 +17894,8 @@ function drawCanvasTypography(ctxFore, ctxBehind, cap, words, t, st, W, H, isBeh
       subSmall.style.marginTop = '4px';
       subSmall.style.zIndex = '3';
       art.appendChild(subSmall);
-    } else if (preset.id === 'kold_cinematic' || preset.layout === 'kold_cinematic') {
-      const koldBox = document.createElement('div');
-      koldBox.style.display = 'flex';
-      koldBox.style.flexDirection = 'column';
-      koldBox.style.alignItems = 'center';
-      koldBox.style.justifyContent = 'center';
-      koldBox.style.lineHeight = '1.15';
-      koldBox.style.marginTop = '4px';
-
-      const line1 = document.createElement('span');
-      line1.textContent = 'THE';
-      line1.style.fontFamily = `'Poppins', sans-serif`;
-      line1.style.fontWeight = '800';
-      line1.style.fontSize = '12px';
-      line1.style.letterSpacing = '1px';
-      line1.style.color = '#FFFFFF';
-      line1.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
-
-      const line2Box = document.createElement('div');
-      line2Box.style.display = 'flex';
-      line2Box.style.alignItems = 'baseline';
-      line2Box.style.gap = '5px';
-
-      const heroSpan = document.createElement('span');
-      heroSpan.textContent = 'BEST';
-      heroSpan.style.fontFamily = `'Playfair Display', serif`;
-      heroSpan.style.fontWeight = '700';
-      heroSpan.style.fontSize = '17px';
-      heroSpan.style.color = '#FFFFFF';
-      heroSpan.style.textShadow = '0 2px 10px rgba(0,0,0,0.9)';
-
-      const trailSpan = document.createElement('span');
-      trailSpan.textContent = 'performing';
-      trailSpan.style.fontFamily = `'Playfair Display', serif`;
-      trailSpan.style.fontStyle = 'italic';
-      trailSpan.style.fontSize = '14px';
-      trailSpan.style.color = 'rgba(255,255,255,0.45)';
-      trailSpan.style.textShadow = '0 2px 8px rgba(0,0,0,0.85)';
-
-      line2Box.append(heroSpan, trailSpan);
-      koldBox.append(line1, line2Box);
-      art.appendChild(koldBox);
+    } else if (_renderLuxurySpecialCardArt(art, preset)) {
+      // Rendered bespoke Luxury Special-Font card art
     } else if (preset.id === 'white_pill_karaoke' || preset.layout === 'white_pill') {
       const pillBox = document.createElement('div');
       pillBox.style.display = 'inline-flex';
